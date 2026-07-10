@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book an appointment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' rx='8' fill='%232563eb'/%3E%3Ccircle cx='15' cy='15' r='7.5' stroke='%23e0f2fe' stroke-width='2.2' fill='none'/%3E%3Ccircle cx='21.4' cy='9.4' r='2.6' fill='%2338bdf8'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .book-wrap {
+      max-width: 660px; margin: 0 auto; padding: 40px 20px 80px;
+      min-height: 100vh;
+    }
+    body {
+      background:
+        radial-gradient(700px 400px at 15% 0%, rgba(37, 99, 235, 0.1), transparent),
+        radial-gradient(500px 350px at 90% 100%, rgba(56, 189, 248, 0.06), transparent),
+        var(--bg);
+    }
+    .book-head { text-align: center; margin-bottom: 30px; }
+    .book-head h1 { font-size: 24px; letter-spacing: -0.02em; }
+    .book-head .sub { color: var(--text-2); font-size: 13.5px; margin-top: 6px; }
+    .steps { display: flex; gap: 6px; justify-content: center; margin: 22px 0 26px; }
+    .steps .s {
+      width: 34px; height: 4px; border-radius: 2px; background: var(--panel-3);
+      transition: background 0.2s;
+    }
+    .steps .s.done { background: var(--accent-grad); }
+    .bk-section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    .bk-option {
+      width: 100%; text-align: left;
+      display: flex; align-items: center; gap: 12px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 9px;
+      transition: border-color 0.12s, transform 0.06s;
+    }
+    .bk-option:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .bk-option .o-name { font-weight: 700; font-size: 14px; }
+    .bk-option .o-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .bk-option .o-price { margin-left: auto; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .bk-cat { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 18px 0 9px; font-weight: 600; }
+    .date-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 18px; }
+    .date-chip {
+      flex: 0 0 auto; text-align: center; min-width: 64px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 10px;
+    }
+    .date-chip .d-day { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+    .date-chip .d-num { font-size: 17px; font-weight: 700; margin-top: 2px; }
+    .date-chip.sel { border-color: var(--accent); background: rgba(56, 189, 248, 0.09); }
+    .date-chip.sel .d-day { color: var(--accent); }
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+    .slot {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 9px; padding: 9px 4px; text-align: center;
+      font-weight: 600; font-size: 13px;
+    }
+    .slot:hover { border-color: var(--accent); }
+    .slot.sel { background: var(--accent-grad); color: #051422; border-color: transparent; }
+    .bk-back { color: var(--text-2); font-size: 13px; margin-bottom: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .bk-summary {
+      display: flex; gap: 12px; align-items: center;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 13px 16px; margin-bottom: 18px; font-size: 13px;
+    }
+    .confirm-card { text-align: center; padding: 40px 24px; }
+    .confirm-icon {
+      width: 62px; height: 62px; margin: 0 auto 18px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.4);
+      color: var(--green);
+    }
+    .powered { text-align: center; margin-top: 34px; color: var(--muted); font-size: 12px; }
+    .powered b { color: var(--text-2); }
+  </style>
+</head>
+<body>
+  <div class="book-wrap" id="book"></div>
+  <script type="module" src="/js/book.js"></script>
+</body>
+</html>

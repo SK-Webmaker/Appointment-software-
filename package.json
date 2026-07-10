@@ -1,0 +1,16 @@
+{
+  "name": "kairo",
+  "version": "1.0.0",
+  "description": "Kairo — modern appointment booking, client management and billing for service businesses.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
+    "reset-demo": "node --disable-warning=ExperimentalWarning scripts/reset-demo.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "private": true
+}
