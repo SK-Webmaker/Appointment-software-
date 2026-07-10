@@ -1,21 +1,29 @@
 // Small shared helpers for the HTTP layer.
 
-/** Read the request body (up to ~2 MB) and return it as a string. */
-export function readBody(req) {
+// Generous cap: a full branding save (logo + cover + 4 gallery photos as
+// base64 data URIs) can approach ~6 MB. On overflow we drain the rest of the
+// stream (rather than destroying the socket) so a clean 413 can still be sent.
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+/** Read the request body (up to MAX_BODY_BYTES) and return it as a string. */
+export function readBody(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let size = 0;
+    let settled = false;
     const chunks = [];
     req.on('data', (chunk) => {
+      if (settled) return;
       size += chunk.length;
-      if (size > 2 * 1024 * 1024) {
+      if (size > maxBytes) {
+        settled = true;
+        req.resume(); // discard the remainder so the socket stays healthy for the response
         reject(Object.assign(new Error('Payload too large'), { status: 413 }));
-        req.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
+    req.on('end', () => { if (!settled) { settled = true; resolve(Buffer.concat(chunks).toString('utf8')); } });
+    req.on('error', (err) => { if (!settled) { settled = true; reject(err); } });
   });
 }
 
@@ -60,7 +68,15 @@ export function parseCookies(req) {
   for (const part of header.split(';')) {
     const idx = part.indexOf('=');
     if (idx === -1) continue;
-    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    const key = part.slice(0, idx).trim();
+    const raw = part.slice(idx + 1).trim();
+    // A malformed percent-escape (e.g. "%" or "%ZZ") makes decodeURIComponent
+    // throw; never let a bad cookie header crash request handling.
+    try {
+      out[key] = decodeURIComponent(raw);
+    } catch {
+      out[key] = raw;
+    }
   }
   return out;
 }

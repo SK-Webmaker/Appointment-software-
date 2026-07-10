@@ -65,13 +65,19 @@ export async function handleApi(req, res, pathname, query) {
 
 const str = (v, max = 500) => (v == null ? '' : String(v).slice(0, max).trim());
 
+// A real uploaded image is always a base64 data URI (browsers produce these
+// via readAsDataURL). Requiring `;base64,` + a base64-only tail rejects
+// markup-carrying values like `data:image/png,"><img onerror=…>`.
+const isImageDataUri = (s) =>
+  typeof s === 'string' && /^data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+$/i.test(s);
+
 // Parse the stored gallery JSON, keeping only valid image data: URIs (max 4).
 function safeGallery(raw) {
   if (!raw) return [];
   try {
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
-    return arr.filter((s) => typeof s === 'string' && s.startsWith('data:image/')).slice(0, 4);
+    return arr.filter(isImageDataUri).slice(0, 4);
   } catch {
     return [];
   }
@@ -144,6 +150,14 @@ route('PUT', '/api/settings', async ({ req }) => {
       const val = str(v, 4000);
       if (val === '') continue;
       setSetting(k, val === '__clear__' ? '' : val);
+      continue;
+    }
+    // Logo/cover are rendered on the public page — accept only real base64
+    // image data URIs (or empty to clear); reject anything that could carry markup.
+    if (IMAGE_SETTINGS.has(k)) {
+      const val = str(v, settingCap(k));
+      if (val !== '' && !isImageDataUri(val)) continue;
+      setSetting(k, val);
       continue;
     }
     setSetting(k, str(v, settingCap(k)));

@@ -105,6 +105,16 @@ The end-to-end suite (20 checks) and the load test include, specifically:
 - A contended booking slot is won by exactly one request (39 of 40 concurrent
   duplicate bookings correctly rejected) — no overbooking under load.
 - 0 HTTP errors across ~30,000 requests at 800–2,300 req/s per endpoint.
+- **Malformed input can't crash the server**: a request with a broken
+  `Cookie` header (a classic denial-of-service vector) is handled gracefully
+  (`401`), and the server stays up. Regression-tested.
+- Uploaded logo/cover/gallery images are validated as genuine base64 image
+  data URIs on write and escaped on render, so a booking page can't be made
+  to carry injected markup.
+
+> An independent audit pass (run on a second model) found and we fixed a
+> pre-release crash bug in cookie parsing, a body-size limit that blocked large
+> branding uploads, and hardened image handling — all covered by the checks above.
 
 ## Reporting a concern
 

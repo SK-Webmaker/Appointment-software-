@@ -20,9 +20,9 @@ function headHtml({ cover = false } = {}) {
   const brand = b.brand || {};
   const isImg = (s) => typeof s === 'string' && s.startsWith('data:image/');
   const coverHtml = cover && isImg(brand.cover)
-    ? `<img class="brand-cover" src="${brand.cover}" alt="${esc(b.business_name)}">` : '';
+    ? `<img class="brand-cover" src="${esc(brand.cover)}" alt="${esc(b.business_name)}">` : '';
   const logo = isImg(brand.logo)
-    ? `<img class="brand-logo" src="${brand.logo}" alt="${esc(b.business_name)} logo">` : '';
+    ? `<img class="brand-logo" src="${esc(brand.logo)}" alt="${esc(b.business_name)} logo">` : '';
   return `
     ${coverHtml}
     <div class="book-head">
@@ -36,7 +36,7 @@ function headHtml({ cover = false } = {}) {
 function galleryHtml() {
   const gallery = (state.info.brand?.gallery || []).filter((s) => typeof s === 'string' && s.startsWith('data:image/'));
   if (!gallery.length) return '';
-  return `<div class="brand-gallery">${gallery.map((src) => `<img src="${src}" alt="">`).join('')}</div>`;
+  return `<div class="brand-gallery">${gallery.map((src) => `<img src="${esc(src)}" alt="">`).join('')}</div>`;
 }
 
 /** Apply the business's chosen accent, theme, font — set in Settings → Booking page. */
