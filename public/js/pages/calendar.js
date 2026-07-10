@@ -12,10 +12,17 @@ const SNAP = 15;
 
 const cal = {
   date: todayStr(),
-  view: 'day',       // 'day' | 'week'
-  staffFilter: 0,    // 0 = everyone
+  view: 'day',        // 'day' | 'week'
+  staffFilter: 0,     // 0 = everyone
+  locationFilter: 0,  // 0 = all locations
   appointments: [],
 };
+
+function visibleStaff() {
+  return cal.locationFilter
+    ? state.staff.filter((s) => s.location_id === cal.locationFilter)
+    : state.staff;
+}
 
 const openMin = () => Number(state.settings.open_min || 480);
 const closeMin = () => Number(state.settings.close_min || 1200);
@@ -42,9 +49,10 @@ async function loadAndDraw(container) {
 }
 
 function draw(container) {
+  const pool = visibleStaff();
   const staffList = cal.staffFilter
-    ? state.staff.filter((s) => s.id === cal.staffFilter)
-    : state.staff;
+    ? pool.filter((s) => s.id === cal.staffFilter)
+    : pool;
 
   const label = cal.view === 'day'
     ? fmtDate(cal.date)
@@ -66,9 +74,14 @@ function draw(container) {
         <button class="icon-btn" id="cal-next">${icon('chevR')}</button>
         <input type="date" id="cal-date" value="${cal.date}" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:5px 9px;color-scheme:dark">
         <div class="spacer" style="flex:1"></div>
+        ${state.locations.length > 1 ? `
+        <select id="cal-location" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
+          <option value="0">All locations</option>
+          ${state.locations.map((l) => `<option value="${l.id}" ${cal.locationFilter === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
+        </select>` : ''}
         <select id="cal-staff" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
           <option value="0">All team members</option>
-          ${state.staff.map((s) => `<option value="${s.id}" ${cal.staffFilter === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+          ${visibleStaff().map((s) => `<option value="${s.id}" ${cal.staffFilter === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
         </select>
         <div class="seg">
           <button data-view="day" class="${cal.view === 'day' ? 'active' : ''}">Day</button>
@@ -142,7 +155,7 @@ function apptHtml(a, showStaff = false) {
   return `
     <div class="appt s-${esc(a.status)}" data-appt="${a.id}" tabindex="0"
       style="--c:${esc(color)};top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${width}% - 5px)">
-      <div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}</div>
+      <div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>
       <div class="a-client">${esc(a.client_name || 'Walk-in')}</div>
       ${compact ? '' : `<div class="a-service">${esc(a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
       <div class="a-resize" data-resize="${a.id}"></div>
@@ -181,18 +194,20 @@ function weekGridHtml() {
   const today = todayStr();
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const days = Array.from({ length: 7 }, (_, i) => addDaysStr(start, i));
+  const staffIds = new Set(visibleStaff().map((s) => s.id));
+  const weekAppts = cal.appointments.filter((a) => staffIds.has(a.staff_id));
 
   const heads = days.map((d) => {
     const dt = parseDate(d);
     return `
       <div class="cal-head-col day-head ${d === today ? 'today-col' : ''}" data-goto="${d}">
         <div class="ch-name">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${dt.getDate()}</div>
-        <div class="ch-sub">${cal.appointments.filter((a) => a.date === d && a.status !== 'cancelled').length} appointments</div>
+        <div class="ch-sub">${weekAppts.filter((a) => a.date === d && a.status !== 'cancelled').length} appointments</div>
       </div>`;
   }).join('');
 
   const cols = days.map((d) => {
-    const appts = layoutLanes(cal.appointments.filter((a) => a.date === d));
+    const appts = layoutLanes(weekAppts.filter((a) => a.date === d));
     return `
       <div class="cal-col ${d === today ? 'today-col' : ''}" data-date="${d}" data-staff="0" style="height:${height}px">
         ${gridLinesHtml(height)}
@@ -218,6 +233,8 @@ function wireToolbar(container) {
   container.querySelector('#cal-next').onclick = () => { cal.date = addDaysStr(cal.date, step); redraw(); };
   container.querySelector('#cal-date').onchange = (e) => { if (e.target.value) { cal.date = e.target.value; redraw(); } };
   container.querySelector('#cal-staff').onchange = (e) => { cal.staffFilter = Number(e.target.value); redraw(); };
+  const locSel = container.querySelector('#cal-location');
+  if (locSel) locSel.onchange = (e) => { cal.locationFilter = Number(e.target.value); cal.staffFilter = 0; redraw(); };
   container.querySelectorAll('[data-view]').forEach((b) => {
     b.onclick = () => { cal.view = b.dataset.view; redraw(); };
   });
@@ -377,6 +394,9 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           <select name="status">${['booked', 'confirmed', 'completed', 'cancelled', 'no_show'].map((s) =>
             `<option value="${s}" ${(a?.status || 'booked') === s ? 'selected' : ''}>${{ booked: 'Booked', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' }[s]}</option>`).join('')}</select></div>
         <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea></div>
+        ${a?.deposit_status ? `<div class="span2 cell-sub">💳 Online deposit ${a.deposit_status === 'paid'
+          ? `<b style="color:var(--green)">${money(a.deposit_cents)} paid</b> — it will be credited automatically at checkout`
+          : '<b style="color:var(--amber)">pending</b> — the client started but didn\'t finish the deposit payment'}</div>` : ''}
       </form>`,
     footer: `
       ${a ? `<button class="btn danger" id="appt-delete">${icon('trash')} Delete</button>` : ''}

@@ -2,7 +2,7 @@
 import { esc, icon, money, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
 
 const root = document.getElementById('book');
-const state = { info: null, service: null, staff: null, date: todayStr(), slot: null, step: 1 };
+const state = { info: null, location: null, service: null, staff: null, date: todayStr(), slot: null, step: 1 };
 
 async function getJson(url, opts) {
   const res = await fetch(url, opts);
@@ -33,10 +33,66 @@ async function boot() {
     state.info = await getJson('/api/public/info');
     setCurrency(state.info.currency);
     document.title = `Book — ${state.info.business_name}`;
-    renderServiceStep();
+
+    // Returning from Stripe after a deposit?
+    const params = new URLSearchParams(location.search);
+    if (params.get('deposit') && params.get('appt')) {
+      history.replaceState(null, '', '/book');
+      await handleDepositReturn(params);
+      return;
+    }
+
+    if (state.info.locations.length > 1) renderLocationStep();
+    else renderServiceStep();
   } catch (err) {
     root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert', 26)}<div>${esc(err.message)}</div></div>`;
   }
+}
+
+async function handleDepositReturn(params) {
+  const apptId = Number(params.get('appt'));
+  if (params.get('deposit') === 'success' && params.get('session_id')) {
+    try {
+      const res = await getJson('/api/public/confirm-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointment_id: apptId, session_id: params.get('session_id') }),
+      });
+      renderConfirmed(res, { depositPaid: res.paid, depositCents: res.deposit_cents });
+      return;
+    } catch { /* fall through to generic message */ }
+  }
+  root.innerHTML = `
+    ${headHtml()}
+    <div class="card confirm-card">
+      <div class="confirm-icon" style="background:rgba(251,191,36,0.12);border-color:rgba(251,191,36,0.4);color:var(--amber)">${icon('clock', 28)}</div>
+      <h2 style="font-size:20px;margin-bottom:6px">Your booking is held</h2>
+      <div style="color:var(--text-2);max-width:400px;margin:0 auto 20px;line-height:1.6">
+        The deposit payment wasn't completed, but we've kept your slot for now.
+        Give us a call${state.info.business_phone ? ` on <b>${esc(state.info.business_phone)}</b>` : ''} to confirm your appointment.
+      </div>
+      <button class="btn" onclick="location.href='/book'">Book a different time</button>
+    </div>
+    ${poweredHtml()}`;
+}
+
+function renderLocationStep() {
+  state.step = 1;
+  root.innerHTML = `
+    ${headHtml()}${stepsHtml()}
+    <div class="bk-section-title">Choose a location</div>
+    ${state.info.locations.map((l) => `
+      <button class="bk-option" data-loc="${l.id}">
+        <div><div class="o-name">${esc(l.name)}</div>
+          <div class="o-sub">${esc(l.address || '')}${l.phone ? ` · ${esc(l.phone)}` : ''}</div></div>
+      </button>`).join('')}
+    ${poweredHtml()}`;
+  root.querySelectorAll('[data-loc]').forEach((b) => {
+    b.onclick = () => {
+      state.location = state.info.locations.find((l) => l.id === Number(b.dataset.loc));
+      renderServiceStep();
+    };
+  });
 }
 
 function renderServiceStep() {
@@ -44,6 +100,7 @@ function renderServiceStep() {
   const cats = [...new Set(state.info.services.map((s) => s.category))];
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
+    ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
     <div class="bk-section-title">Choose a service</div>
     ${cats.map((cat) => `
       <div class="bk-cat">${esc(cat)}</div>
@@ -56,12 +113,19 @@ function renderServiceStep() {
           <div class="o-price">${money(s.price_cents)}</div>
         </button>`).join('')}`).join('')}
     ${poweredHtml()}`;
+  root.querySelector('#back-loc')?.addEventListener('click', renderLocationStep);
   root.querySelectorAll('[data-id]').forEach((b) => {
     b.onclick = () => {
       state.service = state.info.services.find((s) => s.id === Number(b.dataset.id));
       renderStaffStep();
     };
   });
+}
+
+function locationStaff() {
+  return state.location
+    ? state.info.staff.filter((s) => s.location_id === state.location.id)
+    : state.info.staff;
 }
 
 function renderStaffStep() {
@@ -73,7 +137,7 @@ function renderStaffStep() {
     <button class="bk-option" data-staff="any">
       <div><div class="o-name">Any available</div><div class="o-sub">First free team member</div></div>
     </button>
-    ${state.info.staff.map((s) => `
+    ${locationStaff().map((s) => `
       <button class="bk-option" data-staff="${s.id}">
         <div><div class="o-name">${esc(s.name)}</div><div class="o-sub">${esc(s.title || '')}</div></div>
       </button>`).join('')}
@@ -127,7 +191,8 @@ async function renderTimeStep() {
     slotsEl.innerHTML = '<div class="empty">Loading times…</div>';
     try {
       const staffQ = state.staff ? state.staff.id : 'any';
-      const res = await getJson(`/api/public/availability?service_id=${state.service.id}&staff_id=${staffQ}&date=${state.date}`);
+      const locQ = state.location ? `&location_id=${state.location.id}` : '';
+      const res = await getJson(`/api/public/availability?service_id=${state.service.id}&staff_id=${staffQ}&date=${state.date}${locQ}`);
       if (!res.slots.length) {
         slotsEl.innerHTML = `<div class="empty">${icon('clock', 22)}<div>No free times that day — try another date.</div></div>`;
         return;
@@ -159,6 +224,7 @@ function renderDetailsStep() {
         <span style="color:var(--text-2)">${fmtDate(state.date)} at ${fmtTime(state.slot.start_min)}${state.staff ? ` with ${esc(state.staff.name)}` : ''}</span>
       </div>
     </div>
+    ${depositNoteHtml()}
     <div class="bk-section-title">Your details</div>
     <form id="bk-form" class="form-grid">
       <div class="field"><label>First name *</label><input name="first_name" required></div>
@@ -167,7 +233,7 @@ function renderDetailsStep() {
       <div class="field"><label>Email</label><input name="email" type="email"></div>
       <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?"></textarea></div>
       <div class="span2" style="text-align:right">
-        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} Confirm booking</button>
+        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} ${depositCents() > 0 ? 'Continue to deposit' : 'Confirm booking'}</button>
       </div>
       <div class="span2" id="bk-error" style="color:var(--red);font-size:13px;text-align:center"></div>
     </form>
@@ -186,15 +252,18 @@ function renderDetailsStep() {
         body: JSON.stringify({
           service_id: state.service.id,
           staff_id: state.staff ? state.staff.id : state.slot.staff_id,
+          location_id: state.location?.id,
           date: state.date,
           start_min: state.slot.start_min,
           notes: fd.get('notes'),
+          origin: location.origin,
           client: {
             first_name: fd.get('first_name'), last_name: fd.get('last_name'),
             phone: fd.get('phone'), email: fd.get('email'),
           },
         }),
       });
+      if (res.checkout_url) { location.href = res.checkout_url; return; }
       renderConfirmed(res);
     } catch (err) {
       root.querySelector('#bk-error').textContent = err.message;
@@ -204,7 +273,26 @@ function renderDetailsStep() {
   });
 }
 
-function renderConfirmed(res) {
+function depositCents() {
+  const d = state.info?.deposit;
+  if (!d?.enabled || !state.service) return 0;
+  if (d.type === 'fixed') return Math.round(d.value * 100);
+  if (d.type === 'percent') return Math.round(state.service.price_cents * (d.value / 100));
+  return 0;
+}
+
+function depositNoteHtml() {
+  const cents = depositCents();
+  if (!cents) return '';
+  return `
+    <div class="bk-summary" style="border-color:rgba(56,189,248,0.4)">
+      <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('card')}</span>
+      <div>A <b>${money(cents)} deposit</b> secures your booking — you'll pay it by card on the next screen.
+        <span style="color:var(--text-2)">It comes off your bill on the day.</span></div>
+    </div>`;
+}
+
+function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0 } = {}) {
   state.step = 4;
   root.innerHTML = `
     ${headHtml()}
@@ -216,10 +304,14 @@ function renderConfirmed(res) {
         <div style="text-align:center">
           <b>${esc(res.service)}</b> with ${esc(res.staff)}<br>
           <span style="color:var(--text-2)">${fmtDate(res.date)} · ${fmtTime(res.start_min)} – ${fmtTime(res.end_min)}</span>
+          ${depositPaid ? `<br><span style="color:var(--green);font-weight:600">💳 ${money(paidCents)} deposit paid</span>` : ''}
         </div>
       </div>
       <div style="color:var(--muted);font-size:13px">We look forward to seeing you at ${esc(res.business_name)}.</div>
-      <button class="btn" style="margin-top:22px" onclick="location.reload()">Book another appointment</button>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:22px">
+        <a class="btn" href="/api/public/ics/${res.appointment_id}" download>${icon('calendar')} Add to calendar</a>
+        <button class="btn" onclick="location.href='/book'">Book another</button>
+      </div>
     </div>
     ${poweredHtml()}`;
 }

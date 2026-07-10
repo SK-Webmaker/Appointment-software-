@@ -10,6 +10,11 @@ import {
   hashPassword, verifyPassword, createSession, verifySession,
   sessionCookie, clearSessionCookie, loginRateLimited, COOKIE_NAME,
 } from './auth.js';
+import {
+  queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
+  deliverMessage, processQueue,
+} from './notify.js';
+import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
 const INVOICE_STATUSES = new Set(['draft', 'sent', 'paid', 'void']);
@@ -104,6 +109,9 @@ const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
+  'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
+  'resend_api_key', 'twilio_sid', 'twilio_token', 'twilio_from',
+  'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
 ]);
 
 route('GET', '/api/settings', async () => getSettings());
@@ -122,34 +130,79 @@ route('POST', '/api/settings/reset-demo', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Locations
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/locations', async ({ query }) => {
+  const all = query.get('all') === '1';
+  return db.prepare(`SELECT * FROM locations ${all ? '' : 'WHERE active = 1'} ORDER BY id`).all();
+});
+
+route('POST', '/api/locations', async ({ req }) => {
+  const b = await readJson(req);
+  if (!str(b.name)) throw httpError(400, 'Location name is required');
+  const info = db.prepare('INSERT INTO locations (name, address, phone) VALUES (?, ?, ?)')
+    .run(str(b.name, 150), str(b.address, 300), str(b.phone, 50));
+  return db.prepare('SELECT * FROM locations WHERE id = ?').get(info.lastInsertRowid);
+});
+
+route('PUT', '/api/locations/:id', async ({ req, params }) => {
+  const existing = db.prepare('SELECT * FROM locations WHERE id = ?').get(params.id);
+  if (!existing) throw httpError(404, 'Location not found');
+  const b = await readJson(req);
+  db.prepare('UPDATE locations SET name = ?, address = ?, phone = ?, active = ? WHERE id = ?').run(
+    str(b.name, 150) || existing.name, str(b.address, 300), str(b.phone, 50),
+    b.active === undefined ? existing.active : (b.active ? 1 : 0), params.id
+  );
+  return db.prepare('SELECT * FROM locations WHERE id = ?').get(params.id);
+});
+
+route('DELETE', '/api/locations/:id', async ({ params }) => {
+  const total = db.prepare('SELECT COUNT(*) AS n FROM locations').get().n;
+  if (total <= 1) throw httpError(400, 'You need at least one location');
+  const used = db.prepare('SELECT COUNT(*) AS n FROM staff WHERE location_id = ?').get(params.id).n;
+  if (used > 0) {
+    db.prepare('UPDATE locations SET active = 0 WHERE id = ?').run(params.id);
+    return { ok: true, deactivated: true };
+  }
+  db.prepare('DELETE FROM locations WHERE id = ?').run(params.id);
+  return { ok: true };
+});
+
+// ---------------------------------------------------------------------------
 // Staff
 // ---------------------------------------------------------------------------
 
+const STAFF_SELECT = `
+  SELECT s.*, l.name AS location_name FROM staff s
+  LEFT JOIN locations l ON l.id = s.location_id`;
+
 route('GET', '/api/staff', async ({ query }) => {
   const all = query.get('all') === '1';
-  return db.prepare(`SELECT * FROM staff ${all ? '' : 'WHERE active = 1'} ORDER BY id`).all();
+  return db.prepare(`${STAFF_SELECT} ${all ? '' : 'WHERE s.active = 1'} ORDER BY s.id`).all();
 });
 
 route('POST', '/api/staff', async ({ req }) => {
   const b = await readJson(req);
   if (!str(b.name)) throw httpError(400, 'Name is required');
-  const info = db.prepare('INSERT INTO staff (name, title, color) VALUES (?, ?, ?)')
-    .run(str(b.name, 100), str(b.title, 100), str(b.color, 20) || '#3987e5');
-  return db.prepare('SELECT * FROM staff WHERE id = ?').get(info.lastInsertRowid);
+  const info = db.prepare('INSERT INTO staff (name, title, color, location_id) VALUES (?, ?, ?, ?)')
+    .run(str(b.name, 100), str(b.title, 100), str(b.color, 20) || '#3987e5', Number(b.location_id) || null);
+  return db.prepare(`${STAFF_SELECT} WHERE s.id = ?`).get(info.lastInsertRowid);
 });
 
 route('PUT', '/api/staff/:id', async ({ req, params }) => {
   const b = await readJson(req);
   const existing = db.prepare('SELECT * FROM staff WHERE id = ?').get(params.id);
   if (!existing) throw httpError(404, 'Staff member not found');
-  db.prepare('UPDATE staff SET name = ?, title = ?, color = ?, active = ? WHERE id = ?').run(
+  db.prepare('UPDATE staff SET name = ?, title = ?, color = ?, active = ?, location_id = ? WHERE id = ?').run(
     str(b.name, 100) || existing.name,
     str(b.title, 100),
     str(b.color, 20) || existing.color,
     b.active === undefined ? existing.active : (b.active ? 1 : 0),
+    b.location_id === undefined ? existing.location_id : (Number(b.location_id) || null),
     params.id
   );
-  return db.prepare('SELECT * FROM staff WHERE id = ?').get(params.id);
+  return db.prepare(`${STAFF_SELECT} WHERE s.id = ?`).get(params.id);
 });
 
 route('DELETE', '/api/staff/:id', async ({ params }) => {
@@ -415,11 +468,14 @@ route('POST', '/api/appointments', async ({ req }) => {
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'staff')`
   ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes);
+  queueAppointmentMessages(Number(info.lastInsertRowid));
+  processQueue().catch(() => {});
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(info.lastInsertRowid);
 });
 
 route('PUT', '/api/appointments/:id', async ({ req, params }) => {
-  if (!db.prepare('SELECT id FROM appointments WHERE id = ?').get(params.id)) throw httpError(404, 'Appointment not found');
+  const before = db.prepare('SELECT * FROM appointments WHERE id = ?').get(params.id);
+  if (!before) throw httpError(404, 'Appointment not found');
   const a = await apptBody(req);
   const conflict = findConflict(a.staffId, a.date, a.start, a.end, params.id);
   if (conflict && !a.b.force) {
@@ -429,6 +485,11 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
     `UPDATE appointments SET client_id = ?, staff_id = ?, service_id = ?, date = ?, start_min = ?, end_min = ?, status = ?, notes = ?
      WHERE id = ?`
   ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
+  if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
+    cancelQueuedMessages(params.id);
+  } else if (before.date !== a.date || before.start_min !== a.start) {
+    requeueAppointmentMessages(params.id); // rescheduled → fresh reminder
+  }
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id);
 });
 
@@ -436,12 +497,56 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
   const { status } = await readJson(req);
   if (!APPT_STATUSES.has(status)) throw httpError(400, 'Invalid status');
   db.prepare('UPDATE appointments SET status = ? WHERE id = ?').run(status, params.id);
+  if (['cancelled', 'no_show', 'completed'].includes(status)) cancelQueuedMessages(params.id);
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id);
 });
 
 route('DELETE', '/api/appointments/:id', async ({ params }) => {
+  cancelQueuedMessages(params.id);
   db.prepare('DELETE FROM appointments WHERE id = ?').run(params.id);
   return { ok: true };
+});
+
+// ---------------------------------------------------------------------------
+// Messages (confirmations & reminders log)
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/messages', async ({ query }) => {
+  const conds = [], args = [];
+  const status = query.get('status');
+  if (status && ['queued', 'sent', 'failed', 'skipped'].includes(status)) {
+    conds.push('m.status = ?'); args.push(status);
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return db.prepare(
+    `SELECT m.*, c.first_name || CASE WHEN c.last_name != '' THEN ' ' || c.last_name ELSE '' END AS client_name,
+            a.date AS appt_date, a.start_min AS appt_start
+     FROM messages m
+     LEFT JOIN clients c ON c.id = m.client_id
+     LEFT JOIN appointments a ON a.id = m.appointment_id
+     ${where} ORDER BY m.id DESC LIMIT 300`
+  ).all(...args);
+});
+
+route('POST', '/api/messages/:id/retry', async ({ params }) => {
+  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(params.id);
+  if (!msg) throw httpError(404, 'Message not found');
+  const result = await deliverMessage(msg);
+  return { ok: result.ok, status: result.status, detail: result.detail };
+});
+
+route('POST', '/api/messages/test', async ({ req }) => {
+  const { channel, to } = await readJson(req);
+  const target = str(to, 200) || (channel === 'sms' ? getSetting('business_phone') : getSetting('business_email'));
+  if (!target) throw httpError(400, 'No destination — set your business email/phone first');
+  const info = db.prepare(
+    `INSERT INTO messages (channel, kind, to_addr, subject, body, status, send_after)
+     VALUES (?, 'test', ?, ?, ?, 'queued', '')`
+  ).run(channel === 'sms' ? 'sms' : 'email', target,
+        'Kairo test message', `This is a test from ${getSetting('business_name', 'Kairo')} — your notification setup works! 🎉`);
+  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(info.lastInsertRowid);
+  const result = await deliverMessage(msg);
+  return { ok: result.ok, status: result.status, detail: result.detail };
 });
 
 // ---------------------------------------------------------------------------
@@ -542,6 +647,13 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   if (appt.service_id) {
     db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?, ?, 1, ?)')
       .run(invId, appt.service_name, appt.service_price_cents || 0);
+  }
+  // an online deposit already collected counts as a payment on this invoice
+  if (appt.deposit_status === 'paid' && appt.deposit_cents > 0) {
+    db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").run(invId);
+    db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
+      .run(invId, appt.deposit_cents, 'card', `${todayStr()} 00:00:00`, 'Online booking deposit (Stripe)');
+    refreshPaidStatus(invId);
   }
   return getInvoice(invId);
 });
@@ -690,7 +802,13 @@ route('GET', '/api/public/info', async () => {
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
     services: db.prepare('SELECT id, name, category, duration_min, price_cents, description FROM services WHERE active = 1 ORDER BY category, name').all(),
-    staff: db.prepare('SELECT id, name, title FROM staff WHERE active = 1 ORDER BY id').all(),
+    staff: db.prepare('SELECT id, name, title, location_id FROM staff WHERE active = 1 ORDER BY id').all(),
+    locations: db.prepare('SELECT id, name, address, phone FROM locations WHERE active = 1 ORDER BY id').all(),
+    deposit: {
+      enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
+      type: getSetting('deposit_type', 'none'),
+      value: Number(getSetting('deposit_value', '0')) || 0,
+    },
   };
 }, { auth: false });
 
@@ -722,9 +840,12 @@ route('GET', '/api/public/availability', async ({ query }) => {
   if (!service) throw httpError(400, 'Choose a service');
 
   const staffParam = query.get('staff_id');
+  const locationId = Number(query.get('location_id')) || 0;
   const staffList = staffParam && staffParam !== 'any'
     ? db.prepare('SELECT id, name FROM staff WHERE id = ? AND active = 1').all(Number(staffParam))
-    : db.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').all();
+    : locationId
+      ? db.prepare('SELECT id, name FROM staff WHERE active = 1 AND location_id = ? ORDER BY id').all(locationId)
+      : db.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').all();
 
   // slot -> first staff free at that time (keeps "Any available" simple and fair)
   const slotMap = new Map();
@@ -760,7 +881,10 @@ route('POST', '/api/public/book', async ({ req }) => {
       throw httpError(409, 'That time was just taken — please pick another slot');
     }
   } else {
-    const staffList = db.prepare('SELECT id FROM staff WHERE active = 1 ORDER BY id').all();
+    const locationId = Number(b.location_id) || 0;
+    const staffList = locationId
+      ? db.prepare('SELECT id FROM staff WHERE active = 1 AND location_id = ? ORDER BY id').all(locationId)
+      : db.prepare('SELECT id FROM staff WHERE active = 1 ORDER BY id').all();
     staffId = staffList.find((s) => freeSlotsFor(s.id, b.date, duration).includes(start))?.id;
     if (!staffId) throw httpError(409, 'That time was just taken — please pick another slot');
   }
@@ -778,12 +902,90 @@ route('POST', '/api/public/book', async ({ req }) => {
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online')`
   ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000));
+  const apptId = Number(info.lastInsertRowid);
 
-  const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(info.lastInsertRowid);
+  // Deposit via Stripe Checkout (optional). If Stripe errors, never lose the
+  // booking — it proceeds without a deposit and the workspace still sees it.
+  let checkoutUrl = null;
+  const depositCents = depositCentsFor(service);
+  if (depositCents > 0 && stripeConfigured()) {
+    try {
+      const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
+      const session = await createDepositCheckout({
+        appointmentId: apptId, serviceName: service.name, depositCents, origin,
+      });
+      db.prepare("UPDATE appointments SET deposit_cents = ?, deposit_status = 'pending', stripe_session_id = ? WHERE id = ?")
+        .run(depositCents, session.session_id, apptId);
+      checkoutUrl = session.url;
+    } catch (err) {
+      console.error('Stripe checkout failed, booking continues without deposit:', err.message);
+    }
+  }
+
+  queueAppointmentMessages(apptId);
+  processQueue().catch(() => {});
+
+  const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
   return {
     reference: `BK-${String(appt.id).padStart(5, '0')}`,
+    appointment_id: appt.id,
     date: appt.date, start_min: appt.start_min, end_min: appt.end_min,
     service: appt.service_name, staff: appt.staff_name,
     business_name: getSetting('business_name'),
+    checkout_url: checkoutUrl,
+    deposit_cents: checkoutUrl ? depositCents : 0,
   };
+}, { auth: false });
+
+route('POST', '/api/public/confirm-deposit', async ({ req }) => {
+  const { appointment_id, session_id } = await readJson(req);
+  const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(Number(appointment_id));
+  if (!appt) throw httpError(404, 'Booking not found');
+  if (!appt.stripe_session_id || appt.stripe_session_id !== str(session_id, 300)) {
+    throw httpError(400, 'That payment session does not match this booking');
+  }
+  let paid = appt.deposit_status === 'paid';
+  let cents = appt.deposit_cents;
+  if (!paid) {
+    const check = await verifyDepositSession(appt.stripe_session_id);
+    paid = check.paid;
+    if (paid) {
+      cents = check.amount_cents || appt.deposit_cents;
+      db.prepare("UPDATE appointments SET deposit_status = 'paid', deposit_cents = ?, status = 'confirmed' WHERE id = ?")
+        .run(cents, appt.id);
+    }
+  }
+  const full = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(appt.id);
+  return {
+    paid, deposit_cents: cents,
+    reference: `BK-${String(full.id).padStart(5, '0')}`,
+    appointment_id: full.id,
+    date: full.date, start_min: full.start_min, end_min: full.end_min,
+    service: full.service_name, staff: full.staff_name,
+    business_name: getSetting('business_name'),
+  };
+}, { auth: false });
+
+// "Add to calendar" file for a confirmed booking. Exposes only service/time/
+// business (no client details), so a guessed id leaks nothing personal.
+route('GET', '/api/public/ics/:id', async ({ res, params }) => {
+  const a = db.prepare(
+    `SELECT a.*, sv.name AS service_name FROM appointments a
+     LEFT JOIN services sv ON sv.id = a.service_id WHERE a.id = ?`
+  ).get(params.id);
+  if (!a || a.status === 'cancelled') throw httpError(404, 'Booking not found');
+  const biz = getSetting('business_name', 'Appointment');
+  const d = a.date.replace(/-/g, '');
+  const t = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}${String(min % 60).padStart(2, '0')}00`;
+  const ics = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kairo//Booking//EN',
+    'BEGIN:VEVENT',
+    `UID:kairo-appt-${a.id}@kairo`,
+    `DTSTART:${d}T${t(a.start_min)}`,
+    `DTEND:${d}T${t(a.end_min)}`,
+    `SUMMARY:${(a.service_name || 'Appointment').replace(/[,;]/g, ' ')} — ${biz.replace(/[,;]/g, ' ')}`,
+    `LOCATION:${getSetting('business_address', '').replace(/[,;]/g, ' ')}`,
+    'END:VEVENT', 'END:VCALENDAR', '',
+  ].join('\r\n');
+  sendText(res, 200, ics, 'text/calendar; charset=utf-8', { 'Content-Disposition': 'attachment; filename="appointment.ics"' });
 }, { auth: false });

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrap, getSetting } from './src/db.js';
 import { handleApi } from './src/api.js';
+import { startScheduler } from './src/notify.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -13,6 +14,7 @@ const PORT = Number(process.env.PORT || 4820);
 const HOST = process.env.HOST || '0.0.0.0';
 
 bootstrap();
+startScheduler(); // delivers queued confirmations & reminders every minute
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

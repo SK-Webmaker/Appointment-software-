@@ -8,16 +8,20 @@ import { renderServices } from './pages/services.js';
 import { renderInvoices } from './pages/invoices.js';
 import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
+import { renderMessages } from './pages/messages.js';
 
 export const state = {
   user: null,
   settings: {},
   staff: [],
   services: [],
+  locations: [],
 };
 
 export async function refreshLookups() {
-  [state.staff, state.services] = await Promise.all([api.get('/api/staff'), api.get('/api/services')]);
+  [state.staff, state.services, state.locations] = await Promise.all([
+    api.get('/api/staff'), api.get('/api/services'), api.get('/api/locations'),
+  ]);
 }
 
 const ROUTES = {
@@ -26,6 +30,7 @@ const ROUTES = {
   clients: { title: 'Clients', icon: 'users', render: renderClients },
   services: { title: 'Services', icon: 'tag', render: renderServices },
   invoices: { title: 'Billing', icon: 'invoice', render: renderInvoices },
+  messages: { title: 'Messages', icon: 'send', render: renderMessages },
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
 };
@@ -81,7 +86,7 @@ function renderLogin() {
 function renderShell() {
   document.title = `Kairo — ${esc(state.settings.business_name || 'Booking OS')}`;
   const navMain = ['dashboard', 'calendar', 'clients', 'services', 'invoices'];
-  const navManage = ['staff', 'settings'];
+  const navManage = ['messages', 'staff', 'settings'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');

@@ -77,9 +77,35 @@ npm run reset-demo   # same thing from the terminal
   ("You're busiest between 9–11 AM")
 - Revenue trend, top services, upcoming appointments
 
+### 💬 Confirmations & reminders (email + SMS)
+- Booking confirmations sent immediately; reminders sent N hours before the visit
+  (default 24h, configurable) — the single biggest no-show reducer
+- Email via **Resend** (free tier 3,000/mo), SMS via **Twilio** — paste keys in
+  *Settings → Notifications* and they go live; test buttons included
+- A **Messages** page logs every message (queued / sent / failed / skipped) with retry,
+  so nothing ever disappears silently. Rescheduling re-queues the reminder;
+  cancelling withdraws it.
+
+### 💳 Online deposits (Stripe)
+- Take a card deposit at online booking — fixed amount or % of the service price
+- Stripe Checkout handles the card page (no card data ever touches Kairo)
+- Paid deposits show on the calendar (💳) and are **auto-credited** when you bill the visit
+- Fail-safe: if Stripe is down or misconfigured, the booking still goes through without
+  a deposit — you never lose a customer to a config problem
+
+### 📍 Multi-location
+- Add locations in Settings; assign each team member to one
+- The calendar gets a location filter and the booking page gets a location step —
+  both appear automatically once a second location exists
+
+### 🗓 Extra touches
+- "Add to calendar" (.ics) button on the customer confirmation screen
+- Online bookings marked ⚡ on the calendar
+
 ### ⚙️ Settings
 - Business profile (shown on invoices + booking page), working hours, slot interval
 - Currency symbol, tax rate, invoice numbering/footer
+- Notification providers, deposit rules, locations
 - Password change, demo-data reset
 
 ## Running a pilot with a real business
@@ -150,11 +176,30 @@ data/kairo.db        the whole business (gitignored)
 Security: scrypt-hashed passwords, HttpOnly SameSite session cookies, parameterized SQL
 everywhere, HTML-escaped rendering, login rate limiting, path-traversal-safe static serving.
 
+## Going live: the three optional accounts
+
+Everything works with zero accounts. These unlock delivery/payments when you're ready:
+
+| Feature | Provider | Cost | Where the key goes |
+|---|---|---|---|
+| Email confirmations/reminders | [resend.com](https://resend.com) | Free (3,000/mo) | Settings → Notifications |
+| SMS confirmations/reminders | [twilio.com](https://www.twilio.com) | ~$0.01/SMS + $1/mo number | Settings → Notifications |
+| Card deposits on booking | [stripe.com](https://stripe.com) | 2.9% + 30¢ per deposit | Settings → Online deposits |
+
+Use Stripe **test keys** (`sk_test_…`) to rehearse the deposit flow with the card
+number `4242 4242 4242 4242` before going live.
+
+## Selling Kairo
+
+See **[SELLING.md](SELLING.md)** for the full go-to-market playbook (pricing, pitch,
+demo script, client onboarding runbook, deployment) and
+**[LAUNCH-CHECKLIST.md](LAUNCH-CHECKLIST.md)** for the pre-launch audit and
+feature comparison against Fresha / Square Appointments / Acuity.
+
 ## Roadmap ideas (post-pilot)
 
-SMS/email appointment reminders · Stripe deposits on booking · multi-location ·
-staff logins with permissions · Google Calendar sync · recurring appointments ·
-no-show protection fees.
+Staff logins with permissions · Google Calendar 2-way sync · recurring appointments ·
+waitlists · packages & memberships · gift cards · marketing campaigns · reports export.
 
 ---
 

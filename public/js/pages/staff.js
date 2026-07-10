@@ -1,7 +1,7 @@
 // Team: manage staff members whose columns appear on the calendar.
 import { api } from '../api.js';
 import { esc, icon, openModal, confirmDialog, toast, initials } from '../ui.js';
-import { refreshLookups } from '../app.js';
+import { refreshLookups, state } from '../app.js';
 
 const COLORS = ['#3987e5', '#199e70', '#9085e9', '#e5a039', '#d55181', '#2dd4bf', '#60a5fa'];
 
@@ -21,7 +21,7 @@ export async function renderStaff(container) {
             <div class="avatar-sm" style="width:38px;height:38px;background:${esc(s.color)}">${esc(initials(s.name))}</div>
             <div style="flex:1">
               <div class="sc-name">${esc(s.name)}</div>
-              <div class="cell-sub">${esc(s.title || 'Team member')}</div>
+              <div class="cell-sub">${esc(s.title || 'Team member')}${s.location_name && state.locations.length > 1 ? ` · ${esc(s.location_name)}` : ''}</div>
             </div>
             ${s.active ? '' : '<span class="chip">Inactive</span>'}
           </div>
@@ -44,6 +44,11 @@ function openStaffModal({ staff = null, onSaved } = {}) {
       <form id="st-form" class="form-grid">
         <div class="field"><label>Name *</label><input name="name" required value="${esc(s?.name || '')}"></div>
         <div class="field"><label>Title</label><input name="title" value="${esc(s?.title || '')}" placeholder="Stylist"></div>
+        ${state.locations.length > 1 ? `
+        <div class="field span2"><label>Location</label>
+          <select name="location_id">
+            ${state.locations.map((l) => `<option value="${l.id}" ${s?.location_id === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
+          </select></div>` : ''}
         <div class="field span2"><label>Calendar colour</label>
           <div id="st-colors" style="display:flex;gap:9px;padding:4px 0">
             ${COLORS.map((c) => `<button type="button" data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${c === color ? '#fff' : 'transparent'}"></button>`).join('')}
@@ -68,7 +73,11 @@ function openStaffModal({ staff = null, onSaved } = {}) {
   m.querySelector('#st-save').onclick = async () => {
     const fd = new FormData(m.querySelector('#st-form'));
     if (!String(fd.get('name') || '').trim()) { toast('Name is required', 'err'); return; }
-    const payload = { name: fd.get('name'), title: fd.get('title'), color, active: s ? fd.get('active') === 'on' : true };
+    const payload = {
+      name: fd.get('name'), title: fd.get('title'), color,
+      active: s ? fd.get('active') === 'on' : true,
+      location_id: fd.get('location_id') ? Number(fd.get('location_id')) : (s?.location_id ?? state.locations[0]?.id),
+    };
     try {
       if (s) await api.put(`/api/staff/${s.id}`, payload);
       else await api.post('/api/staff', payload);

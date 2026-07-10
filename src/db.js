@@ -113,7 +113,46 @@ export function initSchema() {
       note         TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_payments ON payments(invoice_id);
+
+    CREATE TABLE IF NOT EXISTS locations (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL,
+      address    TEXT NOT NULL DEFAULT '',
+      phone      TEXT NOT NULL DEFAULT '',
+      active     INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+      client_id      INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      channel        TEXT NOT NULL DEFAULT 'email',  -- email|sms
+      kind           TEXT NOT NULL DEFAULT 'reminder', -- confirmation|reminder|test
+      to_addr        TEXT NOT NULL DEFAULT '',
+      subject        TEXT NOT NULL DEFAULT '',
+      body           TEXT NOT NULL DEFAULT '',
+      status         TEXT NOT NULL DEFAULT 'queued', -- queued|sent|failed|skipped
+      detail         TEXT NOT NULL DEFAULT '',
+      send_after     TEXT NOT NULL DEFAULT '',       -- local 'YYYY-MM-DD HH:MM'
+      sent_at        TEXT NOT NULL DEFAULT '',
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status, send_after);
   `);
+  migrate();
+}
+
+/** Additive column migrations so existing v1 databases upgrade in place. */
+function migrate() {
+  const addColumn = (table, column, ddl) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  };
+  addColumn('staff', 'location_id', 'location_id INTEGER REFERENCES locations(id)');
+  addColumn('appointments', 'deposit_cents', "deposit_cents INTEGER NOT NULL DEFAULT 0");
+  addColumn('appointments', 'deposit_status', "deposit_status TEXT NOT NULL DEFAULT ''"); // ''|pending|paid
+  addColumn('appointments', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");
 }
 
 // --- settings helpers -------------------------------------------------------
@@ -161,6 +200,20 @@ const DEFAULT_SETTINGS = {
   invoice_prefix: 'INV-',
   invoice_due_days: '7',
   invoice_footer: 'Thank you for your business!',
+  // Notifications (work out of the box once provider keys are pasted in Settings)
+  confirm_enabled: '1',
+  reminders_enabled: '1',
+  reminder_hours: '24',
+  notif_from_email: '',
+  resend_api_key: '',
+  twilio_sid: '',
+  twilio_token: '',
+  twilio_from: '',
+  // Online deposits via Stripe Checkout
+  stripe_secret_key: '',
+  currency_code: 'usd',
+  deposit_type: 'none',   // none|fixed|percent
+  deposit_value: '20',
 };
 
 export function bootstrap() {
@@ -207,11 +260,16 @@ export function seedDemo() {
   setSetting('business_address', '12 Market Street');
   setSetting('tax_rate', '8.5');
 
-  const insStaff = db.prepare('INSERT INTO staff (name, title, color) VALUES (?, ?, ?)');
+  const locationId = Number(
+    db.prepare('INSERT INTO locations (name, address, phone) VALUES (?, ?, ?)')
+      .run('Main Studio', '12 Market Street', '(555) 010-2030').lastInsertRowid
+  );
+
+  const insStaff = db.prepare('INSERT INTO staff (name, title, color, location_id) VALUES (?, ?, ?, ?)');
   const staffIds = [
-    insStaff.run('Sha', 'Senior Stylist', '#3987e5').lastInsertRowid,
-    insStaff.run('Maya', 'Colour Specialist', '#199e70').lastInsertRowid,
-    insStaff.run('Jordan', 'Stylist', '#9085e9').lastInsertRowid,
+    insStaff.run('Sha', 'Senior Stylist', '#3987e5', locationId).lastInsertRowid,
+    insStaff.run('Maya', 'Colour Specialist', '#199e70', locationId).lastInsertRowid,
+    insStaff.run('Jordan', 'Stylist', '#9085e9', locationId).lastInsertRowid,
   ].map(Number);
 
   const services = [
@@ -329,9 +387,9 @@ export function seedDemo() {
 /** Wipe all business data and reseed the demo dataset (used for sales demos). */
 export function resetDemo() {
   db.exec(`
-    DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
-    DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff;
-    DELETE FROM sqlite_sequence WHERE name IN ('payments','invoice_items','invoices','appointments','services','clients','staff');
+    DELETE FROM messages; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
+    DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','payments','invoice_items','invoices','appointments','services','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
   seedDemo();
