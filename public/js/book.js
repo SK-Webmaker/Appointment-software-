@@ -15,13 +15,43 @@ function stepsHtml() {
   return `<div class="steps">${[1, 2, 3, 4].map((i) => `<div class="s ${state.step >= i ? 'done' : ''}"></div>`).join('')}</div>`;
 }
 
-function headHtml() {
+function headHtml({ cover = false } = {}) {
   const b = state.info;
+  const brand = b.brand || {};
+  const isImg = (s) => typeof s === 'string' && s.startsWith('data:image/');
+  const coverHtml = cover && isImg(brand.cover)
+    ? `<img class="brand-cover" src="${brand.cover}" alt="${esc(b.business_name)}">` : '';
+  const logo = isImg(brand.logo)
+    ? `<img class="brand-logo" src="${brand.logo}" alt="${esc(b.business_name)} logo">` : '';
   return `
+    ${coverHtml}
     <div class="book-head">
+      ${logo}
       <h1>${esc(b.business_name)}</h1>
       <div class="sub">${esc(b.business_address || '')}${b.business_phone ? ` · ${esc(b.business_phone)}` : ''}</div>
+      ${brand.tagline ? `<div class="brand-tagline">${esc(brand.tagline)}</div>` : ''}
     </div>`;
+}
+
+function galleryHtml() {
+  const gallery = (state.info.brand?.gallery || []).filter((s) => typeof s === 'string' && s.startsWith('data:image/'));
+  if (!gallery.length) return '';
+  return `<div class="brand-gallery">${gallery.map((src) => `<img src="${src}" alt="">`).join('')}</div>`;
+}
+
+/** Apply the business's chosen accent, theme, font — set in Settings → Booking page. */
+function applyBrand(brand) {
+  if (!brand) return;
+  const root = document.documentElement;
+  if (brand.theme === 'light') root.dataset.brandTheme = 'light';
+  if (brand.font && brand.font !== 'modern') root.dataset.brandFont = brand.font;
+  const accent = /^#[0-9a-fA-F]{6}$/.test(brand.accent || '') ? brand.accent : '#38bdf8';
+  // readable text on the accent: white on dark accents, near-black on light ones
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16));
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent-ink', luminance > 0.56 ? '#0b1220' : '#ffffff');
+  root.style.setProperty('--accent-grad', `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 72%, #000))`);
 }
 
 function poweredHtml() {
@@ -32,6 +62,7 @@ async function boot() {
   try {
     state.info = await getJson('/api/public/info');
     setCurrency(state.info.currency);
+    applyBrand(state.info.brand);
     document.title = `Book — ${state.info.business_name}`;
 
     // Returning from Stripe after a deposit?
@@ -79,7 +110,8 @@ async function handleDepositReturn(params) {
 function renderLocationStep() {
   state.step = 1;
   root.innerHTML = `
-    ${headHtml()}${stepsHtml()}
+    ${headHtml({ cover: true })}${stepsHtml()}
+    ${galleryHtml()}
     <div class="bk-section-title">Choose a location</div>
     ${state.info.locations.map((l) => `
       <button class="bk-option" data-loc="${l.id}">
@@ -99,8 +131,8 @@ function renderServiceStep() {
   state.step = 1;
   const cats = [...new Set(state.info.services.map((s) => s.category))];
   root.innerHTML = `
-    ${headHtml()}${stepsHtml()}
-    ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
+    ${headHtml({ cover: !state.location })}${stepsHtml()}
+    ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : galleryHtml()}
     <div class="bk-section-title">Choose a service</div>
     ${cats.map((cat) => `
       <div class="bk-cat">${esc(cat)}</div>
@@ -285,7 +317,7 @@ function depositNoteHtml() {
   const cents = depositCents();
   if (!cents) return '';
   return `
-    <div class="bk-summary" style="border-color:rgba(56,189,248,0.4)">
+    <div class="bk-summary" style="border-color:color-mix(in srgb, var(--accent) 40%, transparent)">
       <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('card')}</span>
       <div>A <b>${money(cents)} deposit</b> secures your booking — you'll pay it by card on the next screen.
         <span style="color:var(--text-2)">It comes off your bill on the day.</span></div>

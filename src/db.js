@@ -168,11 +168,24 @@ export function setSetting(key, value) {
   ).run(key, String(value));
 }
 
+// Secret settings never leave the server as plaintext. getSettings() replaces
+// each with an empty string plus a `<key>_set` boolean, so the UI can show
+// "configured — leave blank to keep" without the value ever reaching a browser.
+export const SECRET_SETTINGS = new Set([
+  'session_secret', 'resend_api_key', 'twilio_token', 'stripe_secret_key',
+]);
+
 export function getSettings() {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const out = {};
-  for (const r of rows) out[r.key] = r.value;
-  delete out.session_secret;
+  for (const r of rows) {
+    if (SECRET_SETTINGS.has(r.key)) {
+      out[`${r.key}_set`] = r.value ? '1' : '';
+    } else {
+      out[r.key] = r.value;
+    }
+  }
+  delete out.session_secret_set; // internal only — never referenced by the UI
   delete out.invoice_seq;
   return out;
 }
@@ -214,6 +227,14 @@ const DEFAULT_SETTINGS = {
   currency_code: 'usd',
   deposit_type: 'none',   // none|fixed|percent
   deposit_value: '20',
+  // Booking page branding (per business)
+  brand_accent: '#38bdf8',
+  brand_theme: 'dark',    // dark|light
+  brand_font: 'modern',   // modern|classic|rounded
+  brand_logo: '',         // data: URI, uploaded in Settings
+  brand_cover: '',        // data: URI, hero banner on the booking page
+  brand_gallery: '',      // JSON array of data: URIs (up to 4 photos)
+  brand_tagline: '',
 };
 
 export function bootstrap() {

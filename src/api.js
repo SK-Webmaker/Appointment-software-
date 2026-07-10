@@ -1,7 +1,7 @@
 // REST API. All routes live under /api. Handlers may return a value (sent as
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
-  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo,
+  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, SECRET_SETTINGS,
 } from './db.js';
 import {
   readJson, sendJson, sendText, httpError, parseCookies, todayStr, isDateStr, clampInt, toCsv,
@@ -65,6 +65,18 @@ export async function handleApi(req, res, pathname, query) {
 
 const str = (v, max = 500) => (v == null ? '' : String(v).slice(0, max).trim());
 
+// Parse the stored gallery JSON, keeping only valid image data: URIs (max 4).
+function safeGallery(raw) {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((s) => typeof s === 'string' && s.startsWith('data:image/')).slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -112,14 +124,29 @@ const EDITABLE_SETTINGS = new Set([
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
   'resend_api_key', 'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
+  'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
+  'brand_gallery', 'brand_tagline',
 ]);
+
+// data: URIs are large; give image fields room, everything else a tight cap
+const IMAGE_SETTINGS = new Set(['brand_logo', 'brand_cover']);
+const settingCap = (k) => (k === 'brand_gallery' ? 3_500_000 : IMAGE_SETTINGS.has(k) ? 900_000 : 2000);
 
 route('GET', '/api/settings', async () => getSettings());
 
 route('PUT', '/api/settings', async ({ req }) => {
   const body = await readJson(req);
   for (const [k, v] of Object.entries(body)) {
-    if (EDITABLE_SETTINGS.has(k)) setSetting(k, str(v, 1000));
+    if (!EDITABLE_SETTINGS.has(k)) continue;
+    // Secrets are write-only: an empty value means "leave what's stored".
+    // A real new value replaces it; the sentinel '__clear__' wipes it.
+    if (SECRET_SETTINGS.has(k)) {
+      const val = str(v, 4000);
+      if (val === '') continue;
+      setSetting(k, val === '__clear__' ? '' : val);
+      continue;
+    }
+    setSetting(k, str(v, settingCap(k)));
   }
   return getSettings();
 });
@@ -801,6 +828,15 @@ route('GET', '/api/public/info', async () => {
     currency: getSetting('currency', '$'),
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
+    brand: {
+      accent: getSetting('brand_accent', '#38bdf8'),
+      theme: getSetting('brand_theme', 'dark'),
+      font: getSetting('brand_font', 'modern'),
+      logo: getSetting('brand_logo', ''),
+      cover: getSetting('brand_cover', ''),
+      gallery: safeGallery(getSetting('brand_gallery', '')),
+      tagline: getSetting('brand_tagline', ''),
+    },
     services: db.prepare('SELECT id, name, category, duration_min, price_cents, description FROM services WHERE active = 1 ORDER BY category, name').all(),
     staff: db.prepare('SELECT id, name, title, location_id FROM staff WHERE active = 1 ORDER BY id').all(),
     locations: db.prepare('SELECT id, name, address, phone FROM locations WHERE active = 1 ORDER BY id').all(),

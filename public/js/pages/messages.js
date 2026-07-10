@@ -8,8 +8,9 @@ let filter = '';
 
 export async function renderMessages(container) {
   const messages = await api.get(`/api/messages${filter ? `?status=${filter}` : ''}`);
-  const configuredEmail = Boolean(state.settings.resend_api_key && state.settings.notif_from_email);
-  const configuredSms = Boolean(state.settings.twilio_sid && state.settings.twilio_token && state.settings.twilio_from);
+  // Secret values never reach the browser; the API sends `<key>_set` flags instead.
+  const configuredEmail = Boolean(state.settings.resend_api_key_set === '1' && state.settings.notif_from_email);
+  const configuredSms = Boolean(state.settings.twilio_sid && state.settings.twilio_token_set === '1' && state.settings.twilio_from);
 
   const KIND = { confirmation: 'Confirmation', reminder: 'Reminder', test: 'Test' };
   const STATUS_CHIP = {

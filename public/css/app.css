@@ -144,8 +144,8 @@ a { color: var(--accent); text-decoration: none; }
 .btn:hover { border-color: #2b3a52; background: var(--panel-3); }
 .btn:active { transform: translateY(1px); }
 .btn.primary {
-  background: var(--accent-grad); color: #051422;
-  border: none; box-shadow: 0 4px 18px rgba(37, 99, 235, 0.35);
+  background: var(--accent-grad); color: var(--accent-ink, #051422);
+  border: none; box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.danger { color: var(--red); border-color: rgba(248, 113, 113, 0.3); }

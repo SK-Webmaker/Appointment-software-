@@ -4,6 +4,20 @@ import { api } from '../api.js';
 import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
 
+// Secret keys are never sent to the browser — the API returns a `<key>_set`
+// flag instead. These render the "already saved" affordance.
+const keySaved = (set) => (set === '1'
+  ? ' <span style="color:var(--green);font-weight:600;font-size:11px">● saved</span>' : '');
+const keyPlaceholder = (set, empty) => (set === '1' ? '•••••••••• — leave blank to keep' : empty);
+
+function parseGallery(raw) {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((s) => typeof s === 'string' && s.startsWith('data:image/')).slice(0, 4) : [];
+  } catch { return []; }
+}
+
 export async function renderSettings(container) {
   const s = state.settings;
   const bookingUrl = `${location.origin}/book`;
@@ -55,6 +69,64 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">Booking page appearance</div>
+        <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand —
+          logo, colour and light/dark style. <a href="/book" target="_blank">Open the booking page ↗</a> to preview.</div>
+        <form id="set-brand" style="display:flex;flex-direction:column;gap:13px">
+          <div class="form-grid">
+            <div class="field"><label>Style</label>
+              <select name="brand_theme">
+                <option value="dark" ${s.brand_theme !== 'light' ? 'selected' : ''}>Dark (sleek, tech)</option>
+                <option value="light" ${s.brand_theme === 'light' ? 'selected' : ''}>Light (bright, airy)</option>
+              </select></div>
+            <div class="field"><label>Font style</label>
+              <select name="brand_font">
+                <option value="modern" ${s.brand_font !== 'classic' && s.brand_font !== 'rounded' ? 'selected' : ''}>Modern (clean sans)</option>
+                <option value="classic" ${s.brand_font === 'classic' ? 'selected' : ''}>Classic (elegant serif)</option>
+                <option value="rounded" ${s.brand_font === 'rounded' ? 'selected' : ''}>Rounded (friendly)</option>
+              </select></div>
+          </div>
+          <div class="field"><label>Brand colour</label>
+            <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap" id="brand-swatches">
+              ${['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a'].map((c) =>
+                `<button type="button" data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${(s.brand_accent || '#38bdf8').toLowerCase() === c ? '#fff' : 'transparent'}"></button>`).join('')}
+              <input type="color" name="brand_accent" value="${esc(/^#[0-9a-fA-F]{6}$/.test(s.brand_accent || '') ? s.brand_accent : '#38bdf8')}"
+                style="width:44px;height:30px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--bg-raise);cursor:pointer" title="Custom colour">
+            </div>
+            <div class="hint">Buttons, highlights and time slots on the booking page use this colour.</div></div>
+          <div class="field"><label>Logo (optional)</label>
+            <div style="display:flex;gap:10px;align-items:center">
+              <img id="brand-logo-preview" src="${s.brand_logo && s.brand_logo.startsWith('data:image/') ? esc(s.brand_logo) : ''}"
+                alt="" style="height:44px;max-width:140px;object-fit:contain;border-radius:8px;border:1px solid var(--border);
+                background:var(--bg-raise);padding:4px;${s.brand_logo ? '' : 'display:none'}">
+              <button type="button" class="btn small" id="brand-logo-pick">${icon('upload')} Upload logo</button>
+              <button type="button" class="btn small danger" id="brand-logo-clear" style="${s.brand_logo ? '' : 'display:none'}">Remove</button>
+              <input type="file" id="brand-logo-file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none">
+            </div>
+            <div class="hint">PNG/JPG/SVG, up to ~250 KB. Shown at the top of the booking page.</div></div>
+          <div class="field"><label>Cover photo (optional)</label>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <img id="brand-cover-preview" src="${s.brand_cover && s.brand_cover.startsWith('data:image/') ? esc(s.brand_cover) : ''}"
+                alt="" style="height:56px;max-width:180px;object-fit:cover;border-radius:8px;border:1px solid var(--border);${s.brand_cover ? '' : 'display:none'}">
+              <button type="button" class="btn small" id="brand-cover-pick">${icon('upload')} Upload cover</button>
+              <button type="button" class="btn small danger" id="brand-cover-clear" style="${s.brand_cover ? '' : 'display:none'}">Remove</button>
+              <input type="file" id="brand-cover-file" accept="image/png,image/jpeg,image/webp" style="display:none">
+            </div>
+            <div class="hint">A wide banner (a shot of your space or work) across the top of the booking page. Up to ~600 KB.</div></div>
+          <div class="field"><label>Photo gallery (optional)</label>
+            <div id="brand-gallery-strip" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button type="button" class="btn small" id="brand-gallery-pick">${icon('plus')} Add photos</button>
+              <span class="hint" style="margin:0">Up to 4 photos of your work, shown to clients when they book.</span>
+              <input type="file" id="brand-gallery-file" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
+            </div></div>
+          <div class="field"><label>Welcome line (optional)</label>
+            <input name="brand_tagline" value="${esc(s.brand_tagline || '')}" placeholder="e.g. Colour, cuts & care in the heart of town" maxlength="120"></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save appearance</button>
+        </form>
+      </div>
+
+      <div class="card">
         <div class="card-title">Billing defaults</div>
         <div class="card-sub" style="margin-bottom:16px">Applied to new invoices</div>
         <form id="set-billing" style="display:flex;flex-direction:column;gap:13px">
@@ -89,16 +161,16 @@ export async function renderSettings(container) {
           <div class="field"><label>Remind clients this many hours before</label>
             <select name="reminder_hours">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${Number(s.reminder_hours) === h ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
           <div class="form-grid">
-            <div class="field"><label>Resend API key (email)</label>
-              <input name="resend_api_key" value="${esc(s.resend_api_key || '')}" placeholder="re_…" autocomplete="off"></div>
+            <div class="field"><label>Resend API key (email)${keySaved(s.resend_api_key_set)}</label>
+              <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
             <div class="field"><label>From email (verified in Resend)</label>
               <input name="notif_from_email" value="${esc(s.notif_from_email || '')}" placeholder="bookings@yourdomain.com"></div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Twilio Account SID (SMS)</label>
               <input name="twilio_sid" value="${esc(s.twilio_sid || '')}" placeholder="AC…" autocomplete="off"></div>
-            <div class="field"><label>Twilio Auth Token</label>
-              <input name="twilio_token" type="password" value="${esc(s.twilio_token || '')}" autocomplete="off"></div>
+            <div class="field"><label>Twilio Auth Token${keySaved(s.twilio_token_set)}</label>
+              <input name="twilio_token" type="password" value="" placeholder="${keyPlaceholder(s.twilio_token_set, '')}" autocomplete="off"></div>
           </div>
           <div class="field"><label>Twilio phone number (sender)</label>
             <input name="twilio_from" value="${esc(s.twilio_from || '')}" placeholder="+15551234567"></div>
@@ -112,8 +184,8 @@ export async function renderSettings(container) {
           Get a secret key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe</a>;
           deposits are credited automatically when you bill the visit.</div>
         <form id="set-payments" style="display:flex;flex-direction:column;gap:13px">
-          <div class="field"><label>Stripe secret key</label>
-            <input name="stripe_secret_key" type="password" value="${esc(s.stripe_secret_key || '')}" placeholder="sk_live_… (or sk_test_… to try it)" autocomplete="off"></div>
+          <div class="field"><label>Stripe secret key${keySaved(s.stripe_secret_key_set)}</label>
+            <input name="stripe_secret_key" type="password" value="" placeholder="${keyPlaceholder(s.stripe_secret_key_set, 'sk_live_… (or sk_test_… to try it)')}" autocomplete="off"></div>
           <div class="form-grid">
             <div class="field"><label>Deposit</label>
               <select name="deposit_type">
@@ -186,6 +258,109 @@ export async function renderSettings(container) {
     e.preventDefault();
     saveSettings(e.target, ['currency', 'tax_rate', 'invoice_prefix', 'invoice_due_days', 'invoice_footer']);
   });
+  // booking page appearance
+  let brandLogo = s.brand_logo || '';
+  let brandCover = s.brand_cover || '';
+  let brandGallery = Array.isArray(state.settings.brand_gallery)
+    ? state.settings.brand_gallery
+    : parseGallery(s.brand_gallery);
+  const brandForm = container.querySelector('#set-brand');
+
+  container.querySelector('#brand-swatches').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-c]');
+    if (!b) return;
+    brandForm.querySelector('[name=brand_accent]').value = b.dataset.c;
+    container.querySelectorAll('#brand-swatches [data-c]').forEach((x) =>
+      (x.style.borderColor = x.dataset.c === b.dataset.c ? '#fff' : 'transparent'));
+  });
+
+  const readImage = (file, maxKb) => new Promise((resolve, reject) => {
+    if (file.size > maxKb * 1024) { reject(new Error(`Image must be under ${maxKb} KB — try a smaller one`)); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('Could not read that file'));
+    reader.readAsDataURL(file);
+  });
+
+  // logo
+  const logoFile = container.querySelector('#brand-logo-file');
+  container.querySelector('#brand-logo-pick').onclick = () => logoFile.click();
+  logoFile.addEventListener('change', async () => {
+    if (!logoFile.files[0]) return;
+    try {
+      brandLogo = await readImage(logoFile.files[0], 250);
+      const prev = container.querySelector('#brand-logo-preview');
+      prev.src = brandLogo; prev.style.display = '';
+      container.querySelector('#brand-logo-clear').style.display = '';
+    } catch (err) { toast(err.message, 'err'); }
+  });
+  container.querySelector('#brand-logo-clear').onclick = (e) => {
+    brandLogo = '';
+    container.querySelector('#brand-logo-preview').style.display = 'none';
+    e.target.style.display = 'none';
+  };
+
+  // cover
+  const coverFile = container.querySelector('#brand-cover-file');
+  container.querySelector('#brand-cover-pick').onclick = () => coverFile.click();
+  coverFile.addEventListener('change', async () => {
+    if (!coverFile.files[0]) return;
+    try {
+      brandCover = await readImage(coverFile.files[0], 600);
+      const prev = container.querySelector('#brand-cover-preview');
+      prev.src = brandCover; prev.style.display = '';
+      container.querySelector('#brand-cover-clear').style.display = '';
+    } catch (err) { toast(err.message, 'err'); }
+  });
+  container.querySelector('#brand-cover-clear').onclick = (e) => {
+    brandCover = '';
+    container.querySelector('#brand-cover-preview').style.display = 'none';
+    e.target.style.display = 'none';
+  };
+
+  // gallery
+  const galleryStrip = container.querySelector('#brand-gallery-strip');
+  const drawGallery = () => {
+    galleryStrip.innerHTML = brandGallery.map((src, i) => `
+      <div style="position:relative">
+        <img src="${esc(src)}" alt="" style="height:56px;width:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+        <button type="button" data-rm-photo="${i}" class="icon-btn" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:var(--panel-3);border:1px solid var(--border);border-radius:50%">${icon('x', 11)}</button>
+      </div>`).join('');
+    galleryStrip.querySelectorAll('[data-rm-photo]').forEach((b) => {
+      b.onclick = () => { brandGallery.splice(Number(b.dataset.rmPhoto), 1); drawGallery(); };
+    });
+  };
+  drawGallery();
+  const galleryFile = container.querySelector('#brand-gallery-file');
+  container.querySelector('#brand-gallery-pick').onclick = () => galleryFile.click();
+  galleryFile.addEventListener('change', async () => {
+    for (const file of [...galleryFile.files]) {
+      if (brandGallery.length >= 4) { toast('Up to 4 gallery photos', 'err'); break; }
+      try { brandGallery.push(await readImage(file, 500)); } catch (err) { toast(err.message, 'err'); }
+    }
+    galleryFile.value = '';
+    drawGallery();
+  });
+
+  brandForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(brandForm);
+    try {
+      state.settings = await api.put('/api/settings', {
+        brand_theme: fd.get('brand_theme'),
+        brand_font: fd.get('brand_font'),
+        brand_accent: fd.get('brand_accent'),
+        brand_tagline: fd.get('brand_tagline'),
+        brand_logo: brandLogo,
+        brand_cover: brandCover,
+        brand_gallery: JSON.stringify(brandGallery),
+      });
+      toast('Booking page updated — open it to see the new look');
+    } catch (err) {
+      toast(err.message.includes('large') ? 'Those images are too large together — remove one or use smaller files' : err.message, 'err');
+    }
+  });
+
   container.querySelector('#set-notif').addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['confirm_enabled', 'reminders_enabled', 'reminder_hours',

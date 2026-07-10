@@ -98,6 +98,20 @@ npm run reset-demo   # same thing from the terminal
 - The calendar gets a location filter and the booking page gets a location step —
   both appear automatically once a second location exists
 
+### 🎨 Booking-page branding (per business)
+- Each business styles the customer booking page in *Settings → Booking page appearance*:
+  brand **colour**, **light or dark** style, a **font personality** (modern / classic
+  serif / rounded), a **logo**, a wide **cover photo**, a **gallery** of up to 4 work
+  photos, and a welcome line — so the page looks like *their* brand, not Kairo's
+- All images are stored in the business's own database as size-capped data URIs;
+  nothing is uploaded to a third party
+
+### 🔒 Security (see [SECURITY.md](SECURITY.md))
+- One private instance + database per business — the strongest data isolation
+- API keys (Stripe/Resend/Twilio) are **write-only** and never sent to the browser
+- scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
+  escaped output, path-traversal-safe static serving, login rate limiting
+
 ### 🗓 Extra touches
 - "Add to calendar" (.ics) button on the customer confirmation screen
 - Online bookings marked ⚡ on the calendar
