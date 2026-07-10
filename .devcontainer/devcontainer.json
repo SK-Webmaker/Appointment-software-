@@ -1,0 +1,12 @@
+{
+  "name": "Kairo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "forwardPorts": [4820],
+  "portsAttributes": {
+    "4820": {
+      "label": "Kairo",
+      "onAutoForward": "openBrowserOnce"
+    }
+  },
+  "postAttachCommand": "npm start"
+}
