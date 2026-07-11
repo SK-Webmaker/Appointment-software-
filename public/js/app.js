@@ -9,6 +9,7 @@ import { renderInvoices } from './pages/invoices.js';
 import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
 import { renderMessages } from './pages/messages.js';
+import { runSetupWizard } from './wizard.js';
 
 export const state = {
   user: null,
@@ -167,6 +168,12 @@ async function boot() {
     state.user = me.user;
     state.settings = me.settings;
     setCurrency(state.settings.currency);
+    // First login on a fresh deployment → guided setup wizard before the app.
+    if (state.settings.setup_complete !== '1') {
+      root.innerHTML = '';
+      runSetupWizard({ firstRun: true, settings: state.settings, onDone: () => boot() });
+      return;
+    }
     await refreshLookups();
     renderShell();
     await navigate();

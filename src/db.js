@@ -257,6 +257,12 @@ export function bootstrap() {
   }
   const hasStaff = db.prepare('SELECT COUNT(*) AS n FROM staff').get().n > 0;
   if (!hasStaff) seedDemo();
+  // A brand-new deployment (no prior user) starts un-configured, so the owner
+  // meets the guided setup wizard on first login. Existing installs are
+  // grandfathered in as already set up — no surprise wizard.
+  if (getSetting('setup_complete', null) === null) {
+    setSetting('setup_complete', hasUser ? '1' : '');
+  }
 }
 
 // --- demo seed ----------------------------------------------------------------
@@ -405,13 +411,19 @@ export function seedDemo() {
   }
 }
 
-/** Wipe all business data and reseed the demo dataset (used for sales demos). */
-export function resetDemo() {
+/** Wipe all business data (staff, services, clients, appointments, billing). */
+export function clearBusinessData() {
   db.exec(`
     DELETE FROM messages; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
     DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
     DELETE FROM sqlite_sequence WHERE name IN ('messages','payments','invoice_items','invoices','appointments','services','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
+}
+
+/** Wipe all business data and reseed the demo dataset (used for sales demos). */
+export function resetDemo() {
+  clearBusinessData();
   seedDemo();
+  setSetting('setup_complete', '1'); // the demo represents a configured business
 }

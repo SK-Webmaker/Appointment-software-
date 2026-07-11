@@ -501,3 +501,77 @@ table.data th.num { text-align: right; }
   .sidebar .brand-name, .sidebar .brand-sub, .sidebar .nav-item span, .sidebar .nav-label, .sidebar .user-card { display: none; }
   .nav-item { justify-content: center; padding: 11px 0; }
 }
+
+/* ---------- setup wizard ---------- */
+.wiz-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background:
+    radial-gradient(700px 420px at 15% 0%, rgba(37,99,235,0.12), transparent),
+    radial-gradient(560px 380px at 90% 100%, rgba(56,189,248,0.08), transparent),
+    var(--bg);
+  display: grid; place-items: center; padding: 24px; overflow-y: auto;
+}
+.wiz-card {
+  width: 100%; max-width: 620px; margin: auto;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 18px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: riseIn 0.2s ease;
+}
+.wiz-progress { height: 3px; background: var(--panel-3); }
+.wiz-bar { height: 100%; background: var(--accent-grad); transition: width 0.25s ease; }
+.wiz-body { padding: 30px 34px 8px; }
+.wiz-body h1 { font-size: 25px; letter-spacing: -0.03em; margin-bottom: 8px; text-align: center; }
+.wiz-body h2 { font-size: 20px; letter-spacing: -0.02em; margin-bottom: 6px; }
+.wiz-lede { color: var(--text-2); text-align: center; line-height: 1.6; max-width: 46ch; margin: 0 auto 18px; }
+.wiz-sub { color: var(--text-2); font-size: 13px; margin-bottom: 18px; }
+.wiz-hero {
+  width: 62px; height: 62px; margin: 6px auto 16px; border-radius: 16px;
+  display: grid; place-items: center; background: rgba(56,189,248,0.08);
+  border: 1px solid rgba(56,189,248,0.25);
+}
+.wiz-hero.wiz-done { color: var(--green); background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.35); }
+.wiz-hero svg { transform: scale(1.4); }
+.wiz-checklist { display: flex; flex-direction: column; gap: 9px; max-width: 320px; margin: 0 auto; }
+.wiz-check { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13.5px; }
+.wiz-check svg { color: var(--green); flex: 0 0 auto; }
+.wiz-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.wiz-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 16px 8px; border-radius: 12px; text-align: center;
+  border: 1px solid var(--border); background: var(--panel-2);
+  color: var(--text-2); font-size: 12px; font-weight: 600; transition: all 0.12s;
+}
+.wiz-tile:hover { border-color: var(--accent); color: var(--text); transform: translateY(-1px); }
+.wiz-tile.sel { border-color: var(--accent); background: rgba(56,189,248,0.1); color: var(--text); }
+.wiz-emoji { font-size: 24px; }
+.wiz-form { display: flex; flex-direction: column; gap: 14px; }
+.wiz-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.wiz-swatches { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.wiz-swatches button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.wiz-swatches input[type=color] { width: 40px; height: 30px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raise); cursor: pointer; }
+.wiz-upl { display: flex; align-items: center; gap: 10px; }
+.wiz-upl img { height: 40px; max-width: 96px; object-fit: contain; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-raise); padding: 3px; }
+.wiz-preview { border-radius: 12px; border: 1px solid var(--border); padding: 16px; margin-top: 2px; }
+.wiz-services { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; max-height: 300px; overflow-y: auto; }
+.wiz-svc { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--border-soft); background: var(--panel-2); opacity: 0.55; }
+.wiz-svc.on { opacity: 1; border-color: var(--border); }
+.wiz-svc input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+.wiz-svc-name { flex: 1; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 13px; }
+.wiz-svc-dur, .wiz-svc-price { width: 60px; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px; font-size: 13px; text-align: right; }
+.wiz-u { font-size: 11px; color: var(--muted); }
+.wiz-empty { text-align: center; color: var(--muted); padding: 20px; font-size: 13px; }
+.wiz-team-row { align-items: end; margin-bottom: 10px; }
+.wiz-toggle { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer; font-size: 13.5px; }
+.wiz-toggle input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--accent); flex: 0 0 auto; }
+.wiz-muted { color: var(--muted); font-size: 12px; }
+.wiz-linkbox { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; margin: 6px auto 12px; max-width: 400px; }
+.wiz-linkbox span { font-family: var(--mono, monospace); font-size: 13px; color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wiz-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 34px 22px; }
+.wiz-foot-right { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+@media (max-width: 560px) {
+  .wiz-grid { grid-template-columns: repeat(2, 1fr); }
+  .wiz-2col { grid-template-columns: 1fr; }
+  .wiz-body { padding: 24px 20px 6px; }
+  .wiz-foot { padding: 14px 20px 20px; }
+}

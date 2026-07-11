@@ -228,6 +228,11 @@ export async function renderSettings(container) {
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Change password</button>
         </form>
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
+          <div class="card-title" style="font-size:13.5px">Guided setup</div>
+          <div class="card-sub" style="margin-bottom:12px">Re-run the step-by-step setup wizard to adjust your details, hours and branding.</div>
+          <button class="btn" id="rerun-setup">${icon('zap')} Re-run setup wizard</button>
+        </div>
+        <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Demo data</div>
           <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset — useful before a sales demo.</div>
           <button class="btn danger" id="reset-demo">${icon('zap')} Reset to demo data</button>
@@ -424,6 +429,10 @@ export async function renderSettings(container) {
       e.target.reset();
     } catch (err) { toast(err.message, 'err'); }
   });
+  container.querySelector('#rerun-setup').onclick = async () => {
+    const { runSetupWizard } = await import('../wizard.js');
+    runSetupWizard({ firstRun: false, settings: state.settings, onDone: () => { location.hash = '#/settings'; location.reload(); } });
+  };
   container.querySelector('#reset-demo').onclick = async () => {
     const ok = await confirmDialog('Reset to demo data',
       'This <b>deletes all clients, appointments, services and invoices</b> and restores the sample dataset. This cannot be undone.',

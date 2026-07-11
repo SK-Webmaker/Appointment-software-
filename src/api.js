@@ -1,7 +1,7 @@
 // REST API. All routes live under /api. Handlers may return a value (sent as
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
-  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, SECRET_SETTINGS,
+  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
 } from './db.js';
 import {
   readJson, sendJson, sendText, httpError, parseCookies, todayStr, isDateStr, clampInt, toCsv,
@@ -138,10 +138,9 @@ const EDITABLE_SETTINGS = new Set([
 const IMAGE_SETTINGS = new Set(['brand_logo', 'brand_cover']);
 const settingCap = (k) => (k === 'brand_gallery' ? 3_500_000 : IMAGE_SETTINGS.has(k) ? 900_000 : 2000);
 
-route('GET', '/api/settings', async () => getSettings());
-
-route('PUT', '/api/settings', async ({ req }) => {
-  const body = await readJson(req);
+// Apply a settings object with the same validation everywhere (PUT + wizard):
+// secrets are write-only, images must be genuine data URIs, others are capped.
+function applySettings(body) {
   for (const [k, v] of Object.entries(body)) {
     if (!EDITABLE_SETTINGS.has(k)) continue;
     // Secrets are write-only: an empty value means "leave what's stored".
@@ -162,12 +161,62 @@ route('PUT', '/api/settings', async ({ req }) => {
     }
     setSetting(k, str(v, settingCap(k)));
   }
+}
+
+route('GET', '/api/settings', async () => getSettings());
+
+route('PUT', '/api/settings', async ({ req }) => {
+  applySettings(await readJson(req));
   return getSettings();
 });
 
 route('POST', '/api/settings/reset-demo', async () => {
   resetDemo();
   return { ok: true };
+});
+
+// ---------------------------------------------------------------------------
+// Guided setup wizard (owner-facing, first login)
+// ---------------------------------------------------------------------------
+
+route('POST', '/api/setup/skip', async () => {
+  setSetting('setup_complete', '1');
+  return { ok: true };
+});
+
+route('POST', '/api/setup/apply', async ({ req }) => {
+  const b = await readJson(req);
+  if (b.fresh) clearBusinessData();
+
+  // Ensure a location exists (staff attach to it; booking page uses it).
+  let locId = db.prepare('SELECT id FROM locations WHERE active = 1 ORDER BY id LIMIT 1').get()?.id;
+  if (!locId) {
+    locId = Number(db.prepare('INSERT INTO locations (name, address, phone) VALUES (?, ?, ?)').run(
+      str(b.settings?.business_name, 150) || 'Main location',
+      str(b.settings?.business_address, 300),
+      str(b.settings?.business_phone, 50)
+    ).lastInsertRowid);
+  }
+
+  const palette = ['#3987e5', '#199e70', '#9085e9', '#e5a039', '#d55181', '#2dd4bf'];
+  (Array.isArray(b.team) ? b.team : []).slice(0, 30).forEach((m, i) => {
+    if (!str(m.name)) return;
+    db.prepare('INSERT INTO staff (name, title, color, location_id) VALUES (?, ?, ?, ?)')
+      .run(str(m.name, 100), str(m.title, 100), palette[i % palette.length], locId);
+  });
+
+  let servicesAdded = 0;
+  for (const svc of (Array.isArray(b.services) ? b.services : []).slice(0, 200)) {
+    try {
+      db.prepare('INSERT INTO services (name, category, duration_min, price_cents, description) VALUES (?, ?, ?, ?, ?)')
+        .run(...serviceBody(svc));
+      servicesAdded++;
+    } catch { /* skip malformed rows */ }
+  }
+
+  if (b.settings) applySettings(b.settings);
+  setSetting('setup_complete', '1');
+  return { ok: true, services_added: servicesAdded, booking_path: '/book' };
 });
 
 // ---------------------------------------------------------------------------
