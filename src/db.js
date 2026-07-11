@@ -130,7 +130,7 @@ export function initSchema() {
       appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
       client_id      INTEGER REFERENCES clients(id) ON DELETE SET NULL,
       channel        TEXT NOT NULL DEFAULT 'email',  -- email|sms
-      kind           TEXT NOT NULL DEFAULT 'reminder', -- confirmation|reminder|test
+      kind           TEXT NOT NULL DEFAULT 'reminder', -- confirmation|reminder|receipt|review_request|test
       to_addr        TEXT NOT NULL DEFAULT '',
       subject        TEXT NOT NULL DEFAULT '',
       body           TEXT NOT NULL DEFAULT '',
@@ -141,6 +141,17 @@ export function initSchema() {
       created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status, send_after);
+
+    CREATE TABLE IF NOT EXISTS reviews (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      appointment_id INTEGER UNIQUE NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+      client_id      INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      staff_id       INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+      rating         INTEGER NOT NULL, -- 1..5
+      comment        TEXT NOT NULL DEFAULT '',
+      response       TEXT NOT NULL DEFAULT '',
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   migrate();
 }
@@ -156,6 +167,7 @@ function migrate() {
   addColumn('appointments', 'deposit_status', "deposit_status TEXT NOT NULL DEFAULT ''"); // ''|pending|paid
   addColumn('appointments', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");
   addColumn('services', 'price_type', "price_type TEXT NOT NULL DEFAULT 'fixed'");
+  addColumn('appointments', 'review_token', "review_token TEXT NOT NULL DEFAULT ''");
 }
 
 // --- settings helpers -------------------------------------------------------
@@ -220,11 +232,20 @@ const DEFAULT_SETTINGS = {
   confirm_enabled: '1',
   reminders_enabled: '1',
   reminder_hours: '24',
+  receipts_enabled: '1',
+  review_requests_enabled: '1',
+  review_delay_hours: '1',
+  google_review_url: '',
+  public_url: '',  // captured automatically by the setup wizard (location.origin)
   notif_from_email: '',
   resend_api_key: '',
   twilio_sid: '',
   twilio_token: '',
   twilio_from: '',
+  // SMS costs money per-message plus a one-time carrier registration
+  // (~$20-60) and a small recurring campaign fee — off by default so a new
+  // deployment never sends a paid text without the owner opting in.
+  sms_notifications_enabled: '0',
   // Online deposits via Stripe Checkout
   stripe_secret_key: '',
   currency_code: 'usd',
@@ -415,7 +436,7 @@ export function seedDemo() {
       const clientId = pick(clientIds);
       const id = Number(insAppt.run(clientId, staffId, svc.id, date, start, end, status, source, '').lastInsertRowid);
       if (d < 0 && status === 'completed') {
-        pastAppointments.push({ id, clientId, svc, date });
+        pastAppointments.push({ id, clientId, staffId, svc, date });
       }
     }
   }
@@ -451,14 +472,38 @@ export function seedDemo() {
       insPayment.run(invId, total, pick(['card', 'card', 'cash', 'transfer']), `${appt.date} 18:00:00`);
     }
   }
+
+  // Sample reviews on a subset of completed visits — mostly glowing (realistic
+  // for a repeat-client salon), a couple of average ones, one with an owner
+  // reply, so the Reviews page demos with real texture on first look.
+  const insReview = db.prepare(
+    'INSERT INTO reviews (appointment_id, client_id, staff_id, rating, comment, response, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  const positiveComments = [
+    'Absolutely loved it — best colour I’ve had in years!', 'So relaxing and my stylist really listened to what I wanted.',
+    'Quick, professional, and the result speaks for itself.', 'Been coming here for months, never disappointed.',
+    'Great atmosphere and my hair has never looked better.', '',
+  ];
+  const midComments = ['Good overall, ran a little behind schedule.', 'Nice result, a bit pricier than I expected.', ''];
+  let reviewCount = 0;
+  for (const appt of pastAppointments) {
+    if (reviewCount >= 9) break;
+    if (rand() < 0.55) continue; // not every visit gets reviewed
+    const roll = rand();
+    const rating = roll < 0.65 ? 5 : roll < 0.9 ? 4 : roll < 0.97 ? 3 : 2;
+    const comment = rating >= 4 ? pick(positiveComments) : pick(midComments);
+    const response = rating <= 3 && rand() < 0.6 ? 'Thanks for the feedback — we’d love the chance to make your next visit five stars. Call us anytime!' : '';
+    insReview.run(appt.id, appt.clientId, appt.staffId, rating, comment, response, `${appt.date} 19:00:00`);
+    reviewCount++;
+  }
 }
 
 /** Wipe all business data (staff, services, clients, appointments, billing). */
 export function clearBusinessData() {
   db.exec(`
-    DELETE FROM messages; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
+    DELETE FROM messages; DELETE FROM reviews; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
     DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
-    DELETE FROM sqlite_sequence WHERE name IN ('messages','payments','invoice_items','invoices','appointments','services','clients','staff','locations');
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointments','services','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
 }

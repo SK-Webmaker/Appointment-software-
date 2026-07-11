@@ -49,7 +49,12 @@ Every ✅ below was exercised end-to-end in a real browser (18/18 automated chec
 
 ### Communications
 - ✅ Booking confirmations (instant) + reminders (N hours before, default 24)
-- ✅ Email (Resend) + SMS (Twilio) with test buttons
+- ✅ Payment receipts, auto-sent on any payment or online deposit
+- ✅ Post-visit review requests, auto-sent after checkout (configurable delay)
+- ✅ Branded public review page (1-5★ + comment); 4-5★ → one-tap Google review hand-off
+- ✅ Reviews page: average rating, list, owner replies
+- ✅ Email (Resend) + SMS (Twilio) with test buttons; **SMS defaults off** (real per-text
+  + one-time US carrier registration cost — opt-in only, never billed by accident)
 - ✅ Messages log: queued / sent / failed / skipped with reasons + retry
 - ✅ Reschedule re-queues the reminder; cancel withdraws it
 
@@ -76,6 +81,8 @@ How Kairo answers the tools your prospects already use:
 | Drag to reschedule | ✅ | ✅ | ✅ | ✅ |
 | Online booking page | ✅ | ✅ | ✅ | ✅ |
 | Email/SMS reminders | ✅ | ✅ | ✅ | ✅ (your own Resend/Twilio keys — at-cost, no markup) |
+| Payment receipts | ✅ | ✅ | ➖ | ✅ (auto-sent on payment or deposit) |
+| Post-visit review requests | ✅ | ➖ | ➖ | ✅ (own branded review page + Google hand-off) |
 | Deposits / no-show protection | ✅ | ✅ | ✅ | ✅ (Stripe) |
 | Invoicing with tax & partial payments | Partial | ✅ | ➖ | ✅ |
 | "From $X" variable pricing on services | ✅ | ➖ | ➖ | ✅ (Fixed / From / Free — matches Fresha's service menu) |
@@ -137,8 +144,20 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 
 ## 4. Verified-by-test summary
 
-Automated end-to-end suite (Chromium, real UI): login, dashboard, calendar day/week,
-appointment create + conflict handling, client CSV import + dedupe re-import, service CSV
-import, invoice payment → Paid flip, public booking → appears on admin calendar, ICS
-download, messages queued/logged + test-send reporting, second location → calendar filter +
-booking location step, broken-Stripe-key fallback (booking never lost). **18/18 passing.**
+Automated end-to-end suite (Chromium, real UI), across three suites:
+
+- **Core (22 checks):** login, setup wizard, dashboard, calendar day/week, appointment
+  create + conflict handling, client CSV import + dedupe re-import, service CSV import,
+  invoice payment → Paid flip, public booking → appears on admin calendar, ICS download,
+  messages queued/logged + test-send reporting, second location → calendar filter + booking
+  location step, broken-Stripe-key fallback (booking never lost), secret masking, full
+  booking-page branding.
+- **Pricing (7 checks):** Fixed/From/Free editor round-trip, CSV import/export of price
+  types (incl. "From $85" written straight into a price cell), public booking page display,
+  checkout floor price.
+- **Receipts & reviews (10 checks):** SMS defaults off, Settings shows real cost figures,
+  a payment auto-queues a Receipt, completing a visit auto-queues a Review request, the
+  branded public review page accepts a rating and is idempotent on reuse, the review shows
+  on the staff Reviews page, and an owner reply saves.
+
+**39/39 passing.**

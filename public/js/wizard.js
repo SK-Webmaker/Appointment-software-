@@ -81,6 +81,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       confirm_enabled: (s.confirm_enabled ?? '1') === '1',
       reminders_enabled: (s.reminders_enabled ?? '1') === '1',
       reminder_hours: s.reminder_hours || '24',
+      receipts_enabled: (s.receipts_enabled ?? '1') === '1',
+      review_requests_enabled: (s.review_requests_enabled ?? '1') === '1',
+      sms_notifications_enabled: s.sms_notifications_enabled === '1',
       deposit_type: s.deposit_type || 'none',
       deposit_value: s.deposit_value || '20',
     },
@@ -237,6 +240,13 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
           <span><b>Appointment reminders</b><br><span class="wiz-muted">Cut no-shows with a nudge before the visit</span></span></label>
         <div class="field"><label>Remind clients this long before</label>
           <select id="w-remind-hrs">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${String(data.settings.reminder_hours) === String(h) ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
+        <label class="wiz-toggle"><input type="checkbox" id="w-receipts" ${data.settings.receipts_enabled ? 'checked' : ''}>
+          <span><b>Payment receipts</b><br><span class="wiz-muted">Sent automatically whenever a payment or deposit is recorded</span></span></label>
+        <label class="wiz-toggle"><input type="checkbox" id="w-reviews" ${data.settings.review_requests_enabled ? 'checked' : ''}>
+          <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" link, sent after checkout</span></span></label>
+        <label class="wiz-toggle"><input type="checkbox" id="w-sms" ${data.settings.sms_notifications_enabled ? 'checked' : ''}>
+          <span><b>Also send all of these as SMS</b><br><span class="wiz-muted">Email above is free. SMS costs ~1–2¢/text plus a one-time
+            carrier setup (~$20–60) — leave this off for now and turn it on later in Settings once you've added Twilio.</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
           <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs Stripe later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
@@ -283,6 +293,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       data.settings.confirm_enabled = overlay.querySelector('#w-confirm').checked;
       data.settings.reminders_enabled = overlay.querySelector('#w-remind').checked;
       data.settings.reminder_hours = val('#w-remind-hrs');
+      data.settings.receipts_enabled = overlay.querySelector('#w-receipts').checked;
+      data.settings.review_requests_enabled = overlay.querySelector('#w-reviews').checked;
+      data.settings.sms_notifications_enabled = overlay.querySelector('#w-sms').checked;
       data.settings.deposit_type = overlay.querySelector('#w-deposit').checked ? val('#w-deposit-type') : 'none';
       data.settings.deposit_value = val('#w-deposit-val') || '20';
     }
@@ -425,8 +438,14 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         ...data.settings,
         confirm_enabled: data.settings.confirm_enabled ? '1' : '0',
         reminders_enabled: data.settings.reminders_enabled ? '1' : '0',
+        receipts_enabled: data.settings.receipts_enabled ? '1' : '0',
+        review_requests_enabled: data.settings.review_requests_enabled ? '1' : '0',
+        sms_notifications_enabled: data.settings.sms_notifications_enabled ? '1' : '0',
         brand_logo: data.logo || '',
         brand_cover: data.cover || '',
+        // The URL used to administer the app right now IS the URL customers
+        // should use for booking/review links — captured automatically.
+        public_url: location.origin,
       },
       team: data.team.filter((m) => String(m.name || '').trim()),
       services: data.services.filter((sv) => sv.on && String(sv.name || '').trim())

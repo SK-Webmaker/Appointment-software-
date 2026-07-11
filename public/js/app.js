@@ -9,6 +9,7 @@ import { renderInvoices } from './pages/invoices.js';
 import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
 import { renderMessages } from './pages/messages.js';
+import { renderReviews } from './pages/reviews.js';
 import { runSetupWizard } from './wizard.js';
 
 export const state = {
@@ -33,6 +34,7 @@ const ROUTES = {
   services: { title: 'Services', icon: 'tag', render: renderServices },
   invoices: { title: 'Billing', icon: 'invoice', render: renderInvoices },
   messages: { title: 'Messages', icon: 'send', render: renderMessages },
+  reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
 };
@@ -88,7 +90,7 @@ function renderLogin() {
 function renderShell() {
   document.title = `Kairo — ${esc(state.settings.business_name || 'Booking OS')}`;
   const navMain = ['dashboard', 'calendar', 'clients', 'services', 'invoices'];
-  const navManage = ['messages', 'staff', 'settings'];
+  const navManage = ['messages', 'reviews', 'staff', 'settings'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');

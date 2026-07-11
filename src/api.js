@@ -12,7 +12,7 @@ import {
 } from './auth.js';
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
-  deliverMessage, processQueue,
+  queueReceiptMessage, queueDepositReceipt, queueReviewRequest, deliverMessage, processQueue,
 } from './notify.js';
 import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
 import { VERSION } from './version.js';
@@ -131,6 +131,8 @@ const EDITABLE_SETTINGS = new Set([
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
+  'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
+  'sms_notifications_enabled', 'public_url',
   'resend_api_key', 'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
@@ -603,6 +605,7 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
   if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
     cancelQueuedMessages(params.id);
+    if (a.status === 'completed' && before.status !== 'completed') queueReviewRequest(params.id);
   } else if (before.date !== a.date || before.start_min !== a.start) {
     requeueAppointmentMessages(params.id); // rescheduled → fresh reminder
   }
@@ -612,8 +615,12 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
 route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
   const { status } = await readJson(req);
   if (!APPT_STATUSES.has(status)) throw httpError(400, 'Invalid status');
+  const before = db.prepare('SELECT status FROM appointments WHERE id = ?').get(params.id);
   db.prepare('UPDATE appointments SET status = ? WHERE id = ?').run(status, params.id);
-  if (['cancelled', 'no_show', 'completed'].includes(status)) cancelQueuedMessages(params.id);
+  if (['cancelled', 'no_show', 'completed'].includes(status)) {
+    cancelQueuedMessages(params.id);
+    if (status === 'completed' && before?.status !== 'completed') queueReviewRequest(params.id);
+  }
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id);
 });
 
@@ -820,7 +827,10 @@ route('POST', '/api/invoices/:id/payments', async ({ req, params }) => {
     .run(params.id, amount, method, `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, str(b.note, 500));
   if (inv.status === 'draft') db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").run(params.id);
   refreshPaidStatus(params.id);
-  return getInvoice(params.id);
+  const updated = getInvoice(params.id);
+  queueReceiptMessage(Number(params.id), { amountCents: amount, method, balanceCents: Math.max(0, updated.balance_cents) });
+  processQueue().catch(() => {});
+  return updated;
 });
 
 route('DELETE', '/api/invoices/:id/payments/:pid', async ({ params }) => {
@@ -834,6 +844,37 @@ function addDays(date, days) {
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+// ---------------------------------------------------------------------------
+// Reviews (staff-facing)
+// ---------------------------------------------------------------------------
+
+const REVIEW_SELECT = `
+  SELECT r.*,
+    c.first_name || CASE WHEN c.last_name != '' THEN ' ' || c.last_name ELSE '' END AS client_name,
+    s.name AS staff_name, a.date AS appt_date, sv.name AS service_name
+  FROM reviews r
+  LEFT JOIN clients c ON c.id = r.client_id
+  LEFT JOIN staff s ON s.id = r.staff_id
+  LEFT JOIN appointments a ON a.id = r.appointment_id
+  LEFT JOIN services sv ON sv.id = a.service_id`;
+
+route('GET', '/api/reviews', async ({ query }) => {
+  const minRating = clampInt(query.get('max_rating'), 1, 5, 0);
+  const where = minRating ? `WHERE r.rating <= ${minRating}` : '';
+  const rows = db.prepare(`${REVIEW_SELECT} ${where} ORDER BY r.created_at DESC LIMIT 300`).all();
+  const stats = db.prepare('SELECT COUNT(*) AS n, COALESCE(AVG(rating), 0) AS avg FROM reviews').get();
+  const monthAgo = addDays(todayStr(), -30);
+  const recent = db.prepare("SELECT COUNT(*) AS n FROM reviews WHERE created_at >= ?").get(`${monthAgo} 00:00:00`).n;
+  return { reviews: rows, total: stats.n, average: Math.round(stats.avg * 10) / 10, last_30d: recent };
+});
+
+route('PUT', '/api/reviews/:id/response', async ({ req, params }) => {
+  if (!db.prepare('SELECT id FROM reviews WHERE id = ?').get(params.id)) throw httpError(404, 'Review not found');
+  const { response } = await readJson(req);
+  db.prepare('UPDATE reviews SET response = ? WHERE id = ?').run(str(response, 2000), params.id);
+  return db.prepare(`${REVIEW_SELECT} WHERE r.id = ?`).get(params.id);
+});
 
 // ---------------------------------------------------------------------------
 // Dashboard
@@ -1078,6 +1119,8 @@ route('POST', '/api/public/confirm-deposit', async ({ req }) => {
       cents = check.amount_cents || appt.deposit_cents;
       db.prepare("UPDATE appointments SET deposit_status = 'paid', deposit_cents = ?, status = 'confirmed' WHERE id = ?")
         .run(cents, appt.id);
+      queueDepositReceipt(appt.id, cents);
+      processQueue().catch(() => {});
     }
   }
   const full = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(appt.id);
@@ -1113,4 +1156,56 @@ route('GET', '/api/public/ics/:id', async ({ res, params }) => {
     'END:VEVENT', 'END:VCALENDAR', '',
   ].join('\r\n');
   sendText(res, 200, ics, 'text/calendar; charset=utf-8', { 'Content-Disposition': 'attachment; filename="appointment.ics"' });
+}, { auth: false });
+
+// ---------------------------------------------------------------------------
+// Public reviews — reached via a random per-appointment token, not the
+// numeric id, so a guessed/incremented URL can't leave a review on someone
+// else's visit. Only a 'completed' appointment can be reviewed, once.
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/public/review', async ({ query }) => {
+  const token = str(query.get('token'), 64);
+  if (!token) throw httpError(400, 'Missing review link');
+  const a = db.prepare(
+    `SELECT a.id, a.status, a.date, c.first_name, sv.name AS service_name, s.name AS staff_name
+     FROM appointments a
+     LEFT JOIN clients c ON c.id = a.client_id
+     LEFT JOIN services sv ON sv.id = a.service_id
+     LEFT JOIN staff s ON s.id = a.staff_id
+     WHERE a.review_token = ?`
+  ).get(token);
+  if (!a || a.status !== 'completed') throw httpError(404, 'This review link is no longer valid');
+  const existing = db.prepare('SELECT rating, comment FROM reviews WHERE appointment_id = ?').get(a.id);
+  return {
+    business_name: getSetting('business_name'),
+    first_name: a.first_name || '',
+    service_name: a.service_name || 'your visit',
+    staff_name: a.staff_name || '',
+    date: a.date,
+    already_reviewed: Boolean(existing),
+    existing_rating: existing?.rating || 0,
+    google_review_url: getSetting('google_review_url', ''),
+    brand: {
+      accent: getSetting('brand_accent', '#38bdf8'),
+      theme: getSetting('brand_theme', 'dark'),
+      font: getSetting('brand_font', 'modern'),
+    },
+  };
+}, { auth: false });
+
+route('POST', '/api/public/review', async ({ req }) => {
+  const b = await readJson(req);
+  const token = str(b.token, 64);
+  if (!token) throw httpError(400, 'Missing review link');
+  const rating = clampInt(b.rating, 1, 5, NaN);
+  if (Number.isNaN(rating)) throw httpError(400, 'Choose a star rating');
+  const a = db.prepare('SELECT id, client_id, staff_id, status FROM appointments WHERE review_token = ?').get(token);
+  if (!a || a.status !== 'completed') throw httpError(404, 'This review link is no longer valid');
+  if (db.prepare('SELECT 1 FROM reviews WHERE appointment_id = ?').get(a.id)) {
+    throw httpError(409, 'You already left a review for this visit — thank you!');
+  }
+  db.prepare('INSERT INTO reviews (appointment_id, client_id, staff_id, rating, comment) VALUES (?, ?, ?, ?, ?)')
+    .run(a.id, a.client_id, a.staff_id, rating, str(b.comment, 1000));
+  return { ok: true, google_review_url: rating >= 4 ? getSetting('google_review_url', '') : '' };
 }, { auth: false });

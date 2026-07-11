@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leave a review</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' rx='8' fill='%232563eb'/%3E%3Ccircle cx='15' cy='15' r='7.5' stroke='%23e0f2fe' stroke-width='2.2' fill='none'/%3E%3Ccircle cx='21.4' cy='9.4' r='2.6' fill='%2338bdf8'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .rv-wrap { max-width: 520px; margin: 0 auto; padding: 48px 20px 80px; min-height: 100vh; }
+    body {
+      background:
+        radial-gradient(700px 400px at 15% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent),
+        radial-gradient(500px 350px at 90% 100%, color-mix(in srgb, var(--accent) 5%, transparent), transparent),
+        var(--bg);
+    }
+    :root[data-brand-theme="light"] {
+      --bg: #f5f7fa; --bg-raise: #ffffff; --panel: #ffffff; --panel-2: #eef2f7; --panel-3: #e5ebf4;
+      --border: #d9e1ec; --border-soft: #e6ecf4; --text: #131c2b; --text-2: #4a5a70; --muted: #8895a9;
+      --shadow: 0 12px 30px rgba(16, 24, 40, 0.1);
+    }
+    .brand-logo { max-height: 64px; max-width: 220px; border-radius: 12px; margin: 0 auto 14px; display: block; object-fit: contain; }
+    :root[data-brand-font="classic"] { --brand-display: Georgia, 'Times New Roman', serif; }
+    :root[data-brand-font="rounded"] { --brand-display: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; }
+    .rv-head h1, .rv-card h2 { font-family: var(--brand-display, inherit); }
+    .rv-head { text-align: center; margin-bottom: 28px; }
+    .rv-head h1 { font-size: 22px; letter-spacing: -0.02em; }
+    .rv-head .sub { color: var(--text-2); font-size: 13.5px; margin-top: 6px; }
+    .rv-card {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
+      padding: 32px 26px; text-align: center;
+    }
+    .rv-card h2 { font-size: 18px; margin-bottom: 6px; }
+    .rv-card .visit-sub { color: var(--text-2); font-size: 13px; margin-bottom: 22px; }
+    .stars { display: flex; justify-content: center; gap: 6px; margin: 6px 0 24px; }
+    .star-btn {
+      width: 46px; height: 46px; display: grid; place-items: center;
+      color: var(--border); cursor: pointer; transition: transform 0.1s, color 0.1s;
+      background: none; border: none;
+    }
+    .star-btn svg { width: 34px; height: 34px; }
+    .star-btn:hover { transform: scale(1.12); }
+    .star-btn.on { color: #f5b400; }
+    .star-label { font-size: 13px; font-weight: 600; color: var(--text-2); min-height: 18px; margin-bottom: 16px; }
+    textarea.rv-comment {
+      width: 100%; min-height: 96px; resize: vertical;
+      background: var(--bg-raise); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; font: inherit; color: var(--text); outline: none; margin-bottom: 18px;
+    }
+    textarea.rv-comment:focus { border-color: var(--accent); }
+    .rv-done-icon {
+      width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.4); color: var(--green);
+    }
+    .rv-google {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
+      background: var(--accent-grad); color: var(--accent-ink, #051422);
+      padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13.5px;
+      text-decoration: none;
+    }
+    .powered { text-align: center; margin-top: 30px; color: var(--muted); font-size: 12px; }
+    .powered b { color: var(--text-2); }
+  </style>
+</head>
+<body>
+  <div class="rv-wrap" id="review"></div>
+  <script type="module" src="/js/review.js"></script>
+</body>
+</html>

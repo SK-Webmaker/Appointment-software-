@@ -35,6 +35,8 @@ const ICONS = {
   mail: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
   bar: '<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>',
+  star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  reply: '<polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>',
 };
 
 export function icon(name, size = 16) {
@@ -124,6 +126,14 @@ export const STATUS_LABELS = {
 };
 export function statusChip(status) {
   return `<span class="chip s-${esc(status)}"><span class="dot"></span>${esc(STATUS_LABELS[status] || status)}</span>`;
+}
+
+/** Static 1-5 star display for review ratings (list rows, summaries). */
+export function starsHtml(rating, size = 14) {
+  const n = Math.round(Number(rating) || 0);
+  return `<span class="stars-static" aria-label="${n} out of 5 stars">${[1, 2, 3, 4, 5].map((i) =>
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${i <= n ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+  ).join('')}</span>`;
 }
 
 // ---------- modal ----------

@@ -36,6 +36,12 @@ without either a session or being an intentional public booking endpoint.
 | `POST /api/public/book` | Make a booking | the caller's own confirmation | anyone else's booking |
 | `POST /api/public/confirm-deposit` | Confirm a Stripe deposit | one booking's own details, only when the caller presents the matching unguessable Stripe session id | other bookings |
 | `GET /api/public/ics/:id` | "Add to calendar" file | service name, time, business address | client name, email, phone |
+| `GET /api/public/review` | Load the review form | business name, brand, service/staff/date for *this* visit only, given a random unguessable per-appointment token | any other appointment, other clients' reviews |
+| `POST /api/public/review` | Submit a review | the caller's own new review (requires the same token; rejects a second submission) | any other appointment |
+
+Review links use a 32-character random token (`crypto.randomBytes(16)`), not the
+appointment's numeric id — so a guessed or incremented URL cannot land on someone
+else's visit, and a review can only be left once a visit is marked Completed.
 
 No public endpoint returns a client's contact details, another customer's
 booking, revenue, or any credential. This is verified by an automated test that
@@ -98,10 +104,15 @@ Software can't do these for you:
 
 ## 6. Verified by automated tests
 
-The end-to-end suite (20 checks) and the load test include, specifically:
+The end-to-end suites (39 checks across core, pricing, and receipts/reviews) and the
+load test include, specifically:
 
 - Secrets masked in the authenticated API and **absent** from the public API.
-- The public info/ICS endpoints carry no client PII.
+- The public info/ICS/review endpoints carry no client PII.
+- A review link is single-use and scoped to its own appointment (token-based, not
+  numeric id); resubmitting shows "already reviewed" rather than creating a duplicate.
+- SMS notifications default **off**, verified on a fresh install — no per-text cost is
+  ever incurred without the owner explicitly opting in.
 - A contended booking slot is won by exactly one request (39 of 40 concurrent
   duplicate bookings correctly rejected) — no overbooking under load.
 - 0 HTTP errors across ~30,000 requests at 800–2,300 req/s per endpoint.

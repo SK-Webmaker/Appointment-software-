@@ -12,7 +12,10 @@ export async function renderMessages(container) {
   const configuredEmail = Boolean(state.settings.resend_api_key_set === '1' && state.settings.notif_from_email);
   const configuredSms = Boolean(state.settings.twilio_sid && state.settings.twilio_token_set === '1' && state.settings.twilio_from);
 
-  const KIND = { confirmation: 'Confirmation', reminder: 'Reminder', test: 'Test' };
+  const KIND = {
+    confirmation: 'Confirmation', reminder: 'Reminder', receipt: 'Receipt',
+    review_request: 'Review request', test: 'Test',
+  };
   const STATUS_CHIP = {
     queued: '<span class="chip s-booked"><span class="dot"></span>Queued</span>',
     sent: '<span class="chip s-paid"><span class="dot"></span>Sent</span>',

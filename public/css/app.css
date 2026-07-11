@@ -576,3 +576,26 @@ table.data th.num { text-align: right; }
   .wiz-body { padding: 24px 20px 6px; }
   .wiz-foot { padding: 14px 20px 20px; }
 }
+
+/* ---------- reviews ---------- */
+.stars-static { display: inline-flex; gap: 1px; color: #f5b400; vertical-align: middle; }
+.stars-static svg { flex: 0 0 auto; }
+.review-row {
+  padding: 14px 4px; border-bottom: 1px solid var(--border-soft);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.review-row:last-child { border-bottom: none; }
+.review-row .rr-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.review-row .rr-comment { color: var(--text-2); font-size: 13.5px; line-height: 1.5; }
+.review-row .rr-meta { color: var(--muted); font-size: 11.5px; }
+.review-row .rr-response {
+  margin-left: 18px; padding: 10px 13px; border-radius: 9px;
+  background: var(--panel-2); border: 1px solid var(--border-soft);
+  font-size: 13px; color: var(--text-2);
+}
+.review-row .rr-response b { color: var(--text); }
+.review-reply-form { display: flex; gap: 8px; margin-left: 18px; }
+.review-reply-form input {
+  flex: 1; background: var(--bg-raise); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 11px; font-size: 12.5px;
+}

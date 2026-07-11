@@ -85,29 +85,42 @@ npm run reset-demo   # same thing from the terminal
   ("You're busiest between 9–11 AM")
 - Revenue trend, top services, upcoming appointments
 
-### 💬 Confirmations & reminders (email + SMS)
+### 💬 Confirmations, reminders, receipts & review requests (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit
   (default 24h, configurable) — the single biggest no-show reducer
+- **Payment receipts** sent automatically the moment a payment or online deposit is
+  recorded — itemized amount, method, and remaining balance if any
+- **Review requests** sent automatically after a visit is marked Completed (configurable
+  delay). Clients tap a link, leave 1-5★ and an optional comment on a page branded like
+  your booking page; 4-5★ ratings get a one-tap prompt to also post on Google if you've
+  set a review link. See them all — with reply — on the new **Reviews** page
 - Email via **Resend**, SMS via **Twilio** — paste keys in *Settings → Notifications*
   and they go live; test buttons included
 - A **Messages** page logs every message (queued / sent / failed / skipped) with retry,
   so nothing ever disappears silently. Rescheduling re-queues the reminder;
   cancelling withdraws it.
 
-**What it actually costs** (pay the provider directly — no markup, no plan tiers):
+**What it actually costs** (pay the provider directly — no markup, no plan tiers). Email
+and SMS are priced very differently, so they're broken out separately:
 
-| | Kairo (Resend + Twilio) | Fresha |
+| | Email (Resend) | SMS (Twilio, US) |
 |---|---|---|
-| Email reminders | **Free** — 3,000/month, then $0.001 each | Free up to a monthly allowance, then paid |
-| SMS reminders | **~$0.01–0.02 each** (Twilio's per-segment rate, no markup) | **$0.05–$0.15 each** once the plan's free allowance runs out |
-| Sending number | ~$1/month | Included in plan fee |
-| Base subscription | **$0** | $14.95–$19.95/mo (Individual) or $14.95/staff/mo (Team) |
+| Per message | **Free** up to 3,000/mo (100/day cap), then ~$0.001 | ~$0.008 Twilio + ~$0.003–0.005 carrier surcharge ≈ **1–1.3¢/text** |
+| Sending number | — | ~$1.15/mo |
+| **Required one-time setup** | none | US carrier registration ("A2P 10DLC"): **$4–44 brand fee + $15 campaign vetting** ≈ **$19–59 once** |
+| Recurring platform fee | $0 | **~$1.50–10/mo** ongoing campaign fee (carrier-set, not Kairo's) |
 
-For a salon sending ~300 reminders/month (mostly SMS), that's roughly **$3–6/month in
-actual provider costs** on Kairo versus Fresha's plan fee plus per-message overage charges.
-Because each Kairo instance uses its own Resend/Twilio account (ideally opened in the
-business's name), there's no shared pool to run out of and no markup sitting between the
-business and the provider's real price.
+**This is why SMS defaults OFF in Kairo** (`Settings → Notifications → SMS`) — it isn't
+free the way people assume, and a new deployment should never risk a bill without the
+owner opting in. Email alone (confirmations, reminders, receipts, review requests) costs
+**$0/month** for a typical single-location business and needs zero setup. Turn SMS on only
+when the extra open-rate is worth the ~$20–60 one-time carrier registration plus the small
+monthly fee.
+
+For comparison, Fresha bundles messaging into its plan ($14.95–19.95/mo) with a free
+per-month SMS allowance, then $0.05–0.15 per text after that — Kairo's SMS, once
+registered, runs roughly 3-5x cheaper per message with no plan fee, but the registration
+step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 
 ### 💳 Online deposits (Stripe)
 - Take a card deposit at online booking — fixed amount or % of the service price

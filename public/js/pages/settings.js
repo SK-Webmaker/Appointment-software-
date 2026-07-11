@@ -143,38 +143,72 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">Notifications</div>
-        <div class="card-sub" style="margin-bottom:16px">Automatic booking confirmations &amp; reminders.
-          Email uses <a href="https://resend.com" target="_blank" rel="noreferrer">Resend</a> (free tier: 3,000/mo),
-          SMS uses <a href="https://www.twilio.com" target="_blank" rel="noreferrer">Twilio</a>. Paste keys, hit save, send a test from the
+        <div class="card-sub" style="margin-bottom:16px">Automatic confirmations, reminders, payment receipts &amp;
+          post-visit review requests. Email uses <a href="https://resend.com" target="_blank" rel="noreferrer">Resend</a>
+          (free up to 3,000/mo — plenty for this). Paste keys, hit save, send a test from the
           <a href="#/messages">Messages</a> page.</div>
         <form id="set-notif" style="display:flex;flex-direction:column;gap:13px">
           <div class="form-grid">
             <div class="field">
               <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
                 <input type="checkbox" name="confirm_enabled" ${s.confirm_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Send booking confirmations</label></div>
+                Booking confirmations</label></div>
             <div class="field">
               <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
                 <input type="checkbox" name="reminders_enabled" ${s.reminders_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Send reminders</label></div>
+                Appointment reminders</label></div>
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
+                <input type="checkbox" name="receipts_enabled" ${s.receipts_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
+                Payment receipts</label>
+              <div class="hint">Sent the moment a payment or deposit is recorded.</div></div>
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
+                <input type="checkbox" name="review_requests_enabled" ${s.review_requests_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
+                Review requests</label>
+              <div class="hint">Sent after a visit is marked Completed.</div></div>
           </div>
-          <div class="field"><label>Remind clients this many hours before</label>
-            <select name="reminder_hours">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${Number(s.reminder_hours) === h ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
           <div class="form-grid">
-            <div class="field"><label>Resend API key (email)${keySaved(s.resend_api_key_set)}</label>
-              <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
-            <div class="field"><label>From email (verified in Resend)</label>
-              <input name="notif_from_email" value="${esc(s.notif_from_email || '')}" placeholder="bookings@yourdomain.com"></div>
+            <div class="field"><label>Remind clients this many hours before</label>
+              <select name="reminder_hours">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${Number(s.reminder_hours) === h ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
+            <div class="field"><label>Ask for a review this many hours after</label>
+              <select name="review_delay_hours">${[0, 1, 2, 4, 24].map((h) => `<option value="${h}" ${Number(s.review_delay_hours) === h ? 'selected' : ''}>${h === 0 ? 'Immediately' : `${h} hour${h > 1 ? 's' : ''}`}</option>`).join('')}</select></div>
           </div>
+          <div class="field"><label>Google review link (optional)</label>
+            <input name="google_review_url" value="${esc(s.google_review_url || '')}" placeholder="https://g.page/r/…/review">
+            <div class="hint">Clients who rate you 4-5★ get a one-tap link to also post this on Google.</div></div>
+          <div class="field"><label>Your website address</label>
+            <input name="public_url" value="${esc(s.public_url || '')}" placeholder="${esc(location.origin)}">
+            <div class="hint">Used to build review links in messages. Auto-filled during setup — only change this if you move to a custom domain.</div></div>
+          <div class="field"><label>Resend API key (email)${keySaved(s.resend_api_key_set)}</label>
+            <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
+          <div class="field"><label>From email (verified in Resend)</label>
+            <input name="notif_from_email" value="${esc(s.notif_from_email || '')}" placeholder="bookings@yourdomain.com"></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save notifications</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">SMS (text messages)</div>
+        <div class="card-sub" style="margin-bottom:16px">Every message above can also go out as a text — but unlike
+          email, SMS costs real money per message plus a one-time carrier registration (~$20–60 in the US) and a small
+          monthly fee. <b>Off by default</b> so nothing ever gets billed without you choosing it.
+          Uses <a href="https://www.twilio.com" target="_blank" rel="noreferrer">Twilio</a>.</div>
+        <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} style="width:17px;height:17px;margin-top:1px;accent-color:var(--accent)">
+            <span><b>Also send SMS</b> for every message type above (in addition to email)<br>
+              <span class="hint" style="margin:0">~1–2¢ per text via Twilio, billed to your Twilio account directly — no markup.</span></span>
+          </label>
           <div class="form-grid">
-            <div class="field"><label>Twilio Account SID (SMS)</label>
+            <div class="field"><label>Twilio Account SID</label>
               <input name="twilio_sid" value="${esc(s.twilio_sid || '')}" placeholder="AC…" autocomplete="off"></div>
             <div class="field"><label>Twilio Auth Token${keySaved(s.twilio_token_set)}</label>
               <input name="twilio_token" type="password" value="" placeholder="${keyPlaceholder(s.twilio_token_set, '')}" autocomplete="off"></div>
           </div>
           <div class="field"><label>Twilio phone number (sender)</label>
             <input name="twilio_from" value="${esc(s.twilio_from || '')}" placeholder="+15551234567"></div>
-          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save notifications</button>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save SMS settings</button>
         </form>
       </div>
 
@@ -244,7 +278,10 @@ export async function renderSettings(container) {
     const fd = new FormData(form);
     const payload = {};
     for (const f of fields) {
-      payload[f] = f === 'booking_enabled' ? (fd.get(f) === 'on' ? '1' : '0') : (fd.get(f) ?? '');
+      const el = form.elements[f];
+      // Unchecked checkboxes are absent from FormData; checked ones report
+      // "on" — normalize every checkbox field to the '1'/'0' the API expects.
+      payload[f] = el?.type === 'checkbox' ? (el.checked ? '1' : '0') : (fd.get(f) ?? '');
     }
     state.settings = await api.put('/api/settings', payload);
     setCurrency(state.settings.currency);
@@ -368,8 +405,15 @@ export async function renderSettings(container) {
 
   container.querySelector('#set-notif').addEventListener('submit', (e) => {
     e.preventDefault();
-    saveSettings(e.target, ['confirm_enabled', 'reminders_enabled', 'reminder_hours',
-      'resend_api_key', 'notif_from_email', 'twilio_sid', 'twilio_token', 'twilio_from']);
+    saveSettings(e.target, [
+      'confirm_enabled', 'reminders_enabled', 'receipts_enabled', 'review_requests_enabled',
+      'reminder_hours', 'review_delay_hours', 'google_review_url', 'public_url',
+      'resend_api_key', 'notif_from_email',
+    ]);
+  });
+  container.querySelector('#set-sms').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings(e.target, ['sms_notifications_enabled', 'twilio_sid', 'twilio_token', 'twilio_from']);
   });
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();

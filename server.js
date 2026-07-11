@@ -32,6 +32,7 @@ const MIME = {
 function serveStatic(res, urlPath) {
   let rel = urlPath === '/' ? '/index.html' : urlPath;
   if (rel === '/book') rel = '/book.html';
+  if (rel.startsWith('/review/')) rel = '/review.html'; // client reads the token from the URL itself
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403); res.end('Forbidden'); return;
