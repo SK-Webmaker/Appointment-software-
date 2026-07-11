@@ -78,6 +78,7 @@ How Kairo answers the tools your prospects already use:
 | Email/SMS reminders | ✅ | ✅ | ✅ | ✅ (your own Resend/Twilio keys — at-cost, no markup) |
 | Deposits / no-show protection | ✅ | ✅ | ✅ | ✅ (Stripe) |
 | Invoicing with tax & partial payments | Partial | ✅ | ➖ | ✅ |
+| "From $X" variable pricing on services | ✅ | ➖ | ➖ | ✅ (Fixed / From / Free — matches Fresha's service menu) |
 | Client import (CSV) | ✅ | ✅ | ✅ | ✅ (+ service import, which most competitors lack) |
 | Multi-location | ✅ | ✅ | ➖ | ✅ |
 | Owns the customer relationship | ❌ marketplace can advertise competitors next to you | ➖ | ✅ | ✅ **fully white-label, their brand, their data** |

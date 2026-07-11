@@ -1,9 +1,10 @@
-Service,Category,Duration (min),Price,Description
-Kids Cut,Styling,30,35.00,Ages 12 and under
-Beard Trim & Line-up,Barbering,25,25.00,
-Hot Towel Shave,Barbering,40,45.00,Classic straight-razor shave
-Olaplex Repair,Treatments,50,95.00,Bond-building repair treatment
-Bridal Trial,Occasion,90,150.00,Full style consultation and trial
-Bridal Style,Occasion,120,250.00,Wedding-day styling on location
-Highlights — Half Head,Colour,120,155.00,
-Highlights — Full Head,Colour,150,195.00,
+Service,Category,Duration (min),Price,Price Type,Description
+Kids Cut,Styling,30,35.00,Fixed,Ages 12 and under
+Beard Trim & Line-up,Barbering,25,25.00,Fixed,
+Hot Towel Shave,Barbering,40,45.00,Fixed,Classic straight-razor shave
+Olaplex Repair,Treatments,50,95.00,Fixed,Bond-building repair treatment
+Bridal Consultation,Occasion,30,0,Free,Free 30-minute planning chat
+Bridal Trial,Occasion,90,150.00,Fixed,Full style consultation and trial
+Bridal Style,Occasion,120,250.00,From,Wedding-day styling on location — final price depends on look
+Highlights — Half Head,Colour,120,155.00,From,Price varies with hair length and thickness
+Highlights — Full Head,Colour,150,195.00,From,Price varies with hair length and thickness

@@ -4,12 +4,15 @@
 import { api } from './api.js';
 import { esc, icon, toast, LOGO_SVG } from './ui.js';
 
-// Starter service menus by business type (price in whole currency units).
+// Starter service menus by business type: [name, category, duration_min,
+// price, price_type?]. price_type omitted = 'fixed'; 'from' marks services
+// whose true price depends on the client (hair length, skin area, etc.) —
+// the same distinction Fresha's service menu makes; 'free' marks consults.
 const STARTER = {
   salon: { label: 'Hair salon', emoji: '💇', services: [
     ['Cut & Finish', 'Hair', 60, 55], ['Blow Dry', 'Hair', 45, 35],
-    ['Root Colour', 'Colour', 105, 85], ['Full Colour', 'Colour', 120, 110],
-    ['Balayage', 'Colour', 150, 150], ['Toner & Gloss', 'Colour', 45, 45],
+    ['Root Colour', 'Colour', 105, 85], ['Full Colour', 'Colour', 120, 110, 'from'],
+    ['Balayage', 'Colour', 150, 150, 'from'], ['Toner & Gloss', 'Colour', 45, 45],
     ['Deep Treatment', 'Treatments', 30, 30],
   ] },
   barber: { label: 'Barbershop', emoji: '💈', services: [
@@ -19,8 +22,8 @@ const STARTER = {
   ] },
   nails: { label: 'Nails', emoji: '💅', services: [
     ['Gel Manicure', 'Nails', 45, 35], ['Classic Manicure', 'Nails', 30, 25],
-    ['Gel Pedicure', 'Nails', 60, 45], ['Acrylic Full Set', 'Nails', 90, 60],
-    ['Infills', 'Nails', 60, 40], ['Nail Art', 'Nails', 30, 20],
+    ['Gel Pedicure', 'Nails', 60, 45], ['Acrylic Full Set', 'Nails', 90, 60, 'from'],
+    ['Infills', 'Nails', 60, 40], ['Nail Art', 'Nails', 30, 20, 'from'],
   ] },
   spa: { label: 'Spa & massage', emoji: '💆', services: [
     ['Swedish Massage', 'Massage', 60, 75], ['Deep Tissue Massage', 'Massage', 60, 85],
@@ -28,21 +31,21 @@ const STARTER = {
     ['Body Scrub', 'Body', 45, 60],
   ] },
   aesthetics: { label: 'Aesthetics / clinic', emoji: '✨', services: [
-    ['Consultation', 'Consults', 30, 0], ['Skin Treatment', 'Treatments', 45, 120],
-    ['Dermal Filler', 'Injectables', 45, 250], ['Anti-wrinkle', 'Injectables', 30, 180],
+    ['Consultation', 'Consults', 30, 0, 'free'], ['Skin Treatment', 'Treatments', 45, 120, 'from'],
+    ['Dermal Filler', 'Injectables', 45, 250, 'from'], ['Anti-wrinkle', 'Injectables', 30, 180, 'from'],
     ['Follow-up', 'Consults', 20, 35],
   ] },
   fitness: { label: 'Fitness / trainer', emoji: '🏋️', services: [
     ['Personal Training (60m)', 'Training', 60, 60], ['Personal Training (30m)', 'Training', 30, 35],
-    ['Fitness Assessment', 'Training', 45, 40], ['Small Group Session', 'Training', 60, 25],
+    ['Fitness Assessment', 'Training', 45, 40, 'free'], ['Small Group Session', 'Training', 60, 25],
   ] },
   tattoo: { label: 'Tattoo & piercing', emoji: '🎨', services: [
-    ['Consultation', 'Tattoo', 30, 0], ['Small Tattoo', 'Tattoo', 60, 120],
-    ['Half-Day Session', 'Tattoo', 240, 450], ['Piercing', 'Piercing', 30, 40],
+    ['Consultation', 'Tattoo', 30, 0, 'free'], ['Small Tattoo', 'Tattoo', 60, 120, 'from'],
+    ['Half-Day Session', 'Tattoo', 240, 450, 'from'], ['Piercing', 'Piercing', 30, 40],
   ] },
   other: { label: 'Something else', emoji: '📅', services: [
     ['Standard Appointment', 'General', 60, 50], ['Short Appointment', 'General', 30, 30],
-    ['Consultation', 'General', 45, 0],
+    ['Consultation', 'General', 45, 0, 'free'],
   ] },
 };
 
@@ -189,14 +192,22 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
 
     services: () => `
       <h2>Your services</h2>
-      <p class="wiz-sub">Tick the ones you offer and tweak price or time. You can import a full list later.</p>
+      <p class="wiz-sub">Tick the ones you offer and tweak price or time. Use <b>From</b> for services whose real
+        price depends on the client (hair length, area size…) — you set the exact amount at checkout. You can import a full list later.</p>
       <div class="wiz-services" id="w-services">
         ${data.services.length ? data.services.map((sv, i) => `
           <div class="wiz-svc ${sv.on ? 'on' : ''}">
             <label class="wiz-svc-check"><input type="checkbox" data-svc-on="${i}" ${sv.on ? 'checked' : ''}></label>
             <input class="wiz-svc-name" data-svc-name="${i}" value="${esc(sv.name)}">
             <input class="wiz-svc-dur" type="number" min="5" step="5" data-svc-dur="${i}" value="${sv.duration_min}"><span class="wiz-u">min</span>
-            <span class="wiz-u">${esc(cur())}</span><input class="wiz-svc-price" type="number" min="0" step="1" data-svc-price="${i}" value="${sv.price}">
+            <select class="wiz-svc-ptype" data-svc-ptype="${i}">
+              <option value="fixed" ${sv.price_type === 'fixed' ? 'selected' : ''}>Fixed</option>
+              <option value="from" ${sv.price_type === 'from' ? 'selected' : ''}>From</option>
+              <option value="free" ${sv.price_type === 'free' ? 'selected' : ''}>Free</option>
+            </select>
+            ${sv.price_type === 'free'
+              ? '<span class="wiz-u" style="width:64px;text-align:right">—</span>'
+              : `<span class="wiz-u">${esc(cur())}</span><input class="wiz-svc-price" type="number" min="0" step="1" data-svc-price="${i}" value="${sv.price}">`}
           </div>`).join('') : '<div class="wiz-empty">Pick a business type to load a starter menu — or add your own below.</div>'}
       </div>
       <button type="button" class="btn small" id="w-add-svc">${icon('plus')} Add a service</button>`,
@@ -317,8 +328,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       overlay.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
         data.type = b.dataset.type;
         // load starter menu (only replace if the user hasn't customised yet)
-        data.services = STARTER[data.type].services.map(([name, category, duration_min, price]) =>
-          ({ name, category, duration_min, price, on: true }));
+        data.services = STARTER[data.type].services.map(([name, category, duration_min, price, price_type]) =>
+          ({ name, category, duration_min, price, price_type: price_type || 'fixed', on: true }));
         render();
       }));
     }
@@ -366,9 +377,10 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         else if (t.dataset.svcName != null) data.services[t.dataset.svcName].name = t.value;
         else if (t.dataset.svcDur != null) data.services[t.dataset.svcDur].duration_min = Number(t.value);
         else if (t.dataset.svcPrice != null) data.services[t.dataset.svcPrice].price = Number(t.value);
+        else if (t.dataset.svcPtype != null) { data.services[t.dataset.svcPtype].price_type = t.value; render(); }
       });
       overlay.querySelector('#w-add-svc')?.addEventListener('click', () => {
-        data.services.push({ name: '', category: 'General', duration_min: 45, price: 0, on: true }); render();
+        data.services.push({ name: '', category: 'General', duration_min: 45, price: 0, price_type: 'fixed', on: true }); render();
       });
     }
 
@@ -418,7 +430,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       },
       team: data.team.filter((m) => String(m.name || '').trim()),
       services: data.services.filter((sv) => sv.on && String(sv.name || '').trim())
-        .map((sv) => ({ name: sv.name, category: sv.category || 'General', duration_min: sv.duration_min, price: sv.price })),
+        .map((sv) => ({ name: sv.name, category: sv.category || 'General', duration_min: sv.duration_min, price: sv.price, price_type: sv.price_type || 'fixed' })),
     };
     try {
       await api.post('/api/setup/apply', payload);

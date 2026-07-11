@@ -61,6 +61,7 @@ export function initSchema() {
       category     TEXT NOT NULL DEFAULT 'General',
       duration_min INTEGER NOT NULL DEFAULT 30,
       price_cents  INTEGER NOT NULL DEFAULT 0,
+      price_type   TEXT NOT NULL DEFAULT 'fixed', -- fixed|from|free
       description  TEXT NOT NULL DEFAULT '',
       active       INTEGER NOT NULL DEFAULT 1,
       created_at   TEXT NOT NULL DEFAULT (datetime('now'))
@@ -154,6 +155,7 @@ function migrate() {
   addColumn('appointments', 'deposit_cents', "deposit_cents INTEGER NOT NULL DEFAULT 0");
   addColumn('appointments', 'deposit_status', "deposit_status TEXT NOT NULL DEFAULT ''"); // ''|pending|paid
   addColumn('appointments', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");
+  addColumn('services', 'price_type', "price_type TEXT NOT NULL DEFAULT 'fixed'");
 }
 
 // --- settings helpers -------------------------------------------------------
@@ -335,26 +337,30 @@ export function seedDemo() {
     insStaff.run('Jordan', 'Stylist', '#9085e9', locationId).lastInsertRowid,
   ].map(Number);
 
+  // duration-min price-cents price-type — 'from' demos variable-length services
+  // (colour/braids where the real price depends on hair length/thickness),
+  // 'free' demos a no-charge consult.
   const services = [
-    ['K18 Treatment', 'Treatments', 45, 8500],
-    ['Deep Conditioning', 'Treatments', 30, 4500],
-    ['Scalp Therapy', 'Treatments', 40, 6000],
-    ['Root Colour + Refresh', 'Colour', 105, 14500],
-    ['Full Colour', 'Colour', 120, 16500],
-    ['Balayage', 'Colour', 150, 22000],
-    ['Toner + Gloss', 'Colour', 45, 7500],
-    ['Cut & Finish', 'Styling', 60, 9500],
-    ['Blow Dry', 'Styling', 45, 5500],
-    ['Silk Press', 'Styling', 90, 12000],
-    ['Braids — Full Head', 'Braids', 240, 25000],
-    ['Braids Removal', 'Braids', 90, 6500],
+    ['K18 Treatment', 'Treatments', 45, 8500, 'fixed'],
+    ['Deep Conditioning', 'Treatments', 30, 4500, 'fixed'],
+    ['Scalp Therapy', 'Treatments', 40, 6000, 'fixed'],
+    ['Colour Consultation', 'Treatments', 15, 0, 'free'],
+    ['Root Colour + Refresh', 'Colour', 105, 14500, 'fixed'],
+    ['Full Colour', 'Colour', 120, 16500, 'from'],
+    ['Balayage', 'Colour', 150, 22000, 'from'],
+    ['Toner + Gloss', 'Colour', 45, 7500, 'fixed'],
+    ['Cut & Finish', 'Styling', 60, 9500, 'fixed'],
+    ['Blow Dry', 'Styling', 45, 5500, 'fixed'],
+    ['Silk Press', 'Styling', 90, 12000, 'fixed'],
+    ['Braids — Full Head', 'Braids', 240, 25000, 'from'],
+    ['Braids Removal', 'Braids', 90, 6500, 'fixed'],
   ];
   const insService = db.prepare(
-    'INSERT INTO services (name, category, duration_min, price_cents) VALUES (?, ?, ?, ?)'
+    'INSERT INTO services (name, category, duration_min, price_cents, price_type) VALUES (?, ?, ?, ?, ?)'
   );
-  const serviceRows = services.map(([name, cat, dur, price]) => ({
-    id: Number(insService.run(name, cat, dur, price).lastInsertRowid),
-    name, duration_min: dur, price_cents: price,
+  const serviceRows = services.map(([name, cat, dur, price, ptype]) => ({
+    id: Number(insService.run(name, cat, dur, price, ptype).lastInsertRowid),
+    name, duration_min: dur, price_cents: price, price_type: ptype,
   }));
 
   const people = [

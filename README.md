@@ -59,8 +59,16 @@ npm run reset-demo   # same thing from the terminal
 
 ### 🏷 Services
 - Category-grouped service menu with duration, price and description
+- **Three price types, same as Fresha's service menu:**
+  - **Fixed** — one set price (a haircut, a manicure)
+  - **From** — a starting price for services that vary by client (hair length/thickness,
+    treatment area). Shows as **"From $150"** on the booking page and menu; staff enter
+    the real amount when they check the client out — the invoice always starts pre-filled
+    with the "from" amount and is fully editable
+  - **Free** — no charge (consultations, patch tests) — no price field shown at all
 - **CSV import/export** — same wizard; understands `90`, `90 min` and `1h 30m` durations,
-  `$85` or `85.00` prices
+  `$85` or `85.00` prices, and a `From $150` / `Free` price cell or a separate
+  "Price Type" column
 - Archive services without losing appointment history
 
 ### 🧾 Billing
@@ -80,11 +88,26 @@ npm run reset-demo   # same thing from the terminal
 ### 💬 Confirmations & reminders (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit
   (default 24h, configurable) — the single biggest no-show reducer
-- Email via **Resend** (free tier 3,000/mo), SMS via **Twilio** — paste keys in
-  *Settings → Notifications* and they go live; test buttons included
+- Email via **Resend**, SMS via **Twilio** — paste keys in *Settings → Notifications*
+  and they go live; test buttons included
 - A **Messages** page logs every message (queued / sent / failed / skipped) with retry,
   so nothing ever disappears silently. Rescheduling re-queues the reminder;
   cancelling withdraws it.
+
+**What it actually costs** (pay the provider directly — no markup, no plan tiers):
+
+| | Kairo (Resend + Twilio) | Fresha |
+|---|---|---|
+| Email reminders | **Free** — 3,000/month, then $0.001 each | Free up to a monthly allowance, then paid |
+| SMS reminders | **~$0.01–0.02 each** (Twilio's per-segment rate, no markup) | **$0.05–$0.15 each** once the plan's free allowance runs out |
+| Sending number | ~$1/month | Included in plan fee |
+| Base subscription | **$0** | $14.95–$19.95/mo (Individual) or $14.95/staff/mo (Team) |
+
+For a salon sending ~300 reminders/month (mostly SMS), that's roughly **$3–6/month in
+actual provider costs** on Kairo versus Fresha's plan fee plus per-message overage charges.
+Because each Kairo instance uses its own Resend/Twilio account (ideally opened in the
+business's name), there's no shared pool to run out of and no markup sitting between the
+business and the provider's real price.
 
 ### 💳 Online deposits (Stripe)
 - Take a card deposit at online booking — fixed amount or % of the service price

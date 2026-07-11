@@ -211,7 +211,7 @@ route('POST', '/api/setup/apply', async ({ req }) => {
   let servicesAdded = 0;
   for (const svc of (Array.isArray(b.services) ? b.services : []).slice(0, 200)) {
     try {
-      db.prepare('INSERT INTO services (name, category, duration_min, price_cents, description) VALUES (?, ?, ?, ?, ?)')
+      db.prepare('INSERT INTO services (name, category, duration_min, price_cents, price_type, description) VALUES (?, ?, ?, ?, ?, ?)')
         .run(...serviceBody(svc));
       servicesAdded++;
     } catch { /* skip malformed rows */ }
@@ -417,35 +417,41 @@ route('GET', '/api/services', async ({ query }) => {
   return db.prepare(`SELECT * FROM services ${all ? '' : 'WHERE active = 1'} ORDER BY category, name`).all();
 });
 
+const PRICE_TYPE_LABEL = { fixed: 'Fixed', from: 'From', free: 'Free' };
+
 route('GET', '/api/services/export', async ({ res }) => {
-  const rows = db.prepare('SELECT name, category, duration_min, price_cents, description FROM services ORDER BY category, name').all()
-    .map((r) => ({ ...r, price: (r.price_cents / 100).toFixed(2) }));
+  const rows = db.prepare('SELECT name, category, duration_min, price_cents, price_type, description FROM services ORDER BY category, name').all()
+    .map((r) => ({ ...r, price: (r.price_cents / 100).toFixed(2), price_type_label: PRICE_TYPE_LABEL[r.price_type] || 'Fixed' }));
   const csv = toCsv(
     [
       { key: 'name', label: 'Service' }, { key: 'category', label: 'Category' },
       { key: 'duration_min', label: 'Duration (min)' }, { key: 'price', label: 'Price' },
-      { key: 'description', label: 'Description' },
+      { key: 'price_type_label', label: 'Price Type' }, { key: 'description', label: 'Description' },
     ],
     rows
   );
   sendText(res, 200, csv, 'text/csv; charset=utf-8', { 'Content-Disposition': 'attachment; filename="services.csv"' });
 });
 
+const PRICE_TYPES = new Set(['fixed', 'from', 'free']);
+
 function serviceBody(b) {
   const name = str(b.name, 200);
   if (!name) throw httpError(400, 'Service name is required');
   const duration = clampInt(b.duration_min, 5, 24 * 60, NaN);
   if (Number.isNaN(duration)) throw httpError(400, 'Duration must be a number of minutes');
+  const priceType = PRICE_TYPES.has(b.price_type) ? b.price_type : 'fixed';
   let cents = b.price_cents;
   if (cents == null && b.price != null) cents = Math.round(parseFloat(String(b.price).replace(/[^0-9.\-]/g, '')) * 100);
   cents = Number.isFinite(Number(cents)) ? Math.max(0, Math.round(Number(cents))) : NaN;
-  if (Number.isNaN(cents)) throw httpError(400, 'Price must be a number');
-  return [name, str(b.category, 100) || 'General', duration, cents, str(b.description, 1000)];
+  if (priceType === 'free') cents = 0; // "Free" services never carry a price
+  else if (Number.isNaN(cents)) throw httpError(400, 'Price must be a number');
+  return [name, str(b.category, 100) || 'General', duration, cents, priceType, str(b.description, 1000)];
 }
 
 route('POST', '/api/services', async ({ req }) => {
   const info = db.prepare(
-    'INSERT INTO services (name, category, duration_min, price_cents, description) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO services (name, category, duration_min, price_cents, price_type, description) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(...serviceBody(await readJson(req)));
   return db.prepare('SELECT * FROM services WHERE id = ?').get(info.lastInsertRowid);
 });
@@ -455,7 +461,7 @@ route('PUT', '/api/services/:id', async ({ req, params }) => {
   if (!existing) throw httpError(404, 'Service not found');
   const b = await readJson(req);
   db.prepare(
-    'UPDATE services SET name = ?, category = ?, duration_min = ?, price_cents = ?, description = ?, active = ? WHERE id = ?'
+    'UPDATE services SET name = ?, category = ?, duration_min = ?, price_cents = ?, price_type = ?, description = ?, active = ? WHERE id = ?'
   ).run(...serviceBody(b), b.active === undefined ? existing.active : (b.active ? 1 : 0), params.id);
   return db.prepare('SELECT * FROM services WHERE id = ?').get(params.id);
 });
@@ -475,17 +481,34 @@ route('POST', '/api/services/import', async ({ req }) => {
   if (!Array.isArray(rows)) throw httpError(400, 'Expected { rows: [...] }');
   if (rows.length > 2000) throw httpError(400, 'Import is limited to 2000 rows at a time');
   const dupe = db.prepare('SELECT id FROM services WHERE name = ? AND category = ?');
-  const ins = db.prepare('INSERT INTO services (name, category, duration_min, price_cents, description) VALUES (?, ?, ?, ?, ?)');
+  const ins = db.prepare('INSERT INTO services (name, category, duration_min, price_cents, price_type, description) VALUES (?, ?, ?, ?, ?, ?)');
   let imported = 0, skipped = 0, invalid = 0;
   for (const raw of rows) {
     let fields;
-    try { fields = serviceBody(raw); } catch { invalid++; continue; }
+    try { fields = serviceBody(normalizePriceTypeImport(raw)); } catch { invalid++; continue; }
     if (dupe.get(fields[0], fields[1])) { skipped++; continue; }
     ins.run(...fields);
     imported++;
   }
   return { imported, skipped, invalid };
 });
+
+// Accepts a "Price Type" column as free text (Fixed/From/Free, any case, or
+// a bare "from $85" / "free" in the price cell) so imports from other tools
+// don't need an exact match.
+function normalizePriceTypeImport(raw) {
+  const row = { ...raw };
+  const typeCell = str(row.price_type, 30).toLowerCase();
+  if (typeCell.startsWith('from')) row.price_type = 'from';
+  else if (typeCell.startsWith('free') || typeCell === '0' || typeCell === 'no') row.price_type = 'free';
+  else if (typeCell.startsWith('fix')) row.price_type = 'fixed';
+  else {
+    const priceCell = str(row.price ?? row.price_cents, 40).toLowerCase();
+    if (priceCell.startsWith('from')) { row.price_type = 'from'; row.price = priceCell.replace(/from/i, ''); }
+    else if (/^(free|0(\.00?)?)$/.test(priceCell.trim())) row.price_type = 'free';
+  }
+  return row;
+}
 
 // ---------------------------------------------------------------------------
 // Appointments
@@ -903,7 +926,7 @@ route('GET', '/api/public/info', async () => {
       gallery: safeGallery(getSetting('brand_gallery', '')),
       tagline: getSetting('brand_tagline', ''),
     },
-    services: db.prepare('SELECT id, name, category, duration_min, price_cents, description FROM services WHERE active = 1 ORDER BY category, name').all(),
+    services: db.prepare('SELECT id, name, category, duration_min, price_cents, price_type, description FROM services WHERE active = 1 ORDER BY category, name').all(),
     staff: db.prepare('SELECT id, name, title, location_id FROM staff WHERE active = 1 ORDER BY id').all(),
     locations: db.prepare('SELECT id, name, address, phone FROM locations WHERE active = 1 ORDER BY id').all(),
     deposit: {

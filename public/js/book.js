@@ -1,5 +1,5 @@
 // Public booking flow: service → staff → date & time → details → confirmed.
-import { esc, icon, money, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
+import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
 
 const root = document.getElementById('book');
 const state = { info: null, location: null, service: null, staff: null, date: todayStr(), slot: null, step: 1 };
@@ -142,7 +142,7 @@ function renderServiceStep() {
             <div class="o-name">${esc(s.name)}</div>
             <div class="o-sub">${s.duration_min} min${s.description ? ` · ${esc(s.description)}` : ''}</div>
           </div>
-          <div class="o-price">${money(s.price_cents)}</div>
+          <div class="o-price">${priceLabel(s)}</div>
         </button>`).join('')}`).join('')}
     ${poweredHtml()}`;
   root.querySelector('#back-loc')?.addEventListener('click', renderLocationStep);
@@ -164,7 +164,7 @@ function renderStaffStep() {
   state.step = 2;
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
-    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(state.service.name)} · ${money(state.service.price_cents)}</button>
+    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(state.service.name)} · ${priceLabel(state.service)}</button>
     <div class="bk-section-title">Who would you like?</div>
     <button class="bk-option" data-staff="any">
       <div><div class="o-name">Any available</div><div class="o-sub">First free team member</div></div>
@@ -252,8 +252,9 @@ function renderDetailsStep() {
     <div class="bk-summary">
       <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('calendar')}</span>
       <div>
-        <b>${esc(state.service.name)}</b> · ${money(state.service.price_cents)}<br>
+        <b>${esc(state.service.name)}</b> · ${priceLabel(state.service)}<br>
         <span style="color:var(--text-2)">${fmtDate(state.date)} at ${fmtTime(state.slot.start_min)}${state.staff ? ` with ${esc(state.staff.name)}` : ''}</span>
+        ${state.service.price_type === 'from' ? '<div style="color:var(--muted);font-size:11.5px;margin-top:2px">Final price confirmed at your appointment</div>' : ''}
       </div>
     </div>
     ${depositNoteHtml()}

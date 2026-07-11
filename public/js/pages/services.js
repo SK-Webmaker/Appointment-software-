@@ -1,6 +1,6 @@
 // Services: category-grouped catalogue, add/edit, CSV import/export.
 import { api } from '../api.js';
-import { esc, icon, money, openModal, confirmDialog, toast, downloadText } from '../ui.js';
+import { esc, icon, money, priceLabel, openModal, confirmDialog, toast, downloadText } from '../ui.js';
 import { runImportWizard } from '../import.js';
 import { refreshLookups } from '../app.js';
 
@@ -15,7 +15,7 @@ export async function renderServices(container) {
     <div class="card svc-card" data-id="${s.id}" style="${s.active ? '' : 'opacity:0.55'}">
       <div class="sc-top">
         <div class="sc-name">${esc(s.name)}</div>
-        <div class="sc-price money">${money(s.price_cents)}</div>
+        <div class="sc-price money">${priceLabel(s)}</div>
       </div>
       ${s.description ? `<div class="cell-sub">${esc(s.description)}</div>` : ''}
       <div class="sc-meta">
@@ -74,8 +74,17 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
           <datalist id="cat-list">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
         <div class="field"><label>Duration (minutes) *</label>
           <input name="duration_min" type="number" min="5" step="5" required value="${s?.duration_min || 60}"></div>
-        <div class="field"><label>Price *</label>
-          <input name="price" type="number" min="0" step="0.01" required value="${s ? (s.price_cents / 100).toFixed(2) : ''}" placeholder="85.00"></div>
+        <div class="field span2"><label>Pricing</label>
+          <div class="seg" id="svc-price-type" style="width:fit-content">
+            <button type="button" data-pt="fixed" class="${(!s || s.price_type === 'fixed' || !s.price_type) ? 'active' : ''}">Fixed price</button>
+            <button type="button" data-pt="from" class="${s?.price_type === 'from' ? 'active' : ''}">From</button>
+            <button type="button" data-pt="free" class="${s?.price_type === 'free' ? 'active' : ''}">Free</button>
+          </div>
+          <input type="hidden" name="price_type" value="${esc(s?.price_type || 'fixed')}">
+          <div class="hint" id="svc-price-hint">"From" is for services whose real price depends on length, thickness or complexity — clients see a starting price, and you set the exact amount at checkout.</div></div>
+        <div class="field" id="svc-price-field" style="${s?.price_type === 'free' ? 'display:none' : ''}">
+          <label id="svc-price-label">${s?.price_type === 'from' ? 'Starting price *' : 'Price *'}</label>
+          <input name="price" type="number" min="0" step="0.01" ${s?.price_type === 'free' ? '' : 'required'} value="${s ? (s.price_cents / 100).toFixed(2) : ''}" placeholder="85.00"></div>
         <div class="field"><label>&nbsp;</label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
             <input type="checkbox" name="active" ${!s || s.active ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)"> Bookable online</label></div>
@@ -88,14 +97,28 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
       <button class="btn primary" id="svc-save">${icon('check')} ${s ? 'Save changes' : 'Add service'}</button>`,
   });
 
+  m.querySelector('#svc-price-type').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-pt]');
+    if (!b) return;
+    m.querySelectorAll('#svc-price-type button').forEach((x) => x.classList.toggle('active', x === b));
+    m.querySelector('[name=price_type]').value = b.dataset.pt;
+    const isFree = b.dataset.pt === 'free';
+    m.querySelector('#svc-price-field').style.display = isFree ? 'none' : '';
+    m.querySelector('#svc-price-label').textContent = b.dataset.pt === 'from' ? 'Starting price *' : 'Price *';
+    m.querySelector('[name=price]').required = !isFree;
+  });
+
   m.querySelector('#svc-save').onclick = async () => {
     const fd = new FormData(m.querySelector('#svc-form'));
+    const priceType = fd.get('price_type') || 'fixed';
     const payload = {
       name: fd.get('name'), category: fd.get('category'),
-      duration_min: Number(fd.get('duration_min')), price: fd.get('price'),
+      duration_min: Number(fd.get('duration_min')),
+      price: priceType === 'free' ? 0 : fd.get('price'), price_type: priceType,
       description: fd.get('description'), active: fd.get('active') === 'on',
     };
     if (!payload.name.trim()) { toast('Service name is required', 'err'); return; }
+    if (priceType !== 'free' && payload.price === '') { toast('Enter a price, or switch to Free', 'err'); return; }
     try {
       if (s) await api.put(`/api/services/${s.id}`, payload);
       else await api.post('/api/services', payload);

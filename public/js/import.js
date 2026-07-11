@@ -36,6 +36,7 @@ const KINDS = {
       { key: 'category', label: 'Category', candidates: ['category', 'group', 'type'] },
       { key: 'duration_min', label: 'Duration (min)', required: true, candidates: ['duration', 'minutes', 'mins', 'time', 'length'] },
       { key: 'price', label: 'Price', required: true, candidates: ['price', 'cost', 'amount', 'rate', 'fee'] },
+      { key: 'price_type', label: 'Price type (Fixed/From/Free)', candidates: ['pricetype', 'type'] },
       { key: 'description', label: 'Description', candidates: ['description', 'details', 'note'] },
     ],
     transform: (row) => {
@@ -46,6 +47,12 @@ const KINDS = {
         const mm = s.match(/(\d+)\s*m/);
         if (h || mm) row.duration_min = Math.round((h ? parseFloat(h[1]) * 60 : 0) + (mm ? parseInt(mm[1], 10) : 0));
         else row.duration_min = parseInt(s.replace(/[^0-9]/g, ''), 10);
+      }
+      // tolerate "From $85", "from", "free" written straight in the price cell
+      const p = String(row.price || '').trim().toLowerCase();
+      if (!row.price_type) {
+        if (p.startsWith('from')) { row.price_type = 'from'; row.price = p.replace(/from/i, ''); }
+        else if (/^(free|0(\.00?)?)?$/.test(p)) row.price_type = p ? 'free' : undefined;
       }
       return row;
     },

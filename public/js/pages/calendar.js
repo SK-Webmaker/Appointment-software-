@@ -2,7 +2,7 @@
 // drag-to-reschedule, and the appointment editor modal.
 import { api, ApiError } from '../api.js';
 import {
-  esc, icon, money, fmtTime, fmtTimeShort, fmtDate, todayStr, addDaysStr, parseDate, dateToStr,
+  esc, icon, money, priceLabel, fmtTime, fmtTimeShort, fmtDate, todayStr, addDaysStr, parseDate, dateToStr,
   openModal, confirmDialog, toast, timeOptions, statusChip, initials, avatarColor,
 } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
@@ -358,7 +358,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     const cats = [...new Set(state.services.map((s) => s.category))];
     return cats.map((c) =>
       `<optgroup label="${esc(c)}">${state.services.filter((s) => s.category === c).map((s) =>
-        `<option value="${s.id}" data-dur="${s.duration_min}" data-price="${s.price_cents}" ${s.id === selService ? 'selected' : ''}>${esc(s.name)} — ${money(s.price_cents)}</option>`).join('')}</optgroup>`
+        `<option value="${s.id}" data-dur="${s.duration_min}" data-price="${s.price_cents}" ${s.id === selService ? 'selected' : ''}>${esc(s.name)} — ${priceLabel(s)}</option>`).join('')}</optgroup>`
     ).join('');
   };
 

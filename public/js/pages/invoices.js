@@ -1,7 +1,7 @@
 // Billing: invoice list with filters, invoice editor, payments, print view.
 import { api } from '../api.js';
 import {
-  esc, icon, money, fmtDate, todayStr, openModal, confirmDialog, toast, statusChip,
+  esc, icon, money, priceLabel, fmtDate, todayStr, openModal, confirmDialog, toast, statusChip,
 } from '../ui.js';
 import { state } from '../app.js';
 
@@ -323,7 +323,7 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
       body: state.services.map((s) => `
         <button class="list-item" data-svc="${s.id}" style="width:100%;text-align:left">
           <div style="flex:1"><div class="cell-main">${esc(s.name)}</div><div class="cell-sub">${esc(s.category)}</div></div>
-          <div class="money" style="font-weight:600">${money(s.price_cents)}</div>
+          <div class="money" style="font-weight:600">${priceLabel(s)}</div>
         </button>`).join('') || '<div class="empty">No services defined.</div>',
     });
     picker.addEventListener('click', (e) => {

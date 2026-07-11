@@ -62,6 +62,19 @@ export function money(cents) {
   return `${CURRENCY}${s}`;
 }
 
+/**
+ * How a service's price reads on a menu: "$85.00" (fixed), "From $85.00"
+ * (price varies — length/thickness/complexity — staff set the real amount at
+ * checkout), or "Free" (consults, patch tests). Matches Fresha's three price
+ * types. Always use this for menu/listing display; checkout still starts
+ * from the stored price_cents as an editable number either way.
+ */
+export function priceLabel(service) {
+  if (service?.price_type === 'free') return 'Free';
+  if (service?.price_type === 'from') return `From ${money(service.price_cents)}`;
+  return money(service?.price_cents);
+}
+
 export function fmtTime(min) {
   let h = Math.floor(min / 60), m = min % 60;
   const ap = h >= 12 ? 'PM' : 'AM';
