@@ -14,6 +14,7 @@ import { runSetupWizard } from './wizard.js';
 export const state = {
   user: null,
   settings: {},
+  version: '',
   staff: [],
   services: [],
   locations: [],
@@ -112,6 +113,7 @@ function renderShell() {
             <div><div class="u-name">${esc(state.user.name)}</div><div class="u-role">${esc(state.user.role)}</div></div>
             <button class="icon-btn" id="logout" title="Sign out">${icon('logout')}</button>
           </div>
+          <div style="text-align:center;color:var(--muted);font-size:10.5px;margin-top:8px;letter-spacing:0.03em">Kairo v${esc(state.version || '')}</div>
         </div>
       </aside>
       <div class="main">
@@ -167,6 +169,7 @@ async function boot() {
     const me = await api.get('/api/auth/me');
     state.user = me.user;
     state.settings = me.settings;
+    state.version = me.version || '';
     setCurrency(state.settings.currency);
     // First login on a fresh deployment → guided setup wizard before the app.
     if (state.settings.setup_complete !== '1') {

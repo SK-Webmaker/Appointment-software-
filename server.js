@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { bootstrap, getSetting } from './src/db.js';
 import { handleApi } from './src/api.js';
 import { startScheduler } from './src/notify.js';
+import { VERSION } from './src/version.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -77,7 +78,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   const name = getSetting('business_name', 'your business');
   console.log('');
-  console.log('  ◆ Kairo is running');
+  console.log(`  ◆ Kairo v${VERSION} is running`);
   console.log(`    Workspace (${name}):  http://localhost:${PORT}`);
   console.log(`    Public booking page:  http://localhost:${PORT}/book`);
   console.log('');

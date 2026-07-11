@@ -15,6 +15,7 @@ import {
   deliverMessage, processQueue,
 } from './notify.js';
 import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
+import { VERSION } from './version.js';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
 const INVOICE_STATUSES = new Set(['draft', 'sent', 'paid', 'void']);
@@ -105,7 +106,9 @@ route('POST', '/api/auth/logout', async ({ res }) => {
   return { ok: true };
 }, { auth: false });
 
-route('GET', '/api/auth/me', async ({ user }) => ({ user, settings: getSettings() }));
+route('GET', '/api/auth/me', async ({ user }) => ({ user, settings: getSettings(), version: VERSION }));
+
+route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
 
 route('PUT', '/api/auth/password', async ({ req, user }) => {
   const { current, next } = await readJson(req);

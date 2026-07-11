@@ -203,6 +203,15 @@ Everything works with zero accounts. These unlock delivery/payments when you're 
 Use Stripe **test keys** (`sk_test_…`) to rehearse the deposit flow with the card
 number `4242 4242 4242 4242` before going live.
 
+## Updating a deployed instance
+
+Updates are quick and safe — see **[UPDATING.md](UPDATING.md)**. In short: on
+Render/Railway/Fly a push auto-deploys; on a VPS it's `npm run update` + restart.
+Kairo has no dependencies to install and **automatically backs up the database
+before applying migrations on startup**, so upgrades never lose data and can be
+rolled back. The running version shows in the sidebar, the startup log, and at
+`GET /api/version`.
+
 ## Selling Kairo
 
 See **[SELLING.md](SELLING.md)** for the full go-to-market playbook (pricing, pitch,

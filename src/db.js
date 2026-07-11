@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashPassword } from './auth.js';
 import { dateStr } from './util.js';
+import { VERSION } from './version.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DATA_DIR = process.env.KAIRO_DATA_DIR || path.join(ROOT, 'data');
@@ -237,8 +238,43 @@ const DEFAULT_SETTINGS = {
   brand_tagline: '',
 };
 
+/**
+ * Make a consistent, safe copy of the database before an update applies its
+ * migrations — so an upgrade is always reversible. Uses VACUUM INTO (atomic,
+ * WAL-safe). Keeps the 5 most recent backups.
+ */
+function backupBeforeUpdate(fromVersion) {
+  try {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const dest = path.join(DATA_DIR, `backup-v${fromVersion}-${stamp}.db`);
+    db.exec(`VACUUM INTO '${dest.replace(/'/g, "''")}'`);
+    const backups = fs.readdirSync(DATA_DIR)
+      .filter((f) => f.startsWith('backup-') && f.endsWith('.db'))
+      .sort()
+      .reverse();
+    for (const old of backups.slice(5)) {
+      try { fs.unlinkSync(path.join(DATA_DIR, old)); } catch { /* ignore */ }
+    }
+    console.log(`  ↳ database backed up before update → data/${path.basename(dest)}`);
+  } catch (err) {
+    console.error('  ↳ pre-update backup failed (continuing):', err.message);
+  }
+}
+
+/** Read a setting even before initSchema has run (returns '' if unavailable). */
+function settingIfExists(key) {
+  try { return getSetting(key, ''); } catch { return ''; }
+}
+
 export function bootstrap() {
+  // If this database was created by an older version, snapshot it before the
+  // new version's migrations touch the schema. Fresh databases have no prior
+  // version, so nothing is backed up on first install.
+  const priorVersion = settingIfExists('app_version');
+  if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);
+
   initSchema();
+  setSetting('app_version', VERSION);
   if (!getSetting('session_secret')) {
     setSetting('session_secret', crypto.randomBytes(32).toString('hex'));
   }
