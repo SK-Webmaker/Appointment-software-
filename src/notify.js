@@ -12,6 +12,7 @@
 // to having Twilio credentials configured — a business opts in deliberately.
 import crypto from 'node:crypto';
 import { db, getSetting } from './db.js';
+import { renderEmail } from './email-html.js';
 
 function money(cents) {
   const currency = getSetting('currency', '$') || '$';
@@ -54,24 +55,47 @@ function clientChannels(email, phone) {
   return channels;
 }
 
+// Builds {subject, body (plain text — used for SMS and as the email text
+// fallback), html (branded email layout)} for every message kind.
 function buildCopy(kind, a, extra = {}) {
   const biz = getSetting('business_name', 'us');
-  const phoneLine = getSetting('business_phone') ? ` · ${getSetting('business_phone')}` : '';
-  const when = `${fmtDate(a.date)} at ${fmtTime(a.start_min)}`;
+  const phone = getSetting('business_phone', '');
+  const phoneLine = phone ? ` · ${phone}` : '';
+  const when = a.date ? `${fmtDate(a.date)} at ${fmtTime(a.start_min)}` : '';
   const what = a.service_name || 'your appointment';
   const who = a.staff_name ? ` with ${a.staff_name}` : '';
   const name = a.first_name || 'there';
+  const visitDetails = [
+    ['Service', a.service_name || ''],
+    ['With', a.staff_name || ''],
+    ['When', when],
+    ['Where', getSetting('business_address', '')],
+  ];
 
   if (kind === 'confirmation') {
     return {
       subject: `Booking confirmed — ${what} on ${fmtDate(a.date)}`,
       body: `Hi ${name},\n\nYou're booked for ${what}${who} on ${when}.\n\nSee you soon!\n${biz}${phoneLine}`,
+      html: renderEmail({
+        heading: 'Your booking is confirmed',
+        greeting: `Hi ${name},`,
+        paragraphs: ['Great news — your appointment is locked in. Here are the details:'],
+        details: visitDetails,
+        footNote: phone ? `Need to change it? Call us on ${phone}.` : '',
+      }),
     };
   }
   if (kind === 'reminder') {
     return {
       subject: `Reminder — ${what} ${fmtDate(a.date)}`,
-      body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.\n\nNeed to change it? Call us on ${getSetting('business_phone') || 'our usual number'}.\n\n${biz}`,
+      body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.\n\nNeed to change it? Call us on ${phone || 'our usual number'}.\n\n${biz}`,
+      html: renderEmail({
+        heading: 'See you soon!',
+        greeting: `Hi ${name},`,
+        paragraphs: ['A friendly reminder about your upcoming visit:'],
+        details: visitDetails,
+        footNote: phone ? `Running late or need to reschedule? Call us on ${phone}.` : '',
+      }),
     };
   }
   if (kind === 'receipt') {
@@ -79,28 +103,50 @@ function buildCopy(kind, a, extra = {}) {
       return {
         subject: `Deposit received — ${money(extra.amountCents)} · ${biz}`,
         body: `Hi ${name},\n\nWe've received your ${money(extra.amountCents)} deposit for ${what}${who} on ${when}. It comes off your total when you visit.\n\nSee you soon!\n${biz}${phoneLine}`,
+        html: renderEmail({
+          heading: 'Deposit received',
+          greeting: `Hi ${name},`,
+          paragraphs: ['Thanks — your deposit is in, and your appointment is secured. It comes off your total on the day.'],
+          details: [['Deposit paid', money(extra.amountCents)], ...visitDetails],
+        }),
       };
     }
-    const balanceLine = extra.balanceCents > 0
-      ? `\nRemaining balance: ${money(extra.balanceCents)}`
-      : '\nPaid in full — thank you!';
+    const paidInFull = !(extra.balanceCents > 0);
     return {
       subject: `Receipt — ${money(extra.amountCents)} · ${a.invoiceNumber || biz}`,
-      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${extra.method}) for ${what}${who}.${balanceLine}\n\n${biz}${phoneLine}`,
+      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${extra.method}) for ${what}${who}.${paidInFull ? '\nPaid in full — thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
+      html: renderEmail({
+        heading: paidInFull ? 'Payment received — thank you!' : 'Payment received',
+        greeting: `Hi ${name},`,
+        paragraphs: ['This confirms your payment. A summary for your records:'],
+        details: [
+          ['Amount paid', money(extra.amountCents)],
+          ['Method', extra.method || ''],
+          ['Invoice', a.invoiceNumber || ''],
+          ['Service', a.service_name || ''],
+          paidInFull ? ['Balance', 'Paid in full'] : ['Balance remaining', money(extra.balanceCents)],
+        ],
+      }),
     };
   }
   if (kind === 'review_request') {
     return {
       subject: `How was your visit to ${biz}?`,
       body: `Hi ${name},\n\nThanks for visiting ${biz} for ${what}${who}. We'd love to hear how it went — it takes 30 seconds:\n${extra.reviewUrl}\n\n${biz}`,
+      html: renderEmail({
+        heading: 'How did we do?',
+        greeting: `Hi ${name},`,
+        paragraphs: [`Thanks for visiting us for ${what}${who}. Your feedback takes 30 seconds and means a lot to a small business.`],
+        cta: { label: 'Rate your visit', url: extra.reviewUrl },
+      }),
     };
   }
-  return { subject: '', body: '' };
+  return { subject: '', body: '', html: '' };
 }
 
 const insMessage = () => db.prepare(
-  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, status, send_after)
-   VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?)`
+  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)`
 );
 
 /**
@@ -121,7 +167,7 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
   if (confirmation && getSetting('confirm_enabled', '1') === '1') {
     const copy = buildCopy('confirmation', a);
     for (const [channel, to] of channels) {
-      ins.run(a.id, a.client_id, channel, 'confirmation', to, copy.subject, copy.body, now);
+      ins.run(a.id, a.client_id, channel, 'confirmation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
     }
   }
 
@@ -133,7 +179,7 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
     if (sendAfter > now) { // don't remind about appointments that are (nearly) now
       const copy = buildCopy('reminder', a);
       for (const [channel, to] of channels) {
-        ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, sendAfter);
+        ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
       }
     }
   }
@@ -166,7 +212,7 @@ export function queueReceiptMessage(invoiceId, { amountCents, method, balanceCen
   const now = localStamp();
   const ins = insMessage();
   for (const [channel, to] of channels) {
-    ins.run(inv.appointment_id || null, inv.client_id, channel, 'receipt', to, copy.subject, copy.body, now);
+    ins.run(inv.appointment_id || null, inv.client_id, channel, 'receipt', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
   }
 }
 
@@ -182,7 +228,7 @@ export function queueDepositReceipt(apptId, amountCents) {
   const now = localStamp();
   const ins = insMessage();
   for (const [channel, to] of channels) {
-    ins.run(a.id, a.client_id, channel, 'receipt', to, copy.subject, copy.body, now);
+    ins.run(a.id, a.client_id, channel, 'receipt', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
   }
 }
 
@@ -215,7 +261,7 @@ export function queueReviewRequest(apptId) {
   const copy = buildCopy('review_request', a, { reviewUrl });
   const ins = insMessage();
   for (const [channel, to] of channels) {
-    ins.run(a.id, a.client_id, channel, 'review_request', to, copy.subject, copy.body, sendAfter);
+    ins.run(a.id, a.client_id, channel, 'review_request', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
   }
 }
 
@@ -236,7 +282,7 @@ export function requeueAppointmentMessages(apptId) {
 // Delivery
 // ---------------------------------------------------------------------------
 
-async function sendEmail(to, subject, body) {
+export async function sendEmail(to, subject, body, html = '') {
   const key = getSetting('resend_api_key');
   const from = getSetting('notif_from_email');
   if (!key || !from) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
@@ -247,7 +293,8 @@ async function sendEmail(to, subject, body) {
       from: `${getSetting('business_name', 'Bookings')} <${from}>`,
       to: [to],
       subject,
-      text: body,
+      text: body,               // plain-text fallback for clients that prefer it
+      ...(html ? { html } : {}), // branded layout for everyone else
     }),
   });
   if (res.ok) return { ok: true, detail: 'Delivered via Resend' };
@@ -278,7 +325,7 @@ export async function deliverMessage(msg) {
   try {
     result = msg.channel === 'sms'
       ? await sendSms(msg.to_addr, msg.body)
-      : await sendEmail(msg.to_addr, msg.subject, msg.body);
+      : await sendEmail(msg.to_addr, msg.subject, msg.body, msg.html || '');
   } catch (err) {
     result = { ok: false, detail: `Network error: ${err.message}` };
   }

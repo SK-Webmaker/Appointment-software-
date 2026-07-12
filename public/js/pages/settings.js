@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
+import { SCHEMES } from '../schemes.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
@@ -52,6 +53,14 @@ export async function renderSettings(container) {
             <div class="field"><label>Closes</label>
               <select name="close_min">${timeOptions(Number(s.close_min || 1200), { from: 780, to: 1440, step: 30 })}</select></div>
           </div>
+          <div class="field"><label>Days you're open</label>
+            <div id="open-days" style="display:flex;gap:6px;flex-wrap:wrap">
+              ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
+                const on = String(s.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number).includes(i);
+                return `<button type="button" class="btn small ${on ? 'primary' : ''}" data-day="${i}" aria-pressed="${on}">${d}</button>`;
+              }).join('')}
+            </div>
+            <div class="hint">Closed days never appear as options on the customer booking page. Staff can still add walk-ins on closed days from the calendar.</div></div>
           <div class="field"><label>Online booking slot interval</label>
             <select name="slot_interval">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${Number(s.slot_interval) === v ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
           <div class="field">
@@ -73,19 +82,30 @@ export async function renderSettings(container) {
         <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand —
           logo, colour and light/dark style. <a href="/book" target="_blank">Open the booking page ↗</a> to preview.</div>
         <form id="set-brand" style="display:flex;flex-direction:column;gap:13px">
-          <div class="form-grid">
-            <div class="field"><label>Style</label>
-              <select name="brand_theme">
-                <option value="dark" ${s.brand_theme !== 'light' ? 'selected' : ''}>Dark (sleek, tech)</option>
-                <option value="light" ${s.brand_theme === 'light' ? 'selected' : ''}>Light (bright, airy)</option>
-              </select></div>
-            <div class="field"><label>Font style</label>
-              <select name="brand_font">
-                <option value="modern" ${s.brand_font !== 'classic' && s.brand_font !== 'rounded' ? 'selected' : ''}>Modern (clean sans)</option>
-                <option value="classic" ${s.brand_font === 'classic' ? 'selected' : ''}>Classic (elegant serif)</option>
-                <option value="rounded" ${s.brand_font === 'rounded' ? 'selected' : ''}>Rounded (friendly)</option>
-              </select></div>
-          </div>
+          <div class="field"><label>Colour scheme</label>
+            <div id="brand-schemes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px">
+              ${Object.entries(SCHEMES).map(([id, sc]) => {
+                const active = (s.brand_scheme || (s.brand_theme === 'light' ? 'daylight' : 'midnight')) === id;
+                return `
+                <button type="button" data-scheme="${id}" aria-pressed="${active}"
+                  style="display:flex;flex-direction:column;gap:0;overflow:hidden;text-align:left;border-radius:10px;padding:0;cursor:pointer;
+                         border:2px solid ${active ? 'var(--accent)' : 'var(--border)'}">
+                  <span style="display:block;height:34px;background:${sc.bg};position:relative">
+                    <span style="position:absolute;left:8px;top:8px;right:26px;height:7px;border-radius:4px;background:${sc.panel2}"></span>
+                    <span style="position:absolute;left:8px;top:20px;width:38px;height:7px;border-radius:4px;background:${sc.panel3}"></span>
+                  </span>
+                  <span style="display:block;padding:6px 9px;font-size:11.5px;font-weight:600;background:var(--panel-2);color:var(--text-2)">${sc.label}</span>
+                </button>`;
+              }).join('')}
+            </div>
+            <input type="hidden" name="brand_scheme" value="${esc(s.brand_scheme || (s.brand_theme === 'light' ? 'daylight' : 'midnight'))}">
+            <div class="hint">The whole booking page — background, cards, text — takes this scheme; your brand colour below is used for buttons and highlights on top of it.</div></div>
+          <div class="field"><label>Font style</label>
+            <select name="brand_font">
+              <option value="modern" ${s.brand_font !== 'classic' && s.brand_font !== 'rounded' ? 'selected' : ''}>Modern (clean sans)</option>
+              <option value="classic" ${s.brand_font === 'classic' ? 'selected' : ''}>Classic (elegant serif)</option>
+              <option value="rounded" ${s.brand_font === 'rounded' ? 'selected' : ''}>Rounded (friendly)</option>
+            </select></div>
           <div class="field"><label>Brand colour</label>
             <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap" id="brand-swatches">
               ${['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a'].map((c) =>
@@ -256,6 +276,16 @@ export async function renderSettings(container) {
       <div class="card">
         <div class="card-title">Security</div>
         <div class="card-sub" style="margin-bottom:16px">Signed in as ${esc(state.user.email)}</div>
+        <div class="field" style="margin-bottom:16px"><label>Email verification</label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${state.user.email_verified
+              ? `<span class="chip s-paid"><span class="dot"></span>Verified</span>
+                 <span class="hint" style="margin:0">${esc(state.user.email)} is confirmed.</span>`
+              : `<span class="chip s-sent"><span class="dot"></span>Not verified</span>
+                 <button type="button" class="btn small" id="send-verify">${icon('mail')} Send verification email</button>`}
+          </div>
+          ${state.user.email_verified ? '' : '<div class="hint">Confirms you own this address. Needs email set up (Notifications card) first.</div>'}
+        </div>
         <form id="set-password" style="display:flex;flex-direction:column;gap:13px">
           <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
           <div class="field"><label>New password (min 8 chars)</label><input name="next" type="password" autocomplete="new-password" required minlength="8"></div>
@@ -292,9 +322,28 @@ export async function renderSettings(container) {
     e.preventDefault();
     saveSettings(e.target, ['business_name', 'business_phone', 'business_email', 'business_address']);
   });
-  container.querySelector('#set-hours').addEventListener('submit', (e) => {
+  // day-of-week toggles for "Days you're open"
+  container.querySelector('#open-days').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-day]');
+    if (!b) return;
+    const on = b.getAttribute('aria-pressed') !== 'true';
+    b.setAttribute('aria-pressed', String(on));
+    b.classList.toggle('primary', on);
+  });
+  container.querySelector('#set-hours').addEventListener('submit', async (e) => {
     e.preventDefault();
-    saveSettings(e.target, ['open_min', 'close_min', 'slot_interval', 'booking_enabled']);
+    const days = [...container.querySelectorAll('#open-days [data-day]')]
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+      .map((b) => b.dataset.day);
+    if (!days.length) { toast('Pick at least one open day', 'err'); return; }
+    const fd = new FormData(e.target);
+    state.settings = await api.put('/api/settings', {
+      open_min: fd.get('open_min'), close_min: fd.get('close_min'),
+      slot_interval: fd.get('slot_interval'),
+      booking_enabled: e.target.elements.booking_enabled.checked ? '1' : '0',
+      open_days: days.join(','),
+    });
+    toast('Hours saved');
   });
   container.querySelector('#set-billing').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -307,6 +356,28 @@ export async function renderSettings(container) {
     ? state.settings.brand_gallery
     : parseGallery(s.brand_gallery);
   const brandForm = container.querySelector('#set-brand');
+
+  container.querySelector('#brand-schemes').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-scheme]');
+    if (!b) return;
+    brandForm.querySelector('[name=brand_scheme]').value = b.dataset.scheme;
+    container.querySelectorAll('#brand-schemes [data-scheme]').forEach((x) => {
+      const on = x === b;
+      x.setAttribute('aria-pressed', String(on));
+      x.style.borderColor = on ? 'var(--accent)' : 'var(--border)';
+    });
+  });
+
+  container.querySelector('#send-verify')?.addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      const res = await api.post('/api/auth/send-verification', {});
+      toast(res.already_verified ? 'Already verified' : `Verification email sent to ${res.sent_to}`);
+    } catch (err) {
+      toast(err.message, 'err');
+      e.target.disabled = false;
+    }
+  });
 
   container.querySelector('#brand-swatches').addEventListener('click', (e) => {
     const b = e.target.closest('[data-c]');
@@ -388,8 +459,10 @@ export async function renderSettings(container) {
     e.preventDefault();
     const fd = new FormData(brandForm);
     try {
+      const schemeId = fd.get('brand_scheme') || 'midnight';
       state.settings = await api.put('/api/settings', {
-        brand_theme: fd.get('brand_theme'),
+        brand_scheme: schemeId,
+        brand_theme: (SCHEMES[schemeId]?.mode === 'light') ? 'light' : 'dark', // back-compat
         brand_font: fd.get('brand_font'),
         brand_accent: fd.get('brand_accent'),
         brand_tagline: fd.get('brand_tagline'),

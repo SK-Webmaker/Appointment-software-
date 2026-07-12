@@ -168,6 +168,10 @@ function migrate() {
   addColumn('appointments', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");
   addColumn('services', 'price_type', "price_type TEXT NOT NULL DEFAULT 'fixed'");
   addColumn('appointments', 'review_token', "review_token TEXT NOT NULL DEFAULT ''");
+  addColumn('messages', 'html', "html TEXT NOT NULL DEFAULT ''");
+  addColumn('users', 'email_verified', 'email_verified INTEGER NOT NULL DEFAULT 0');
+  addColumn('users', 'verify_token', "verify_token TEXT NOT NULL DEFAULT ''");
+  addColumn('users', 'verify_sent_at', "verify_sent_at TEXT NOT NULL DEFAULT ''");
 }
 
 // --- settings helpers -------------------------------------------------------
@@ -223,6 +227,7 @@ const DEFAULT_SETTINGS = {
   tax_rate: '0',
   open_min: '480',        // 08:00
   close_min: '1200',      // 20:00
+  open_days: '1,2,3,4,5,6', // weekday numbers, 0=Sun … 6=Sat (default Mon–Sat)
   slot_interval: '15',
   booking_enabled: '1',
   invoice_prefix: 'INV-',
@@ -253,7 +258,8 @@ const DEFAULT_SETTINGS = {
   deposit_value: '20',
   // Booking page branding (per business)
   brand_accent: '#38bdf8',
-  brand_theme: 'dark',    // dark|light
+  brand_theme: 'dark',    // dark|light (base mode; superseded by brand_scheme when set)
+  brand_scheme: '',       // preset scheme id ('noir','cream',…) or '' = follow brand_theme
   brand_font: 'modern',   // modern|classic|rounded
   brand_logo: '',         // data: URI, uploaded in Settings
   brand_cover: '',        // data: URI, hero banner on the booking page
@@ -345,6 +351,7 @@ export function seedDemo() {
   setSetting('business_phone', '(555) 010-2030');
   setSetting('business_address', '12 Market Street');
   setSetting('tax_rate', '8.5');
+  setSetting('open_days', '1,2,3,4,5,6'); // the demo salon is closed Sundays (matches seeded appointments)
 
   const locationId = Number(
     db.prepare('INSERT INTO locations (name, address, phone) VALUES (?, ?, ?)')

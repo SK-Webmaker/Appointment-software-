@@ -72,6 +72,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       tax_rate: s.tax_rate || '0',
       open_min: Number(s.open_min || 540),
       close_min: Number(s.close_min || 1140),
+      open_days: String(s.open_days || '1,2,3,4,5,6').split(',').map(Number).filter((d) => d >= 0 && d <= 6),
       slot_interval: s.slot_interval || '15',
       brand_theme: s.brand_theme || 'dark',
       brand_accent: /^#[0-9a-fA-F]{6}$/.test(s.brand_accent || '') ? s.brand_accent : '#38bdf8',
@@ -154,6 +155,14 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       <h2>When are you open?</h2>
       <p class="wiz-sub">Sets the calendar grid and the times customers can book online.</p>
       <div class="wiz-form">
+        <div class="field"><label>Days you're open</label>
+          <div id="w-days" style="display:flex;gap:6px;flex-wrap:wrap">
+            ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
+              const on = data.settings.open_days.includes(i);
+              return `<button type="button" class="btn small ${on ? 'primary' : ''}" data-day="${i}" aria-pressed="${on}">${d}</button>`;
+            }).join('')}
+          </div>
+          <div class="hint" style="font-size:11.5px;color:var(--muted)">Closed days won't be offered to customers booking online.</div></div>
         <div class="wiz-2col">
           <div class="field"><label>Opens</label><select id="w-open">${timeOpts(data.settings.open_min)}</select></div>
           <div class="field"><label>Closes</label><select id="w-close">${timeOpts(data.settings.close_min)}</select></div>
@@ -284,6 +293,10 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       data.settings.open_min = Number(val('#w-open'));
       data.settings.close_min = Number(val('#w-close'));
       data.settings.slot_interval = val('#w-slot');
+      const days = [...overlay.querySelectorAll('#w-days [data-day]')]
+        .filter((b) => b.getAttribute('aria-pressed') === 'true')
+        .map((b) => Number(b.dataset.day));
+      if (days.length) data.settings.open_days = days;
     } else if (id === 'brand') {
       data.settings.brand_theme = val('#w-theme');
       data.settings.brand_font = val('#w-font');
@@ -345,6 +358,16 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
           ({ name, category, duration_min, price, price_type: price_type || 'fixed', on: true }));
         render();
       }));
+    }
+
+    if (id === 'hours') {
+      overlay.querySelector('#w-days')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-day]');
+        if (!b) return;
+        const on = b.getAttribute('aria-pressed') !== 'true';
+        b.setAttribute('aria-pressed', String(on));
+        b.classList.toggle('primary', on);
+      });
     }
 
     if (id === 'brand') {
@@ -436,6 +459,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       fresh: data.fresh,
       settings: {
         ...data.settings,
+        open_days: data.settings.open_days.join(','),
         confirm_enabled: data.settings.confirm_enabled ? '1' : '0',
         reminders_enabled: data.settings.reminders_enabled ? '1' : '0',
         receipts_enabled: data.settings.receipts_enabled ? '1' : '0',

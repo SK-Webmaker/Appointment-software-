@@ -3,6 +3,7 @@
 // leaves a comment. Happy clients (4-5★) get an extra nudge to also post on
 // Google if the business has set a review link.
 import { esc, icon, fmtDate } from './ui.js';
+import { resolveScheme, applyScheme } from './schemes.js';
 
 const root = document.getElementById('review');
 const token = decodeURIComponent(location.pathname.replace(/^\/review\/?/, ''));
@@ -17,7 +18,7 @@ async function getJson(url, opts) {
 function applyBrand(brand) {
   if (!brand) return;
   const root = document.documentElement;
-  if (brand.theme === 'light') root.dataset.brandTheme = 'light';
+  applyScheme(resolveScheme(brand)); // same full colour scheme as the booking page
   if (brand.font && brand.font !== 'modern') root.dataset.brandFont = brand.font;
   const accent = /^#[0-9a-fA-F]{6}$/.test(brand.accent || '') ? brand.accent : '#38bdf8';
   const [r, g, b] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16));

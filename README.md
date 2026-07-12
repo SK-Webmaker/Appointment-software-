@@ -136,27 +136,48 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 
 ### 🎨 Booking-page branding (per business)
 - Each business styles the customer booking page in *Settings → Booking page appearance*:
-  brand **colour**, **light or dark** style, a **font personality** (modern / classic
+  a full **colour scheme** (8 curated palettes — Midnight, Noir, Deep Ocean, Mocha,
+  Daylight, Cream, Blush, Sage — the *whole page* takes the scheme: background,
+  cards, text), a brand **colour**, a **font personality** (modern / classic
   serif / rounded), a **logo**, a wide **cover photo**, a **gallery** of up to 4 work
   photos, and a welcome line — so the page looks like *their* brand, not Kairo's
 - All images are stored in the business's own database as size-capped data URIs;
   nothing is uploaded to a third party
 
+### 📆 Working days
+- Pick the days the business is open (*Settings → Hours & booking* or the setup
+  wizard) — closed days **never appear** on the customer booking page's date
+  picker, and the server refuses closed-day bookings even from crafted requests
+- Staff can still add walk-ins on a closed day from the calendar (one-off openings)
+
+### ✉️ Branded HTML emails
+- Confirmations, reminders, receipts and review requests go out as **polished,
+  mobile-friendly HTML emails** in the business's brand colour, with a details
+  card (service, time, amount paid, balance) and the business's name and address
+  in the footer — plus a plain-text fallback for old mail apps
+
 ### 🔒 Security (see [SECURITY.md](SECURITY.md))
 - One private instance + database per business — the strongest data isolation
 - API keys (Stripe/Resend/Twilio) are **write-only** and never sent to the browser
+- **Rate limiting on every endpoint** — per-IP for public traffic, per-user+IP for
+  staff; graceful `429` + `Retry-After`, tight on login/booking/review abuse
+- **Schema-based input validation** on every write: type checks, length limits,
+  numeric ranges, and **unexpected fields rejected** (even nested ones)
+- **Owner email verification** — the business verifies its account email with a
+  single-use, expiring link (Settings → Security)
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
-  escaped output, path-traversal-safe static serving, login rate limiting
+  escaped output, path-traversal-safe static serving
 
 ### 🗓 Extra touches
 - "Add to calendar" (.ics) button on the customer confirmation screen
 - Online bookings marked ⚡ on the calendar
 
 ### ⚙️ Settings
-- Business profile (shown on invoices + booking page), working hours, slot interval
+- Business profile (shown on invoices + booking page), working hours, **working
+  days**, slot interval
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
-- Password change, demo-data reset
+- Password change, **email verification**, demo-data reset
 
 ## Running a pilot with a real business
 

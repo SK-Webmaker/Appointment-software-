@@ -8,7 +8,7 @@ the first paying business.
 
 ## 1. Feature audit — everything in the box, everything tested
 
-Every ✅ below was exercised end-to-end in a real browser (18/18 automated checks passing).
+Every ✅ below was exercised end-to-end in a real browser (61/61 automated checks passing).
 
 ### Scheduling
 - ✅ Day calendar with a column per staff member (Fresha-style day book)
@@ -144,9 +144,9 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 
 ## 4. Verified-by-test summary
 
-Automated end-to-end suite (Chromium, real UI), across three suites:
+Automated end-to-end suite (Chromium, real UI), across four suites:
 
-- **Core (22 checks):** login, setup wizard, dashboard, calendar day/week, appointment
+- **Core (23 checks):** login, setup wizard, dashboard, calendar day/week, appointment
   create + conflict handling, client CSV import + dedupe re-import, service CSV import,
   invoice payment → Paid flip, public booking → appears on admin calendar, ICS download,
   messages queued/logged + test-send reporting, second location → calendar filter + booking
@@ -159,5 +159,14 @@ Automated end-to-end suite (Chromium, real UI), across three suites:
   a payment auto-queues a Receipt, completing a visit auto-queues a Review request, the
   branded public review page accepts a rating and is idempotent on reuse, the review shows
   on the staff Reviews page, and an owner reply saves.
+- **Security (21 checks, v1.5):** schema validation rejects unknown fields (top-level and
+  nested), oversized strings, wrong types, out-of-range values and non-editable settings
+  keys; rate limits fire gracefully (429 + Retry-After) on public reads, login brute-force
+  and booking spam while other IPs stay unaffected; owner email verification is
+  single-use with friendly pages for bad/expired links and clear guidance when email
+  isn't configured yet; closed working days offer zero slots and refuse direct booking
+  POSTs; colour schemes reach the public page; receipts carry the branded HTML template.
 
-**39/39 passing.**
+**61/61 passing**, plus a load test: 0 HTTP errors at 2,000+ req/s on the public booking
+surface (rate limiter active), worst p95 ≈ 115 ms, and a 40-way race for the same slot
+won by exactly one booking.

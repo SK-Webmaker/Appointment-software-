@@ -8,7 +8,7 @@ import {
 } from './util.js';
 import {
   hashPassword, verifyPassword, createSession, verifySession,
-  sessionCookie, clearSessionCookie, loginRateLimited, COOKIE_NAME,
+  sessionCookie, clearSessionCookie, COOKIE_NAME,
 } from './auth.js';
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
@@ -16,6 +16,11 @@ import {
 } from './notify.js';
 import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
 import { VERSION } from './version.js';
+import { checkBody, s } from './validate.js';
+import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
+import { renderEmail } from './email-html.js';
+import { sendEmail } from './notify.js';
+import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
 const INVOICE_STATUSES = new Set(['draft', 'sent', 'paid', 'void']);
@@ -34,7 +39,27 @@ function route(method, pattern, handler, { auth = true } = {}) {
   routes.push({ method, regex, names, handler, auth });
 }
 
+function tooMany(res, over) {
+  res.setHeader('Retry-After', String(over.retryAfterSec));
+  sendJson(res, 429, {
+    error: `Too many requests — please wait ${over.retryAfterSec > 90 ? Math.ceil(over.retryAfterSec / 60) + ' minutes' : over.retryAfterSec + ' seconds'} and try again`,
+    retry_after: over.retryAfterSec,
+  });
+}
+
 export async function handleApi(req, res, pathname, query) {
+  // Rate limiting, before anything else touches the request:
+  // an absolute per-IP ceiling across the whole API, plus a per-bucket policy
+  // (login / booking / review / public reads each have their own limits).
+  const ip = clientIp(req);
+  const globalOver = rateHit('api_global', ip);
+  if (globalOver) return tooMany(res, globalOver);
+  const bucket = classifyRequest(req.method, pathname);
+  if (bucket !== 'authed') {
+    const over = rateHit(bucket, ip);
+    if (over) return tooMany(res, over);
+  }
+
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = r.regex.exec(pathname);
@@ -46,8 +71,11 @@ export async function handleApi(req, res, pathname, query) {
     if (r.auth) {
       const token = parseCookies(req)[COOKIE_NAME];
       const userId = verifySession(token, getSetting('session_secret'));
-      if (userId) user = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(userId);
+      if (userId) user = db.prepare('SELECT id, name, email, role, email_verified FROM users WHERE id = ?').get(userId);
       if (!user) return sendJson(res, 401, { error: 'Not signed in' });
+      // user-based limit on authenticated traffic (in addition to the IP ceiling)
+      const userOver = rateHit('authed', `u${user.id}:${ip}`);
+      if (userOver) return tooMany(res, userOver);
     }
 
     try {
@@ -89,16 +117,18 @@ function safeGallery(raw) {
 // ---------------------------------------------------------------------------
 
 route('POST', '/api/auth/login', async ({ req, res }) => {
-  const ip = req.socket.remoteAddress || 'unknown';
-  if (loginRateLimited(ip)) throw httpError(429, 'Too many attempts — try again in a few minutes');
-  const { email, password } = await readJson(req);
+  // (brute-force limiting for this route lives in the central rate limiter's 'login' bucket)
+  const { email, password } = checkBody(await readJson(req), {
+    email: s.str(200, { required: true }),
+    password: s.str(200, { required: true }),
+  });
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(str(email).toLowerCase());
   if (!user || !verifyPassword(String(password || ''), user.salt, user.pass_hash)) {
     throw httpError(401, 'Invalid email or password');
   }
   const token = createSession(user.id, getSetting('session_secret'));
   res.setHeader('Set-Cookie', sessionCookie(token));
-  return { user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+  return { user: { id: user.id, name: user.name, email: user.email, role: user.role, email_verified: user.email_verified } };
 }, { auth: false });
 
 route('POST', '/api/auth/logout', async ({ res }) => {
@@ -111,7 +141,10 @@ route('GET', '/api/auth/me', async ({ user }) => ({ user, settings: getSettings(
 route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
 
 route('PUT', '/api/auth/password', async ({ req, user }) => {
-  const { current, next } = await readJson(req);
+  const { current, next } = checkBody(await readJson(req), {
+    current: s.str(200, { required: true }),
+    next: s.str(200, { required: true }),
+  });
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   if (!verifyPassword(String(current || ''), row.salt, row.pass_hash)) {
     throw httpError(400, 'Current password is incorrect');
@@ -123,6 +156,66 @@ route('PUT', '/api/auth/password', async ({ req, user }) => {
 });
 
 // ---------------------------------------------------------------------------
+// Owner email verification. A random single-use token is emailed to the
+// account address; visiting the link marks the account verified. Tokens
+// expire after 48 hours and are replaced on every re-send.
+// ---------------------------------------------------------------------------
+
+route('POST', '/api/auth/send-verification', async ({ req, user }) => {
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  if (row.email_verified) return { ok: true, already_verified: true };
+  const token = crypto.randomBytes(24).toString('hex');
+  const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
+  db.prepare('UPDATE users SET verify_token = ?, verify_sent_at = ? WHERE id = ?').run(token, now, user.id);
+
+  // Build the link from the live request host — always correct, even before
+  // public_url has been configured.
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  const origin = getSetting('public_url') || `${proto}://${req.headers.host}`;
+  const url = `${origin}/api/auth/verify-email?token=${token}`;
+
+  const html = renderEmail({
+    heading: 'Verify your email address',
+    greeting: `Hi ${row.name},`,
+    paragraphs: [
+      `Confirm that ${row.email} is yours to finish securing your ${getSetting('business_name', 'Kairo')} account.`,
+      'This link works once and expires in 48 hours.',
+    ],
+    cta: { label: 'Verify my email', url },
+    footNote: "If you didn't request this, you can safely ignore it.",
+  });
+  const result = await sendEmail(row.email, 'Verify your email — Kairo', `Verify your email by opening this link (valid 48h):\n${url}`, html);
+  if (!result.ok) {
+    throw httpError(result.skipped ? 400 : 502,
+      result.skipped ? 'Set up email first (Settings → Notifications) so the verification email can be sent' : `Could not send: ${result.detail}`);
+  }
+  return { ok: true, sent_to: row.email };
+});
+
+route('GET', '/api/auth/verify-email', async ({ res, query }) => {
+  const token = str(query.get('token'), 64);
+  const page = (title, msg, good) => sendText(res, good ? 200 : 400, `<!doctype html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+<body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#0b1220;font-family:system-ui,sans-serif;color:#e8edf6">
+<div style="text-align:center;max-width:420px;padding:24px">
+  <div style="font-size:44px;margin-bottom:12px">${good ? '✅' : '⚠️'}</div>
+  <h1 style="font-size:21px;margin:0 0 8px">${title}</h1>
+  <p style="color:#9aa7bd;line-height:1.6;margin:0 0 22px">${msg}</p>
+  <a href="/" style="color:#38bdf8;font-weight:600;text-decoration:none">Go to your workspace →</a>
+</div></body></html>`, 'text/html; charset=utf-8');
+
+  if (!token) return page('Link not valid', 'This verification link is missing its code. Request a fresh one from Settings → Security.', false);
+  const row = db.prepare('SELECT * FROM users WHERE verify_token = ?').get(token);
+  if (!row) return page('Link not valid', 'This verification link was already used or has been replaced. Request a fresh one from Settings → Security.', false);
+  const sentAt = new Date(`${row.verify_sent_at.replace(' ', 'T')}:00Z`).getTime();
+  if (!sentAt || Date.now() - sentAt > 48 * 60 * 60 * 1000) {
+    return page('Link expired', 'Verification links are valid for 48 hours. Request a fresh one from Settings → Security.', false);
+  }
+  db.prepare("UPDATE users SET email_verified = 1, verify_token = '' WHERE id = ?").run(row.id);
+  return page('Email verified', `${row.email} is now confirmed. Your account is fully set up.`, true);
+}, { auth: false });
+
+// ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
 
@@ -130,6 +223,7 @@ const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
+  'open_days', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'sms_notifications_enabled', 'public_url',
@@ -168,10 +262,47 @@ function applySettings(body) {
   }
 }
 
+// Shared field schemas (validate.js): type checks, length limits, and
+// rejection of unexpected fields on every write endpoint.
+const CLIENT_SCHEMA = {
+  first_name: s.str(100, { required: true }), last_name: s.str(100),
+  email: s.str(200), phone: s.str(50), notes: s.str(2000),
+};
+const SERVICE_SCHEMA = {
+  name: s.str(200, { required: true }), category: s.str(100),
+  duration_min: s.num({ min: 1, max: 1440 }), price: s.num({ min: 0, max: 1_000_000 }),
+  price_cents: s.num({ min: 0, max: 100_000_000 }),
+  price_type: s.oneOf(['fixed', 'from', 'free']), description: s.str(1000), active: s.bool(),
+};
+const INVOICE_ITEM_SCHEMA = {
+  id: s.num(), invoice_id: s.num(),
+  description: s.str(300), qty: s.num({ min: 0, max: 10000 }), unit_cents: s.num({ min: 0, max: 100_000_000 }),
+};
+const INVOICE_SCHEMA = {
+  client_id: s.num(), appointment_id: s.num(),
+  issue_date: s.str(10), due_date: s.str(10),
+  status: s.oneOf(['draft', 'sent', 'paid', 'void']),
+  tax_rate: s.num({ min: 0, max: 100 }), discount_cents: s.num({ min: 0, max: 100_000_000 }),
+  notes: s.str(2000), items: s.arr(s.obj(INVOICE_ITEM_SCHEMA), 100),
+};
+const APPT_SCHEMA = {
+  client_id: s.num(),
+  new_client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }),
+  service_id: s.num(), staff_id: s.num({ required: true }),
+  date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
+  end_min: s.num({ min: 0, max: 1440 }),
+  status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']),
+  notes: s.str(2000), force: s.bool(),
+};
+
 route('GET', '/api/settings', async () => getSettings());
 
 route('PUT', '/api/settings', async ({ req }) => {
-  applySettings(await readJson(req));
+  const body = await readJson(req);
+  for (const k of Object.keys(body)) {
+    if (!EDITABLE_SETTINGS.has(k)) throw httpError(400, `Unexpected field: ${k}`);
+  }
+  applySettings(body);
   return getSettings();
 });
 
@@ -191,6 +322,20 @@ route('POST', '/api/setup/skip', async () => {
 
 route('POST', '/api/setup/apply', async ({ req }) => {
   const b = await readJson(req);
+  checkBody(b, {
+    fresh: s.bool(),
+    settings: { type: 'raw' },                      // validated against EDITABLE_SETTINGS below
+    team: s.arr(s.obj({ name: s.str(100), title: s.str(100) }), 30),
+    services: s.arr(s.obj({
+      name: s.str(200), category: s.str(100), duration_min: s.num({ min: 1, max: 1440 }),
+      price: s.num({ min: 0, max: 1_000_000 }), price_type: s.oneOf(['fixed', 'from', 'free']),
+    }), 200),
+  });
+  if (b.settings) {
+    for (const k of Object.keys(b.settings)) {
+      if (!EDITABLE_SETTINGS.has(k)) throw httpError(400, `Unexpected field: settings.${k}`);
+    }
+  }
   if (b.fresh) clearBusinessData();
 
   // Ensure a location exists (staff attach to it; booking page uses it).
@@ -234,7 +379,7 @@ route('GET', '/api/locations', async ({ query }) => {
 });
 
 route('POST', '/api/locations', async ({ req }) => {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), { name: s.str(150), address: s.str(300), phone: s.str(50), active: s.bool() });
   if (!str(b.name)) throw httpError(400, 'Location name is required');
   const info = db.prepare('INSERT INTO locations (name, address, phone) VALUES (?, ?, ?)')
     .run(str(b.name, 150), str(b.address, 300), str(b.phone, 50));
@@ -244,7 +389,7 @@ route('POST', '/api/locations', async ({ req }) => {
 route('PUT', '/api/locations/:id', async ({ req, params }) => {
   const existing = db.prepare('SELECT * FROM locations WHERE id = ?').get(params.id);
   if (!existing) throw httpError(404, 'Location not found');
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), { name: s.str(150), address: s.str(300), phone: s.str(50), active: s.bool() });
   db.prepare('UPDATE locations SET name = ?, address = ?, phone = ?, active = ? WHERE id = ?').run(
     str(b.name, 150) || existing.name, str(b.address, 300), str(b.phone, 50),
     b.active === undefined ? existing.active : (b.active ? 1 : 0), params.id
@@ -278,7 +423,7 @@ route('GET', '/api/staff', async ({ query }) => {
 });
 
 route('POST', '/api/staff', async ({ req }) => {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), { name: s.str(100), title: s.str(100), color: s.str(20), active: s.bool(), location_id: s.num() });
   if (!str(b.name)) throw httpError(400, 'Name is required');
   const info = db.prepare('INSERT INTO staff (name, title, color, location_id) VALUES (?, ?, ?, ?)')
     .run(str(b.name, 100), str(b.title, 100), str(b.color, 20) || '#3987e5', Number(b.location_id) || null);
@@ -286,7 +431,7 @@ route('POST', '/api/staff', async ({ req }) => {
 });
 
 route('PUT', '/api/staff/:id', async ({ req, params }) => {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), { name: s.str(100), title: s.str(100), color: s.str(20), active: s.bool(), location_id: s.num() });
   const existing = db.prepare('SELECT * FROM staff WHERE id = ?').get(params.id);
   if (!existing) throw httpError(404, 'Staff member not found');
   db.prepare('UPDATE staff SET name = ?, title = ?, color = ?, active = ?, location_id = ? WHERE id = ?').run(
@@ -365,6 +510,7 @@ route('GET', '/api/clients/:id', async ({ params }) => {
 });
 
 function clientBody(b) {
+  checkBody(b, CLIENT_SCHEMA);
   const first = str(b.first_name, 100);
   if (!first) throw httpError(400, 'First name is required');
   return [first, str(b.last_name, 100), str(b.email, 200).toLowerCase(), str(b.phone, 50), str(b.notes, 2000)];
@@ -438,6 +584,7 @@ route('GET', '/api/services/export', async ({ res }) => {
 const PRICE_TYPES = new Set(['fixed', 'from', 'free']);
 
 function serviceBody(b) {
+  checkBody(b, SERVICE_SCHEMA);
   const name = str(b.name, 200);
   if (!name) throw httpError(400, 'Service name is required');
   const duration = clampInt(b.duration_min, 5, 24 * 60, NaN);
@@ -552,7 +699,7 @@ function findConflict(staffId, date, startMin, endMin, excludeId = 0) {
 }
 
 async function apptBody(req) {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), APPT_SCHEMA);
   const staffId = Number(b.staff_id);
   if (!db.prepare('SELECT id FROM staff WHERE id = ?').get(staffId)) throw httpError(400, 'Choose a staff member');
   if (!isDateStr(b.date)) throw httpError(400, 'Date must be YYYY-MM-DD');
@@ -613,7 +760,7 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
 });
 
 route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
-  const { status } = await readJson(req);
+  const { status } = checkBody(await readJson(req), { status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show'], { required: true }) });
   if (!APPT_STATUSES.has(status)) throw httpError(400, 'Invalid status');
   const before = db.prepare('SELECT status FROM appointments WHERE id = ?').get(params.id);
   db.prepare('UPDATE appointments SET status = ? WHERE id = ?').run(status, params.id);
@@ -659,14 +806,27 @@ route('POST', '/api/messages/:id/retry', async ({ params }) => {
 });
 
 route('POST', '/api/messages/test', async ({ req }) => {
-  const { channel, to } = await readJson(req);
-  const target = str(to, 200) || (channel === 'sms' ? getSetting('business_phone') : getSetting('business_email'));
+  const b = checkBody(await readJson(req), {
+    channel: s.oneOf(['email', 'sms']),
+    to: s.str(200),
+  });
+  const channel = b.channel === 'sms' ? 'sms' : 'email';
+  const target = str(b.to, 200) || (channel === 'sms' ? getSetting('business_phone') : getSetting('business_email'));
   if (!target) throw httpError(400, 'No destination — set your business email/phone first');
+  const testHtml = channel === 'email' ? renderEmail({
+    heading: 'Your notifications are working!',
+    greeting: 'Hi there,',
+    paragraphs: [
+      `This is a test from ${getSetting('business_name', 'Kairo')}. If you're reading this, your email setup is live —`
+      + ' confirmations, reminders, receipts and review requests will look just like this.',
+    ],
+    details: [['Status', 'Connected ✓'], ['Sent from', getSetting('notif_from_email', '')]],
+  }) : '';
   const info = db.prepare(
-    `INSERT INTO messages (channel, kind, to_addr, subject, body, status, send_after)
-     VALUES (?, 'test', ?, ?, ?, 'queued', '')`
-  ).run(channel === 'sms' ? 'sms' : 'email', target,
-        'Kairo test message', `This is a test from ${getSetting('business_name', 'Kairo')} — your notification setup works! 🎉`);
+    `INSERT INTO messages (channel, kind, to_addr, subject, body, html, status, send_after)
+     VALUES (?, 'test', ?, ?, ?, ?, 'queued', '')`
+  ).run(channel, target,
+        'Kairo test message', `This is a test from ${getSetting('business_name', 'Kairo')} — your notification setup works! 🎉`, testHtml);
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(info.lastInsertRowid);
   const result = await deliverMessage(msg);
   return { ok: result.ok, status: result.status, detail: result.detail };
@@ -739,7 +899,7 @@ function writeItems(invoiceId, items) {
 }
 
 route('POST', '/api/invoices', async ({ req }) => {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), INVOICE_SCHEMA);
   const clientId = Number(b.client_id) || null;
   const issue = isDateStr(b.issue_date) ? b.issue_date : todayStr();
   const dueDays = clampInt(getSetting('invoice_due_days', '7'), 0, 365, 7);
@@ -756,7 +916,7 @@ route('POST', '/api/invoices', async ({ req }) => {
 });
 
 route('POST', '/api/invoices/from-appointment', async ({ req }) => {
-  const { appointment_id } = await readJson(req);
+  const { appointment_id } = checkBody(await readJson(req), { appointment_id: s.num({ required: true }) });
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(Number(appointment_id));
   if (!appt) throw httpError(404, 'Appointment not found');
   if (appt.invoice_id) return getInvoice(appt.invoice_id);
@@ -784,7 +944,7 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
 route('PUT', '/api/invoices/:id', async ({ req, params }) => {
   const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(params.id);
   if (!existing) throw httpError(404, 'Invoice not found');
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), INVOICE_SCHEMA);
   db.prepare(
     'UPDATE invoices SET client_id = ?, issue_date = ?, due_date = ?, tax_rate = ?, discount_cents = ?, notes = ? WHERE id = ?'
   ).run(
@@ -802,7 +962,7 @@ route('PUT', '/api/invoices/:id', async ({ req, params }) => {
 });
 
 route('PATCH', '/api/invoices/:id/status', async ({ req, params }) => {
-  const { status } = await readJson(req);
+  const { status } = checkBody(await readJson(req), { status: s.oneOf(['draft', 'sent', 'paid', 'void'], { required: true }) });
   if (!INVOICE_STATUSES.has(status)) throw httpError(400, 'Invalid status');
   if (!db.prepare('SELECT id FROM invoices WHERE id = ?').get(params.id)) throw httpError(404, 'Invoice not found');
   db.prepare('UPDATE invoices SET status = ? WHERE id = ?').run(status, params.id);
@@ -819,7 +979,11 @@ route('POST', '/api/invoices/:id/payments', async ({ req, params }) => {
   const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(params.id);
   if (!inv) throw httpError(404, 'Invoice not found');
   if (inv.status === 'void') throw httpError(400, 'Cannot record a payment on a void invoice');
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), {
+    amount_cents: s.num({ min: 1, max: 100_000_000, required: true }),
+    method: s.oneOf(['card', 'cash', 'transfer', 'other']),
+    note: s.str(500),
+  });
   const amount = Math.round(Number(b.amount_cents));
   if (!Number.isFinite(amount) || amount <= 0) throw httpError(400, 'Payment amount must be positive');
   const method = PAY_METHODS.has(b.method) ? b.method : 'card';
@@ -871,7 +1035,7 @@ route('GET', '/api/reviews', async ({ query }) => {
 
 route('PUT', '/api/reviews/:id/response', async ({ req, params }) => {
   if (!db.prepare('SELECT id FROM reviews WHERE id = ?').get(params.id)) throw httpError(404, 'Review not found');
-  const { response } = await readJson(req);
+  const { response } = checkBody(await readJson(req), { response: s.str(2000) });
   db.prepare('UPDATE reviews SET response = ? WHERE id = ?').run(str(response, 2000), params.id);
   return db.prepare(`${REVIEW_SELECT} WHERE r.id = ?`).get(params.id);
 });
@@ -958,9 +1122,11 @@ route('GET', '/api/public/info', async () => {
     currency: getSetting('currency', '$'),
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
+    open_days: String(getSetting('open_days', '0,1,2,3,4,5,6')).split(',').map(Number),
     brand: {
       accent: getSetting('brand_accent', '#38bdf8'),
       theme: getSetting('brand_theme', 'dark'),
+      scheme: getSetting('brand_scheme', ''),
       font: getSetting('brand_font', 'modern'),
       logo: getSetting('brand_logo', ''),
       cover: getSetting('brand_cover', ''),
@@ -978,7 +1144,18 @@ route('GET', '/api/public/info', async () => {
   };
 }, { auth: false });
 
+/** Weekday numbers (0=Sun…6=Sat) the business is open. */
+function openDays() {
+  return String(getSetting('open_days', '0,1,2,3,4,5,6'))
+    .split(',').map((d) => Number(d.trim())).filter((d) => d >= 0 && d <= 6);
+}
+
+function isOpenDay(date) {
+  return openDays().includes(new Date(`${date}T12:00:00`).getDay());
+}
+
 function freeSlotsFor(staffId, date, durationMin) {
+  if (!isOpenDay(date)) return []; // closed that day of the week
   const open = Number(getSetting('open_min', '480'));
   const close = Number(getSetting('close_min', '1200'));
   const step = Math.max(5, Number(getSetting('slot_interval', '15')));
@@ -1028,7 +1205,12 @@ route('GET', '/api/public/availability', async ({ query }) => {
 
 route('POST', '/api/public/book', async ({ req }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), {
+    service_id: s.num({ required: true }), staff_id: s.num(), location_id: s.num(),
+    date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
+    notes: s.str(1000), origin: s.str(300),
+    client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
+  });
   const service = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(Number(b.service_id));
   if (!service) throw httpError(400, 'Choose a service');
   if (!isDateStr(b.date) || b.date < todayStr()) throw httpError(400, 'Choose an upcoming date');
@@ -1104,7 +1286,9 @@ route('POST', '/api/public/book', async ({ req }) => {
 }, { auth: false });
 
 route('POST', '/api/public/confirm-deposit', async ({ req }) => {
-  const { appointment_id, session_id } = await readJson(req);
+  const { appointment_id, session_id } = checkBody(await readJson(req), {
+    appointment_id: s.num({ required: true }), session_id: s.str(300, { required: true }),
+  });
   const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(Number(appointment_id));
   if (!appt) throw httpError(404, 'Booking not found');
   if (!appt.stripe_session_id || appt.stripe_session_id !== str(session_id, 300)) {
@@ -1189,13 +1373,18 @@ route('GET', '/api/public/review', async ({ query }) => {
     brand: {
       accent: getSetting('brand_accent', '#38bdf8'),
       theme: getSetting('brand_theme', 'dark'),
+      scheme: getSetting('brand_scheme', ''),
       font: getSetting('brand_font', 'modern'),
     },
   };
 }, { auth: false });
 
 route('POST', '/api/public/review', async ({ req }) => {
-  const b = await readJson(req);
+  const b = checkBody(await readJson(req), {
+    token: s.str(64, { required: true }),
+    rating: s.num({ min: 1, max: 5, required: true }),
+    comment: s.str(1000),
+  });
   const token = str(b.token, 64);
   if (!token) throw httpError(400, 'Missing review link');
   const rating = clampInt(b.rating, 1, 5, NaN);

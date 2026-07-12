@@ -1,5 +1,6 @@
 // Public booking flow: service → staff → date & time → details → confirmed.
 import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
+import { resolveScheme, applyScheme } from './schemes.js';
 
 const root = document.getElementById('book');
 const state = { info: null, location: null, service: null, staff: null, date: todayStr(), slot: null, step: 1 };
@@ -39,11 +40,11 @@ function galleryHtml() {
   return `<div class="brand-gallery">${gallery.map((src) => `<img src="${esc(src)}" alt="">`).join('')}</div>`;
 }
 
-/** Apply the business's chosen accent, theme, font — set in Settings → Booking page. */
+/** Apply the business's chosen colour scheme, accent, font — set in Settings → Booking page. */
 function applyBrand(brand) {
   if (!brand) return;
   const root = document.documentElement;
-  if (brand.theme === 'light') root.dataset.brandTheme = 'light';
+  applyScheme(resolveScheme(brand)); // full palette (background, panels, text, borders)
   if (brand.font && brand.font !== 'modern') root.dataset.brandFont = brand.font;
   const accent = /^#[0-9a-fA-F]{6}$/.test(brand.accent || '') ? brand.accent : '#38bdf8';
   // readable text on the accent: white on dark accents, near-black on light ones
@@ -186,7 +187,16 @@ function renderStaffStep() {
 async function renderTimeStep() {
   state.step = 3;
   state.slot = null;
-  const days = Array.from({ length: 14 }, (_, i) => addDaysStr(todayStr(), i));
+  // Show the next 14 days the business is actually OPEN — closed weekdays
+  // (Settings → Hours → open days) never appear as options at all.
+  const openDays = Array.isArray(state.info.open_days) && state.info.open_days.length
+    ? state.info.open_days : [0, 1, 2, 3, 4, 5, 6];
+  const days = [];
+  for (let i = 0; i < 45 && days.length < 14; i++) {
+    const d = addDaysStr(todayStr(), i);
+    if (openDays.includes(parseDate(d).getDay())) days.push(d);
+  }
+  if (!days.includes(state.date)) state.date = days[0];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   root.innerHTML = `

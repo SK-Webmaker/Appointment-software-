@@ -68,7 +68,7 @@ the public booking response contains any `sk_…`, `re_…`, or auth-token strin
 The session-signing secret is generated on first run, kept server-side, and is
 never included in any API response.
 
-## 3. Passwords & sessions
+## 3. Passwords, sessions & email verification
 
 - Passwords are hashed with **scrypt** and a per-user random salt; the plaintext
   is never stored and password checks use constant-time comparison.
@@ -76,8 +76,56 @@ never included in any API response.
   **HttpOnly** (JavaScript can't read them), **SameSite=Lax** (cross-site
   requests can't ride the cookie), and expire after 30 days.
 - Login is rate-limited per IP to blunt brute-force attempts.
+- **Owner email verification** (v1.5): the business owner can verify their
+  account email from Settings → Security. The link uses a 48-character
+  cryptographically random token, expires after 48 hours, and is **single-use**
+  — once clicked it is wiped from the database. Verifying proves the owner
+  controls the address their receipts, reminders and password-critical mail
+  will come from. (This applies to the *business's* account — customers never
+  need an account or verification to book.)
 
-## 4. Injection & content safety
+## 4. Rate limiting — every endpoint (v1.5)
+
+Every `/api/*` request passes through a fixed-window rate limiter
+(`src/ratelimit.js`) **before** any handler runs. Limits are per-IP for public
+traffic and per-user-plus-IP for signed-in staff, generous for legitimate use
+and tight where abuse hurts:
+
+| Bucket | Limit | Window | Guards against |
+|---|---|---|---|
+| Login | 20 | 10 min / IP | password brute-force |
+| Public booking (`POST /api/public/book`) | 12 | 5 min / IP | booking spam / slot squatting |
+| Public review submit | 10 | 10 min / IP | review flooding |
+| Deposit confirm | 20 | 10 min / IP | token guessing |
+| Public reads (info / availability / ics / review form / verify-email) | 240 | 1 min / IP | scraping, hammering |
+| Authenticated API | 600 | 1 min / user+IP | runaway scripts on a stolen session |
+| Global ceiling (all API) | 900 | 1 min / IP | anything else |
+
+Over-limit requests are refused **gracefully**: a clean `429` JSON body with a
+human-readable message and a `Retry-After` header — never a dropped socket.
+Other visitors on other IPs are unaffected (verified by test).
+
+Deployment note: behind Render/Caddy/nginx the limiter reads the proxy's
+`x-forwarded-for` header (the default). If you ever expose the Node process
+directly with **no** proxy, set `KAIRO_TRUST_PROXY=0` so clients can't spoof
+their IP past the limiter.
+
+## 5. Strict input validation — schema-based (v1.5)
+
+Every write endpoint validates its JSON body against an explicit schema
+(`src/validate.js`) before touching the database:
+
+- **Unexpected fields are rejected** with a `400` naming the field — including
+  nested ones (e.g. `client.is_admin` smuggled into a public booking). Nothing
+  unknown is ever silently accepted or stored.
+- **Types are checked** (string / number / boolean / enum / object / array) —
+  a string where a boolean belongs is a `400`, not a coerced surprise.
+- **Length limits** on every string, **min/max ranges** on every number
+  (ratings 1–5, payment amounts ≥ 1 cent, durations bounded, etc.).
+- The settings endpoint accepts **only whitelisted keys** — attempts to write
+  internal keys such as `session_secret` are rejected by the same rule.
+
+## 6. Injection & content safety
 
 - **SQL:** every query uses parameterized statements (`db.prepare(...).run(?, ?)`).
   No user input is ever concatenated into SQL.
@@ -89,7 +137,7 @@ never included in any API response.
 - **Headers:** responses set `X-Content-Type-Options: nosniff`,
   `X-Frame-Options: DENY`, and `Referrer-Policy: same-origin`.
 
-## 5. What the deployer must still do
+## 7. What the deployer must still do
 
 Software can't do these for you:
 
@@ -102,10 +150,24 @@ Software can't do these for you:
 - **Open Stripe/Twilio/Resend accounts in the business's own name** so money and
   messages flow through their accounts, not yours.
 
-## 6. Verified by automated tests
+## 8. Verified by automated tests
 
-The end-to-end suites (39 checks across core, pricing, and receipts/reviews) and the
-load test include, specifically:
+The end-to-end suites (61 checks across core, pricing, receipts/reviews, and a
+dedicated 21-check security suite) and the load test include, specifically:
+
+- A request with an **unknown field** — top-level or nested — gets a `400`
+  naming the field; oversized strings, wrong types, and out-of-range numbers
+  are all rejected; writing `session_secret` via settings is refused.
+- **Rate limits fire and recover gracefully**: the 241st public read in a
+  minute, the 21st login attempt, and the 13th booking attempt each get a
+  clean `429` with `Retry-After`, while a different IP is unaffected.
+- **Email verification**: a fresh account starts unverified; sending without
+  email configured gives clear guidance (no crash); an invalid token shows a
+  friendly error page; a valid token verifies exactly once and cannot be
+  reused.
+- **Working days**: a closed day offers zero slots server-side, and a direct
+  booking POST for a closed day is refused with `409` even if a client skips
+  the UI.
 
 - Secrets masked in the authenticated API and **absent** from the public API.
 - The public info/ICS/review endpoints carry no client PII.
