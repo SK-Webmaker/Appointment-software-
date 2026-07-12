@@ -37,7 +37,8 @@ function localStamp(d = new Date()) {
 
 function apptContext(apptId) {
   return db.prepare(
-    `SELECT a.*, c.first_name, c.email AS client_email, c.phone AS client_phone,
+    `SELECT a.*, c.first_name, c.last_name AS client_last,
+            c.email AS client_email, c.phone AS client_phone,
             s.name AS staff_name, sv.name AS service_name
      FROM appointments a
      LEFT JOIN clients c ON c.id = a.client_id
@@ -129,6 +130,26 @@ function buildCopy(kind, a, extra = {}) {
       }),
     };
   }
+  if (kind === 'owner_new_booking') {
+    const clientName = [a.first_name, a.client_last].filter(Boolean).join(' ') || 'A new client';
+    const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
+    return {
+      subject: `New booking — ${clientName}, ${what} on ${fmtDate(a.date)}`,
+      body: `New online booking\n\n${clientName}\n${what}${who}\n${when}${contact ? `\nContact: ${contact}` : ''}\n\nIt's already on your calendar.\n${biz}`,
+      html: renderEmail({
+        heading: 'New booking received',
+        paragraphs: [`${clientName} just booked online — it's already on your calendar. Here are the details:`],
+        details: [
+          ['Customer', clientName],
+          ['Contact', contact],
+          ['Service', a.service_name || ''],
+          ['With', a.staff_name || ''],
+          ['When', when],
+        ],
+        footNote: 'You get these because new-booking alerts are on (Settings → Notifications).',
+      }),
+    };
+  }
   if (kind === 'review_request') {
     return {
       subject: `How was your visit to ${biz}?`,
@@ -183,6 +204,25 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
       }
     }
   }
+}
+
+/**
+ * Alert the business owner by email the moment a customer books online.
+ * Goes to the business's own email address (Settings → business email),
+ * always by email (never SMS — no per-text cost for an internal alert).
+ * Off if `owner_notify_enabled` is '0' or no business email is set. Only the
+ * public booking route calls this — staff bookings don't alert the owner,
+ * they made them.
+ */
+export function queueOwnerNotification(apptId) {
+  if (getSetting('owner_notify_enabled', '1') !== '1') return;
+  const to = getSetting('business_email', '');
+  if (!to) return;
+  const a = apptContext(apptId);
+  if (!a) return;
+
+  const copy = buildCopy('owner_new_booking', a);
+  insMessage().run(a.id, a.client_id || null, 'email', 'owner_new_booking', to, copy.subject, copy.body, copy.html, localStamp());
 }
 
 /**

@@ -187,6 +187,11 @@ export async function renderSettings(container) {
                 <input type="checkbox" name="review_requests_enabled" ${s.review_requests_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
                 Review requests</label>
               <div class="hint">Sent after a visit is marked Completed.</div></div>
+            <div class="field">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
+                <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
+                New booking alerts (to you)</label>
+              <div class="hint">Emails your business email whenever a customer books online.</div></div>
           </div>
           <div class="form-grid">
             <div class="field"><label>Remind clients this many hours before</label>
@@ -480,6 +485,7 @@ export async function renderSettings(container) {
     e.preventDefault();
     saveSettings(e.target, [
       'confirm_enabled', 'reminders_enabled', 'receipts_enabled', 'review_requests_enabled',
+      'owner_notify_enabled',
       'reminder_hours', 'review_delay_hours', 'google_review_url', 'public_url',
       'resend_api_key', 'notif_from_email',
     ]);

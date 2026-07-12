@@ -12,7 +12,8 @@ import {
 } from './auth.js';
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
-  queueReceiptMessage, queueDepositReceipt, queueReviewRequest, deliverMessage, processQueue,
+  queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
+  deliverMessage, processQueue,
 } from './notify.js';
 import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
 import { VERSION } from './version.js';
@@ -225,6 +226,7 @@ const EDITABLE_SETTINGS = new Set([
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'open_days', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
+  'owner_notify_enabled',
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'sms_notifications_enabled', 'public_url',
   'resend_api_key', 'twilio_sid', 'twilio_token', 'twilio_from',
@@ -1271,6 +1273,7 @@ route('POST', '/api/public/book', async ({ req }) => {
   }
 
   queueAppointmentMessages(apptId);
+  queueOwnerNotification(apptId); // alert the owner: a customer just booked
   processQueue().catch(() => {});
 
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);

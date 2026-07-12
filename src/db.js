@@ -237,6 +237,7 @@ const DEFAULT_SETTINGS = {
   confirm_enabled: '1',
   reminders_enabled: '1',
   reminder_hours: '24',
+  owner_notify_enabled: '1',  // email the owner when a customer books online
   receipts_enabled: '1',
   review_requests_enabled: '1',
   review_delay_hours: '1',

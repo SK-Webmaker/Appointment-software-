@@ -14,7 +14,7 @@ export async function renderMessages(container) {
 
   const KIND = {
     confirmation: 'Confirmation', reminder: 'Reminder', receipt: 'Receipt',
-    review_request: 'Review request', test: 'Test',
+    review_request: 'Review request', owner_new_booking: 'New booking alert', test: 'Test',
   };
   const STATUS_CHIP = {
     queued: '<span class="chip s-booked"><span class="dot"></span>Queued</span>',
