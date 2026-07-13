@@ -34,12 +34,6 @@ function headHtml({ cover = false } = {}) {
     </div>`;
 }
 
-function galleryHtml() {
-  const gallery = (state.info.brand?.gallery || []).filter((s) => typeof s === 'string' && s.startsWith('data:image/'));
-  if (!gallery.length) return '';
-  return `<div class="brand-gallery">${gallery.map((src) => `<img src="${esc(src)}" alt="">`).join('')}</div>`;
-}
-
 /** Apply the business's chosen colour scheme, accent, font — set in Settings → Booking page. */
 function applyBrand(brand) {
   if (!brand) return;
@@ -112,7 +106,6 @@ function renderLocationStep() {
   state.step = 1;
   root.innerHTML = `
     ${headHtml({ cover: true })}${stepsHtml()}
-    ${galleryHtml()}
     <div class="bk-section-title">Choose a location</div>
     ${state.info.locations.map((l) => `
       <button class="bk-option" data-loc="${l.id}">
@@ -133,7 +126,7 @@ function renderServiceStep() {
   const cats = [...new Set(state.info.services.map((s) => s.category))];
   root.innerHTML = `
     ${headHtml({ cover: !state.location })}${stepsHtml()}
-    ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : galleryHtml()}
+    ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
     <div class="bk-section-title">Choose a service</div>
     ${cats.map((cat) => `
       <div class="bk-cat">${esc(cat)}</div>

@@ -11,13 +11,6 @@ const keySaved = (set) => (set === '1'
   ? ' <span style="color:var(--green);font-weight:600;font-size:11px">● saved</span>' : '');
 const keyPlaceholder = (set, empty) => (set === '1' ? '•••••••••• — leave blank to keep' : empty);
 
-function parseGallery(raw) {
-  if (!raw) return [];
-  try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter((s) => typeof s === 'string' && s.startsWith('data:image/')).slice(0, 4) : [];
-  } catch { return []; }
-}
 
 export async function renderSettings(container) {
   const s = state.settings;
@@ -133,13 +126,6 @@ export async function renderSettings(container) {
               <input type="file" id="brand-cover-file" accept="image/png,image/jpeg,image/webp" style="display:none">
             </div>
             <div class="hint">A wide banner (a shot of your space or work) across the top of the booking page. Up to ~600 KB.</div></div>
-          <div class="field"><label>Photo gallery (optional)</label>
-            <div id="brand-gallery-strip" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
-            <div style="display:flex;gap:10px;align-items:center">
-              <button type="button" class="btn small" id="brand-gallery-pick">${icon('plus')} Add photos</button>
-              <span class="hint" style="margin:0">Up to 4 photos of your work, shown to clients when they book.</span>
-              <input type="file" id="brand-gallery-file" accept="image/png,image/jpeg,image/webp" multiple style="display:none">
-            </div></div>
           <div class="field"><label>Welcome line (optional)</label>
             <input name="brand_tagline" value="${esc(s.brand_tagline || '')}" placeholder="e.g. Colour, cuts & care in the heart of town" maxlength="120"></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save appearance</button>
@@ -296,6 +282,7 @@ export async function renderSettings(container) {
           <div class="field"><label>New password (min 8 chars)</label><input name="next" type="password" autocomplete="new-password" required minlength="8"></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Change password</button>
         </form>
+        ${state.user.email_verified ? '' : `
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Guided setup</div>
           <div class="card-sub" style="margin-bottom:12px">Re-run the step-by-step setup wizard to adjust your details, hours and branding.</div>
@@ -305,7 +292,7 @@ export async function renderSettings(container) {
           <div class="card-title" style="font-size:13.5px">Demo data</div>
           <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset — useful before a sales demo.</div>
           <button class="btn danger" id="reset-demo">${icon('zap')} Reset to demo data</button>
-        </div>
+        </div>`}
       </div>
     </div>`;
 
@@ -357,9 +344,6 @@ export async function renderSettings(container) {
   // booking page appearance
   let brandLogo = s.brand_logo || '';
   let brandCover = s.brand_cover || '';
-  let brandGallery = Array.isArray(state.settings.brand_gallery)
-    ? state.settings.brand_gallery
-    : parseGallery(s.brand_gallery);
   const brandForm = container.querySelector('#set-brand');
 
   container.querySelector('#brand-schemes').addEventListener('click', (e) => {
@@ -436,30 +420,6 @@ export async function renderSettings(container) {
     e.target.style.display = 'none';
   };
 
-  // gallery
-  const galleryStrip = container.querySelector('#brand-gallery-strip');
-  const drawGallery = () => {
-    galleryStrip.innerHTML = brandGallery.map((src, i) => `
-      <div style="position:relative">
-        <img src="${esc(src)}" alt="" style="height:56px;width:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
-        <button type="button" data-rm-photo="${i}" class="icon-btn" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:var(--panel-3);border:1px solid var(--border);border-radius:50%">${icon('x', 11)}</button>
-      </div>`).join('');
-    galleryStrip.querySelectorAll('[data-rm-photo]').forEach((b) => {
-      b.onclick = () => { brandGallery.splice(Number(b.dataset.rmPhoto), 1); drawGallery(); };
-    });
-  };
-  drawGallery();
-  const galleryFile = container.querySelector('#brand-gallery-file');
-  container.querySelector('#brand-gallery-pick').onclick = () => galleryFile.click();
-  galleryFile.addEventListener('change', async () => {
-    for (const file of [...galleryFile.files]) {
-      if (brandGallery.length >= 4) { toast('Up to 4 gallery photos', 'err'); break; }
-      try { brandGallery.push(await readImage(file, 500)); } catch (err) { toast(err.message, 'err'); }
-    }
-    galleryFile.value = '';
-    drawGallery();
-  });
-
   brandForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(brandForm);
@@ -473,7 +433,6 @@ export async function renderSettings(container) {
         brand_tagline: fd.get('brand_tagline'),
         brand_logo: brandLogo,
         brand_cover: brandCover,
-        brand_gallery: JSON.stringify(brandGallery),
       });
       toast('Booking page updated — open it to see the new look');
     } catch (err) {
@@ -552,11 +511,15 @@ export async function renderSettings(container) {
       e.target.reset();
     } catch (err) { toast(err.message, 'err'); }
   });
-  container.querySelector('#rerun-setup').onclick = async () => {
+  // Guided-setup + demo-reset controls only exist before the owner verifies
+  // their email (a real, verified business has no need to wipe & reseed).
+  const rerunBtn = container.querySelector('#rerun-setup');
+  if (rerunBtn) rerunBtn.onclick = async () => {
     const { runSetupWizard } = await import('../wizard.js');
     runSetupWizard({ firstRun: false, settings: state.settings, onDone: () => { location.hash = '#/settings'; location.reload(); } });
   };
-  container.querySelector('#reset-demo').onclick = async () => {
+  const resetBtn = container.querySelector('#reset-demo');
+  if (resetBtn) resetBtn.onclick = async () => {
     const ok = await confirmDialog('Reset to demo data',
       'This <b>deletes all clients, appointments, services and invoices</b> and restores the sample dataset. This cannot be undone.',
       { danger: true, okText: 'Wipe & reseed' });

@@ -308,7 +308,11 @@ route('PUT', '/api/settings', async ({ req }) => {
   return getSettings();
 });
 
-route('POST', '/api/settings/reset-demo', async () => {
+route('POST', '/api/settings/reset-demo', async ({ user }) => {
+  // A verified business is a real, live business — never let the demo reset
+  // wipe their clients/appointments/invoices (the button is hidden in the UI
+  // too, this guards a crafted request).
+  if (user?.email_verified) throw httpError(403, 'Demo reset is disabled once your email is verified — this protects your live data.');
   resetDemo();
   return { ok: true };
 });

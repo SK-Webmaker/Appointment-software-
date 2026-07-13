@@ -107,6 +107,17 @@ a { color: var(--accent); text-decoration: none; }
 .search-box:focus-within { border-color: var(--accent); }
 .search-box svg { width: 15px; height: 15px; color: var(--accent); }
 .search-box input { flex: 1; background: none; border: none; outline: none; font-size: 13.5px; }
+.filter-select {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 7px 11px; color: var(--muted);
+}
+.filter-select:focus-within { border-color: var(--accent); }
+.filter-select svg { color: var(--accent); flex: none; }
+.filter-select select {
+  background: none; border: none; outline: none; color: var(--text);
+  font-size: 13px; font-weight: 500; cursor: pointer; padding-right: 2px;
+}
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .topbar-date { color: var(--muted); font-size: 12.5px; }
 

@@ -6,6 +6,27 @@ import {
 } from '../ui.js';
 import { runImportWizard } from '../import.js';
 
+// Sort + filter are applied in the browser on the already-fetched list, so
+// they're instant and stack on top of the server-side search. Kept module-
+// level so the choice survives a search-triggered redraw.
+let sortBy = 'name';
+let showBy = 'all';
+
+const SORTS = {
+  name:   { label: 'Name (A–Z)',   cmp: (a, b) => fullName(a).localeCompare(fullName(b)) },
+  visits: { label: 'Most visits',  cmp: (a, b) => b.appointment_count - a.appointment_count || fullName(a).localeCompare(fullName(b)) },
+  recent: { label: 'Recent visit', cmp: (a, b) => (b.last_visit || '').localeCompare(a.last_visit || '') || fullName(a).localeCompare(fullName(b)) },
+  billed: { label: 'Top billed',   cmp: (a, b) => b.total_paid_cents - a.total_paid_cents || fullName(a).localeCompare(fullName(b)) },
+};
+const SHOWS = {
+  all:      { label: 'All clients',        keep: () => true },
+  new:      { label: 'New (no visits)',    keep: (c) => !c.last_visit },
+  regulars: { label: 'Regulars (3+)',      keep: (c) => c.appointment_count >= 3 },
+  upcoming: { label: 'Has a booking',      keep: (c) => c.appointment_count > 0 },
+};
+
+const fullName = (c) => `${c.first_name} ${c.last_name}`.trim().toLowerCase();
+
 export async function renderClients(container, params) {
   const q = params?.get('q') || '';
   await drawList(container, q);
@@ -14,19 +35,26 @@ export async function renderClients(container, params) {
 async function drawList(container, q = '') {
   const clients = await api.get(`/api/clients${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 
+  const optionsFor = (map, current) => Object.entries(map)
+    .map(([k, v]) => `<option value="${k}" ${k === current ? 'selected' : ''}>${v.label}</option>`).join('');
+
   container.innerHTML = `
     <div class="page-head">
       <div class="ph-icon">${icon('users', 20)}</div>
-      <div><h1>Clients</h1><div class="ph-sub">${clients.length} client${clients.length === 1 ? '' : 's'} in your book</div></div>
+      <div><h1>Clients</h1><div class="ph-sub" id="cl-count">${clients.length} client${clients.length === 1 ? '' : 's'} in your book</div></div>
       <div class="ph-actions">
         <button class="btn" id="cl-import">${icon('upload')} Import CSV</button>
         <button class="btn" id="cl-export">${icon('download')} Export</button>
         <button class="btn primary" id="cl-new">${icon('plus')} New client</button>
       </div>
     </div>
-    <div class="toolbar">
-      <div class="search-box" style="flex:0 1 340px">${icon('search')}
+    <div class="toolbar" style="gap:10px;flex-wrap:wrap">
+      <div class="search-box" style="flex:0 1 320px">${icon('search')}
         <input id="cl-search" placeholder="Search name, email or phone…" value="${esc(q)}"></div>
+      <label class="filter-select">${icon('filter', 14)}
+        <select id="cl-show">${optionsFor(SHOWS, showBy)}</select></label>
+      <label class="filter-select">${icon('sort', 14)}
+        <select id="cl-sort">${optionsFor(SORTS, sortBy)}</select></label>
     </div>
     <div class="card" style="padding:0">
       <div class="table-wrap">
@@ -35,13 +63,23 @@ async function drawList(container, q = '') {
             <th>Client</th><th>Contact</th><th class="num">Visits</th>
             <th>Last visit</th><th class="num">Total billed</th><th></th>
           </tr></thead>
-          <tbody id="cl-rows">
-            ${clients.length ? clients.map(rowHtml).join('') : `
-              <tr><td colspan="6"><div class="empty">${icon('users')}<div>No clients${q ? ' match your search' : ' yet — add one or import a CSV'}.</div></div></td></tr>`}
-          </tbody>
+          <tbody id="cl-rows"></tbody>
         </table>
       </div>
     </div>`;
+
+  const renderRows = () => {
+    const view = clients.filter(SHOWS[showBy].keep).sort(SORTS[sortBy].cmp);
+    container.querySelector('#cl-rows').innerHTML = view.length
+      ? view.map(rowHtml).join('')
+      : `<tr><td colspan="6"><div class="empty">${icon('users')}<div>No clients${
+          q || showBy !== 'all' ? ' match your search or filter' : ' yet — add one or import a CSV'}.</div></div></td></tr>`;
+    container.querySelector('#cl-count').textContent =
+      showBy === 'all' && !q
+        ? `${clients.length} client${clients.length === 1 ? '' : 's'} in your book`
+        : `${view.length} of ${clients.length} shown`;
+  };
+  renderRows();
 
   const search = container.querySelector('#cl-search');
   let debounce;
@@ -51,6 +89,9 @@ async function drawList(container, q = '') {
   });
   search.focus();
   if (q) search.setSelectionRange(q.length, q.length);
+
+  container.querySelector('#cl-show').addEventListener('change', (e) => { showBy = e.target.value; renderRows(); });
+  container.querySelector('#cl-sort').addEventListener('change', (e) => { sortBy = e.target.value; renderRows(); });
 
   container.querySelector('#cl-new').onclick = () => openClientModal({ onSaved: () => drawList(container, q) });
   container.querySelector('#cl-export').onclick = async () => {
