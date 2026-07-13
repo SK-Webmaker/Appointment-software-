@@ -83,6 +83,17 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_appointments_date  ON appointments(date);
     CREATE INDEX IF NOT EXISTS idx_appointments_staff ON appointments(staff_id, date);
 
+    -- One appointment can bundle several services (e.g. Colour + Blow Dry).
+    -- appointments.service_id stays as the "primary" (first) service for
+    -- backward compatibility; this table holds the full ordered list.
+    CREATE TABLE IF NOT EXISTS appointment_services (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+      service_id     INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      sort_order     INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_appt_services ON appointment_services(appointment_id);
+
     CREATE TABLE IF NOT EXISTS invoices (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       number         TEXT NOT NULL UNIQUE,
@@ -172,6 +183,17 @@ function migrate() {
   addColumn('users', 'email_verified', 'email_verified INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'verify_token', "verify_token TEXT NOT NULL DEFAULT ''");
   addColumn('users', 'verify_sent_at', "verify_sent_at TEXT NOT NULL DEFAULT ''");
+
+  // Backfill appointment_services from the legacy single service_id so every
+  // existing appointment has at least its primary service listed. Runs once:
+  // guarded by "no rows yet" and only touches appointments that have a service.
+  const hasApptServices = db.prepare('SELECT id FROM appointment_services LIMIT 1').get();
+  if (!hasApptServices) {
+    db.prepare(
+      `INSERT INTO appointment_services (appointment_id, service_id, sort_order)
+       SELECT id, service_id, 0 FROM appointments WHERE service_id IS NOT NULL`
+    ).run();
+  }
 }
 
 // --- settings helpers -------------------------------------------------------
@@ -417,6 +439,9 @@ export function seedDemo() {
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, source, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
+  const insApptSvc = db.prepare(
+    'INSERT INTO appointment_services (appointment_id, service_id, sort_order) VALUES (?, ?, ?)'
+  );
 
   // Busy-hours weighting mirrors a real salon: peak 9–11 AM, quieter late afternoon.
   const startChoices = [540, 540, 570, 600, 600, 630, 660, 720, 780, 840, 900, 960, 480];
@@ -432,9 +457,17 @@ export function seedDemo() {
     const usedByStaff = new Map(staffIds.map((id) => [id, []]));
     for (let i = 0; i < perDay; i++) {
       const svc = pick(serviceRows);
+      // ~18% of bookings bundle a second service (e.g. Colour + Blow Dry),
+      // so multi-service appointments show on the calendar out of the box.
+      const services = [svc];
+      if (rand() < 0.18) {
+        const second = pick(serviceRows);
+        if (second.id !== svc.id) services.push(second);
+      }
+      const totalDuration = services.reduce((sum, x) => sum + x.duration_min, 0);
       const staffId = pick(staffIds);
       const start = pick(startChoices) + (rand() < 0.3 ? 15 : 0);
-      const end = start + svc.duration_min;
+      const end = start + totalDuration;
       if (end > 1200) continue;
       const taken = usedByStaff.get(staffId);
       if (taken.some(([s, e]) => start < e && end > s)) continue; // keep demo data conflict-free
@@ -443,8 +476,9 @@ export function seedDemo() {
       const source = rand() < 0.35 ? 'online' : 'staff';
       const clientId = pick(clientIds);
       const id = Number(insAppt.run(clientId, staffId, svc.id, date, start, end, status, source, '').lastInsertRowid);
+      services.forEach((sv, idx) => insApptSvc.run(id, sv.id, idx));
       if (d < 0 && status === 'completed') {
-        pastAppointments.push({ id, clientId, staffId, svc, date });
+        pastAppointments.push({ id, clientId, staffId, svc, services, date });
       }
     }
   }
@@ -471,7 +505,7 @@ export function seedDemo() {
     const invId = Number(
       insInvoice.run(nextInvoiceNumber(), appt.clientId, appt.id, appt.date, dateStr(due), status, taxRate).lastInsertRowid
     );
-    insItem.run(invId, appt.svc.name, 1, appt.svc.price_cents);
+    for (const sv of (appt.services || [appt.svc])) insItem.run(invId, sv.name, 1, sv.price_cents);
     if (rand() < 0.35) insItem.run(invId, 'Aftercare product', 1, 2200);
     if (status === 'paid') {
       const total = db
@@ -510,8 +544,8 @@ export function seedDemo() {
 export function clearBusinessData() {
   db.exec(`
     DELETE FROM messages; DELETE FROM reviews; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
-    DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
-    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointments','services','clients','staff','locations');
+    DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointment_services','appointments','services','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
 }

@@ -8,20 +8,22 @@ the first paying business.
 
 ## 1. Feature audit — everything in the box, everything tested
 
-Every ✅ below was exercised end-to-end in a real browser (61/61 automated checks passing).
+Every ✅ below was exercised end-to-end in a real browser (60/60 automated checks passing).
 
 ### Scheduling
 - ✅ Day calendar with a column per staff member (Fresha-style day book)
 - ✅ Week view with per-day totals
 - ✅ Click an empty slot to book at that time/staff
 - ✅ Drag to reschedule (time, staff column, and day in week view); drag bottom edge to extend
-- ✅ Double-booking detection with explicit override ("Double-book anyway")
+- ✅ Double-booking detection with explicit override; overlapping appointments **stack side-by-side** in the column (Fresha-style)
+- ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums)
 - ✅ Status flow: Booked → Confirmed → Completed / Cancelled / No-show
 - ✅ "Now" line, per-staff colours, ⚡ badge on online bookings, 💳 badge on deposits
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Online booking (`/book`)
-- ✅ Service → staff ("any available" supported) → live availability → details → confirmed
+- ✅ **Multi-service booking** — customers add several services to one visit (Colour + Blow Dry); availability and the appointment span the summed duration, and the confirmation/receipt list every service
+- ✅ Service(s) → staff ("any available" supported) → live availability → details → confirmed
 - ✅ Availability = working hours − existing appointments, in real time; taken slots re-checked at confirm (race-safe)
 - ✅ Location step (auto-appears with 2+ locations)
 - ✅ Card deposit via Stripe Checkout (fixed or % of price), fail-safe if Stripe errors
@@ -146,12 +148,12 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 
 Automated end-to-end suite (Chromium, real UI), across four suites:
 
-- **Core (23 checks):** login, setup wizard, dashboard, calendar day/week, appointment
+- **Core (22 checks):** login, setup wizard, dashboard, calendar day/week, appointment
   create + conflict handling, client CSV import + dedupe re-import, service CSV import,
-  invoice payment → Paid flip, public booking → appears on admin calendar, ICS download,
-  messages queued/logged + test-send reporting, second location → calendar filter + booking
-  location step, broken-Stripe-key fallback (booking never lost), secret masking, full
-  booking-page branding.
+  invoice payment → Paid flip, **multi-service** public booking → appears on admin calendar,
+  ICS download, messages queued/logged + test-send reporting, second location → calendar
+  filter + booking location step, broken-Stripe-key fallback (booking never lost), secret
+  masking, full booking-page branding.
 - **Pricing (7 checks):** Fixed/From/Free editor round-trip, CSV import/export of price
   types (incl. "From $85" written straight into a price cell), public booking page display,
   checkout floor price.
@@ -167,6 +169,8 @@ Automated end-to-end suite (Chromium, real UI), across four suites:
   isn't configured yet; closed working days offer zero slots and refuse direct booking
   POSTs; colour schemes reach the public page; receipts carry the branded HTML template.
 
-**61/61 passing**, plus a load test: 0 HTTP errors at 2,000+ req/s on the public booking
+**60/60 passing**, plus a load test: 0 HTTP errors at 2,000+ req/s on the public booking
 surface (rate limiter active), worst p95 ≈ 115 ms, and a 40-way race for the same slot
-won by exactly one booking.
+won by exactly one booking. Multi-service booking, the invoice-per-service billing, the
+drag-preserves-services behaviour, and side-by-side overlap rendering were additionally
+verified directly against the API and in the browser.

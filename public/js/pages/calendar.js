@@ -157,7 +157,7 @@ function apptHtml(a, showStaff = false) {
       style="--c:${esc(color)};top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${width}% - 5px)">
       <div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>
       <div class="a-client">${esc(a.client_name || 'Walk-in')}</div>
-      ${compact ? '' : `<div class="a-service">${esc(a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
+      ${compact ? '' : `<div class="a-service">${esc(a.services_summary || a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
       <div class="a-resize" data-resize="${a.id}"></div>
     </div>`;
 }
@@ -349,16 +349,18 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   if (!state.staff.length || !state.services.length) await refreshLookups();
   const clients = await api.get('/api/clients');
   const a = appointment;
-  const selService = a?.service_id || '';
+  const initialServiceIds = a?.service_ids_csv
+    ? String(a.service_ids_csv).split(',').map(Number).filter(Boolean)
+    : (a?.service_id ? [a.service_id] : []);
   const selStaff = a?.staff_id || staff_id || state.staff[0]?.id;
   const selStart = a?.start_min ?? start_min ?? 600;
-  const duration = a ? a.end_min - a.start_min : (state.services.find((s) => s.id === selService)?.duration_min || 60);
+  const duration = a ? a.end_min - a.start_min : (state.services.find((s) => s.id === initialServiceIds[0])?.duration_min || 60);
 
-  const serviceOpts = () => {
+  const serviceOpts = (selId) => {
     const cats = [...new Set(state.services.map((s) => s.category))];
-    return cats.map((c) =>
+    return `<option value="">— No service —</option>` + cats.map((c) =>
       `<optgroup label="${esc(c)}">${state.services.filter((s) => s.category === c).map((s) =>
-        `<option value="${s.id}" data-dur="${s.duration_min}" data-price="${s.price_cents}" ${s.id === selService ? 'selected' : ''}>${esc(s.name)} — ${priceLabel(s)}</option>`).join('')}</optgroup>`
+        `<option value="${s.id}" data-dur="${s.duration_min}" ${s.id === selId ? 'selected' : ''}>${esc(s.name)} — ${priceLabel(s)}</option>`).join('')}</optgroup>`
     ).join('');
   };
 
@@ -379,8 +381,9 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           <div class="field"><label>Phone</label><input name="nc_phone"></div>
           <div class="field"><label>Email</label><input name="nc_email" type="email"></div>
         </div>
-        <div class="field span2"><label>Service</label>
-          <select name="service_id"><option value="">— No service —</option>${serviceOpts()}</select></div>
+        <div class="field span2"><label>Services</label>
+          <div id="svc-list" class="svc-rows"></div>
+          <button type="button" class="btn small" id="svc-add" style="margin-top:8px">${icon('plus')} Add another service</button></div>
         <div class="field"><label>Team member</label>
           <select name="staff_id">${state.staff.map((s) => `<option value="${s.id}" ${s.id === selStaff ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Date</label>
@@ -410,10 +413,30 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   clientSel.addEventListener('change', () => {
     form.querySelector('#new-client-fields').style.display = clientSel.value === '__new__' ? 'grid' : 'none';
   });
-  form.querySelector('[name=service_id]').addEventListener('change', (e) => {
-    const opt = e.target.selectedOptions[0];
-    if (opt?.dataset.dur) form.querySelector('[name=duration]').value = opt.dataset.dur;
-  });
+  // Multi-service rows: one or more service pickers; the duration auto-sums
+  // whenever the set changes (the owner can still override it afterwards).
+  const svcList = form.querySelector('#svc-list');
+  const durationSel = form.querySelector('[name=duration]');
+  const chosenServiceIds = () => [...svcList.querySelectorAll('.svc-sel')].map((s) => Number(s.value)).filter(Boolean);
+  const recomputeDuration = () => {
+    const total = chosenServiceIds().reduce((sum, id) => sum + (state.services.find((s) => s.id === id)?.duration_min || 0), 0);
+    if (total) durationSel.value = total;
+  };
+  const addServiceRow = (selId = '') => {
+    const row = document.createElement('div');
+    row.className = 'svc-row';
+    row.innerHTML = `<select class="svc-sel">${serviceOpts(selId)}</select>
+      <button type="button" class="icon-btn svc-rm" title="Remove service">${icon('x', 14)}</button>`;
+    svcList.appendChild(row);
+    row.querySelector('.svc-sel').addEventListener('change', recomputeDuration);
+    row.querySelector('.svc-rm').onclick = () => {
+      if (svcList.querySelectorAll('.svc-row').length <= 1) { row.querySelector('.svc-sel').value = ''; }
+      else row.remove();
+      recomputeDuration();
+    };
+  };
+  (initialServiceIds.length ? initialServiceIds : ['']).forEach((id) => addServiceRow(id));
+  form.querySelector('#svc-add').onclick = () => addServiceRow('');
 
   const save = async (force = false) => {
     const fd = new FormData(form);
@@ -424,7 +447,8 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
         first_name: fd.get('nc_first'), last_name: fd.get('nc_last'),
         phone: fd.get('nc_phone'), email: fd.get('nc_email'),
       } : undefined,
-      service_id: Number(fd.get('service_id')) || null,
+      service_ids: chosenServiceIds(),
+      service_id: chosenServiceIds()[0] || null,
       staff_id: Number(fd.get('staff_id')),
       date: fd.get('date'),
       start_min: start,

@@ -3,7 +3,24 @@ import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, 
 import { resolveScheme, applyScheme } from './schemes.js';
 
 const root = document.getElementById('book');
-const state = { info: null, location: null, service: null, staff: null, date: todayStr(), slot: null, step: 1 };
+// state.services is the "cart" — one or more chosen services, booked back-to-
+// back with the same team member for one combined appointment.
+const state = { info: null, location: null, services: [], staff: null, date: todayStr(), slot: null, step: 1 };
+
+// --- multi-service cart helpers -------------------------------------------
+const cartIds = () => state.services.map((s) => s.id);
+const cartDuration = () => state.services.reduce((sum, s) => sum + s.duration_min, 0);
+const cartTotalCents = () => state.services.reduce((sum, s) => sum + (s.price_cents || 0), 0);
+const cartHasFrom = () => state.services.some((s) => s.price_type === 'from');
+function cartPriceLabel() {
+  if (!state.services.length) return '';
+  if (state.services.every((s) => s.price_type === 'free')) return 'Free';
+  return `${cartHasFrom() ? 'From ' : ''}${money(cartTotalCents())}`;
+}
+function cartLabel() {
+  if (state.services.length === 1) return state.services[0].name;
+  return `${state.services.length} services`;
+}
 
 async function getJson(url, opts) {
   const res = await fetch(url, opts);
@@ -124,28 +141,57 @@ function renderLocationStep() {
 function renderServiceStep() {
   state.step = 1;
   const cats = [...new Set(state.info.services.map((s) => s.category))];
+  const chosen = new Set(cartIds());
   root.innerHTML = `
     ${headHtml({ cover: !state.location })}${stepsHtml()}
     ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
-    <div class="bk-section-title">Choose a service</div>
+    <div class="bk-section-title">Choose your services</div>
+    <div class="bk-hint">Add as many as you like — tap to select.</div>
     ${cats.map((cat) => `
       <div class="bk-cat">${esc(cat)}</div>
       ${state.info.services.filter((s) => s.category === cat).map((s) => `
-        <button class="bk-option" data-id="${s.id}">
-          <div>
+        <button class="bk-option svc-pick ${chosen.has(s.id) ? 'picked' : ''}" data-id="${s.id}">
+          <div class="svc-check">${icon('check', 14)}</div>
+          <div style="flex:1">
             <div class="o-name">${esc(s.name)}</div>
             <div class="o-sub">${s.duration_min} min${s.description ? ` · ${esc(s.description)}` : ''}</div>
           </div>
           <div class="o-price">${priceLabel(s)}</div>
         </button>`).join('')}`).join('')}
+    <div style="height:76px"></div>
+    <div class="bk-cartbar" id="cartbar" style="${state.services.length ? '' : 'display:none'}">
+      <div class="cart-info">
+        <b id="cart-count"></b>
+        <span id="cart-meta"></span>
+      </div>
+      <button class="btn primary" id="cart-continue">Continue ${icon('chevR', 14)}</button>
+    </div>
     ${poweredHtml()}`;
+
   root.querySelector('#back-loc')?.addEventListener('click', renderLocationStep);
-  root.querySelectorAll('[data-id]').forEach((b) => {
+
+  const refreshCart = () => {
+    const bar = root.querySelector('#cartbar');
+    bar.style.display = state.services.length ? '' : 'none';
+    root.querySelector('#cart-count').textContent = cartPriceLabel();
+    root.querySelector('#cart-meta').textContent =
+      ` · ${state.services.length} service${state.services.length === 1 ? '' : 's'} · ${cartDuration()} min`;
+  };
+  refreshCart();
+
+  root.querySelectorAll('.svc-pick').forEach((b) => {
     b.onclick = () => {
-      state.service = state.info.services.find((s) => s.id === Number(b.dataset.id));
-      renderStaffStep();
+      const svc = state.info.services.find((s) => s.id === Number(b.dataset.id));
+      const i = state.services.findIndex((s) => s.id === svc.id);
+      if (i >= 0) state.services.splice(i, 1);
+      else state.services.push(svc);
+      b.classList.toggle('picked');
+      refreshCart();
     };
   });
+  root.querySelector('#cart-continue').onclick = () => {
+    if (state.services.length) renderStaffStep();
+  };
 }
 
 function locationStaff() {
@@ -158,7 +204,7 @@ function renderStaffStep() {
   state.step = 2;
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
-    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(state.service.name)} · ${priceLabel(state.service)}</button>
+    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(cartLabel())} · ${cartPriceLabel()}</button>
     <div class="bk-section-title">Who would you like?</div>
     <button class="bk-option" data-staff="any">
       <div><div class="o-name">Any available</div><div class="o-sub">First free team member</div></div>
@@ -194,7 +240,7 @@ async function renderTimeStep() {
 
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
-    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(state.service.name)} with ${esc(state.staff?.name || 'any available')}</button>
+    <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(cartLabel())} with ${esc(state.staff?.name || 'any available')}</button>
     <div class="bk-section-title">Pick a date &amp; time</div>
     <div class="date-strip" id="dates">
       ${days.map((d) => {
@@ -227,7 +273,7 @@ async function renderTimeStep() {
     try {
       const staffQ = state.staff ? state.staff.id : 'any';
       const locQ = state.location ? `&location_id=${state.location.id}` : '';
-      const res = await getJson(`/api/public/availability?service_id=${state.service.id}&staff_id=${staffQ}&date=${state.date}${locQ}`);
+      const res = await getJson(`/api/public/availability?service_ids=${cartIds().join(',')}&staff_id=${staffQ}&date=${state.date}${locQ}`);
       if (!res.slots.length) {
         slotsEl.innerHTML = `<div class="empty">${icon('clock', 22)}<div>No free times that day — try another date.</div></div>`;
         return;
@@ -255,9 +301,10 @@ function renderDetailsStep() {
     <div class="bk-summary">
       <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('calendar')}</span>
       <div>
-        <b>${esc(state.service.name)}</b> · ${priceLabel(state.service)}<br>
-        <span style="color:var(--text-2)">${fmtDate(state.date)} at ${fmtTime(state.slot.start_min)}${state.staff ? ` with ${esc(state.staff.name)}` : ''}</span>
-        ${state.service.price_type === 'from' ? '<div style="color:var(--muted);font-size:11.5px;margin-top:2px">Final price confirmed at your appointment</div>' : ''}
+        <b>${esc(cartLabel())}</b> · ${cartPriceLabel()}<br>
+        ${state.services.length > 1 ? `<span style="color:var(--text-2);font-size:12.5px">${state.services.map((s) => esc(s.name)).join(' · ')}</span><br>` : ''}
+        <span style="color:var(--text-2)">${fmtDate(state.date)} at ${fmtTime(state.slot.start_min)} – ${fmtTime(state.slot.start_min + cartDuration())}${state.staff ? ` with ${esc(state.staff.name)}` : ''}</span>
+        ${cartHasFrom() ? '<div style="color:var(--muted);font-size:11.5px;margin-top:2px">Final price confirmed at your appointment</div>' : ''}
       </div>
     </div>
     ${depositNoteHtml()}
@@ -286,7 +333,8 @@ function renderDetailsStep() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service_id: state.service.id,
+          service_id: state.services[0].id,
+          service_ids: cartIds(),
           staff_id: state.staff ? state.staff.id : state.slot.staff_id,
           location_id: state.location?.id,
           date: state.date,
@@ -311,9 +359,9 @@ function renderDetailsStep() {
 
 function depositCents() {
   const d = state.info?.deposit;
-  if (!d?.enabled || !state.service) return 0;
+  if (!d?.enabled || !state.services.length) return 0;
   if (d.type === 'fixed') return Math.round(d.value * 100);
-  if (d.type === 'percent') return Math.round(state.service.price_cents * (d.value / 100));
+  if (d.type === 'percent') return Math.round(cartTotalCents() * (d.value / 100));
   return 0;
 }
 

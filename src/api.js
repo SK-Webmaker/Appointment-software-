@@ -290,7 +290,7 @@ const INVOICE_SCHEMA = {
 const APPT_SCHEMA = {
   client_id: s.num(),
   new_client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }),
-  service_id: s.num(), staff_id: s.num({ required: true }),
+  service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num({ required: true }),
   date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
   end_min: s.num({ min: 0, max: 1440 }),
   status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']),
@@ -675,11 +675,67 @@ const APPT_SELECT = `
     c.phone AS client_phone, c.email AS client_email,
     s.name AS staff_name, s.color AS staff_color,
     sv.name AS service_name, sv.price_cents AS service_price_cents,
+    (SELECT group_concat(nm, ' + ') FROM (
+       SELECT sv2.name AS nm FROM appointment_services aps
+       JOIN services sv2 ON sv2.id = aps.service_id
+       WHERE aps.appointment_id = a.id ORDER BY aps.sort_order, aps.id
+     )) AS services_summary,
+    (SELECT group_concat(sid) FROM (
+       SELECT aps.service_id AS sid FROM appointment_services aps
+       WHERE aps.appointment_id = a.id ORDER BY aps.sort_order, aps.id
+     )) AS service_ids_csv,
+    (SELECT COUNT(*) FROM appointment_services aps WHERE aps.appointment_id = a.id) AS service_count,
     (SELECT i.id FROM invoices i WHERE i.appointment_id = a.id AND i.status != 'void' LIMIT 1) AS invoice_id
   FROM appointments a
   LEFT JOIN clients c ON c.id = a.client_id
   LEFT JOIN staff s ON s.id = a.staff_id
   LEFT JOIN services sv ON sv.id = a.service_id`;
+
+/** Full ordered service list for an appointment (with pricing/duration). */
+function apptServiceRows(apptId) {
+  return db.prepare(
+    `SELECT sv.id, sv.name, sv.price_cents, sv.price_type, sv.duration_min
+     FROM appointment_services aps JOIN services sv ON sv.id = aps.service_id
+     WHERE aps.appointment_id = ? ORDER BY aps.sort_order, aps.id`
+  ).all(apptId);
+}
+
+/** Replace an appointment's service list with the given ordered ids. */
+function setApptServices(apptId, serviceIds) {
+  db.prepare('DELETE FROM appointment_services WHERE appointment_id = ?').run(apptId);
+  const ins = db.prepare('INSERT INTO appointment_services (appointment_id, service_id, sort_order) VALUES (?, ?, ?)');
+  serviceIds.forEach((sid, i) => ins.run(apptId, sid, i));
+}
+
+/**
+ * Resolve a validated list of services from a request body. Accepts a
+ * `service_ids` array (multi-service) or falls back to a single `service_id`.
+ * Returns { ids:[], services:[], primaryId, totalDuration } — ids/services in
+ * booking order, primaryId the first (kept on appointments.service_id).
+ */
+function resolveServices(body, { required = false, allowInactive = false } = {}) {
+  let ids = [];
+  if (Array.isArray(body.service_ids) && body.service_ids.length) {
+    ids = body.service_ids.map((v) => Number(v)).filter(Boolean);
+  } else if (body.service_id) {
+    ids = [Number(body.service_id)];
+  }
+  const services = [];
+  for (const id of ids) {
+    const svc = allowInactive
+      ? db.prepare('SELECT * FROM services WHERE id = ?').get(id)
+      : db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(id);
+    if (!svc) throw httpError(400, 'One of the chosen services is unavailable');
+    services.push(svc);
+  }
+  if (required && !services.length) throw httpError(400, 'Choose at least one service');
+  return {
+    ids: services.map((s) => s.id),
+    services,
+    primaryId: services[0]?.id || null,
+    totalDuration: services.reduce((sum, s) => sum + s.duration_min, 0),
+  };
+}
 
 route('GET', '/api/appointments', async ({ query }) => {
   const from = query.get('from'), to = query.get('to');
@@ -712,10 +768,15 @@ async function apptBody(req) {
   const start = clampInt(b.start_min, 0, 1439, NaN);
   if (Number.isNaN(start)) throw httpError(400, 'Start time is required');
 
-  const serviceId = Number(b.service_id) || null;
-  const service = serviceId ? db.prepare('SELECT * FROM services WHERE id = ?').get(serviceId) : null;
+  // Multi-service: `service_ids` (ordered) wins; else the legacy `service_id`.
+  // The first is stored as the appointment's primary service for back-compat.
+  // `serviceIds === null` means the caller didn't send a service list at all
+  // (e.g. a drag/resize) — leave the existing services untouched in that case.
+  const svc = resolveServices(b, { allowInactive: true });
+  const sentServices = Array.isArray(b.service_ids) || b.service_id != null;
+  const serviceId = svc.primaryId;
   let end = clampInt(b.end_min, start + 5, 1440, NaN);
-  if (Number.isNaN(end)) end = start + (service ? service.duration_min : 30);
+  if (Number.isNaN(end)) end = start + (svc.totalDuration || 30);
 
   let clientId = Number(b.client_id) || null;
   if (!clientId && b.new_client && str(b.new_client.first_name)) {
@@ -726,7 +787,7 @@ async function apptBody(req) {
   }
 
   const status = APPT_STATUSES.has(b.status) ? b.status : 'booked';
-  return { b, staffId, date: b.date, start, end, serviceId, clientId, status, notes: str(b.notes, 2000) };
+  return { b, staffId, date: b.date, start, end, serviceId, serviceIds: svc.ids, sentServices, clientId, status, notes: str(b.notes, 2000) };
 }
 
 route('POST', '/api/appointments', async ({ req }) => {
@@ -739,9 +800,11 @@ route('POST', '/api/appointments', async ({ req }) => {
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'staff')`
   ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes);
-  queueAppointmentMessages(Number(info.lastInsertRowid));
+  const apptId = Number(info.lastInsertRowid);
+  if (a.serviceIds.length) setApptServices(apptId, a.serviceIds);
+  queueAppointmentMessages(apptId);
   processQueue().catch(() => {});
-  return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(info.lastInsertRowid);
+  return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
 });
 
 route('PUT', '/api/appointments/:id', async ({ req, params }) => {
@@ -752,10 +815,15 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   if (conflict && !a.b.force) {
     throw Object.assign(httpError(409, 'This time overlaps another appointment'), { data: { conflict } });
   }
+  // Only overwrite the service list when the caller sent one. A drag/resize
+  // sends just the primary service_id (or none), so we keep the existing
+  // multi-service rows intact rather than flattening them to one.
+  const serviceId = a.sentServices ? a.serviceId : before.service_id;
   db.prepare(
     `UPDATE appointments SET client_id = ?, staff_id = ?, service_id = ?, date = ?, start_min = ?, end_min = ?, status = ?, notes = ?
      WHERE id = ?`
-  ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
+  ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
+  if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
   if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
     cancelQueuedMessages(params.id);
     if (a.status === 'completed' && before.status !== 'completed') queueReviewRequest(params.id);
@@ -933,9 +1001,14 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
      VALUES (?, ?, ?, ?, ?, 'draft', ?)`
   ).run(nextInvoiceNumber(), appt.client_id, appt.id, issue, addDays(issue, dueDays), Number(getSetting('tax_rate', '0')));
   const invId = Number(info.lastInsertRowid);
-  if (appt.service_id) {
-    db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?, ?, 1, ?)')
-      .run(invId, appt.service_name, appt.service_price_cents || 0);
+  // Bill every service on the appointment (multi-service bookings become
+  // multiple line items); fall back to the primary service for legacy rows.
+  const services = apptServiceRows(appt.id);
+  const lineItem = db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?, ?, 1, ?)');
+  if (services.length) {
+    for (const svc of services) lineItem.run(invId, svc.name, svc.price_cents || 0);
+  } else if (appt.service_id) {
+    lineItem.run(invId, appt.service_name, appt.service_price_cents || 0);
   }
   // an online deposit already collected counts as a payment on this invoice
   if (appt.deposit_status === 'paid' && appt.deposit_cents > 0) {
@@ -1185,8 +1258,17 @@ route('GET', '/api/public/availability', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const date = query.get('date');
   if (!isDateStr(date) || date < todayStr()) throw httpError(400, 'Choose an upcoming date');
-  const service = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(Number(query.get('service_id')));
-  if (!service) throw httpError(400, 'Choose a service');
+  // Duration is the sum of every chosen service (service_ids CSV), or a single
+  // service (service_id). All must be real, active services.
+  const idsParam = (query.get('service_ids') || '').split(',').map((v) => Number(v)).filter(Boolean);
+  const ids = idsParam.length ? idsParam : [Number(query.get('service_id'))];
+  let totalDuration = 0;
+  for (const id of ids) {
+    const svc = db.prepare('SELECT duration_min FROM services WHERE id = ? AND active = 1').get(id);
+    if (!svc) throw httpError(400, 'Choose a service');
+    totalDuration += svc.duration_min;
+  }
+  if (!totalDuration) throw httpError(400, 'Choose a service');
 
   const staffParam = query.get('staff_id');
   const locationId = Number(query.get('location_id')) || 0;
@@ -1199,12 +1281,12 @@ route('GET', '/api/public/availability', async ({ query }) => {
   // slot -> first staff free at that time (keeps "Any available" simple and fair)
   const slotMap = new Map();
   for (const s of staffList) {
-    for (const t of freeSlotsFor(s.id, date, service.duration_min)) {
+    for (const t of freeSlotsFor(s.id, date, totalDuration)) {
       if (!slotMap.has(t)) slotMap.set(t, s.id);
     }
   }
   return {
-    duration_min: service.duration_min,
+    duration_min: totalDuration,
     slots: [...slotMap.entries()].sort((a, b) => a[0] - b[0]).map(([start_min, staff_id]) => ({ start_min, staff_id })),
   };
 }, { auth: false });
@@ -1212,13 +1294,15 @@ route('GET', '/api/public/availability', async ({ query }) => {
 route('POST', '/api/public/book', async ({ req }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const b = checkBody(await readJson(req), {
-    service_id: s.num({ required: true }), staff_id: s.num(), location_id: s.num(),
+    service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
     notes: s.str(1000), origin: s.str(300),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
-  const service = db.prepare('SELECT * FROM services WHERE id = ? AND active = 1').get(Number(b.service_id));
-  if (!service) throw httpError(400, 'Choose a service');
+  // One or more services; the first is the appointment's primary service.
+  const svc = resolveServices(b, { required: true });
+  const service = svc.services[0];
+  const duration = svc.totalDuration;
   if (!isDateStr(b.date) || b.date < todayStr()) throw httpError(400, 'Choose an upcoming date');
   const start = clampInt(b.start_min, 0, 1439, NaN);
   if (Number.isNaN(start)) throw httpError(400, 'Choose a time');
@@ -1229,7 +1313,6 @@ route('POST', '/api/public/book', async ({ req }) => {
   if (!phone && !str(b.client?.email)) throw httpError(400, 'A phone number or email is required');
 
   let staffId = Number(b.staff_id) || 0;
-  const duration = service.duration_min;
   if (staffId) {
     if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {
       throw httpError(409, 'That time was just taken — please pick another slot');
@@ -1257,16 +1340,20 @@ route('POST', '/api/public/book', async ({ req }) => {
      VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online')`
   ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000));
   const apptId = Number(info.lastInsertRowid);
+  setApptServices(apptId, svc.ids);
 
   // Deposit via Stripe Checkout (optional). If Stripe errors, never lose the
   // booking — it proceeds without a deposit and the workspace still sees it.
+  // A percentage deposit is taken on the combined price of all services.
   let checkoutUrl = null;
-  const depositCents = depositCentsFor(service);
+  const totalPriceCents = svc.services.reduce((sum, x) => sum + (x.price_cents || 0), 0);
+  const serviceLabel = svc.services.map((x) => x.name).join(' + ');
+  const depositCents = depositCentsFor({ price_cents: totalPriceCents });
   if (depositCents > 0 && stripeConfigured()) {
     try {
       const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
       const session = await createDepositCheckout({
-        appointmentId: apptId, serviceName: service.name, depositCents, origin,
+        appointmentId: apptId, serviceName: serviceLabel, depositCents, origin,
       });
       db.prepare("UPDATE appointments SET deposit_cents = ?, deposit_status = 'pending', stripe_session_id = ? WHERE id = ?")
         .run(depositCents, session.session_id, apptId);
@@ -1285,7 +1372,7 @@ route('POST', '/api/public/book', async ({ req }) => {
     reference: `BK-${String(appt.id).padStart(5, '0')}`,
     appointment_id: appt.id,
     date: appt.date, start_min: appt.start_min, end_min: appt.end_min,
-    service: appt.service_name, staff: appt.staff_name,
+    service: appt.services_summary || appt.service_name, staff: appt.staff_name,
     business_name: getSetting('business_name'),
     checkout_url: checkoutUrl,
     deposit_cents: checkoutUrl ? depositCents : 0,

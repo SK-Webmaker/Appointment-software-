@@ -36,7 +36,7 @@ function localStamp(d = new Date()) {
 }
 
 function apptContext(apptId) {
-  return db.prepare(
+  const a = db.prepare(
     `SELECT a.*, c.first_name, c.last_name AS client_last,
             c.email AS client_email, c.phone AS client_phone,
             s.name AS staff_name, sv.name AS service_name
@@ -46,6 +46,16 @@ function apptContext(apptId) {
      LEFT JOIN services sv ON sv.id = a.service_id
      WHERE a.id = ?`
   ).get(apptId);
+  if (a) {
+    // Combined label for multi-service bookings ("Colour + Blow Dry"); falls
+    // back to the single primary service name.
+    const names = db.prepare(
+      `SELECT sv.name FROM appointment_services aps JOIN services sv ON sv.id = aps.service_id
+       WHERE aps.appointment_id = ? ORDER BY aps.sort_order, aps.id`
+    ).all(apptId).map((r) => r.name);
+    if (names.length) a.service_name = names.join(' + ');
+  }
+  return a;
 }
 
 /** Channels a client can be reached on, gated by whether SMS is opted in. */

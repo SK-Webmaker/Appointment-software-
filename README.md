@@ -39,12 +39,15 @@ npm run reset-demo   # same thing from the terminal
 ### 📅 Calendar (the Fresha-style day book)
 - Day view with a column per team member, week view for planning
 - Click any empty slot to book; **drag appointments to reschedule**, drag the bottom edge to extend
-- Double-booking detection with an explicit override
+- **Multi-service appointments** (add/remove services in the editor; duration auto-sums)
+- Double-booking detection with an explicit override; **overlapping appointments stack side-by-side** in the staff column
 - Status flow: Booked → Confirmed → Completed (plus Cancelled / No-show)
 - "Now" line, online-booking badge, per-staff colours
 
 ### ⚡ Online booking page (`/book`)
-- Customers pick service → team member (or "any available") → live time slot → done
+- Customers pick **one or more services** (Colour + Blow Dry) → team member (or "any
+  available") → live time slot → done; the appointment and availability span the summed
+  duration, and the receipt/confirmation list every service
 - Availability is computed in real time from working hours minus existing appointments;
   race-safe (a taken slot is re-checked at confirm time)
 - New customers are added to your client book automatically; returning ones are matched by email/phone
