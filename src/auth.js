@@ -20,35 +20,60 @@ function sign(payload, secret) {
   return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
 }
 
-/** Create a session token: `<userId>.<expiresMs>.<hmac>` */
-export function createSession(userId, secret) {
+/**
+ * Create a session token: `<userId>.<tokenVersion>.<expiresMs>.<hmac>`.
+ * The tokenVersion is baked into the signature, so bumping a user's
+ * token_version (on password change or "sign out everywhere") instantly
+ * invalidates every token minted before it — even a stolen cookie.
+ */
+export function createSession(userId, secret, tokenVersion = 0) {
   const expires = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
-  const payload = `${userId}.${expires}`;
+  const payload = `${userId}.${tokenVersion}.${expires}`;
   return `${payload}.${sign(payload, secret)}`;
 }
 
-/** Returns the userId for a valid, unexpired token; otherwise null. */
+/**
+ * Returns { userId, version } for a valid, unexpired, correctly-signed token;
+ * otherwise null. The caller must still confirm `version` matches the user's
+ * current token_version in the database.
+ */
 export function verifySession(token, secret) {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [userId, expires, mac] = parts;
-  const payload = `${userId}.${expires}`;
+  if (parts.length !== 4) return null; // old 3-part tokens are rejected → one clean re-login
+  const [userId, version, expires, mac] = parts;
+  const payload = `${userId}.${version}.${expires}`;
   const expected = sign(payload, secret);
   const a = Buffer.from(mac);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   if (Number(expires) < Date.now()) return null;
-  return Number(userId);
+  return { userId: Number(userId), version: Number(version) };
 }
 
-export function sessionCookie(token) {
+/** `Secure` is added over HTTPS so the cookie is never sent in the clear. */
+function cookieAttrs(secure) {
+  return `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
+}
+
+export function sessionCookie(token, secure = false) {
   const maxAge = SESSION_DAYS * 24 * 60 * 60;
-  return `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}`;
+  return `${COOKIE_NAME}=${token}; ${cookieAttrs(secure)}; Max-Age=${maxAge}`;
 }
 
-export function clearSessionCookie() {
-  return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+export function clearSessionCookie(secure = false) {
+  return `${COOKIE_NAME}=; ${cookieAttrs(secure)}; Max-Age=0`;
+}
+
+/**
+ * Whether the session cookie should carry the `Secure` flag for this request.
+ * True behind an HTTPS proxy (Render/Caddy set x-forwarded-proto), or when
+ * KAIRO_SECURE_COOKIES=1 forces it. Local plain-HTTP dev stays usable.
+ */
+export function secureForRequest(req) {
+  if (process.env.KAIRO_SECURE_COOKIES === '1') return true;
+  if (process.env.KAIRO_SECURE_COOKIES === '0') return false;
+  return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 }
 
 // --- tiny in-memory rate limiter for login attempts ---

@@ -8,7 +8,7 @@ import {
 } from './util.js';
 import {
   hashPassword, verifyPassword, createSession, verifySession,
-  sessionCookie, clearSessionCookie, COOKIE_NAME,
+  sessionCookie, clearSessionCookie, secureForRequest, COOKIE_NAME,
 } from './auth.js';
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
@@ -71,8 +71,13 @@ export async function handleApi(req, res, pathname, query) {
     let user = null;
     if (r.auth) {
       const token = parseCookies(req)[COOKIE_NAME];
-      const userId = verifySession(token, getSetting('session_secret'));
-      if (userId) user = db.prepare('SELECT id, name, email, role, email_verified FROM users WHERE id = ?').get(userId);
+      const sess = verifySession(token, getSetting('session_secret'));
+      if (sess) {
+        const row = db.prepare('SELECT id, name, email, role, email_verified, token_version FROM users WHERE id = ?').get(sess.userId);
+        // The token's version must still match the user's — a password change
+        // (or "sign out everywhere") bumps it and instantly retires old cookies.
+        if (row && row.token_version === sess.version) user = row;
+      }
       if (!user) return sendJson(res, 401, { error: 'Not signed in' });
       // user-based limit on authenticated traffic (in addition to the IP ceiling)
       const userOver = rateHit('authed', `u${user.id}:${ip}`);
@@ -124,24 +129,32 @@ route('POST', '/api/auth/login', async ({ req, res }) => {
     password: s.str(200, { required: true }),
   });
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(str(email).toLowerCase());
-  if (!user || !verifyPassword(String(password || ''), user.salt, user.pass_hash)) {
+  // Always run a hash comparison — even when the email is unknown — so response
+  // timing can't be used to discover which emails have accounts.
+  const ok = user
+    ? verifyPassword(String(password || ''), user.salt, user.pass_hash)
+    : verifyPassword(String(password || ''), 'decoy-salt', '00');
+  if (!user || !ok) {
     throw httpError(401, 'Invalid email or password');
   }
-  const token = createSession(user.id, getSetting('session_secret'));
-  res.setHeader('Set-Cookie', sessionCookie(token));
+  const token = createSession(user.id, getSetting('session_secret'), user.token_version || 0);
+  res.setHeader('Set-Cookie', sessionCookie(token, secureForRequest(req)));
   return { user: { id: user.id, name: user.name, email: user.email, role: user.role, email_verified: user.email_verified } };
 }, { auth: false });
 
-route('POST', '/api/auth/logout', async ({ res }) => {
-  res.setHeader('Set-Cookie', clearSessionCookie());
+route('POST', '/api/auth/logout', async ({ req, res }) => {
+  res.setHeader('Set-Cookie', clearSessionCookie(secureForRequest(req)));
   return { ok: true };
 }, { auth: false });
 
-route('GET', '/api/auth/me', async ({ user }) => ({ user, settings: getSettings(), version: VERSION }));
+route('GET', '/api/auth/me', async ({ user }) => {
+  const { token_version, ...safeUser } = user; // don't expose the session epoch
+  return { user: safeUser, settings: getSettings(), version: VERSION };
+});
 
 route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
 
-route('PUT', '/api/auth/password', async ({ req, user }) => {
+route('PUT', '/api/auth/password', async ({ req, res, user }) => {
   const { current, next } = checkBody(await readJson(req), {
     current: s.str(200, { required: true }),
     next: s.str(200, { required: true }),
@@ -152,7 +165,12 @@ route('PUT', '/api/auth/password', async ({ req, user }) => {
   }
   if (!next || String(next).length < 8) throw httpError(400, 'New password must be at least 8 characters');
   const { salt, hash } = hashPassword(String(next));
-  db.prepare('UPDATE users SET pass_hash = ?, salt = ? WHERE id = ?').run(hash, salt, user.id);
+  // Bump token_version → every existing session (including any a thief holds)
+  // is retired. Then hand THIS browser a fresh cookie so the owner stays in.
+  const newVersion = (row.token_version || 0) + 1;
+  db.prepare('UPDATE users SET pass_hash = ?, salt = ?, token_version = ? WHERE id = ?').run(hash, salt, newVersion, user.id);
+  if (getSetting('default_password_active') === '1') setSetting('default_password_active', '0');
+  res.setHeader('Set-Cookie', sessionCookie(createSession(user.id, getSetting('session_secret'), newVersion), secureForRequest(req)));
   return { ok: true };
 });
 

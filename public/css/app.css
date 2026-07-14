@@ -93,6 +93,15 @@ a { color: var(--accent); text-decoration: none; }
 
 .main { display: flex; flex-direction: column; overflow: hidden; }
 
+.security-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 24px; font-size: 13px; line-height: 1.5;
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.10);
+  border-bottom: 1px solid rgba(248, 113, 113, 0.30);
+}
+.security-banner svg { flex: none; }
+.security-banner a { color: var(--red); font-weight: 700; text-decoration: underline; }
 .topbar {
   display: flex; align-items: center; gap: 14px;
   height: 62px; padding: 0 24px;

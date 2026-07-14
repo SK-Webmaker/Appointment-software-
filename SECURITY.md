@@ -74,8 +74,27 @@ never included in any API response.
   is never stored and password checks use constant-time comparison.
 - Sessions are stateless cookies signed with **HMAC-SHA256**, marked
   **HttpOnly** (JavaScript can't read them), **SameSite=Lax** (cross-site
-  requests can't ride the cookie), and expire after 30 days.
-- Login is rate-limited per IP to blunt brute-force attempts.
+  requests can't ride the cookie), **Secure** when served over HTTPS (the
+  cookie is never sent in the clear), and expire after 30 days.
+- **Changing your password retires every existing session** (v1.6): each token
+  carries a version that is bumped on password change, so a stolen or shared
+  cookie stops working the instant the password is changed — the current
+  browser is handed a fresh one so you stay signed in.
+- Login is rate-limited per IP to blunt brute-force attempts, and runs a hash
+  comparison even for unknown emails so response timing can't reveal which
+  addresses have accounts.
+- **Default-password warning** (v1.6): a fresh install ships with a default
+  password. Until it is changed, a red banner across the top of the app warns
+  the owner that anyone who knows it can get in. Set `KAIRO_ADMIN_PASSWORD` at
+  first boot to avoid ever using the default. **This is the single most
+  important thing a deployer must do.**
+- **Owner email verification** (v1.5): the business owner can verify their
+  account email from Settings → Security. The link uses a 48-character
+  cryptographically random token, expires after 48 hours, and is **single-use**
+  — once clicked it is wiped from the database. Verifying proves the owner
+  controls the address their receipts, reminders and password-critical mail
+  will come from. (This applies to the *business's* account — customers never
+  need an account or verification to book.)
 - **Owner email verification** (v1.5): the business owner can verify their
   account email from Settings → Security. The link uses a 48-character
   cryptographically random token, expires after 48 hours, and is **single-use**
@@ -134,8 +153,16 @@ Every write endpoint validates its JSON body against an explicit schema
   `data:image/...` URIs and size-capped.
 - **Static files:** the file server normalizes paths and refuses anything that
   escapes the `public/` directory (no path traversal).
-- **Headers:** responses set `X-Content-Type-Options: nosniff`,
-  `X-Frame-Options: DENY`, and `Referrer-Policy: same-origin`.
+- **Content-Security-Policy** (v1.6): a strict CSP locks scripts and network
+  connections to the app's **own origin** (`script-src 'self'`, `connect-src
+  'self'`, `object-src 'none'`) — so even if an XSS payload slipped past output
+  escaping, the browser refuses to run injected `<script>` or exfiltrate data to
+  another host. Framing is blocked (`frame-ancestors 'none'`).
+- **Headers:** every response sets `Content-Security-Policy`,
+  `Strict-Transport-Security` (force HTTPS for 2 years),
+  `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: same-origin`, and a `Permissions-Policy` that disables
+  camera, microphone, geolocation and payment APIs the app never uses.
 
 ## 7. What the deployer must still do
 
@@ -152,8 +179,18 @@ Software can't do these for you:
 
 ## 8. Verified by automated tests
 
-The end-to-end suites (61 checks across core, pricing, receipts/reviews, and a
-dedicated 21-check security suite) and the load test include, specifically:
+The end-to-end suites (66 checks across core, pricing, receipts/reviews, and a
+dedicated 27-check security suite) and the load test include, specifically:
+
+- **Session security**: the cookie carries `Secure` over HTTPS; a forged or
+  tampered token is rejected (`401`); and **changing the password immediately
+  invalidates the old cookie** (it returns `401`) while the new one works —
+  proving a stolen session can be revoked.
+- **Security headers**: a strict `Content-Security-Policy` (self-only scripts,
+  no framing, no objects), plus `HSTS` and `Permissions-Policy`, are present on
+  responses.
+- **Default-password warning** is surfaced to the app on a fresh install, and
+  the internal session epoch is never exposed to the browser.
 
 - A request with an **unknown field** — top-level or nested — gets a `400`
   naming the field; oversized strings, wrong types, and out-of-range numbers

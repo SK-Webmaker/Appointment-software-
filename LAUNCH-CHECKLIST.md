@@ -8,7 +8,7 @@ the first paying business.
 
 ## 1. Feature audit — everything in the box, everything tested
 
-Every ✅ below was exercised end-to-end in a real browser (60/60 automated checks passing).
+Every ✅ below was exercised end-to-end in a real browser (66/66 automated checks passing).
 
 ### Scheduling
 - ✅ Day calendar with a column per staff member (Fresha-style day book)
@@ -161,15 +161,16 @@ Automated end-to-end suite (Chromium, real UI), across four suites:
   a payment auto-queues a Receipt, completing a visit auto-queues a Review request, the
   branded public review page accepts a rating and is idempotent on reuse, the review shows
   on the staff Reviews page, and an owner reply saves.
-- **Security (21 checks, v1.5):** schema validation rejects unknown fields (top-level and
-  nested), oversized strings, wrong types, out-of-range values and non-editable settings
+- **Security (27 checks, v1.5–v1.6):** schema validation rejects unknown fields (top-level
+  and nested), oversized strings, wrong types, out-of-range values and non-editable settings
   keys; rate limits fire gracefully (429 + Retry-After) on public reads, login brute-force
   and booking spam while other IPs stay unaffected; owner email verification is
-  single-use with friendly pages for bad/expired links and clear guidance when email
-  isn't configured yet; closed working days offer zero slots and refuse direct booking
-  POSTs; colour schemes reach the public page; receipts carry the branded HTML template.
+  single-use with friendly pages for bad/expired links; closed working days offer zero slots
+  and refuse direct booking POSTs; **strict CSP + HSTS + Permissions-Policy headers are
+  present; the session cookie is Secure over HTTPS; a forged token is rejected; changing
+  the password revokes old sessions; and the default-password warning is surfaced**.
 
-**60/60 passing**, plus a load test: 0 HTTP errors at 2,000+ req/s on the public booking
+**66/66 passing**, plus a load test: 0 HTTP errors at 2,000+ req/s on the public booking
 surface (rate limiter active), worst p95 ≈ 115 ms, and a 40-way race for the same slot
 won by exactly one booking. Multi-service booking, the invoice-per-service billing, the
 drag-preserves-services behaviour, and side-by-side overlap rendering were additionally

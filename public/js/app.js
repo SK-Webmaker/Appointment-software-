@@ -127,6 +127,11 @@ function renderShell() {
             <button class="btn primary" id="quick-new">${icon('plus')} New appointment</button>
           </div>
         </header>
+        ${state.settings.default_password_active === '1' ? `
+        <div class="security-banner">
+          ${icon('alert', 16)}
+          <span><b>Change your password.</b> You're signed in with the default password — anyone who knows it can access your business. Set a new one in <a href="#/settings">Settings → Security</a>.</span>
+        </div>` : ''}
         <main class="content"><div class="page" id="page"></div></main>
       </div>
     </div>`;

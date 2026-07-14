@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hashPassword } from './auth.js';
+import { hashPassword, verifyPassword } from './auth.js';
 import { dateStr } from './util.js';
 import { VERSION } from './version.js';
 
@@ -183,6 +183,8 @@ function migrate() {
   addColumn('users', 'email_verified', 'email_verified INTEGER NOT NULL DEFAULT 0');
   addColumn('users', 'verify_token', "verify_token TEXT NOT NULL DEFAULT ''");
   addColumn('users', 'verify_sent_at', "verify_sent_at TEXT NOT NULL DEFAULT ''");
+  // Bumped on password change / "sign out everywhere" to invalidate old cookies.
+  addColumn('users', 'token_version', 'token_version INTEGER NOT NULL DEFAULT 0');
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
@@ -343,6 +345,14 @@ export function bootstrap() {
       salt
     );
   }
+  // Flag whether the built-in default password ('admin123') is still in use, so
+  // the app can nag the owner to change it — a live instance on its default
+  // credentials is the single biggest real-world risk. Recomputed every boot,
+  // and also cleared the moment the password is changed.
+  const admin = db.prepare('SELECT salt, pass_hash FROM users ORDER BY id LIMIT 1').get();
+  const onDefault = admin && verifyPassword('admin123', admin.salt, admin.pass_hash);
+  setSetting('default_password_active', onDefault ? '1' : '0');
+
   const hasStaff = db.prepare('SELECT COUNT(*) AS n FROM staff').get().n > 0;
   if (!hasStaff) seedDemo();
   // A brand-new deployment (no prior user) starts un-configured, so the owner

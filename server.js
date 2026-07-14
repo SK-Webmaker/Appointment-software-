@@ -60,11 +60,32 @@ function serveStatic(res, urlPath) {
   });
 }
 
+// Content-Security-Policy: scripts and connections are locked to same-origin
+// (no CDN, no external calls), which neutralises injected <script> even if some
+// XSS slipped past output escaping. Inline styles are allowed because the UI
+// uses style attributes throughout; images allow data: URIs for brand logos.
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self'",
+  "connect-src 'self'",
+  "form-action 'self'",
+].join('; ');
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', CSP);
+  // Tell browsers to stick to HTTPS for two years (ignored on plain HTTP).
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
+  // The app needs none of these device features — deny them outright.
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
 
   if (url.pathname.startsWith('/api/')) {
     await handleApi(req, res, url.pathname, url.searchParams);

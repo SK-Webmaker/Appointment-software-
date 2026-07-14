@@ -71,6 +71,11 @@ function poweredHtml() {
 }
 
 async function boot() {
+  // "Book another / a different time" buttons — delegated so no inline
+  // onclick is needed (keeps the page compatible with a strict script-src CSP).
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('[data-book-again]')) location.href = '/book';
+  });
   try {
     state.info = await getJson('/api/public/info');
     setCurrency(state.info.currency);
@@ -114,7 +119,7 @@ async function handleDepositReturn(params) {
         The deposit payment wasn't completed, but we've kept your slot for now.
         Give us a call${state.info.business_phone ? ` on <b>${esc(state.info.business_phone)}</b>` : ''} to confirm your appointment.
       </div>
-      <button class="btn" onclick="location.href='/book'">Book a different time</button>
+      <button class="btn" data-book-again>Book a different time</button>
     </div>
     ${poweredHtml()}`;
 }
@@ -394,7 +399,7 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
       <div style="color:var(--muted);font-size:13px">We look forward to seeing you at ${esc(res.business_name)}.</div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:22px">
         <a class="btn" href="/api/public/ics/${res.appointment_id}" download>${icon('calendar')} Add to calendar</a>
-        <button class="btn" onclick="location.href='/book'">Book another</button>
+        <button class="btn" data-book-again>Book another</button>
       </div>
     </div>
     ${poweredHtml()}`;
