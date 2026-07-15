@@ -49,8 +49,9 @@ fails the build if a secret string ever appears in a public response.
 
 ## 2. Secrets never reach the browser
 
-Payment and messaging keys (Stripe secret key, Resend API key, Twilio auth
-token) are **write-only from the UI's perspective:**
+Payment and messaging keys (Stripe secret key, Resend API key, and your SMS
+provider's key — ClickSend API key, Telnyx API key, or Twilio auth token) are
+**write-only from the UI's perspective:**
 
 - They are stored server-side in the settings table.
 - The API **never returns their values.** `getSettings()` replaces each secret

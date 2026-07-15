@@ -55,8 +55,8 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Post-visit review requests, auto-sent after checkout (configurable delay)
 - ✅ Branded public review page (1-5★ + comment); 4-5★ → one-tap Google review hand-off
 - ✅ Reviews page: average rating, list, owner replies
-- ✅ Email (Resend) + SMS (Twilio) with test buttons; **SMS defaults off** (real per-text
-  + one-time US carrier registration cost — opt-in only, never billed by accident)
+- ✅ Email (Resend) + SMS (**choose ClickSend / Telnyx / Twilio** in Settings) with test
+  buttons; **SMS defaults off** (real per-text cost — opt-in only, never billed by accident)
 - ✅ Messages log: queued / sent / failed / skipped with reasons + retry
 - ✅ Reschedule re-queues the reminder; cancel withdraws it
 
@@ -82,7 +82,7 @@ How Kairo answers the tools your prospects already use:
 | Staff-column day calendar | ✅ | ✅ | ✅ | ✅ |
 | Drag to reschedule | ✅ | ✅ | ✅ | ✅ |
 | Online booking page | ✅ | ✅ | ✅ | ✅ |
-| Email/SMS reminders | ✅ | ✅ | ✅ | ✅ (your own Resend/Twilio keys — at-cost, no markup) |
+| Email/SMS reminders | ✅ | ✅ | ✅ | ✅ (your own Resend + ClickSend/Telnyx/Twilio keys — at-cost, no markup) |
 | Payment receipts | ✅ | ✅ | ➖ | ✅ (auto-sent on payment or deposit) |
 | Post-visit review requests | ✅ | ➖ | ➖ | ✅ (own branded review page + Google hand-off) |
 | Deposits / no-show protection | ✅ | ✅ | ✅ | ✅ (Stripe) |
@@ -126,7 +126,7 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 
 **Communications & payments (optional but recommended)**
 - [ ] Resend key + from-address pasted → **Test email** button green
-- [ ] Twilio credentials pasted → **Test SMS** button green
+- [ ] SMS provider chosen (ClickSend / Telnyx / Twilio) + keys pasted → **Test SMS** button green
 - [ ] Stripe: test key first → book a test appointment with card `4242 4242 4242 4242` → then live key
 - [ ] Reminder timing agreed with the owner (24h default)
 

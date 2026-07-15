@@ -97,8 +97,9 @@ npm run reset-demo   # same thing from the terminal
   delay). Clients tap a link, leave 1-5★ and an optional comment on a page branded like
   your booking page; 4-5★ ratings get a one-tap prompt to also post on Google if you've
   set a review link. See them all — with reply — on the new **Reviews** page
-- Email via **Resend**, SMS via **Twilio** — paste keys in *Settings → Notifications*
-  and they go live; test buttons included
+- Email via **Resend**; SMS via a provider you choose in *Settings → Notifications* —
+  **ClickSend** (simplest, best for Australia), **Telnyx** (cheapest per text), or
+  **Twilio**. Paste that provider's keys and it goes live; test buttons included
 - A **Messages** page logs every message (queued / sent / failed / skipped) with retry,
   so nothing ever disappears silently. Rescheduling re-queues the reminder;
   cancelling withdraws it.
@@ -106,19 +107,21 @@ npm run reset-demo   # same thing from the terminal
 **What it actually costs** (pay the provider directly — no markup, no plan tiers). Email
 and SMS are priced very differently, so they're broken out separately:
 
-| | Email (Resend) | SMS (Twilio, US) |
+| | Email (Resend) | SMS — pick a provider |
 |---|---|---|
-| Per message | **Free** up to 3,000/mo (100/day cap), then ~$0.001 | ~$0.008 Twilio + ~$0.003–0.005 carrier surcharge ≈ **1–1.3¢/text** |
-| Sending number | — | ~$1.15/mo |
-| **Required one-time setup** | none | US carrier registration ("A2P 10DLC"): **$4–44 brand fee + $15 campaign vetting** ≈ **$19–59 once** |
-| Recurring platform fee | $0 | **~$1.50–10/mo** ongoing campaign fee (carrier-set, not Kairo's) |
+| Per message | **Free** up to 3,000/mo (100/day cap), then ~$0.001 | **ClickSend** ~6¢ AUD · **Telnyx** ~2–4¢ · **Twilio** ~8¢ + monthly number |
+| Sending number / ID | — | ClickSend & Telnyx: business-name sender, **no number rental** · Twilio: ~$1–6/mo number |
+| One-time setup | none | ClickSend registers your sender with ACMA for you; Telnyx needs KYC; Twilio needs number + registration |
+| Recurring platform fee | $0 | $0 for ClickSend/Telnyx (pay-as-you-go); Twilio number rental |
 
-**This is why SMS defaults OFF in Kairo** (`Settings → Notifications → SMS`) — it isn't
-free the way people assume, and a new deployment should never risk a bill without the
+There is **no genuinely free SMS** (Apple blocks the phone-gateway trick that works on
+Android, and every cloud SMS API charges per message) — so **SMS defaults OFF in Kairo**
+(`Settings → Notifications → SMS`) and a new deployment never risks a bill without the
 owner opting in. Email alone (confirmations, reminders, receipts, review requests) costs
-**$0/month** for a typical single-location business and needs zero setup. Turn SMS on only
-when the extra open-rate is worth the ~$20–60 one-time carrier registration plus the small
-monthly fee.
+**$0/month** and needs zero setup. When you do want SMS, pick the provider that fits:
+**ClickSend** for the simplest Australian setup, **Telnyx** for the lowest per-text price,
+or **Twilio**. At a salon's ~40 texts/month the price difference is about a dollar — so
+setup simplicity usually matters more than the per-message rate.
 
 For comparison, Fresha bundles messaging into its plan ($14.95–19.95/mo) with a free
 per-month SMS allowance, then $0.05–0.15 per text after that — Kairo's SMS, once
@@ -161,7 +164,8 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 
 ### 🔒 Security (see [SECURITY.md](SECURITY.md))
 - One private instance + database per business — the strongest data isolation
-- API keys (Stripe/Resend/Twilio) are **write-only** and never sent to the browser
+- API keys (Stripe, Resend, and your SMS provider — ClickSend/Telnyx/Twilio) are
+  **write-only** and never sent to the browser
 - **Rate limiting on every endpoint** — per-IP for public traffic, per-user+IP for
   staff; graceful `429` + `Retry-After`, tight on login/booking/review abuse
 - **Schema-based input validation** on every write: type checks, length limits,

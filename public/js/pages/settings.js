@@ -201,24 +201,57 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">SMS (text messages)</div>
-        <div class="card-sub" style="margin-bottom:16px">Every message above can also go out as a text — but unlike
-          email, SMS costs real money per message plus a one-time carrier registration (~$20–60 in the US) and a small
-          monthly fee. <b>Off by default</b> so nothing ever gets billed without you choosing it.
-          Uses <a href="https://www.twilio.com" target="_blank" rel="noreferrer">Twilio</a>.</div>
+        <div class="card-sub" style="margin-bottom:16px">Every message above can also go out as a text. SMS costs money
+          per message (there's no free option), so it's <b>off by default</b> — nothing is billed unless you turn it on.
+          Pick the provider that suits you; you're billed by them directly, no markup.</div>
         <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
             <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} style="width:17px;height:17px;margin-top:1px;accent-color:var(--accent)">
-            <span><b>Also send SMS</b> for every message type above (in addition to email)<br>
-              <span class="hint" style="margin:0">~1–2¢ per text via Twilio, billed to your Twilio account directly — no markup.</span></span>
+            <span><b>Also send SMS</b> for every message type above (in addition to email)</span>
           </label>
-          <div class="form-grid">
-            <div class="field"><label>Twilio Account SID</label>
-              <input name="twilio_sid" value="${esc(s.twilio_sid || '')}" placeholder="AC…" autocomplete="off"></div>
-            <div class="field"><label>Twilio Auth Token${keySaved(s.twilio_token_set)}</label>
-              <input name="twilio_token" type="password" value="" placeholder="${keyPlaceholder(s.twilio_token_set, '')}" autocomplete="off"></div>
+          <div class="field"><label>SMS provider</label>
+            <select name="sms_provider" id="sms-provider">
+              <option value="clicksend" ${(s.sms_provider || 'clicksend') === 'clicksend' ? 'selected' : ''}>ClickSend — simplest setup, great for Australia</option>
+              <option value="telnyx" ${s.sms_provider === 'telnyx' ? 'selected' : ''}>Telnyx — cheapest per message, more setup</option>
+              <option value="twilio" ${s.sms_provider === 'twilio' ? 'selected' : ''}>Twilio — widely used, has monthly number fees</option>
+            </select>
+            <div class="hint" id="sms-provider-hint"></div>
           </div>
-          <div class="field"><label>Twilio phone number (sender)</label>
-            <input name="twilio_from" value="${esc(s.twilio_from || '')}" placeholder="+15551234567"></div>
+
+          <div class="sms-fields" data-provider="clicksend">
+            <div class="form-grid">
+              <div class="field"><label>ClickSend username</label>
+                <input name="clicksend_username" value="${esc(s.clicksend_username || '')}" placeholder="your ClickSend login" autocomplete="off"></div>
+              <div class="field"><label>ClickSend API key${keySaved(s.clicksend_api_key_set)}</label>
+                <input name="clicksend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.clicksend_api_key_set, 'from ClickSend dashboard')}" autocomplete="off"></div>
+            </div>
+            <div class="field"><label>Sender name or number (optional)</label>
+              <input name="clicksend_from" value="${esc(s.clicksend_from || '')}" placeholder="e.g. LuxeHair (business name) or +61…">
+              <div class="hint">A business-name sender needs one-off registration with ClickSend (they handle ACMA). Leave blank to use a shared number.</div></div>
+          </div>
+
+          <div class="sms-fields" data-provider="telnyx">
+            <div class="field"><label>Telnyx API key${keySaved(s.telnyx_api_key_set)}</label>
+              <input name="telnyx_api_key" type="password" value="" placeholder="${keyPlaceholder(s.telnyx_api_key_set, 'KEY…')}" autocomplete="off"></div>
+            <div class="form-grid">
+              <div class="field"><label>Sender number or ID</label>
+                <input name="telnyx_from" value="${esc(s.telnyx_from || '')}" placeholder="+61… or LuxeHair"></div>
+              <div class="field"><label>Messaging profile ID (optional)</label>
+                <input name="telnyx_profile_id" value="${esc(s.telnyx_profile_id || '')}" placeholder="from Telnyx portal"></div>
+            </div>
+          </div>
+
+          <div class="sms-fields" data-provider="twilio">
+            <div class="form-grid">
+              <div class="field"><label>Twilio Account SID</label>
+                <input name="twilio_sid" value="${esc(s.twilio_sid || '')}" placeholder="AC…" autocomplete="off"></div>
+              <div class="field"><label>Twilio Auth Token${keySaved(s.twilio_token_set)}</label>
+                <input name="twilio_token" type="password" value="" placeholder="${keyPlaceholder(s.twilio_token_set, '')}" autocomplete="off"></div>
+            </div>
+            <div class="field"><label>Twilio phone number (sender)</label>
+              <input name="twilio_from" value="${esc(s.twilio_from || '')}" placeholder="+15551234567"></div>
+          </div>
+
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save SMS settings</button>
         </form>
       </div>
@@ -449,9 +482,31 @@ export async function renderSettings(container) {
       'resend_api_key', 'notif_from_email',
     ]);
   });
+  // Show only the selected provider's credential fields.
+  const smsProvider = container.querySelector('#sms-provider');
+  const SMS_HINTS = {
+    clicksend: 'Australian, pay-as-you-go, no monthly fee (~6¢/text). Sign up at clicksend.com, top up, paste your username + API key.',
+    telnyx: 'Cheapest per text (~2–4¢) but onboarding needs KYC + sender registration. Best if you\'re comfortable with a developer console.',
+    twilio: 'Reliable and global, but pricier for Australia and rents you a number monthly. Paste your SID, auth token and Twilio number.',
+  };
+  const syncSmsFields = () => {
+    const p = smsProvider.value;
+    container.querySelectorAll('.sms-fields').forEach((el) => {
+      el.style.display = el.dataset.provider === p ? '' : 'none';
+    });
+    container.querySelector('#sms-provider-hint').textContent = SMS_HINTS[p] || '';
+  };
+  smsProvider.addEventListener('change', syncSmsFields);
+  syncSmsFields();
+
   container.querySelector('#set-sms').addEventListener('submit', (e) => {
     e.preventDefault();
-    saveSettings(e.target, ['sms_notifications_enabled', 'twilio_sid', 'twilio_token', 'twilio_from']);
+    saveSettings(e.target, [
+      'sms_notifications_enabled', 'sms_provider',
+      'clicksend_username', 'clicksend_api_key', 'clicksend_from',
+      'telnyx_api_key', 'telnyx_from', 'telnyx_profile_id',
+      'twilio_sid', 'twilio_token', 'twilio_from',
+    ]);
   });
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();

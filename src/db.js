@@ -215,7 +215,8 @@ export function setSetting(key, value) {
 // each with an empty string plus a `<key>_set` boolean, so the UI can show
 // "configured — leave blank to keep" without the value ever reaching a browser.
 export const SECRET_SETTINGS = new Set([
-  'session_secret', 'resend_api_key', 'twilio_token', 'stripe_secret_key',
+  'session_secret', 'resend_api_key', 'stripe_secret_key',
+  'twilio_token', 'clicksend_api_key', 'telnyx_api_key',
 ]);
 
 export function getSettings() {
@@ -269,12 +270,20 @@ const DEFAULT_SETTINGS = {
   public_url: '',  // captured automatically by the setup wizard (location.origin)
   notif_from_email: '',
   resend_api_key: '',
+  // SMS provider is selectable: clicksend (default, simplest AU setup) | telnyx
+  // (cheapest, more setup) | twilio. Only the chosen provider's keys are used.
+  sms_provider: 'clicksend',
+  clicksend_username: '',
+  clicksend_api_key: '',
+  clicksend_from: '',      // sender ID (business name) or dedicated number
+  telnyx_api_key: '',
+  telnyx_from: '',         // Telnyx number or alphanumeric sender ID
+  telnyx_profile_id: '',   // optional messaging profile id
   twilio_sid: '',
   twilio_token: '',
   twilio_from: '',
-  // SMS costs money per-message plus a one-time carrier registration
-  // (~$20-60) and a small recurring campaign fee — off by default so a new
-  // deployment never sends a paid text without the owner opting in.
+  // SMS costs money per message — off by default so a new deployment never
+  // sends a paid text without the owner opting in.
   sms_notifications_enabled: '0',
   // Online deposits via Stripe Checkout
   stripe_secret_key: '',

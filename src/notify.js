@@ -3,13 +3,16 @@
 // Messages are queued in the `messages` table and delivered by a background
 // scheduler. Providers are plain HTTPS APIs (no SDKs, keeping zero deps):
 //   email → Resend  (settings: resend_api_key, notif_from_email)
-//   sms   → Twilio  (settings: twilio_sid, twilio_token, twilio_from)
+//   sms   → chosen via `sms_provider`: clicksend | telnyx | twilio
+//           clicksend → clicksend_username, clicksend_api_key, clicksend_from
+//           telnyx    → telnyx_api_key, telnyx_from, telnyx_profile_id
+//           twilio    → twilio_sid, twilio_token, twilio_from
 // With no provider configured a message is marked `skipped` (never lost
 // silently — the Messages page shows exactly what happened).
 //
-// SMS costs real money (per-message + a one-time carrier registration), so
-// it is gated behind `sms_notifications_enabled` (default off) in addition
-// to having Twilio credentials configured — a business opts in deliberately.
+// SMS costs real money per message, so it is gated behind
+// `sms_notifications_enabled` (default off) in addition to having a provider
+// configured — a business opts in deliberately.
 import crypto from 'node:crypto';
 import { db, getSetting } from './db.js';
 import { renderEmail } from './email-html.js';
@@ -352,11 +355,18 @@ export async function sendEmail(to, subject, body, html = '') {
   return { ok: false, detail: `Resend ${res.status}: ${err.slice(0, 300)}` };
 }
 
-async function sendSms(to, body) {
+const SMS_NOT_CONFIGURED = (name, fields) =>
+  ({ ok: false, skipped: true, detail: `SMS not configured (add ${name} ${fields} in Settings → Notifications)` });
+
+// Each sender returns { ok, skipped?, detail }. `skipped` means "not set up"
+// (logged as skipped, not failed) so the Messages page shows exactly what
+// happened. All three are plain HTTPS calls — no SDKs, keeping zero deps.
+
+async function sendTwilio(to, body) {
   const sid = getSetting('twilio_sid');
   const token = getSetting('twilio_token');
   const from = getSetting('twilio_from');
-  if (!sid || !token || !from) return { ok: false, skipped: true, detail: 'SMS not configured (add Twilio credentials in Settings → Notifications)' };
+  if (!sid || !token || !from) return SMS_NOT_CONFIGURED('Twilio', 'credentials');
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: 'POST',
     headers: {
@@ -368,6 +378,56 @@ async function sendSms(to, body) {
   if (res.ok) return { ok: true, detail: 'Delivered via Twilio' };
   const err = await res.text().catch(() => '');
   return { ok: false, detail: `Twilio ${res.status}: ${err.slice(0, 300)}` };
+}
+
+async function sendClickSend(to, body) {
+  const username = getSetting('clicksend_username');
+  const apiKey = getSetting('clicksend_api_key');
+  const from = getSetting('clicksend_from'); // optional sender ID (business name) / dedicated number
+  if (!username || !apiKey) return SMS_NOT_CONFIGURED('ClickSend', 'username + API key');
+  const message = { body, to };
+  if (from) message.from = from;
+  const res = await fetch('https://rest.clicksend.com/v3/sms/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${username}:${apiKey}`).toString('base64')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ messages: [message] }),
+  });
+  const data = await res.json().catch(() => ({}));
+  const msgStatus = data?.data?.messages?.[0]?.status;
+  if (res.ok && data?.response_code === 'SUCCESS' && (!msgStatus || msgStatus === 'SUCCESS')) {
+    return { ok: true, detail: `Delivered via ClickSend${data?.data?.total_price != null ? ` (cost ${data.data.total_price})` : ''}` };
+  }
+  return { ok: false, detail: `ClickSend: ${data?.response_msg || msgStatus || `HTTP ${res.status}`}` };
+}
+
+async function sendTelnyx(to, body) {
+  const apiKey = getSetting('telnyx_api_key');
+  const from = getSetting('telnyx_from');           // Telnyx number or alphanumeric sender ID
+  const profileId = getSetting('telnyx_profile_id'); // optional messaging profile
+  if (!apiKey || (!from && !profileId)) return SMS_NOT_CONFIGURED('Telnyx', 'API key + sender number/ID');
+  const payload = { to, text: body };
+  if (from) payload.from = from;
+  if (profileId) payload.messaging_profile_id = profileId;
+  const res = await fetch('https://api.telnyx.com/v2/messages', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && data?.data?.id) return { ok: true, detail: 'Delivered via Telnyx' };
+  const reason = data?.errors?.[0]?.detail || data?.errors?.[0]?.title || `HTTP ${res.status}`;
+  return { ok: false, detail: `Telnyx: ${reason}` };
+}
+
+/** Dispatch to the SMS provider chosen in Settings (default ClickSend). */
+async function sendSms(to, body) {
+  const provider = getSetting('sms_provider', 'clicksend');
+  if (provider === 'twilio') return sendTwilio(to, body);
+  if (provider === 'telnyx') return sendTelnyx(to, body);
+  return sendClickSend(to, body);
 }
 
 export async function deliverMessage(msg) {

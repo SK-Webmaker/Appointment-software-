@@ -254,8 +254,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         <label class="wiz-toggle"><input type="checkbox" id="w-reviews" ${data.settings.review_requests_enabled ? 'checked' : ''}>
           <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" link, sent after checkout</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-sms" ${data.settings.sms_notifications_enabled ? 'checked' : ''}>
-          <span><b>Also send all of these as SMS</b><br><span class="wiz-muted">Email above is free. SMS costs ~1–2¢/text plus a one-time
-            carrier setup (~$20–60) — leave this off for now and turn it on later in Settings once you've added Twilio.</span></span></label>
+          <span><b>Also send all of these as SMS</b><br><span class="wiz-muted">Email above is free. SMS costs a few cents per text —
+            leave this off for now and turn it on later in Settings once you've picked an SMS provider (ClickSend, Telnyx or Twilio).</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
           <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs Stripe later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
