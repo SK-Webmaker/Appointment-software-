@@ -625,3 +625,127 @@ table.data th.num { text-align: right; }
   flex: 1; background: var(--bg-raise); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 11px; font-size: 12.5px;
 }
+
+/* ---------------------------------------------------------------------------
+   Cinematic post-login intro — the Kairo mark assembles on a dark stage while
+   the workspace loads beneath, then the screen splits down the centre (each
+   half carrying half of the logo) and parts to reveal the app.
+--------------------------------------------------------------------------- */
+.intro { position: fixed; inset: 0; z-index: 9999; }
+
+/* Two full-screen panels, each clipped to its side of the seam. Sliding them
+   apart splits everything they contain — including the logo — down the middle. */
+.intro-half {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(1100px 520px at 50% 42%, rgba(37, 99, 235, 0.16), transparent 62%),
+    radial-gradient(700px 300px at 50% 46%, rgba(56, 189, 248, 0.10), transparent 60%),
+    linear-gradient(180deg, #030509 0%, #070c18 48%, #04060d 100%);
+  will-change: transform;
+  transition: transform 1.05s cubic-bezier(0.87, 0, 0.13, 1);
+}
+.intro-half::after { /* vignette for a filmic edge falloff */
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+.ih-left  { clip-path: inset(0 50% 0 0); }
+.ih-right { clip-path: inset(0 0 0 50%); }
+.intro-open .ih-left  { transform: translateX(-64vw); }
+.intro-open .ih-right { transform: translateX(64vw); }
+
+.intro-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+.intro-lockup { display: flex; flex-direction: column; align-items: center; }
+
+/* --- the mark: ring draws itself, halo breathes, dot lands with a pop --- */
+.intro-mark { width: 116px; height: 116px; overflow: visible; }
+.im-ring {
+  fill: none; stroke-width: 7; stroke-linecap: round;
+  stroke-dasharray: 213.6; stroke-dashoffset: 213.6;
+  transform: rotate(-118deg); transform-origin: 60px 60px;
+  animation: introRing 1.0s cubic-bezier(0.4, 0, 0.2, 1) 60ms forwards;
+}
+.im-halo {
+  fill: none; stroke: #38bdf8; stroke-width: 13; opacity: 0;
+  filter: blur(10px);
+  animation: introHalo 2.4s ease-in-out 700ms infinite;
+}
+.im-dot {
+  fill: #38bdf8; opacity: 0; transform-origin: 87px 33px;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.85));
+  animation: introDot 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 980ms forwards;
+}
+
+/* --- wordmark: letters rise out of a blur, tracking tightens like a title card --- */
+.intro-word {
+  display: flex; margin-top: 26px;
+  font-size: 42px; font-weight: 800; color: #eef4ff;
+  letter-spacing: 0.52em; text-indent: 0.52em; /* balance the trailing space */
+  animation: introTracking 1.9s cubic-bezier(0.22, 1, 0.36, 1) 300ms forwards;
+  text-shadow: 0 0 34px rgba(56, 189, 248, 0.35);
+}
+.intro-word span {
+  opacity: 0; transform: translateY(16px); filter: blur(7px);
+  animation: introLetter 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; /* per-letter delay inline */
+}
+.intro-rule {
+  width: 0; height: 1px; margin-top: 20px;
+  background: linear-gradient(90deg, transparent, rgba(148, 190, 255, 0.7), transparent);
+  animation: introRule 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1050ms forwards;
+}
+.intro-tag {
+  margin-top: 14px; font-size: 10.5px; font-weight: 600; color: #7d8aa5;
+  letter-spacing: 0.44em; text-indent: 0.44em; opacity: 0;
+  animation: introFadeUp 0.8s ease 1250ms forwards;
+}
+
+/* --- loading shimmer (this IS the loading screen) --- */
+.intro-load {
+  width: 148px; height: 2px; margin-top: 34px; border-radius: 2px;
+  background: rgba(148, 190, 255, 0.12); overflow: hidden; opacity: 0;
+  animation: introFadeUp 0.6s ease 1350ms forwards;
+}
+.intro-load i {
+  display: block; width: 42%; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #7cc7ff, transparent);
+  animation: introSweep 1.1s ease-in-out 1350ms infinite;
+}
+.intro-open .intro-load { opacity: 0; transition: opacity 180ms; }
+
+/* --- the seam: a light line flares down the centre as the screen parts --- */
+.intro-seam {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+  transform: translateX(-50%) scaleY(0); transform-origin: 50% 50%;
+  background: linear-gradient(180deg, transparent, #bfe6ff 18%, #e8f6ff 50%, #bfe6ff 82%, transparent);
+  box-shadow: 0 0 24px 4px rgba(125, 200, 255, 0.75), 0 0 80px 16px rgba(56, 189, 248, 0.35);
+  opacity: 0; pointer-events: none;
+}
+.intro-open .intro-seam { animation: introSeam 0.62s cubic-bezier(0.7, 0, 0.3, 1) forwards; }
+
+/* the revealed workspace settles from a gentle push-in */
+#app.app-reveal { animation: appSettle 1.15s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: 50% 42%; }
+
+@keyframes introRing   { to { stroke-dashoffset: 0; } }
+@keyframes introHalo   { 0%, 100% { opacity: 0.10; } 50% { opacity: 0.30; } }
+@keyframes introDot    { 0% { opacity: 0; transform: scale(0.2); } 65% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes introLetter { to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+@keyframes introTracking { to { letter-spacing: 0.34em; text-indent: 0.34em; } }
+@keyframes introRule   { to { width: 210px; } }
+@keyframes introFadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes introSweep  { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
+@keyframes introSeam   { 0% { opacity: 0; transform: translateX(-50%) scaleY(0); }
+                         24% { opacity: 1; transform: translateX(-50%) scaleY(1); }
+                         55% { opacity: 0.5; }
+                         100% { opacity: 0; transform: translateX(-50%) scaleY(1); } }
+@keyframes appSettle   { from { transform: scale(1.045); filter: brightness(1.22) saturate(1.08); }
+                         to   { transform: scale(1); filter: brightness(1) saturate(1); } }
+
+/* Reduced motion: a calm cross-fade, no split, no letter choreography */
+.intro-reduced .im-ring { animation: none; stroke-dashoffset: 0; }
+.intro-reduced .im-dot, .intro-reduced .intro-word span,
+.intro-reduced .intro-tag, .intro-reduced .intro-load { animation: none; opacity: 1; transform: none; filter: none; }
+.intro-reduced .intro-word { animation: none; letter-spacing: 0.34em; text-indent: 0.34em; }
+.intro-reduced .intro-rule { animation: none; width: 210px; }
+.intro-reduced .im-halo { animation: none; opacity: 0.18; }
+.intro-reduced.intro-open { opacity: 0; transition: opacity 420ms ease; }
+.intro-reduced.intro-open .ih-left, .intro-reduced.intro-open .ih-right { transform: none; }
+.intro-reduced.intro-open .intro-seam { animation: none; }

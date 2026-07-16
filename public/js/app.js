@@ -11,6 +11,7 @@ import { renderSettings } from './pages/settings.js';
 import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
 import { runSetupWizard } from './wizard.js';
+import { mountIntro } from './intro.js';
 
 export const state = {
   user: null,
@@ -40,6 +41,7 @@ const ROUTES = {
 };
 
 const root = document.getElementById('app');
+let pendingIntro = null; // set on login; reveal()ed once the workspace is rendered
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -76,9 +78,14 @@ function renderLogin() {
     errEl.textContent = '';
     try {
       await api.post('/api/auth/login', { email: fd.get('email'), password: fd.get('password') });
+      // Cinematic brand intro doubles as the loading screen: it plays over
+      // boot(), then splits open to reveal the loaded workspace.
+      pendingIntro = mountIntro();
       await boot();
     } catch (err) {
       errEl.textContent = err.message;
+      pendingIntro?.abort();
+      pendingIntro = null;
     }
   });
 }
@@ -182,12 +189,18 @@ async function boot() {
     if (state.settings.setup_complete !== '1') {
       root.innerHTML = '';
       runSetupWizard({ firstRun: true, settings: state.settings, onDone: () => boot() });
+      pendingIntro?.reveal();
+      pendingIntro = null;
       return;
     }
     await refreshLookups();
     renderShell();
     await navigate();
+    pendingIntro?.reveal();
+    pendingIntro = null;
   } catch (err) {
+    pendingIntro?.abort();
+    pendingIntro = null;
     if (err instanceof ApiError && err.status === 401) renderLogin();
     else {
       root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert')}<div>Cannot reach the Kairo server: ${esc(err.message)}</div></div>`;
