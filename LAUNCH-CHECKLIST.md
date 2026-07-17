@@ -21,6 +21,16 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ "Now" line, per-staff colours, ⚡ badge on online bookings, 💳 badge on deposits
 - ✅ Location filter (appears automatically with 2+ locations)
 
+### Point of Sale (v1.8)
+- ✅ Bill Customer from today's appointments (services pre-loaded) or walk-in
+- ✅ Services + products + custom lines, qty, discounts, GST, server-side pricing
+- ✅ Card/wallet via Stripe Checkout (salon phone or customer's phone via shared
+  link — Apple Pay/Google Pay), cash, other; live paid-flip with no refresh
+- ✅ Idempotent end-to-end: double-taps, poll races and retries can never
+  double-charge or double-record (verified by test)
+- ✅ Refunds full/partial → Stripe + payment history + optional restock
+- ✅ Product management with stock tracking + low-stock warnings
+
 ### Online booking (`/book`)
 - ✅ **Multi-service booking** — customers add several services to one visit (Colour + Blow Dry); availability and the appointment span the summed duration, and the confirmation/receipt list every service
 - ✅ Service(s) → staff ("any available" supported) → live availability → details → confirmed

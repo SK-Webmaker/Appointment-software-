@@ -74,6 +74,27 @@ npm run reset-demo   # same thing from the terminal
   "Price Type" column
 - Archive services without losing appointment history
 
+### 💳 Point of Sale (`#/pos`)
+- **Bill Customer in a few taps**, designed phone-first: pick one of today's
+  appointments (services pre-loaded) or start a walk-in sale
+- Add services, retail **products**, custom lines; qty steppers, discounts,
+  "From $X" final pricing, GST calculated automatically
+- **Take payment**: card/wallet via Stripe (customer pays on the salon phone or
+  on their own phone via a shared link — Apple Pay/Google Pay appear there),
+  or cash/other recorded instantly
+- The POS screen watches the payment live — the moment Stripe confirms, the
+  sale flips to **Paid**, stock reduces, the receipt emails, no refresh
+- **Refunds** (full/partial) from the invoice — pushed to Stripe automatically,
+  with optional product restock. Duplicate-charge protection end to end
+  (server-side pricing, idempotency keys, dedup on Stripe's payment intent)
+- See [STRIPE-SETUP.md](STRIPE-SETUP.md) for the owner's onboarding guide
+
+### 🛍 Products & inventory
+- Product manager: image, SKU, barcode, category, supplier, retail + cost
+  price, GST flag, **stock on hand with low-stock warnings**
+- Selling at the POS reduces stock automatically; refunds can restock
+- Products sold on ever-kept history: deleted products archive instead of vanish
+
 ### 🧾 Billing
 - One-click **Checkout / bill** from any appointment → invoice pre-filled with the service
 - Line items, quantities, tax rate, discounts; totals computed in integer cents (no float drift)

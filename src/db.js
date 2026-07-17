@@ -94,6 +94,24 @@ export function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_appt_services ON appointment_services(appointment_id);
 
+    -- Retail products sold at the counter (POS) alongside services.
+    CREATE TABLE IF NOT EXISTS products (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      name          TEXT NOT NULL,
+      category      TEXT NOT NULL DEFAULT 'General',
+      supplier      TEXT NOT NULL DEFAULT '',
+      sku           TEXT NOT NULL DEFAULT '',
+      barcode       TEXT NOT NULL DEFAULT '',
+      retail_cents  INTEGER NOT NULL DEFAULT 0,
+      cost_cents    INTEGER NOT NULL DEFAULT 0,
+      stock_qty     INTEGER NOT NULL DEFAULT 0,
+      low_stock_at  INTEGER NOT NULL DEFAULT 3,
+      image         TEXT NOT NULL DEFAULT '',   -- data: URI, like brand images
+      taxable       INTEGER NOT NULL DEFAULT 1, -- GST applies
+      active        INTEGER NOT NULL DEFAULT 1,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS invoices (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       number         TEXT NOT NULL UNIQUE,
@@ -185,6 +203,16 @@ function migrate() {
   addColumn('users', 'verify_sent_at', "verify_sent_at TEXT NOT NULL DEFAULT ''");
   // Bumped on password change / "sign out everywhere" to invalidate old cookies.
   addColumn('users', 'token_version', 'token_version INTEGER NOT NULL DEFAULT 0');
+  // POS: link invoice line items to products (for inventory + purchase history),
+  // track the Stripe Checkout session on the invoice, whether stock has been
+  // decremented (exactly once), and the payment intent on payments (for refunds).
+  addColumn('invoice_items', 'product_id', 'product_id INTEGER REFERENCES products(id) ON DELETE SET NULL');
+  addColumn('invoices', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");
+  addColumn('invoices', 'pos_fulfilled', 'pos_fulfilled INTEGER NOT NULL DEFAULT 0');
+  // Random per-sale token used as the Stripe idempotency key: unlike the
+  // invoice id it can never collide after a demo reset re-uses id numbers.
+  addColumn('invoices', 'pos_token', "pos_token TEXT NOT NULL DEFAULT ''");
+  addColumn('payments', 'stripe_pi', "stripe_pi TEXT NOT NULL DEFAULT ''");
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
@@ -433,6 +461,24 @@ export function seedDemo() {
     name, duration_min: dur, price_cents: price, price_type: ptype,
   }));
 
+  // Retail products for the POS counter — realistic salon shelf.
+  const products = [
+    // name, category, supplier, sku, retail, cost, stock, low_at
+    ['Olaplex No.3 Hair Perfector', 'Hair care', 'Olaplex AU', 'OLA-N3', 4500, 2600, 14, 4],
+    ['K18 Leave-In Molecular Mask 50ml', 'Hair care', 'K18 Distribution', 'K18-50', 9900, 6100, 8, 3],
+    ['Moroccanoil Treatment 100ml', 'Hair care', 'Moroccanoil', 'MOR-100', 6900, 3900, 11, 4],
+    ['Heat Protect Spray 200ml', 'Styling', 'SalonPro Supply', 'HPS-200', 3200, 1500, 20, 6],
+    ['Curl Defining Cream', 'Styling', 'SalonPro Supply', 'CDC-150', 2800, 1300, 9, 3],
+    ['Silk Pillowcase', 'Accessories', 'Luxe Goods Co', 'SPC-01', 5900, 3000, 5, 2],
+    ['Wide-Tooth Detangling Comb', 'Accessories', 'Luxe Goods Co', 'WTC-01', 1400, 500, 2, 3],
+    ['Purple Toning Shampoo 300ml', 'Hair care', 'SalonPro Supply', 'PTS-300', 3400, 1700, 13, 4],
+  ];
+  const insProduct = db.prepare(
+    `INSERT INTO products (name, category, supplier, sku, retail_cents, cost_cents, stock_qty, low_stock_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const p of products) insProduct.run(...p);
+
   const people = [
     ['Jeanen', 'Brooks', 'jeanen.brooks@example.com', '(555) 210-8841'],
     ['Kesha', 'Alexander', 'kesha.alex@example.com', '(555) 342-9917'],
@@ -563,8 +609,8 @@ export function seedDemo() {
 export function clearBusinessData() {
   db.exec(`
     DELETE FROM messages; DELETE FROM reviews; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
-    DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
-    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointment_services','appointments','services','clients','staff','locations');
+    DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM products; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointment_services','appointments','services','products','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
 }

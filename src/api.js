@@ -15,7 +15,10 @@ import {
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   deliverMessage, processQueue,
 } from './notify.js';
-import { depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession } from './stripe.js';
+import {
+  depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
+  createPosCheckout, verifyPosSession, createStripeRefund,
+} from './stripe.js';
 import { VERSION } from './version.js';
 import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
@@ -1096,6 +1099,280 @@ route('POST', '/api/invoices/:id/payments', async ({ req, params }) => {
   queueReceiptMessage(Number(params.id), { amountCents: amount, method, balanceCents: Math.max(0, updated.balance_cents) });
   processQueue().catch(() => {});
   return updated;
+});
+
+// ---------------------------------------------------------------------------
+// Products (retail inventory sold at the POS counter)
+// ---------------------------------------------------------------------------
+
+const PRODUCT_SCHEMA = {
+  name: s.str(150, { required: true }),
+  category: s.str(80), supplier: s.str(120),
+  sku: s.str(60), barcode: s.str(60),
+  retail_cents: s.num({ min: 0, max: 100_000_000 }),
+  cost_cents: s.num({ min: 0, max: 100_000_000 }),
+  stock_qty: s.num({ min: 0, max: 1_000_000 }),
+  low_stock_at: s.num({ min: 0, max: 100_000 }),
+  image: s.str(900_000), taxable: s.bool(), active: s.bool(),
+};
+
+function productBody(b) {
+  const image = str(b.image, 900_000);
+  if (image && !isImageDataUri(image)) throw httpError(400, 'Product image must be an uploaded image');
+  return [
+    str(b.name, 150), str(b.category, 80) || 'General', str(b.supplier, 120),
+    str(b.sku, 60), str(b.barcode, 60),
+    clampInt(b.retail_cents, 0, 100_000_000, 0), clampInt(b.cost_cents, 0, 100_000_000, 0),
+    clampInt(b.stock_qty, 0, 1_000_000, 0), clampInt(b.low_stock_at, 0, 100_000, 3),
+    image, b.taxable === false ? 0 : 1, b.active === false ? 0 : 1,
+  ];
+}
+
+route('GET', '/api/products', async ({ query }) => {
+  const q = str(query.get('q'), 100);
+  const all = query.get('all') === '1'; // include archived
+  const conds = all ? [] : ['active = 1'];
+  const args = [];
+  if (q) {
+    conds.push('(name LIKE ? OR sku LIKE ? OR barcode LIKE ? OR category LIKE ?)');
+    const like = `%${q}%`;
+    args.push(like, like, like, like);
+  }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return db.prepare(`SELECT * FROM products ${where} ORDER BY category, name LIMIT 1000`).all(...args);
+});
+
+route('POST', '/api/products', async ({ req }) => {
+  const b = checkBody(await readJson(req), PRODUCT_SCHEMA);
+  if (!str(b.name)) throw httpError(400, 'Product name is required');
+  const info = db.prepare(
+    `INSERT INTO products (name, category, supplier, sku, barcode, retail_cents, cost_cents, stock_qty, low_stock_at, image, taxable, active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(...productBody(b));
+  return db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid);
+});
+
+route('PUT', '/api/products/:id', async ({ req, params }) => {
+  if (!db.prepare('SELECT id FROM products WHERE id = ?').get(params.id)) throw httpError(404, 'Product not found');
+  const b = checkBody(await readJson(req), PRODUCT_SCHEMA);
+  db.prepare(
+    `UPDATE products SET name = ?, category = ?, supplier = ?, sku = ?, barcode = ?, retail_cents = ?,
+       cost_cents = ?, stock_qty = ?, low_stock_at = ?, image = ?, taxable = ?, active = ? WHERE id = ?`
+  ).run(...productBody(b), params.id);
+  return db.prepare('SELECT * FROM products WHERE id = ?').get(params.id);
+});
+
+route('DELETE', '/api/products/:id', async ({ params }) => {
+  // Products that were ever sold are archived (history must keep pointing at
+  // them); never-sold products can be removed outright.
+  const sold = db.prepare('SELECT 1 FROM invoice_items WHERE product_id = ? LIMIT 1').get(params.id);
+  if (sold) db.prepare('UPDATE products SET active = 0 WHERE id = ?').run(params.id);
+  else db.prepare('DELETE FROM products WHERE id = ?').run(params.id);
+  return { ok: true, archived: Boolean(sold) };
+});
+
+// ---------------------------------------------------------------------------
+// Point of Sale. The server re-prices every line from the database (client
+// input chooses WHAT is sold, never what it costs), wraps invoice + items in
+// a transaction, and records payment + stock exactly once — verified against
+// Stripe directly (pull model), so no webhook is needed and nothing can be
+// spoofed from the browser.
+// ---------------------------------------------------------------------------
+
+const POS_SALE_SCHEMA = {
+  client_id: s.num(), appointment_id: s.num(),
+  items: s.arr(s.obj({
+    type: s.oneOf(['service', 'product', 'custom'], { required: true }),
+    id: s.num(),
+    description: s.str(150),
+    qty: s.num({ min: 1, max: 999 }),
+    unit_cents: s.num({ min: 0, max: 100_000_000 }),
+  }), 50, { required: true }),
+  discount_cents: s.num({ min: 0, max: 100_000_000 }),
+  method: s.oneOf(['stripe', 'cash', 'other'], { required: true }),
+  origin: s.str(300),
+};
+
+/** Re-price sale lines from the database; returns rows ready for invoice_items. */
+function posPriceItems(items) {
+  if (!items.length) throw httpError(400, 'Add at least one item to the sale');
+  return items.map((it) => {
+    const qty = clampInt(it.qty, 1, 999, 1);
+    if (it.type === 'service') {
+      const svc = db.prepare('SELECT * FROM services WHERE id = ?').get(Number(it.id));
+      if (!svc) throw httpError(400, 'One of the services no longer exists');
+      // "From $X" services: staff set the final price at checkout; it can't be
+      // below the advertised floor.
+      let unit = svc.price_cents;
+      if (svc.price_type === 'from' && it.unit_cents != null) {
+        unit = Math.max(svc.price_cents, clampInt(it.unit_cents, 0, 100_000_000, svc.price_cents));
+      }
+      return { description: svc.name, qty, unit_cents: unit, product_id: null };
+    }
+    if (it.type === 'product') {
+      const p = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1').get(Number(it.id));
+      if (!p) throw httpError(400, 'One of the products is unavailable');
+      if (p.stock_qty < qty) throw httpError(409, `Only ${p.stock_qty} × ${p.name} left in stock`);
+      return { description: p.name, qty, unit_cents: p.retail_cents, product_id: p.id };
+    }
+    // custom line — description + amount are the staff's own entry
+    const desc = str(it.description, 150);
+    if (!desc) throw httpError(400, 'Custom items need a description');
+    return { description: desc, qty, unit_cents: clampInt(it.unit_cents, 0, 100_000_000, 0), product_id: null };
+  });
+}
+
+/** Decrement stock for a sale's product lines — exactly once per invoice. */
+function fulfillPosStock(invoiceId) {
+  const inv = db.prepare('SELECT pos_fulfilled FROM invoices WHERE id = ?').get(invoiceId);
+  if (!inv || inv.pos_fulfilled) return;
+  const lines = db.prepare('SELECT product_id, qty FROM invoice_items WHERE invoice_id = ? AND product_id IS NOT NULL').all(invoiceId);
+  for (const l of lines) {
+    db.prepare('UPDATE products SET stock_qty = MAX(0, stock_qty - ?) WHERE id = ?').run(Math.round(l.qty), l.product_id);
+  }
+  db.prepare('UPDATE invoices SET pos_fulfilled = 1 WHERE id = ?').run(invoiceId);
+}
+
+/** Record a verified Stripe POS payment idempotently (dedupe on payment intent). */
+function recordPosStripePayment(invoiceId, amountCents, paymentIntent) {
+  if (paymentIntent && db.prepare('SELECT 1 FROM payments WHERE invoice_id = ? AND stripe_pi = ?').get(invoiceId, paymentIntent)) {
+    return false; // already recorded — a poll race or double status call
+  }
+  db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note, stripe_pi) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(invoiceId, amountCents, 'card', `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, 'POS — paid via Stripe', paymentIntent || '');
+  return true;
+}
+
+route('POST', '/api/pos/sale', async ({ req }) => {
+  const b = checkBody(await readJson(req), POS_SALE_SCHEMA);
+  const priced = posPriceItems(b.items);
+  const clientId = Number(b.client_id) || null;
+  const apptId = Number(b.appointment_id) || null;
+  const discount = clampInt(b.discount_cents, 0, 100_000_000, 0);
+  const taxRate = Number(getSetting('tax_rate', '0')) || 0;
+
+  const subtotal = priced.reduce((sum, l) => sum + l.qty * l.unit_cents, 0);
+  if (discount > subtotal) throw httpError(400, 'Discount cannot exceed the subtotal');
+  const total = Math.round((subtotal - discount) * (1 + taxRate / 100));
+  if (total <= 0) throw httpError(400, 'Sale total must be above zero');
+  if (b.method === 'stripe' && total < 50) throw httpError(400, 'Card payments need a total of at least 50 cents');
+
+  const issue = todayStr();
+  db.exec('BEGIN');
+  let invId;
+  try {
+    const info = db.prepare(
+      `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, discount_cents)
+       VALUES (?, ?, ?, ?, ?, 'sent', ?, ?)`
+    ).run(nextInvoiceNumber(), clientId, apptId, issue, issue, taxRate, discount);
+    invId = Number(info.lastInsertRowid);
+    const insItem = db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents, product_id) VALUES (?, ?, ?, ?, ?)');
+    for (const l of priced) insItem.run(invId, l.description, l.qty, l.unit_cents, l.product_id);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+
+  if (b.method === 'cash' || b.method === 'other') {
+    // Paid on the spot: record, fulfil stock, receipt — all now.
+    db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
+      .run(invId, total, b.method === 'cash' ? 'cash' : 'other', `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, 'POS sale');
+    refreshPaidStatus(invId);
+    fulfillPosStock(invId);
+    const updated = getInvoice(invId);
+    queueReceiptMessage(invId, { amountCents: total, method: b.method, balanceCents: 0 });
+    processQueue().catch(() => {});
+    return { paid: true, invoice_id: invId, total_cents: total, invoice: updated };
+  }
+
+  // Card via Stripe Checkout. If Stripe rejects (bad key, offline), the sale
+  // is voided so no half-finished invoice lingers — staff just retry or take cash.
+  if (!stripeConfigured()) {
+    db.prepare("UPDATE invoices SET status = 'void', notes = 'POS: Stripe not configured' WHERE id = ?").run(invId);
+    throw httpError(400, 'Card payments need a Stripe key first (Settings → Online deposits)');
+  }
+  try {
+    const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
+    const taxLabel = taxRate > 0 ? ` (incl. ${taxRate}% GST/tax)` : '';
+    const items = discount > 0 || taxRate > 0
+      // One consolidated line keeps Stripe's total exactly equal to ours after
+      // discount + tax; itemized lines otherwise.
+      ? [{ description: `Sale at ${getSetting('business_name', 'salon')}${taxLabel}`, qty: 1, unit_cents: total }]
+      : priced;
+    const idemToken = crypto.randomBytes(12).toString('hex');
+    db.prepare('UPDATE invoices SET pos_token = ? WHERE id = ?').run(idemToken, invId);
+    const session = await createPosCheckout({ invoiceId: invId, items, origin, idemToken });
+    db.prepare('UPDATE invoices SET stripe_session_id = ? WHERE id = ?').run(session.session_id, invId);
+    return { paid: false, invoice_id: invId, total_cents: total, checkout_url: session.url };
+  } catch (err) {
+    db.prepare("UPDATE invoices SET status = 'void', notes = ? WHERE id = ?").run(`POS: Stripe error — ${str(err.message, 300)}`, invId);
+    throw httpError(502, `Card payment could not start: ${err.message}`);
+  }
+});
+
+route('GET', '/api/pos/status/:id', async ({ params }) => {
+  const inv = db.prepare('SELECT * FROM invoices WHERE id = ?').get(params.id);
+  if (!inv) throw httpError(404, 'Sale not found');
+  if (inv.status === 'paid') {
+    return { paid: true, invoice: getInvoice(inv.id) };
+  }
+  if (inv.status === 'void') return { paid: false, void: true };
+  if (!inv.stripe_session_id) return { paid: false, pending: true };
+  try {
+    const check = await verifyPosSession(inv.stripe_session_id);
+    if (!check.paid) return { paid: false, pending: true };
+    // Verified with Stripe — record once (poll races dedupe on the intent).
+    recordPosStripePayment(inv.id, check.amount_cents, check.payment_intent);
+    refreshPaidStatus(inv.id);
+    fulfillPosStock(inv.id);
+    const updated = getInvoice(inv.id);
+    if (updated.status === 'paid') {
+      queueReceiptMessage(inv.id, { amountCents: check.amount_cents, method: 'card', balanceCents: 0 });
+      processQueue().catch(() => {});
+    }
+    return { paid: updated.status === 'paid', invoice: updated };
+  } catch {
+    return { paid: false, pending: true }; // Stripe unreachable — keep polling
+  }
+});
+
+// Refunds: full or partial; Stripe-paid sales are refunded at Stripe first
+// (idempotent per amount), and product lines can restock. The invoice keeps
+// its Paid status — the refund lives in payment history and reduces revenue.
+route('POST', '/api/invoices/:id/refund', async ({ req, params }) => {
+  const inv = getInvoice(params.id);
+  const b = checkBody(await readJson(req), {
+    amount_cents: s.num({ min: 1, max: 100_000_000 }),
+    restock: s.bool(),
+    note: s.str(300),
+  });
+  const paidIn = inv.payments.filter((p) => p.amount_cents > 0).reduce((sum, p) => sum + p.amount_cents, 0);
+  const refunded = inv.payments.filter((p) => p.amount_cents < 0).reduce((sum, p) => sum - p.amount_cents, 0);
+  const refundable = paidIn - refunded;
+  const amount = b.amount_cents != null ? Math.round(Number(b.amount_cents)) : refundable;
+  if (refundable <= 0) throw httpError(400, 'Nothing left to refund on this invoice');
+  if (amount <= 0 || amount > refundable) throw httpError(400, `Refund must be between 1 and ${refundable} cents`);
+
+  // Refund at Stripe first when the money went through Stripe.
+  const stripePay = inv.payments.find((p) => p.stripe_pi && p.amount_cents > 0);
+  let stripeRefundId = '';
+  if (stripePay) {
+    const r = await createStripeRefund(stripePay.stripe_pi, amount, refunded); // throws on Stripe failure — nothing recorded
+    stripeRefundId = r.refund_id;
+  }
+  db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note, stripe_pi) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(inv.id, -amount, stripePay ? 'card' : 'cash',
+         `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`,
+         str(b.note, 300) || (stripeRefundId ? `Refund (Stripe ${stripeRefundId})` : 'Refund'),
+         stripeRefundId);
+
+  // Full refunds can put product stock back on the shelf.
+  if (b.restock && amount === refundable) {
+    const lines = db.prepare('SELECT product_id, qty FROM invoice_items WHERE invoice_id = ? AND product_id IS NOT NULL').all(inv.id);
+    for (const l of lines) db.prepare('UPDATE products SET stock_qty = stock_qty + ? WHERE id = ?').run(Math.round(l.qty), l.product_id);
+  }
+  return getInvoice(inv.id);
 });
 
 route('DELETE', '/api/invoices/:id/payments/:pid', async ({ params }) => {

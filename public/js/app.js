@@ -10,6 +10,8 @@ import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
 import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
+import { renderPos } from './pages/pos.js';
+import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
 import { mountIntro } from './intro.js';
 
@@ -30,9 +32,11 @@ export async function refreshLookups() {
 
 const ROUTES = {
   dashboard: { title: 'Dashboard', icon: 'grid', render: renderDashboard },
+  pos: { title: 'Point of Sale', icon: 'card', render: renderPos },
   calendar: { title: 'Calendar', icon: 'calendar', render: renderCalendar },
   clients: { title: 'Clients', icon: 'users', render: renderClients },
   services: { title: 'Services', icon: 'tag', render: renderServices },
+  products: { title: 'Products', icon: 'tag', render: renderProducts },
   invoices: { title: 'Billing', icon: 'invoice', render: renderInvoices },
   messages: { title: 'Messages', icon: 'send', render: renderMessages },
   reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
@@ -96,7 +100,7 @@ function renderLogin() {
 
 function renderShell() {
   document.title = `Kairo — ${esc(state.settings.business_name || 'Booking OS')}`;
-  const navMain = ['dashboard', 'calendar', 'clients', 'services', 'invoices'];
+  const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
   const navManage = ['messages', 'reviews', 'staff', 'settings'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`

@@ -154,6 +154,10 @@ export async function openInvoiceModal({ id, onChanged }) {
         </div>`).join('')}` : ''}
     ${inv.notes ? `<div class="cell-sub" style="margin-top:12px">${esc(inv.notes)}</div>` : ''}`;
 
+  const paidIn = inv.payments.filter((p) => p.amount_cents > 0).reduce((s2, p) => s2 + p.amount_cents, 0);
+  const refunded = inv.payments.filter((p) => p.amount_cents < 0).reduce((s2, p) => s2 - p.amount_cents, 0);
+  const refundable = paidIn - refunded;
+
   const m = openModal({
     title: 'Invoice',
     wide: true,
@@ -161,6 +165,7 @@ export async function openInvoiceModal({ id, onChanged }) {
     footer: `
       <button class="btn danger" id="iv-void">${inv.status === 'void' ? 'Delete' : 'Void'}</button>
       <button class="btn" id="iv-edit">${icon('edit')} Edit</button>
+      ${inv.status !== 'void' && refundable > 0 ? `<button class="btn" id="iv-refund">${icon('reply')} Refund</button>` : ''}
       <div class="spacer"></div>
       <button class="btn" id="iv-print">${icon('print')} Print / PDF</button>
       ${inv.status === 'draft' ? `<button class="btn" id="iv-send">${icon('send')} Mark sent</button>` : ''}
@@ -201,6 +206,52 @@ export async function openInvoiceModal({ id, onChanged }) {
   m.querySelector('#iv-pay')?.addEventListener('click', () => {
     openPaymentModal(inv, refresh);
   });
+  m.querySelector('#iv-refund')?.addEventListener('click', () => {
+    m.close();
+    openRefundModal(inv, refundable, () => { onChanged?.(); openInvoiceModal({ id, onChanged }); });
+  });
+}
+
+/** Full or partial refund. Stripe-paid sales refund at Stripe automatically. */
+function openRefundModal(inv, refundableCents, onDone) {
+  const hasProducts = inv.items.some((it) => it.product_id);
+  const viaStripe = inv.payments.some((p) => p.stripe_pi && p.amount_cents > 0);
+  const m = openModal({
+    title: `Refund — ${inv.number}`,
+    body: `
+      <div class="cell-sub" style="margin-bottom:14px">
+        ${money(refundableCents)} was collected on this sale${viaStripe
+          ? ' via Stripe — the refund is sent to Stripe and lands back on the customer\'s card (3–10 business days).'
+          : ' in cash/other — record the refund here after handing the money back.'}
+      </div>
+      <form id="refund-form" style="display:flex;flex-direction:column;gap:13px">
+        <div class="field"><label>Refund amount</label>
+          <input name="amount" type="number" min="0.01" step="0.01" value="${(refundableCents / 100).toFixed(2)}" required>
+          <div class="hint">Up to ${money(refundableCents)}. Lower the amount for a partial refund.</div></div>
+        ${hasProducts ? `
+        <label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer">
+          <input type="checkbox" name="restock" checked style="width:16px;height:16px;margin-top:2px;accent-color:var(--accent)">
+          <span>Return products to stock<br><span class="hint" style="margin:0">Applies on full refunds — puts the sold items back in inventory.</span></span>
+        </label>` : ''}
+        <div class="field"><label>Reason (optional)</label><input name="note" maxlength="300" placeholder="e.g. product returned"></div>
+      </form>`,
+    footer: `<div class="spacer"></div><button class="btn danger" id="refund-go">${icon('reply')} Refund</button>`,
+  });
+  m.querySelector('#refund-go').onclick = async (e) => {
+    const fd = new FormData(m.querySelector('#refund-form'));
+    const cents = Math.round(Number(fd.get('amount')) * 100);
+    if (!Number.isFinite(cents) || cents <= 0 || cents > refundableCents) { toast(`Enter an amount up to ${money(refundableCents)}`, 'err'); return; }
+    e.target.disabled = true; // double-click guard (server is idempotent too)
+    try {
+      await api.post(`/api/invoices/${inv.id}/refund`, {
+        amount_cents: cents,
+        restock: fd.get('restock') === 'on',
+        note: fd.get('note') || '',
+      });
+      toast(viaStripe ? 'Refund sent to Stripe' : 'Refund recorded');
+      m.close(); onDone?.();
+    } catch (err) { toast(err.message, 'err'); e.target.disabled = false; }
+  };
 }
 
 function openPaymentModal(inv, onDone) {
