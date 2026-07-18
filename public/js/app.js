@@ -100,6 +100,9 @@ function renderLogin() {
 
 function renderShell() {
   document.title = `Kairo — ${esc(state.settings.business_name || 'Booking OS')}`;
+  // Home-screen ("Add to Home Screen") label defaults to the business name.
+  const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
   const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
   const navManage = ['messages', 'reviews', 'staff', 'settings'];
   const navHtml = (keys) => keys.map((k) =>
@@ -108,10 +111,12 @@ function renderShell() {
 
   root.innerHTML = `
     <div class="app">
+      <div class="nav-scrim" id="nav-scrim"></div>
       <aside class="sidebar">
         <div class="brand">${LOGO_SVG}
           <div><div class="brand-name">Kairo</div>
           <div class="brand-sub">${esc(state.settings.business_name || '')}</div></div>
+          <button class="icon-btn nav-close" id="nav-close" title="Close menu" aria-label="Close menu">${icon('x')}</button>
         </div>
         <nav class="nav">
           <div class="nav-label">Workspace</div>
@@ -131,11 +136,13 @@ function renderShell() {
       </aside>
       <div class="main">
         <header class="topbar">
+          <button class="icon-btn nav-toggle" id="nav-toggle" title="Menu" aria-label="Open menu">${icon('menu', 20)}</button>
+          <div class="brand-mobile">${LOGO_SVG}<span>${esc(state.settings.business_name || 'Kairo')}</span></div>
           <div class="search-box">${icon('search')}
             <input id="global-search" placeholder="Search clients, invoices…"></div>
           <div class="topbar-right">
             <span class="topbar-date">${fmtDate(todayStr())}</span>
-            <button class="btn primary" id="quick-new">${icon('plus')} New appointment</button>
+            <button class="btn primary" id="quick-new">${icon('plus')} <span class="btn-label">New appointment</span></button>
           </div>
         </header>
         ${state.settings.default_password_active === '1' ? `
@@ -146,6 +153,16 @@ function renderShell() {
         <main class="content"><div class="page" id="page"></div></main>
       </div>
     </div>`;
+
+  // Phone nav drawer: the sidebar slides in over the content and closes on a
+  // scrim tap, the ✕, or after picking a destination (desktop ignores all this).
+  const appEl = root.querySelector('.app');
+  const openNav = () => appEl.classList.add('nav-open');
+  const closeNav = () => appEl.classList.remove('nav-open');
+  root.querySelector('#nav-toggle').addEventListener('click', openNav);
+  root.querySelector('#nav-close').addEventListener('click', closeNav);
+  root.querySelector('#nav-scrim').addEventListener('click', closeNav);
+  root.querySelectorAll('.sidebar .nav-item').forEach((a) => a.addEventListener('click', closeNav));
 
   root.querySelector('#logout').addEventListener('click', async () => {
     await api.post('/api/auth/logout');

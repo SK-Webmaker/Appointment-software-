@@ -92,11 +92,43 @@ const server = http.createServer(async (req, res) => {
     await handleApi(req, res, url.pathname, url.searchParams);
     return;
   }
+  if (url.pathname === '/manifest.webmanifest') {
+    serveManifest(res);
+    return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405); res.end('Method not allowed'); return;
   }
   serveStatic(res, url.pathname);
 });
+
+// Web-app manifest so "Add to Home Screen" installs with the business's own
+// name and brand colour (a static file couldn't know either). Served for the
+// admin workspace; the icon and dark chrome match the app itself.
+function serveManifest(res) {
+  const name = getSetting('business_name', 'Kairo');
+  const manifest = {
+    name,
+    short_name: name.length > 12 ? name.slice(0, 12).trim() : name,
+    description: `${name} — booking, clients & payments`,
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    background_color: '#070a10',
+    theme_color: '#070a10',
+    orientation: 'portrait-primary',
+    icons: [
+      { src: '/icons/kairo-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/kairo-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/kairo-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  };
+  res.writeHead(200, {
+    'Content-Type': 'application/manifest+json; charset=utf-8',
+    'Cache-Control': 'no-cache',
+  });
+  res.end(JSON.stringify(manifest));
+}
 
 server.listen(PORT, HOST, () => {
   const name = getSetting('business_name', 'your business');

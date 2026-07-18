@@ -40,7 +40,7 @@ async function drawList(container) {
       </div>
     </div>
 
-    <div class="stats-row" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stats-row stats-3">
       <div class="card stat-tile">
         <div class="st-top"><span class="st-label">Outstanding</span><span class="st-icon tint-amber">${icon('clock')}</span></div>
         <div class="st-value money">${money(outstanding)}</div><div class="st-foot">Awaiting payment</div>

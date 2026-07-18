@@ -16,7 +16,7 @@ export async function renderReviews(container) {
       <div><h1>Reviews</h1><div class="ph-sub">Automatic feedback requests sent after checkout</div></div>
     </div>
 
-    <div class="stats-row" style="grid-template-columns:repeat(3,1fr)">
+    <div class="stats-row stats-3">
       <div class="card stat-tile">
         <div class="st-top"><span class="st-label">Average rating</span><span class="st-icon tint-amber">${icon('star')}</span></div>
         <div class="st-value">${data.total ? data.average.toFixed(1) : '—'}</div>

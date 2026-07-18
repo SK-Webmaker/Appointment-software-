@@ -79,6 +79,8 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Login (scrypt-hashed passwords), HttpOnly signed session cookies, login rate limiting
 - ✅ Parameterized SQL everywhere, HTML-escaped rendering, path-traversal-safe static serving
 - ✅ Single-file SQLite database (one-file backup/restore), demo seed + one-click reset
+- ✅ **Phone-first responsive UI** — full-width pages, slide-out labelled nav, thumb-sized controls, no clipped values; verified across every screen at iPhone width
+- ✅ **Installable ("Add to Home Screen")** — web-app manifest + branded icons open Kairo full-screen like a native app, titled with the business's own name
 - ✅ Zero dependencies — Node 22 only; runs with one command
 
 ---
@@ -104,7 +106,7 @@ How Kairo answers the tools your prospects already use:
 | Monthly cost to the business | "Free" + 20% new-client marketplace fees + paid SMS | $29+/staff | $20+/mo | **Your price** (suggested $29–59/mo flat) |
 | Data ownership / exportability | Limited | Limited | Limited | ✅ full CSV export + the SQLite file itself |
 | In-person card terminal | ✅ | ✅ | ➖ | ❌ (record card payments taken on any terminal; roadmap) |
-| Native mobile apps | ✅ | ✅ | ✅ | ➖ responsive web app (works on phone browsers) |
+| Native mobile apps | ✅ | ✅ | ✅ | ➖ installable web app — "Add to Home Screen" gives a full-screen, branded phone app (no App Store, no $99/yr fee) |
 | Google Calendar sync / recurring appts | ✅ | ✅ | ✅ | ❌ roadmap |
 
 **The pitch angle this table gives you:** Kairo is the *anti-marketplace*. Fresha's free
