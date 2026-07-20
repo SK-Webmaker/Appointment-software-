@@ -79,11 +79,16 @@ npm run reset-demo   # same thing from the terminal
   appointments (services pre-loaded) or start a walk-in sale
 - Add services, retail **products**, custom lines; qty steppers, discounts,
   "From $X" final pricing, GST calculated automatically
-- **Take payment**: card/wallet via Stripe (customer pays on the salon phone or
-  on their own phone via a shared link — Apple Pay/Google Pay appear there),
-  or cash/other recorded instantly
-- The POS screen watches the payment live — the moment Stripe confirms, the
-  sale flips to **Paid**, stock reduces, the receipt emails, no refresh
+- **Take payment — Stripe *or* Square** (owner picks in Settings → In-person
+  card payments):
+  - **Stripe**: Kairo generates a secure pay-link (salon phone or the customer's
+    own phone — Apple Pay/Google Pay appear there); it flips to **Paid** the
+    moment Stripe confirms, no refresh
+  - **Square**: the owner charges on their own Square reader/app the way they
+    already do, then taps **Paid** — Kairo records it, no keys or Square login
+  - Plus cash / other recorded instantly
+- Either way the itemised bill, receipt email and stock update are tracked in
+  Kairo; the sale becomes a Paid invoice in Billing
 - **Refunds** (full/partial) from the invoice — pushed to Stripe automatically,
   with optional product restock. Duplicate-charge protection end to end
   (server-side pricing, idempotency keys, dedup on Stripe's payment intent)

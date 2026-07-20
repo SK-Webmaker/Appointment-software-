@@ -1,7 +1,7 @@
 // Billing: invoice list with filters, invoice editor, payments, print view.
 import { api } from '../api.js';
 import {
-  esc, icon, money, priceLabel, fmtDate, todayStr, openModal, confirmDialog, toast, statusChip,
+  esc, icon, money, priceLabel, fmtDate, todayStr, openModal, confirmDialog, toast, statusChip, methodLabel,
 } from '../ui.js';
 import { state } from '../app.js';
 
@@ -149,7 +149,7 @@ export async function openInvoiceModal({ id, onChanged }) {
         <div class="list-item" style="cursor:default">
           <span class="st-icon tint-green" style="width:26px;height:26px">${icon('card')}</span>
           <div style="flex:1"><span class="cell-main money">${money(p.amount_cents)}</span>
-            <span class="cell-sub" style="margin-left:8px">${esc(p.method)} · ${esc(p.paid_at.slice(0, 10))}</span></div>
+            <span class="cell-sub" style="margin-left:8px">${esc(methodLabel(p.method))} · ${esc(p.paid_at.slice(0, 10))}</span></div>
           <button class="icon-btn" data-del-pay="${p.id}" title="Remove payment">${icon('x')}</button>
         </div>`).join('')}` : ''}
     ${inv.notes ? `<div class="cell-sub" style="margin-top:12px">${esc(inv.notes)}</div>` : ''}`;
@@ -263,7 +263,7 @@ function openPaymentModal(inv, onDone) {
           <input name="amount" type="number" step="0.01" min="0.01" value="${(inv.balance_cents / 100).toFixed(2)}" required></div>
         <div class="field"><label>Method</label>
           <select name="method">
-            <option value="card">Card</option><option value="cash">Cash</option>
+            <option value="card">Card</option><option value="square">Square</option><option value="cash">Cash</option>
             <option value="transfer">Bank transfer</option><option value="other">Other</option>
           </select></div>
         <div class="field span2"><label>Note</label><input name="note" placeholder="Optional"></div>

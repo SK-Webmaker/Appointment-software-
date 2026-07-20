@@ -318,6 +318,10 @@ const DEFAULT_SETTINGS = {
   currency_code: 'usd',
   deposit_type: 'none',   // none|fixed|percent
   deposit_value: '20',
+  // How in-person POS card payments are taken:
+  //   stripe → Kairo generates a checkout/pay-link the customer completes (auto-confirmed)
+  //   square → owner charges on their own Square reader/app, then taps "Paid" in Kairo
+  pos_card_method: 'stripe',
   // Booking page branding (per business)
   brand_accent: '#38bdf8',
   brand_theme: 'dark',    // dark|light (base mode; superseded by brand_scheme when set)

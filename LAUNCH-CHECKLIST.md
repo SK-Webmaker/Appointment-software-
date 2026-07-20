@@ -24,6 +24,9 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 ### Point of Sale (v1.8)
 - ✅ Bill Customer from today's appointments (services pre-loaded) or walk-in
 - ✅ Services + products + custom lines, qty, discounts, GST, server-side pricing
+- ✅ **Choose Stripe or Square** for card payments (Settings → In-person card payments):
+  Stripe = Kairo pay-link, auto-confirmed; Square = charge on the owner's own reader,
+  then one-tap "Paid" — the bill/receipt/stock are tracked in Kairo either way
 - ✅ Card/wallet via Stripe Checkout (salon phone or customer's phone via shared
   link — Apple Pay/Google Pay), cash, other; live paid-flip with no refresh
 - ✅ Idempotent end-to-end: double-taps, poll races and retries can never
@@ -105,7 +108,7 @@ How Kairo answers the tools your prospects already use:
 | Owns the customer relationship | ❌ marketplace can advertise competitors next to you | ➖ | ✅ | ✅ **fully white-label, their brand, their data** |
 | Monthly cost to the business | "Free" + 20% new-client marketplace fees + paid SMS | $29+/staff | $20+/mo | **Your price** (suggested $29–59/mo flat) |
 | Data ownership / exportability | Limited | Limited | Limited | ✅ full CSV export + the SQLite file itself |
-| In-person card terminal | ✅ | ✅ | ➖ | ❌ (record card payments taken on any terminal; roadmap) |
+| In-person card terminal | ✅ | ✅ | ➖ | ✅ *works with the business's own reader* — charge on their Square (or any terminal), one-tap "Paid" in Kairo; or Stripe pay-link |
 | Native mobile apps | ✅ | ✅ | ✅ | ➖ installable web app — "Add to Home Screen" gives a full-screen, branded phone app (no App Store, no $99/yr fee) |
 | Google Calendar sync / recurring appts | ✅ | ✅ | ✅ | ❌ roadmap |
 

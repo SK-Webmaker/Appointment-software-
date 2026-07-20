@@ -46,6 +46,10 @@ export function icon(name, size = 16) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ''}</svg>`;
 }
 
+// Human labels for stored payment-method codes.
+const METHOD_LABELS = { card: 'Card', square: 'Square', cash: 'Cash', transfer: 'Bank transfer', other: 'Other', stripe: 'Card (Stripe)' };
+export function methodLabel(m) { return METHOD_LABELS[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : ''); }
+
 export const LOGO_SVG = `
 <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
   <rect width="30" height="30" rx="8" fill="url(#kg)"/>

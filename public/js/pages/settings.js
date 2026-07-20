@@ -257,6 +257,25 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">In-person card payments (Point of Sale)</div>
+        <div class="card-sub" style="margin-bottom:16px">How you take card payments at the counter. Cash and other methods
+          are always available too.</div>
+        <form id="set-poscard" style="display:flex;flex-direction:column;gap:10px">
+          <label class="pay-opt ${(s.pos_card_method || 'stripe') === 'stripe' ? 'sel' : ''}">
+            <input type="radio" name="pos_card_method" value="stripe" ${(s.pos_card_method || 'stripe') === 'stripe' ? 'checked' : ''}>
+            <span><b>Stripe</b><br><span class="cell-sub">Kairo creates a secure pay link the customer completes on their phone
+              (card, Apple&nbsp;Pay, Google&nbsp;Pay). Marks itself paid automatically. Uses the Stripe key below.</span></span>
+          </label>
+          <label class="pay-opt ${s.pos_card_method === 'square' ? 'sel' : ''}">
+            <input type="radio" name="pos_card_method" value="square" ${s.pos_card_method === 'square' ? 'checked' : ''}>
+            <span><b>Square</b><br><span class="cell-sub">Charge on your own Square reader / app the way you already do, then tap
+              <b>Paid</b> in Kairo. No key or Square login needed — the bill is tracked here, the card is taken on Square.</span></span>
+          </label>
+          <button class="btn primary" style="align-self:flex-start;margin-top:4px">${icon('check')} Save card method</button>
+        </form>
+      </div>
+
+      <div class="card">
         <div class="card-title">Online deposits (Stripe)</div>
         <div class="card-sub" style="margin-bottom:16px">Take a card deposit when clients book online — the #1 no-show killer.
           Get a secret key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe</a>;
@@ -511,6 +530,14 @@ export async function renderSettings(container) {
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['stripe_secret_key', 'deposit_type', 'deposit_value', 'currency_code']);
+  });
+  const posCardForm = container.querySelector('#set-poscard');
+  posCardForm.addEventListener('change', () => {
+    posCardForm.querySelectorAll('.pay-opt').forEach((l) => l.classList.toggle('sel', l.querySelector('input').checked));
+  });
+  posCardForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings(e.target, ['pos_card_method']);
   });
   const openLocationModal = (loc = null) => {
     const m = openModal({

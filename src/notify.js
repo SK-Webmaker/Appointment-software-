@@ -22,6 +22,9 @@ function money(cents) {
   return `${currency}${((Number(cents) || 0) / 100).toFixed(2)}`;
 }
 
+const METHOD_LABELS = { card: 'Card', square: 'Square', cash: 'Cash', transfer: 'Bank transfer', other: 'Other', stripe: 'Card' };
+const methodLabel = (m) => METHOD_LABELS[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : '');
+
 const fmtTime = (min) => {
   let h = Math.floor(min / 60), m = min % 60;
   const ap = h >= 12 ? 'PM' : 'AM';
@@ -128,14 +131,14 @@ function buildCopy(kind, a, extra = {}) {
     const paidInFull = !(extra.balanceCents > 0);
     return {
       subject: `Receipt — ${money(extra.amountCents)} · ${a.invoiceNumber || biz}`,
-      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${extra.method}) for ${what}${who}.${paidInFull ? '\nPaid in full — thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
+      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${methodLabel(extra.method)}) for ${what}${who}.${paidInFull ? '\nPaid in full — thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
       html: renderEmail({
         heading: paidInFull ? 'Payment received — thank you!' : 'Payment received',
         greeting: `Hi ${name},`,
         paragraphs: ['This confirms your payment. A summary for your records:'],
         details: [
           ['Amount paid', money(extra.amountCents)],
-          ['Method', extra.method || ''],
+          ['Method', methodLabel(extra.method)],
           ['Invoice', a.invoiceNumber || ''],
           ['Service', a.service_name || ''],
           paidInFull ? ['Balance', 'Paid in full'] : ['Balance remaining', money(extra.balanceCents)],

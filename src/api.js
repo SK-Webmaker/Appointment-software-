@@ -28,7 +28,7 @@ import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
 const INVOICE_STATUSES = new Set(['draft', 'sent', 'paid', 'void']);
-const PAY_METHODS = new Set(['card', 'cash', 'transfer', 'other']);
+const PAY_METHODS = new Set(['card', 'square', 'cash', 'transfer', 'other']);
 
 // ---------------------------------------------------------------------------
 // Routing table
@@ -256,6 +256,7 @@ const EDITABLE_SETTINGS = new Set([
   'telnyx_api_key', 'telnyx_from', 'telnyx_profile_id',
   'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
+  'pos_card_method',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
   'brand_gallery', 'brand_tagline',
 ]);
@@ -1085,7 +1086,7 @@ route('POST', '/api/invoices/:id/payments', async ({ req, params }) => {
   if (inv.status === 'void') throw httpError(400, 'Cannot record a payment on a void invoice');
   const b = checkBody(await readJson(req), {
     amount_cents: s.num({ min: 1, max: 100_000_000, required: true }),
-    method: s.oneOf(['card', 'cash', 'transfer', 'other']),
+    method: s.oneOf(['card', 'square', 'cash', 'transfer', 'other']),
     note: s.str(500),
   });
   const amount = Math.round(Number(b.amount_cents));
@@ -1189,7 +1190,7 @@ const POS_SALE_SCHEMA = {
     unit_cents: s.num({ min: 0, max: 100_000_000 }),
   }), 50, { required: true }),
   discount_cents: s.num({ min: 0, max: 100_000_000 }),
-  method: s.oneOf(['stripe', 'cash', 'other'], { required: true }),
+  method: s.oneOf(['stripe', 'square', 'cash', 'other'], { required: true }),
   origin: s.str(300),
 };
 
@@ -1274,10 +1275,12 @@ route('POST', '/api/pos/sale', async ({ req }) => {
     throw err;
   }
 
-  if (b.method === 'cash' || b.method === 'other') {
-    // Paid on the spot: record, fulfil stock, receipt — all now.
+  if (b.method === 'cash' || b.method === 'other' || b.method === 'square') {
+    // Paid on the spot (cash, bank transfer, or a card charged on the owner's
+    // own Square reader/terminal): record, fulfil stock, receipt — all now.
+    const note = b.method === 'square' ? 'POS — card charged on Square' : 'POS sale';
     db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
-      .run(invId, total, b.method === 'cash' ? 'cash' : 'other', `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, 'POS sale');
+      .run(invId, total, b.method, `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, note);
     refreshPaidStatus(invId);
     fulfillPosStock(invId);
     const updated = getInvoice(invId);

@@ -518,6 +518,13 @@ table.data th.num { text-align: right; }
 .copy-row { display: flex; gap: 8px; }
 .copy-row input { flex: 1; min-width: 0; }
 
+/* Radio option rows (e.g. POS card method picker) */
+.pay-opt { display: flex; align-items: flex-start; gap: 11px; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.pay-opt:hover { border-color: var(--accent); }
+.pay-opt.sel { border-color: var(--accent); background: rgba(56, 189, 248, 0.07); }
+.pay-opt input[type=radio] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto; }
+.pay-opt b { color: var(--text); }
+
 /* ---------- misc ---------- */
 
 .money { font-variant-numeric: tabular-nums; }

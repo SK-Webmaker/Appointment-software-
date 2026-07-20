@@ -314,10 +314,17 @@ function wire(container) {
     const charge = container.querySelector('#pos-charge');
     charge.onclick = () => {
       const total = totalCents();
+      // The card option depends on how this business takes card payments
+      // (Settings → In-person card payments): Stripe pay-link, or a card
+      // charged on the owner's own Square reader and confirmed here.
+      const useSquare = (state.settings.pos_card_method || 'stripe') === 'square';
+      const cardChoice = useSquare
+        ? `<button class="pos-paychoice" id="pc-square">${icon('card', 18)} <span><b>Card — Square</b><br><span class="cell-sub">Charge on your Square reader, then confirm here</span></span></button>`
+        : `<button class="pos-paychoice" id="pc-card">${icon('card', 18)} <span><b>Card / wallet</b><br><span class="cell-sub">Customer pays securely via Stripe — this phone or theirs</span></span></button>`;
       const m = openModal({
         title: `Take ${money(total)}`,
         body: `<div style="display:flex;flex-direction:column;gap:10px">
-          <button class="pos-paychoice" id="pc-card">${icon('card', 18)} <span><b>Card / wallet</b><br><span class="cell-sub">Customer pays securely via Stripe — this phone or theirs</span></span></button>
+          ${cardChoice}
           <button class="pos-paychoice" id="pc-cash">${icon('dollar', 18)} <span><b>Cash</b><br><span class="cell-sub">Record the sale as paid now</span></span></button>
           <button class="pos-paychoice" id="pc-other">${icon('invoice', 18)} <span><b>Other</b><br><span class="cell-sub">Bank transfer, voucher, etc.</span></span></button>
         </div>`,
@@ -341,9 +348,28 @@ function wire(container) {
           else { pos.checkoutUrl = res.checkout_url; pos.step = 'await'; redraw(); startPolling(container); }
         } catch (err) { toast(err.message, 'err'); btn.disabled = false; }
       };
-      m.querySelector('#pc-card').onclick = (e) => submit('stripe', e.currentTarget);
       m.querySelector('#pc-cash').onclick = (e) => submit('cash', e.currentTarget);
       m.querySelector('#pc-other').onclick = (e) => submit('other', e.currentTarget);
+      const stripeBtn = m.querySelector('#pc-card');
+      if (stripeBtn) stripeBtn.onclick = (e) => submit('stripe', e.currentTarget);
+      const squareBtn = m.querySelector('#pc-square');
+      if (squareBtn) squareBtn.onclick = () => {
+        // Confirm the money was actually taken on Square before recording it,
+        // so nothing is marked paid by accident.
+        m.querySelector('.modal-body').innerHTML = `
+          <div class="cell-sub" style="text-align:center">Charge this on your Square reader or app</div>
+          <div class="pos-bigtotal" style="text-align:center;margin:6px 0 10px">${money(total)}</div>
+          <div class="cell-sub" style="text-align:center;max-width:320px;margin:0 auto 18px;line-height:1.6">
+            Take the payment in Square the way you normally do. Once Square shows
+            <b>approved</b>, tap below — the invoice, receipt and stock all update here.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="btn primary" id="pc-square-paid" style="justify-content:center;padding:13px">${icon('check')} Paid on Square — record it</button>
+            <button class="btn ghost" id="pc-square-back" style="justify-content:center">Back</button>
+          </div>`;
+        m.querySelector('#pc-square-paid').onclick = (e) => submit('square', e.currentTarget);
+        m.querySelector('#pc-square-back').onclick = () => { m.close(); charge.onclick(); };
+      };
     };
     return;
   }
