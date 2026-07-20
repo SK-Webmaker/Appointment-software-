@@ -130,7 +130,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .search-box:focus-within { border-color: var(--accent); }
 .search-box svg { width: 15px; height: 15px; color: var(--accent); }
-.search-box input { flex: 1; background: none; border: none; outline: none; font-size: 13.5px; }
+.search-box input { flex: 1; align-self: stretch; background: none; border: none; outline: none; font-size: 13.5px; }
 .filter-select {
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--panel); border: 1px solid var(--border);
@@ -140,7 +140,7 @@ a { color: var(--accent); text-decoration: none; }
 .filter-select svg { color: var(--accent); flex: none; }
 .filter-select select {
   background: none; border: none; outline: none; color: var(--text);
-  font-size: 13px; font-weight: 500; cursor: pointer; padding-right: 2px;
+  align-self: stretch; font-size: 13px; font-weight: 500; cursor: pointer; padding-right: 2px;
 }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .topbar-date { color: var(--muted); font-size: 12.5px; }
@@ -290,6 +290,33 @@ table.data tbody tr { transition: background 0.1s; cursor: pointer; }
 table.data tbody tr:hover { background: rgba(56, 189, 248, 0.04); }
 table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 table.data th.num { text-align: right; }
+
+/* Responsive reflow: on phones a wide `.data.reflow` table becomes a clean
+   stacked list — one labelled row per field — so no column is pushed
+   off-screen and every control (e.g. Retry) stays reachable. */
+@media (max-width: 620px) {
+  table.data.reflow, table.data.reflow tbody { display: block; width: 100%; }
+  table.data.reflow thead { display: none; }
+  table.data.reflow tr {
+    display: block; padding: 12px 14px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  table.data.reflow tr:last-child { border-bottom: none; }
+  table.data.reflow td {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 4px 0; border: none; text-align: right;
+  }
+  table.data.reflow td[data-th]::before {
+    content: attr(data-th); flex: 0 0 auto; text-align: left;
+    color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  table.data.reflow td .rf-val { min-width: 0; }
+  table.data.reflow td.rf-head { display: block; text-align: left; padding: 0 0 6px; }
+  table.data.reflow td.rf-head::before { display: none; }
+  table.data.reflow td.rf-action { justify-content: flex-end; padding: 8px 0 2px; }
+  table.data.reflow td.rf-action:empty { display: none; }
+  table.data.reflow td.rf-action .btn { flex: 1 1 auto; justify-content: center; }
+}
 .cell-main { font-weight: 600; }
 .cell-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
 .avatar-sm {
@@ -398,17 +425,21 @@ table.data th.num { text-align: right; }
 .modal-overlay {
   position: fixed; inset: 0; z-index: 100;
   background: rgba(3, 6, 12, 0.72); backdrop-filter: blur(3px);
-  display: grid; place-items: center; padding: 24px;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(16px, var(--safe-top)) 16px max(16px, var(--safe-bottom));
   animation: fadeIn 0.14s ease;
 }
 .modal {
-  width: 100%; max-width: 560px; max-height: 90vh;
+  /* min-width: 0 stops a wide child (e.g. a <select> with a long option) from
+     forcing the modal past the viewport edge on a phone. */
+  width: 100%; max-width: 560px; min-width: 0; max-height: 90vh;
   display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 14px; box-shadow: var(--shadow);
   animation: riseIn 0.16s ease;
 }
 .modal.wide { max-width: 760px; }
+.modal-body select, .modal-body input, .modal-body textarea { max-width: 100%; }
 .modal-head {
   display: flex; align-items: center; gap: 10px;
   padding: 16px 20px; border-bottom: 1px solid var(--border);
@@ -909,7 +940,10 @@ table.data th.num { text-align: right; }
   /* Comfortable, non-clipping controls. */
   .btn { padding: 10px 14px; }
   .btn.small { padding: 8px 11px; font-size: 12.5px; }
-  input, select, textarea { font-size: 16px; } /* ≥16px stops iOS auto-zoom on focus */
+  input, select, textarea,
+  .search-box input, .filter-select select { font-size: 16px; } /* ≥16px stops iOS auto-zoom on focus */
+  /* Full-height search/filter boxes so the whole control is one big tap target. */
+  .search-box, .filter-select { min-height: 44px; padding-top: 0; padding-bottom: 0; }
 
   .pos-adders { grid-template-columns: repeat(2, 1fr); }
 

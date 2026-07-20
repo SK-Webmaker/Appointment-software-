@@ -50,21 +50,21 @@ export async function renderMessages(container) {
     </div>
 
     <div class="card" style="padding:0"><div class="table-wrap">
-      <table class="data">
+      <table class="data reflow msg-table">
         <thead><tr>
           <th>To</th><th>Type</th><th>Channel</th><th>Appointment</th><th>Send at</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="msg-rows">
           ${messages.length ? messages.map((m) => `
             <tr data-id="${m.id}">
-              <td><div class="cell-main">${esc(m.client_name || m.to_addr)}</div>
+              <td data-th="To" class="rf-head"><div class="cell-main">${esc(m.client_name || m.to_addr)}</div>
                   <div class="cell-sub">${esc(m.to_addr)}</div></td>
-              <td>${esc(KIND[m.kind] || m.kind)}</td>
-              <td>${m.channel === 'sms' ? '💬 SMS' : '✉️ Email'}</td>
-              <td>${m.appt_date ? `${fmtDate(m.appt_date)} · ${fmtTime(m.appt_start)}` : '—'}</td>
-              <td class="cell-sub">${esc(m.send_after || 'immediately')}</td>
-              <td>${STATUS_CHIP[m.status] || esc(m.status)}</td>
-              <td class="num">${m.status === 'failed' || m.status === 'skipped' ? `<button class="btn small" data-retry="${m.id}">Retry</button>` : ''}</td>
+              <td data-th="Type">${esc(KIND[m.kind] || m.kind)}</td>
+              <td data-th="Channel">${m.channel === 'sms' ? '💬 SMS' : '✉️ Email'}</td>
+              <td data-th="Appointment">${m.appt_date ? `${fmtDate(m.appt_date)} · ${fmtTime(m.appt_start)}` : '—'}</td>
+              <td data-th="Send at" class="cell-sub">${esc(m.send_after || 'immediately')}</td>
+              <td data-th="Status">${STATUS_CHIP[m.status] || esc(m.status)}</td>
+              <td class="num rf-action">${m.status === 'failed' || m.status === 'skipped' ? `<button class="btn small" data-retry="${m.id}">Retry</button>` : ''}</td>
             </tr>`).join('') : `
             <tr><td colspan="7"><div class="empty">${icon('send')}<div>No messages yet — they appear here when appointments are booked.</div></div></td></tr>`}
         </tbody>

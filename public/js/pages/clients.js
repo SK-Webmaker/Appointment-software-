@@ -58,7 +58,7 @@ async function drawList(container, q = '') {
     </div>
     <div class="card" style="padding:0">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data reflow">
           <thead><tr>
             <th>Client</th><th>Contact</th><th class="num">Visits</th>
             <th>Last visit</th><th class="num">Total billed</th><th></th>
@@ -120,16 +120,16 @@ function rowHtml(c) {
   const name = `${c.first_name} ${c.last_name}`.trim();
   return `
     <tr data-id="${c.id}">
-      <td><div class="row-flex">
+      <td class="rf-head"><div class="row-flex">
         <div class="avatar-sm" style="background:${esc(avatarColor(name))}">${esc(initials(name))}</div>
         <div><div class="cell-main">${esc(name)}</div>
         ${c.notes ? `<div class="cell-sub">${esc(c.notes.slice(0, 48))}${c.notes.length > 48 ? '…' : ''}</div>` : ''}</div>
       </div></td>
-      <td><div>${esc(c.phone || '—')}</div><div class="cell-sub">${esc(c.email || '')}</div></td>
-      <td class="num">${c.appointment_count}</td>
-      <td>${c.last_visit ? fmtDate(c.last_visit) : '<span class="text-muted">Never</span>'}</td>
-      <td class="num money">${money(c.total_paid_cents)}</td>
-      <td class="num"><button class="icon-btn" data-edit title="Edit">${icon('edit')}</button></td>
+      <td data-th="Contact"><div class="rf-val"><div>${esc(c.phone || '—')}</div><div class="cell-sub">${esc(c.email || '')}</div></div></td>
+      <td data-th="Visits" class="num">${c.appointment_count}</td>
+      <td data-th="Last visit">${c.last_visit ? fmtDate(c.last_visit) : '<span class="text-muted">Never</span>'}</td>
+      <td data-th="Total billed" class="num money">${money(c.total_paid_cents)}</td>
+      <td class="num rf-action"><button class="icon-btn" data-edit title="Edit">${icon('edit')}</button></td>
     </tr>`;
 }
 

@@ -48,7 +48,7 @@ async function drawList(container, q = '') {
         </select></label>
     </div>
     <div class="card" style="padding:0"><div class="table-wrap">
-      <table class="data">
+      <table class="data reflow">
         <thead><tr><th>Product</th><th>SKU</th><th class="num">Retail</th><th class="num">Cost</th><th class="num">Stock</th><th></th></tr></thead>
         <tbody id="pr-rows">
           ${view.length ? view.map(rowHtml).join('') : `
@@ -74,17 +74,17 @@ function rowHtml(p) {
   const low = p.active && p.stock_qty <= p.low_stock_at;
   return `
     <tr data-id="${p.id}">
-      <td><div class="row-flex">
+      <td class="rf-head"><div class="row-flex">
         ${p.image ? `<img src="${esc(p.image)}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">`
           : `<span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('tag', 15)}</span>`}
         <div><div class="cell-main">${esc(p.name)}${p.active ? '' : ' <span class="cell-sub">(archived)</span>'}</div>
           <div class="cell-sub">${esc(p.category)}${p.supplier ? ` · ${esc(p.supplier)}` : ''}</div></div>
       </div></td>
-      <td class="cell-sub">${esc(p.sku || p.barcode || '—')}</td>
-      <td class="num money">${money(p.retail_cents)}</td>
-      <td class="num money" style="color:var(--muted)">${money(p.cost_cents)}</td>
-      <td class="num">${low ? `<span class="chip s-sent" title="At or below the low-stock level of ${p.low_stock_at}">${p.stock_qty} · LOW</span>` : p.stock_qty}</td>
-      <td class="num"><button class="icon-btn" title="Edit">${icon('edit')}</button></td>
+      <td data-th="SKU" class="cell-sub">${esc(p.sku || p.barcode || '—')}</td>
+      <td data-th="Retail" class="num money">${money(p.retail_cents)}</td>
+      <td data-th="Cost" class="num money" style="color:var(--muted)">${money(p.cost_cents)}</td>
+      <td data-th="Stock" class="num">${low ? `<span class="chip s-sent" title="At or below the low-stock level of ${p.low_stock_at}">${p.stock_qty} · LOW</span>` : p.stock_qty}</td>
+      <td class="num rf-action"><button class="icon-btn" title="Edit">${icon('edit')}</button></td>
     </tr>`;
 }
 

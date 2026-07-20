@@ -65,7 +65,7 @@ async function drawList(container) {
     </div>
 
     <div class="card" style="padding:0"><div class="table-wrap">
-      <table class="data">
+      <table class="data reflow">
         <thead><tr>
           <th>Invoice</th><th>Client</th><th>Issued</th><th>Status</th>
           <th class="num">Total</th><th class="num">Balance</th>
@@ -73,12 +73,12 @@ async function drawList(container) {
         <tbody id="inv-rows">
           ${invoices.length ? invoices.map((i) => `
             <tr data-id="${i.id}">
-              <td class="cell-main">${esc(i.number)}</td>
-              <td>${esc(i.client_name || '—')}</td>
-              <td>${fmtDate(i.issue_date)}</td>
-              <td>${statusChip(i.status)}</td>
-              <td class="num money">${money(i.total_cents)}</td>
-              <td class="num money ${i.balance_cents > 0 && i.status === 'sent' ? 'neg' : ''}">${i.status === 'void' ? '—' : money(Math.max(0, i.balance_cents))}</td>
+              <td class="cell-main rf-head">${esc(i.number)}</td>
+              <td data-th="Client">${esc(i.client_name || '—')}</td>
+              <td data-th="Issued">${fmtDate(i.issue_date)}</td>
+              <td data-th="Status">${statusChip(i.status)}</td>
+              <td data-th="Total" class="num money">${money(i.total_cents)}</td>
+              <td data-th="Balance" class="num money ${i.balance_cents > 0 && i.status === 'sent' ? 'neg' : ''}">${i.status === 'void' ? '—' : money(Math.max(0, i.balance_cents))}</td>
             </tr>`).join('') : `
             <tr><td colspan="6"><div class="empty">${icon('invoice')}<div>No invoices${filter.q || filter.status ? ' match the filter' : ' yet — bill an appointment from the calendar'}.</div></div></td></tr>`}
         </tbody>
