@@ -50,7 +50,8 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Duplicate-safe re-import (verified: same file twice → 0 duplicates created)
 - ✅ **Merge duplicates**: auto-detects clients sharing an email/phone/name and merges
   each set into one — history (appointments, invoices, messages, reviews) is reassigned,
-  missing fields filled, duplicates removed (transactional; owner picks which to keep)
+  missing fields filled, duplicates removed (transactional; owner picks which to keep, or
+  **Merge all** to clear every set at once)
 - ✅ CSV export · client profile with history, upcoming, invoices, notes
 
 ### Services
@@ -73,6 +74,9 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Reviews page: average rating, list, owner replies
 - ✅ Email (Resend) + SMS (**choose ClickSend / Telnyx / Twilio** in Settings) with test
   buttons; **SMS defaults off** (real per-text cost — opt-in only, never billed by accident)
+- ✅ **Per-type delivery channel**: each notification (confirmation / reminder / receipt /
+  review request) can be set to Email, SMS, or both — SMS still gated by the master switch,
+  with email fallback so a message is never dropped
 - ✅ Messages log: queued / sent / failed / skipped with reasons + retry
 - ✅ Reschedule re-queues the reminder; cancel withdraws it
 

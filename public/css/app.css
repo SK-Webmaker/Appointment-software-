@@ -564,7 +564,16 @@ table.data th.num { text-align: right; }
 .pay-opt input[type=radio] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto; }
 .pay-opt b { color: var(--text); }
 
+/* Per-type notification channel rows (Settings → Notifications) */
+.notif-head { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 0 2px 6px; }
+.notif-row { display: flex; align-items: center; gap: 12px; padding: 9px 2px; }
+.notif-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+.notif-toggle input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex: 0 0 auto; }
+.notif-chan { flex: 0 0 auto; background: var(--bg-raise); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; }
+.notif-hint { margin: -6px 0 2px 25px; }
+
 /* Merge-duplicates picker */
+.merge-allbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
 .merge-row { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--border-soft); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
 .merge-row:hover { border-color: var(--accent); }
 .merge-row.is-keep { border-color: var(--accent); background: rgba(56, 189, 248, 0.07); }

@@ -249,6 +249,7 @@ const EDITABLE_SETTINGS = new Set([
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
   'owner_notify_enabled',
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
+  'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'sms_notifications_enabled', 'public_url',
   'resend_api_key',
   'sms_provider',

@@ -16,6 +16,23 @@ export async function renderSettings(container) {
   const s = state.settings;
   const bookingUrl = `${location.origin}/book`;
 
+  // One row per customer notification type: an on/off toggle + a channel
+  // picker (Email / SMS / Both) so the owner controls each type separately.
+  const notifRow = (enKey, chanKey, label, hint) => {
+    const chan = ['email', 'sms', 'both'].includes(s[chanKey]) ? s[chanKey] : 'email';
+    return `<div class="notif-row">
+      <label class="notif-toggle">
+        <input type="checkbox" name="${enKey}" ${s[enKey] === '1' ? 'checked' : ''}>
+        <span>${label}</span>
+      </label>
+      <select name="${chanKey}" class="notif-chan" aria-label="${label} — send by">
+        <option value="email" ${chan === 'email' ? 'selected' : ''}>Email</option>
+        <option value="sms" ${chan === 'sms' ? 'selected' : ''}>SMS</option>
+        <option value="both" ${chan === 'both' ? 'selected' : ''}>Email + SMS</option>
+      </select>
+    </div>${hint ? `<div class="hint notif-hint">${hint}</div>` : ''}`;
+  };
+
   container.innerHTML = `
     <div class="page-head">
       <div class="ph-icon">${icon('settings', 20)}</div>
@@ -154,31 +171,17 @@ export async function renderSettings(container) {
           (free up to 3,000/mo — plenty for this). Paste keys, hit save, send a test from the
           <a href="#/messages">Messages</a> page.</div>
         <form id="set-notif" style="display:flex;flex-direction:column;gap:13px">
-          <div class="form-grid">
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
-                <input type="checkbox" name="confirm_enabled" ${s.confirm_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Booking confirmations</label></div>
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
-                <input type="checkbox" name="reminders_enabled" ${s.reminders_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Appointment reminders</label></div>
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
-                <input type="checkbox" name="receipts_enabled" ${s.receipts_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Payment receipts</label>
-              <div class="hint">Sent the moment a payment or deposit is recorded.</div></div>
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
-                <input type="checkbox" name="review_requests_enabled" ${s.review_requests_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                Review requests</label>
-              <div class="hint">Sent after a visit is marked Completed.</div></div>
-            <div class="field">
-              <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer">
-                <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
-                New booking alerts (to you)</label>
-              <div class="hint">Emails your business email whenever a customer books online.</div></div>
+          <div>
+            <div class="notif-head"><span>Customer notification</span><span>Send by</span></div>
+            ${notifRow('confirm_enabled', 'chan_confirmation', 'Booking confirmations', 'Sent the moment a booking is made.')}
+            ${notifRow('reminders_enabled', 'chan_reminder', 'Appointment reminders', 'Sent a set number of hours before the visit.')}
+            ${notifRow('receipts_enabled', 'chan_receipt', 'Payment receipts', 'Sent the moment a payment or deposit is recorded.')}
+            ${notifRow('review_requests_enabled', 'chan_review_request', 'Review requests', 'Sent after a visit is marked Completed.')}
+            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS options only take effect once you turn on “Also send SMS” below</b> and add a provider — until then everything goes by email (so nothing is billed by accident).</div>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer;margin-top:4px">
+            <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent)">
+            Email me when a customer books online</label>
           <div class="form-grid">
             <div class="field"><label>Remind clients this many hours before</label>
               <select name="reminder_hours">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${Number(s.reminder_hours) === h ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
@@ -201,13 +204,13 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">SMS (text messages)</div>
-        <div class="card-sub" style="margin-bottom:16px">Every message above can also go out as a text. SMS costs money
-          per message (there's no free option), so it's <b>off by default</b> — nothing is billed unless you turn it on.
-          Pick the provider that suits you; you're billed by them directly, no markup.</div>
+        <div class="card-sub" style="margin-bottom:16px">This is the master switch for SMS. Turn it on and the types you set to
+          <b>SMS</b> or <b>Email + SMS</b> above will text as well. SMS costs money per message (there's no free option), so
+          it's <b>off by default</b> — nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
         <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
             <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} style="width:17px;height:17px;margin-top:1px;accent-color:var(--accent)">
-            <span><b>Also send SMS</b> for every message type above (in addition to email)</span>
+            <span><b>Turn SMS on</b> — activates the SMS / Email + SMS choices you set per notification type above</span>
           </label>
           <div class="field"><label>SMS provider</label>
             <select name="sms_provider" id="sms-provider">
@@ -496,6 +499,7 @@ export async function renderSettings(container) {
     e.preventDefault();
     saveSettings(e.target, [
       'confirm_enabled', 'reminders_enabled', 'receipts_enabled', 'review_requests_enabled',
+      'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
       'owner_notify_enabled',
       'reminder_hours', 'review_delay_hours', 'google_review_url', 'public_url',
       'resend_api_key', 'notif_from_email',

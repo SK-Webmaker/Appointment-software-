@@ -64,12 +64,26 @@ function apptContext(apptId) {
   return a;
 }
 
-/** Channels a client can be reached on, gated by whether SMS is opted in. */
-function clientChannels(email, phone) {
-  const channels = [];
-  if (email) channels.push(['email', email]);
-  if (phone && getSetting('sms_notifications_enabled', '0') === '1') channels.push(['sms', phone]);
-  return channels;
+/**
+ * Which channels a given message KIND should go out on, honouring the
+ * per-type preference (Settings → Notifications: Email / SMS / Both) while
+ * still gating SMS behind the master "Also send SMS" switch. If the preferred
+ * channel isn't available (e.g. SMS chosen but the client has no phone, or SMS
+ * is off), it falls back to whatever the client CAN receive so the message is
+ * never silently dropped.
+ */
+function channelsFor(kind, email, phone) {
+  const pref = ['email', 'sms', 'both'].includes(getSetting(`chan_${kind}`, 'email'))
+    ? getSetting(`chan_${kind}`, 'email') : 'email';
+  const smsReady = Boolean(phone) && getSetting('sms_notifications_enabled', '0') === '1';
+  const out = [];
+  if (pref !== 'sms' && email) out.push(['email', email]);
+  if (pref !== 'email' && smsReady) out.push(['sms', phone]);
+  if (!out.length) { // preferred channel unavailable → fall back so it still sends
+    if (email) out.push(['email', email]);
+    else if (smsReady) out.push(['sms', phone]);
+  }
+  return out;
 }
 
 // Builds {subject, body (plain text — used for SMS and as the email text
@@ -195,15 +209,12 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
   if (!a || !a.client_id) return;
   if (!['booked', 'confirmed'].includes(a.status)) return;
 
-  const channels = clientChannels(a.client_email, a.client_phone);
-  if (!channels.length) return;
-
   const now = localStamp();
   const ins = insMessage();
 
   if (confirmation && getSetting('confirm_enabled', '1') === '1') {
     const copy = buildCopy('confirmation', a);
-    for (const [channel, to] of channels) {
+    for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
       ins.run(a.id, a.client_id, channel, 'confirmation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
     }
   }
@@ -215,7 +226,7 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
     const sendAfter = localStamp(start);
     if (sendAfter > now) { // don't remind about appointments that are (nearly) now
       const copy = buildCopy('reminder', a);
-      for (const [channel, to] of channels) {
+      for (const [channel, to] of channelsFor('reminder', a.client_email, a.client_phone)) {
         ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
       }
     }
@@ -261,7 +272,7 @@ export function queueReceiptMessage(invoiceId, { amountCents, method, balanceCen
   const a = inv.appointment_id ? apptContext(inv.appointment_id) : null;
   const ctx = a || { first_name: inv.first_name, client_email: inv.client_email, client_phone: inv.client_phone, date: '', start_min: 0 };
 
-  const channels = clientChannels(inv.client_email || ctx.client_email, inv.client_phone || ctx.client_phone);
+  const channels = channelsFor('receipt', inv.client_email || ctx.client_email, inv.client_phone || ctx.client_phone);
   if (!channels.length) return;
 
   const copy = buildCopy('receipt', ctx, { amountCents, method, balanceCents, invoiceNumber: inv.number });
@@ -277,7 +288,7 @@ export function queueDepositReceipt(apptId, amountCents) {
   if (getSetting('receipts_enabled', '1') !== '1') return;
   const a = apptContext(apptId);
   if (!a || !a.client_id) return;
-  const channels = clientChannels(a.client_email, a.client_phone);
+  const channels = channelsFor('receipt', a.client_email, a.client_phone);
   if (!channels.length) return;
 
   const copy = buildCopy('receipt', a, { amountCents, isDeposit: true });
@@ -300,7 +311,7 @@ export function queueReviewRequest(apptId) {
   if (!a || !a.client_id || a.status !== 'completed') return;
   if (db.prepare('SELECT 1 FROM reviews WHERE appointment_id = ?').get(apptId)) return; // already reviewed
 
-  const channels = clientChannels(a.client_email, a.client_phone);
+  const channels = channelsFor('review_request', a.client_email, a.client_phone);
   if (!channels.length) return;
 
   let token = a.review_token;

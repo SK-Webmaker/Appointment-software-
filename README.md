@@ -61,7 +61,8 @@ npm run reset-demo   # same thing from the terminal
 - **Merge duplicates**: finds clients that share an email, phone or name, and merges
   each set into one — the duplicate's appointments, invoices, messages and reviews move
   to the record you keep, missing details (email/phone/notes) are filled in, then the
-  duplicates are removed. Runs in one transaction; you pick which record survives.
+  duplicates are removed. Runs in one transaction; you pick which record survives, and a
+  **Merge all** button clears every detected set at once.
 - Client profile: upcoming visits, history, invoices, notes (formulas, allergies, preferences)
 
 ### 🏷 Services
@@ -127,6 +128,11 @@ npm run reset-demo   # same thing from the terminal
   delay). Clients tap a link, leave 1-5★ and an optional comment on a page branded like
   your booking page; 4-5★ ratings get a one-tap prompt to also post on Google if you've
   set a review link. See them all — with reply — on the new **Reviews** page
+- **Per-type channel choice**: for each notification (confirmation, reminder, receipt,
+  review request) pick **Email**, **SMS**, or **both** in *Settings → Notifications*, so
+  each business sends exactly how it wants. SMS stays gated behind a master switch (off by
+  default) so nothing is billed by accident; a type set to SMS falls back to email until
+  SMS is turned on
 - Email via **Resend**; SMS via a provider you choose in *Settings → Notifications* —
   **ClickSend** (simplest, best for Australia), **Telnyx** (cheapest per text), or
   **Twilio**. Paste that provider's keys and it goes live; test buttons included

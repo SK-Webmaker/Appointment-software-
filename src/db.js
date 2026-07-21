@@ -294,6 +294,12 @@ const DEFAULT_SETTINGS = {
   receipts_enabled: '1',
   review_requests_enabled: '1',
   review_delay_hours: '1',
+  // Per-type delivery channel: email | sms | both. Default email so nothing
+  // costs money until the owner opts a type into SMS (and turns SMS on).
+  chan_confirmation: 'email',
+  chan_reminder: 'email',
+  chan_receipt: 'email',
+  chan_review_request: 'email',
   google_review_url: '',
   public_url: '',  // captured automatically by the setup wizard (location.origin)
   notif_from_email: '',
