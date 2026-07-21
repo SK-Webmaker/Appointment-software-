@@ -48,6 +48,9 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Searchable book: visits, last visit, lifetime billed
 - ✅ CSV import wizard: auto column-mapping (adjustable), preview, duplicate detection, results summary
 - ✅ Duplicate-safe re-import (verified: same file twice → 0 duplicates created)
+- ✅ **Merge duplicates**: auto-detects clients sharing an email/phone/name and merges
+  each set into one — history (appointments, invoices, messages, reviews) is reassigned,
+  missing fields filled, duplicates removed (transactional; owner picks which to keep)
 - ✅ CSV export · client profile with history, upcoming, invoices, notes
 
 ### Services

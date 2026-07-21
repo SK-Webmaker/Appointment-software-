@@ -58,6 +58,10 @@ npm run reset-demo   # same thing from the terminal
 - **CSV import wizard**: drop an export from Fresha, Square, Acuity or any spreadsheet —
   columns are auto-matched by name (adjustable), previewed, then imported with
   duplicate detection (by email, or name + phone). CSV export included.
+- **Merge duplicates**: finds clients that share an email, phone or name, and merges
+  each set into one — the duplicate's appointments, invoices, messages and reviews move
+  to the record you keep, missing details (email/phone/notes) are filled in, then the
+  duplicates are removed. Runs in one transaction; you pick which record survives.
 - Client profile: upcoming visits, history, invoices, notes (formulas, allergies, preferences)
 
 ### 🏷 Services

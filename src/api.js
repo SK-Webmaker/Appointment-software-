@@ -522,6 +522,37 @@ route('GET', '/api/clients/export', async ({ res }) => {
   sendText(res, 200, csv, 'text/csv; charset=utf-8', { 'Content-Disposition': 'attachment; filename="clients.csv"' });
 });
 
+// Likely duplicates, grouped: two clients belong together when they share an
+// email, a phone number, or an identical full name. Union-find stitches those
+// signals into one group so "same email" + "same phone" collapse together.
+// (Registered before /api/clients/:id so ":id" doesn't capture "duplicates".)
+route('GET', '/api/clients/duplicates', async () => {
+  const clients = db.prepare(`${CLIENT_LIST_SQL}`).all();
+  const parent = new Map(clients.map((c) => [c.id, c.id]));
+  const find = (x) => { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+  const norm = (v) => String(v || '').trim().toLowerCase();
+  const digits = (v) => String(v || '').replace(/\D/g, '');
+  const linkBy = (keyOf) => {
+    const seen = new Map();
+    for (const c of clients) {
+      const k = keyOf(c); if (!k) continue;
+      if (seen.has(k)) union(seen.get(k), c.id); else seen.set(k, c.id);
+    }
+  };
+  linkBy((c) => norm(c.email));
+  linkBy((c) => { const d = digits(c.phone); return d.length >= 6 ? d : ''; });
+  linkBy((c) => { const n = `${norm(c.first_name)} ${norm(c.last_name)}`.trim(); return n.length >= 3 ? `n:${n}` : ''; });
+  const groups = new Map();
+  for (const c of clients) { const r = find(c.id); (groups.get(r) || groups.set(r, []).get(r)).push(c); }
+  // keep only real groups; suggest the richest record (most visits, then spend) as the keeper first
+  const dupes = [...groups.values()]
+    .filter((g) => g.length >= 2)
+    .map((g) => g.sort((a, b) => (b.appointment_count - a.appointment_count) || (b.total_paid_cents - a.total_paid_cents) || (a.id - b.id)))
+    .sort((a, b) => b.length - a.length);
+  return { groups: dupes };
+});
+
 route('GET', '/api/clients/:id', async ({ params }) => {
   const client = db.prepare(`${CLIENT_LIST_SQL} WHERE c.id = ?`).get(params.id);
   if (!client) throw httpError(404, 'Client not found');
@@ -566,6 +597,45 @@ route('PUT', '/api/clients/:id', async ({ req, params }) => {
 route('DELETE', '/api/clients/:id', async ({ params }) => {
   db.prepare('DELETE FROM clients WHERE id = ?').run(params.id);
   return { ok: true };
+});
+
+// Merge duplicate clients into one: every appointment, invoice, message and
+// review from the duplicates is reassigned to the keeper, any details the
+// keeper is missing (email/phone/last name) are filled in from them, their
+// notes are appended, and the duplicate rows are deleted — all in one
+// transaction so nothing is half-merged. Deletes only the merged-away records.
+route('POST', '/api/clients/:id/merge', async ({ req, params }) => {
+  const keepId = Number(params.id);
+  const keeper = db.prepare('SELECT * FROM clients WHERE id = ?').get(keepId);
+  if (!keeper) throw httpError(404, 'Client not found');
+  const b = checkBody(await readJson(req), { from_ids: s.arr(s.num({ min: 1 }), 100, { required: true }) });
+  const fromIds = [...new Set(b.from_ids.map(Number))].filter((n) => Number.isInteger(n) && n > 0 && n !== keepId);
+  if (!fromIds.length) throw httpError(400, 'Choose at least one other client to merge in');
+  const ph = fromIds.map(() => '?').join(',');
+  const dupes = db.prepare(`SELECT * FROM clients WHERE id IN (${ph})`).all(...fromIds);
+  if (dupes.length !== fromIds.length) throw httpError(400, 'One of the clients to merge no longer exists');
+
+  db.exec('BEGIN');
+  try {
+    for (const table of ['appointments', 'invoices', 'messages', 'reviews']) {
+      db.prepare(`UPDATE ${table} SET client_id = ? WHERE client_id IN (${ph})`).run(keepId, ...fromIds);
+    }
+    let { email, phone, last_name: lastName, notes } = keeper;
+    for (const d of dupes) {
+      if (!email && d.email) email = d.email;
+      if (!phone && d.phone) phone = d.phone;
+      if (!lastName && d.last_name) lastName = d.last_name;
+      if (d.notes && !String(notes).includes(d.notes)) notes = notes ? `${notes}\n${d.notes}` : d.notes;
+    }
+    db.prepare('UPDATE clients SET email = ?, phone = ?, last_name = ?, notes = ? WHERE id = ?')
+      .run(email, phone, lastName, str(notes, 2000), keepId);
+    db.prepare(`DELETE FROM clients WHERE id IN (${ph})`).run(...fromIds);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return { ok: true, merged: fromIds.length, client: db.prepare(`${CLIENT_LIST_SQL} WHERE c.id = ?`).get(keepId) };
 });
 
 route('POST', '/api/clients/import', async ({ req }) => {

@@ -43,6 +43,7 @@ async function drawList(container, q = '') {
       <div class="ph-icon">${icon('users', 20)}</div>
       <div><h1>Clients</h1><div class="ph-sub" id="cl-count">${clients.length} client${clients.length === 1 ? '' : 's'} in your book</div></div>
       <div class="ph-actions">
+        <button class="btn" id="cl-merge">${icon('link')} Merge duplicates</button>
         <button class="btn" id="cl-import">${icon('upload')} Import CSV</button>
         <button class="btn" id="cl-export">${icon('download')} Export</button>
         <button class="btn primary" id="cl-new">${icon('plus')} New client</button>
@@ -103,6 +104,7 @@ async function drawList(container, q = '') {
     kind: 'clients',
     onDone: () => drawList(container, q),
   });
+  container.querySelector('#cl-merge').onclick = () => openMergeDuplicates(() => drawList(container, q));
 
   container.querySelector('#cl-rows').addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-id]');
@@ -131,6 +133,89 @@ function rowHtml(c) {
       <td data-th="Total billed" class="num money">${money(c.total_paid_cents)}</td>
       <td class="num rf-action"><button class="icon-btn" data-edit title="Edit">${icon('edit')}</button></td>
     </tr>`;
+}
+
+// Find-and-merge duplicates. Each detected group lets the owner pick which
+// record to keep; the rest merge into it (history moves over) and are removed.
+async function openMergeDuplicates(onDone) {
+  let groups = [];
+  try { groups = (await api.get('/api/clients/duplicates')).groups || []; }
+  catch (err) { toast(err.message, 'err'); return; }
+
+  const m = openModal({
+    title: 'Merge duplicate clients',
+    wide: true,
+    body: `<div id="merge-body">${groupsHtml(groups)}</div>`,
+  });
+
+  let changed = false;
+  const bodyEl = m.querySelector('#merge-body');
+
+  const wireGroup = (card) => {
+    const gi = card.dataset.g;
+    card.querySelectorAll(`input[name="keep-${gi}"]`).forEach((r) => {
+      r.addEventListener('change', () => {
+        card.querySelectorAll('.merge-row').forEach((row) => row.classList.toggle('is-keep', row.querySelector('input').checked));
+        const keptName = card.querySelector('input:checked').dataset.name;
+        card.querySelector('[data-merge-btn]').textContent = `Merge into ${keptName}`;
+      });
+    });
+    card.querySelector('[data-merge-btn]').addEventListener('click', async (e) => {
+      const keepId = Number(card.querySelector(`input[name="keep-${gi}"]:checked`).value);
+      const allIds = [...card.querySelectorAll('.merge-row')].map((row) => Number(row.dataset.id));
+      const fromIds = allIds.filter((id) => id !== keepId);
+      const keptName = card.querySelector('input:checked').dataset.name;
+      const ok = await confirmDialog(
+        'Merge these clients?',
+        `${fromIds.length} record${fromIds.length === 1 ? '' : 's'} will be merged into ${keptName}. Their appointments, invoices and history move over, then the duplicates are removed. This can't be undone.`,
+        { okText: 'Merge', danger: true }
+      );
+      if (!ok) return;
+      e.target.disabled = true;
+      try {
+        await api.post(`/api/clients/${keepId}/merge`, { from_ids: fromIds });
+        changed = true;
+        card.classList.add('merge-done');
+        card.innerHTML = `<div class="merge-ok">${icon('check')} Merged into <b>${esc(keptName)}</b></div>`;
+        toast('Duplicates merged');
+      } catch (err) { toast(err.message, 'err'); e.target.disabled = false; }
+    });
+  };
+  bodyEl.querySelectorAll('.merge-group').forEach(wireGroup);
+
+  // refresh the underlying list when the modal closes if anything merged
+  const origClose = m.close;
+  m.close = () => { origClose(); if (changed) onDone?.(); };
+  m.querySelector('[data-close]')?.addEventListener('click', () => { if (changed) onDone?.(); });
+}
+
+function groupsHtml(groups) {
+  if (!groups.length) {
+    return `<div class="empty" style="padding:30px 10px">${icon('check')}
+      <div>No duplicates found — your client book is clean.</div></div>`;
+  }
+  return `
+    <div class="cell-sub" style="margin-bottom:14px">We found ${groups.length} possible duplicate ${groups.length === 1 ? 'set' : 'sets'}
+      (clients sharing an email, phone or name). Pick the record to keep in each; the rest merge into it.</div>
+    ${groups.map((g, gi) => {
+      const keepId = g[0].id; // richest record suggested
+      return `<div class="card merge-group" data-g="${gi}" style="margin-bottom:12px">
+        ${g.map((c) => {
+          const name = `${c.first_name} ${c.last_name}`.trim() || '—';
+          return `<label class="merge-row${c.id === keepId ? ' is-keep' : ''}" data-id="${c.id}">
+            <input type="radio" name="keep-${gi}" value="${c.id}" data-name="${esc(name)}" ${c.id === keepId ? 'checked' : ''}>
+            <div class="avatar-sm" style="background:${esc(avatarColor(name))}">${esc(initials(name))}</div>
+            <div class="merge-info">
+              <div class="cell-main">${esc(name)}</div>
+              <div class="cell-sub">${esc(c.email || 'no email')} · ${esc(c.phone || 'no phone')}</div>
+              <div class="cell-sub">${c.appointment_count} visit${c.appointment_count === 1 ? '' : 's'} · ${money(c.total_paid_cents)} billed</div>
+            </div>
+            <span class="merge-keep-tag">Keep</span>
+          </label>`;
+        }).join('')}
+        <button class="btn primary" data-merge-btn style="margin-top:12px;width:100%;justify-content:center">Merge into ${esc(`${g[0].first_name} ${g[0].last_name}`.trim() || '—')}</button>
+      </div>`;
+    }).join('')}`;
 }
 
 export function openClientModal({ client = null, onSaved } = {}) {

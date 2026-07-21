@@ -564,6 +564,17 @@ table.data th.num { text-align: right; }
 .pay-opt input[type=radio] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); flex: 0 0 auto; }
 .pay-opt b { color: var(--text); }
 
+/* Merge-duplicates picker */
+.merge-row { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border: 1px solid var(--border-soft); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.merge-row:hover { border-color: var(--accent); }
+.merge-row.is-keep { border-color: var(--accent); background: rgba(56, 189, 248, 0.07); }
+.merge-row input[type=radio] { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
+.merge-info { flex: 1; min-width: 0; }
+.merge-keep-tag { flex: 0 0 auto; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); opacity: 0; }
+.merge-row.is-keep .merge-keep-tag { opacity: 1; }
+.merge-ok { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; color: var(--green); font-weight: 600; }
+.merge-ok svg { color: var(--green); }
+
 /* ---------- misc ---------- */
 
 .money { font-variant-numeric: tabular-nums; }
