@@ -215,6 +215,15 @@ async function boot() {
       return;
     }
     await refreshLookups();
+    // Self-heal the business time zone for installs made before this existed:
+    // the owner's browser zone is the salon's zone, and it's what keeps the
+    // booking page from offering times that have already passed today.
+    if (!state.settings.business_tz) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) {
+        try { state.settings = await api.put('/api/settings', { business_tz: tz }); } catch { /* non-fatal */ }
+      }
+    }
     renderShell();
     await navigate();
     pendingIntro?.reveal();

@@ -470,6 +470,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         // The URL used to administer the app right now IS the URL customers
         // should use for booking/review links — captured automatically.
         public_url: location.origin,
+        // The owner's own time zone drives the booking page's "no past times"
+        // filter — captured automatically from their browser.
+        business_tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
       },
       team: data.team.filter((m) => String(m.name || '').trim()),
       services: data.services.filter((sv) => sv.on && String(sv.name || '').trim())

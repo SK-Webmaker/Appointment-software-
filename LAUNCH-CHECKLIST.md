@@ -38,6 +38,8 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ **Multi-service booking** — customers add several services to one visit (Colour + Blow Dry); availability and the appointment span the summed duration, and the confirmation/receipt list every service
 - ✅ Service(s) → staff ("any available" supported) → live availability → details → confirmed
 - ✅ Availability = working hours − existing appointments, in real time; taken slots re-checked at confirm (race-safe)
+- ✅ **Past times are never offered** — slots already gone today are hidden and rejected server-side,
+  computed in the business's own time zone (auto-detected) so it's correct even hosted in UTC; optional minimum booking notice
 - ✅ Location step (auto-appears with 2+ locations)
 - ✅ Card deposit via Stripe Checkout (fixed or % of price), fail-safe if Stripe errors
 - ✅ New clients auto-added to the client book; returning clients matched by email/phone

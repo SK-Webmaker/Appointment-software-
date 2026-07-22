@@ -282,6 +282,11 @@ const DEFAULT_SETTINGS = {
   close_min: '1200',      // 20:00
   open_days: '1,2,3,4,5,6', // weekday numbers, 0=Sun … 6=Sat (default Mon–Sat)
   slot_interval: '15',
+  // IANA time zone (e.g. 'Australia/Melbourne'), auto-captured from the owner's
+  // browser. Empty = use the server's own clock. Makes the booking page's
+  // "no past times today" filter correct even when the server runs in UTC.
+  business_tz: '',
+  booking_lead_min: '0',  // minimum notice before an online slot can be booked (minutes)
   booking_enabled: '1',
   invoice_prefix: 'INV-',
   invoice_due_days: '7',

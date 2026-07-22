@@ -71,8 +71,19 @@ export async function renderSettings(container) {
               }).join('')}
             </div>
             <div class="hint">Closed days never appear as options on the customer booking page. Staff can still add walk-ins on closed days from the calendar.</div></div>
-          <div class="field"><label>Online booking slot interval</label>
-            <select name="slot_interval">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${Number(s.slot_interval) === v ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
+          <div class="form-grid">
+            <div class="field"><label>Online booking slot interval</label>
+              <select name="slot_interval">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${Number(s.slot_interval) === v ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
+            <div class="field"><label>Minimum booking notice</label>
+              <select name="booking_lead_min">${[
+                [0, 'None — up to the last minute'], [15, '15 minutes ahead'], [30, '30 minutes ahead'],
+                [60, '1 hour ahead'], [120, '2 hours ahead'], [240, '4 hours ahead'], [1440, '1 day ahead'],
+              ].map(([v, lbl]) => `<option value="${v}" ${Number(s.booking_lead_min || 0) === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select>
+              <div class="hint">How far ahead a customer must book. Past times are never shown regardless.</div></div>
+          </div>
+          <div class="field"><label>Time zone</label>
+            <input name="business_tz" value="${esc(s.business_tz || '')}" placeholder="${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'e.g. Australia/Melbourne')}">
+            <div class="hint">Auto-detected from your device — it keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
           <div class="field">
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
               <input type="checkbox" name="booking_enabled" ${s.booking_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
@@ -387,6 +398,8 @@ export async function renderSettings(container) {
     state.settings = await api.put('/api/settings', {
       open_min: fd.get('open_min'), close_min: fd.get('close_min'),
       slot_interval: fd.get('slot_interval'),
+      booking_lead_min: fd.get('booking_lead_min'),
+      business_tz: String(fd.get('business_tz') || '').trim(),
       booking_enabled: e.target.elements.booking_enabled.checked ? '1' : '0',
       open_days: days.join(','),
     });

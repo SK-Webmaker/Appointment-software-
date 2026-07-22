@@ -4,7 +4,7 @@ import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
 } from './db.js';
 import {
-  readJson, sendJson, sendText, httpError, parseCookies, todayStr, isDateStr, clampInt, toCsv,
+  readJson, sendJson, sendText, httpError, parseCookies, todayStr, nowParts, isDateStr, clampInt, toCsv,
 } from './util.js';
 import {
   hashPassword, verifyPassword, createSession, verifySession,
@@ -244,6 +244,7 @@ route('GET', '/api/auth/verify-email', async ({ res, query }) => {
 const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
+  'business_tz', 'booking_lead_min',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'open_days', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
@@ -1615,13 +1616,18 @@ function freeSlotsFor(staffId, date, durationMin) {
     "SELECT start_min, end_min FROM appointments WHERE staff_id = ? AND date = ? AND status NOT IN ('cancelled', 'no_show')"
   ).all(staffId, date);
 
-  const now = new Date();
-  const isToday = date === todayStr();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // "Now" in the business's own time zone, so a slot that has already passed
+  // today is never offered (the server may run in UTC while the salon is in
+  // Australia). A minimum-notice buffer pushes the earliest bookable time
+  // further out if the owner wants advance warning.
+  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  const isToday = date === todayLocal;
+  const leadMin = Math.max(0, Number(getSetting('booking_lead_min', '0')) || 0);
+  const earliest = nowMin + leadMin; // slots must start strictly after this today
 
   const slots = [];
   for (let t = open; t + durationMin <= close; t += step) {
-    if (isToday && t <= nowMin) continue;
+    if (isToday && (t <= nowMin || t < earliest)) continue;
     if (!busy.some((b) => t < b.end_min && t + durationMin > b.start_min)) slots.push(t);
   }
   return slots;
@@ -1630,7 +1636,7 @@ function freeSlotsFor(staffId, date, durationMin) {
 route('GET', '/api/public/availability', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const date = query.get('date');
-  if (!isDateStr(date) || date < todayStr()) throw httpError(400, 'Choose an upcoming date');
+  if (!isDateStr(date) || date < nowParts(getSetting('business_tz', '')).date) throw httpError(400, 'Choose an upcoming date');
   // Duration is the sum of every chosen service (service_ids CSV), or a single
   // service (service_id). All must be real, active services.
   const idsParam = (query.get('service_ids') || '').split(',').map((v) => Number(v)).filter(Boolean);
@@ -1676,9 +1682,14 @@ route('POST', '/api/public/book', async ({ req }) => {
   const svc = resolveServices(b, { required: true });
   const service = svc.services[0];
   const duration = svc.totalDuration;
-  if (!isDateStr(b.date) || b.date < todayStr()) throw httpError(400, 'Choose an upcoming date');
+  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  if (!isDateStr(b.date) || b.date < todayLocal) throw httpError(400, 'Choose an upcoming date');
   const start = clampInt(b.start_min, 0, 1439, NaN);
   if (Number.isNaN(start)) throw httpError(400, 'Choose a time');
+  // Reject a time that's already passed today, even if a stale page offered it.
+  const leadMin = Math.max(0, Number(getSetting('booking_lead_min', '0')) || 0);
+  if (b.date === todayLocal && start <= nowMin) throw httpError(400, 'That time has already passed — please pick a later time');
+  if (b.date === todayLocal && start < nowMin + leadMin) throw httpError(400, 'That time is too soon — please pick a later time');
 
   const first = str(b.client?.first_name, 100);
   const phone = str(b.client?.phone, 50);

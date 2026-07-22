@@ -50,6 +50,10 @@ npm run reset-demo   # same thing from the terminal
   duration, and the receipt/confirmation list every service
 - Availability is computed in real time from working hours minus existing appointments;
   race-safe (a taken slot is re-checked at confirm time)
+- **Only upcoming times are ever offered** — a slot that has already passed today is never
+  shown or bookable, computed in the **business's own time zone** (auto-detected from the
+  owner's device) so it stays correct even when the server runs in UTC. An optional
+  **minimum booking notice** (e.g. 1 hour ahead) is configurable in Settings.
 - New customers are added to your client book automatically; returning ones are matched by email/phone
 - Toggle it on/off in Settings; put the link in an Instagram bio / Google Business profile
 

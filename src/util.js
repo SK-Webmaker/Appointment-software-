@@ -88,6 +88,30 @@ export function todayStr(offsetDays = 0) {
   return dateStr(d);
 }
 
+/**
+ * "Now" expressed in a specific IANA time zone (e.g. 'Australia/Melbourne'):
+ * { date: 'YYYY-MM-DD', min: minutes-since-midnight }. This is what makes the
+ * booking page's past-slot filter correct even when the server runs in UTC.
+ * Falls back to the server's own local time when tz is empty/invalid.
+ */
+export function nowParts(tz) {
+  const d = new Date();
+  const local = () => ({ date: dateStr(d), min: d.getHours() * 60 + d.getMinutes() });
+  if (!tz) return local();
+  try {
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).formatToParts(d).map((p) => [p.type, p.value])
+    );
+    const hour = Number(parts.hour) % 24; // hour12:false can report '24' at midnight
+    return { date: `${parts.year}-${parts.month}-${parts.day}`, min: hour * 60 + Number(parts.minute) };
+  } catch {
+    return local();
+  }
+}
+
 export function dateStr(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
