@@ -19,6 +19,9 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums)
 - ✅ Status flow: Booked → Confirmed → Completed / Cancelled / No-show
 - ✅ "Now" line, per-staff colours, ⚡ badge on online bookings, 💳 badge on deposits
+- ✅ **Extended day view (Fresha-style)**: shows a couple of hours before/after opening
+  (and any appointment booked outside hours); the off-hours are shaded but still clickable
+  so the owner can slot in an early/late walk-in — the public booking page stays limited to opening hours
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Point of Sale (v1.8)

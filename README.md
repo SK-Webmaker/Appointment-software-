@@ -43,6 +43,11 @@ npm run reset-demo   # same thing from the terminal
 - Double-booking detection with an explicit override; **overlapping appointments stack side-by-side** in the staff column
 - Status flow: Booked → Confirmed → Completed (plus Cancelled / No-show)
 - "Now" line, online-booking badge, per-staff colours
+- **Extended range with shaded off-hours (Fresha-style)**: the grid shows a couple of
+  hours before opening and after closing (and expands to include any appointment booked
+  outside hours). Those off-hours are greyed but still clickable/draggable, so the owner
+  can fit in an early or late walk-in — while the customer booking page stays limited to
+  opening hours.
 
 ### ⚡ Online booking page (`/book`)
 - Customers pick **one or more services** (Colour + Blow Dry) → team member (or "any

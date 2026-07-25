@@ -371,6 +371,15 @@ table.data th.num { text-align: right; }
 }
 .cal-col { flex: 1; min-width: 170px; position: relative; border-left: 1px solid var(--border-soft); }
 .cal-col.today-col { background: rgba(56, 189, 248, 0.03); }
+/* Fresha-style shading for the hours outside opening time (before open / after
+   close, or a whole closed day). Purely visual — the owner can still click or
+   drag here to book a walk-in outside normal hours. */
+.off-hours {
+  position: absolute; left: 0; right: 0; pointer-events: none; z-index: 0;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 5px, transparent 5px 10px),
+    rgba(0, 0, 0, 0.3);
+}
 .hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border-soft); pointer-events: none; }
 .half-line { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(28, 38, 54, 0.55); pointer-events: none; }
 .now-line {

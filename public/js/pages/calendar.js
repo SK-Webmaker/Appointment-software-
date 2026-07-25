@@ -26,8 +26,37 @@ function visibleStaff() {
 
 const openMin = () => Number(state.settings.open_min || 480);
 const closeMin = () => Number(state.settings.close_min || 1200);
-const yFor = (min) => (min - openMin()) * PX_PER_MIN;
-const minFor = (y) => Math.round((y / PX_PER_MIN + openMin()) / SNAP) * SNAP;
+
+// The calendar shows a WIDER range than opening hours (Fresha-style): a couple
+// of padding hours before/after, expanded further to include any appointment
+// the owner squeezed in outside hours. Opening hours are the normal (bookable)
+// band; the padded off-hours are shaded but still schedulable by the owner.
+// The public booking page is unaffected — it still uses open/close only.
+const RANGE_PAD = 120; // minutes of padding shown before open / after close
+function computeRange() {
+  let lo = openMin() - RANGE_PAD, hi = closeMin() + RANGE_PAD;
+  for (const a of cal.appointments || []) { lo = Math.min(lo, a.start_min); hi = Math.max(hi, a.end_min); }
+  cal.gridStart = Math.max(0, Math.floor(lo / 60) * 60);
+  cal.gridEnd = Math.min(1440, Math.ceil(hi / 60) * 60);
+}
+const gridStart = () => cal.gridStart ?? Math.max(0, openMin() - RANGE_PAD);
+const gridEnd = () => cal.gridEnd ?? Math.min(1440, closeMin() + RANGE_PAD);
+const yFor = (min) => (min - gridStart()) * PX_PER_MIN;
+const minFor = (y) => Math.round((y / PX_PER_MIN + gridStart()) / SNAP) * SNAP;
+
+// Shaded off-hours bands for one day column. On a closed day the whole column
+// is off-hours; otherwise the areas before open and after close are shaded.
+function offHoursHtml(date) {
+  const dow = parseDate(date).getDay();
+  const openDays = String(state.settings.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number);
+  const gs = gridStart(), ge = gridEnd();
+  const band = (from, to) => `<div class="off-hours" style="top:${(from - gs) * PX_PER_MIN}px;height:${(to - from) * PX_PER_MIN}px"></div>`;
+  if (!openDays.includes(dow)) return band(gs, ge); // closed day → all shaded
+  let html = '';
+  if (openMin() > gs) html += band(gs, openMin());
+  if (closeMin() < ge) html += band(closeMin(), ge);
+  return html;
+}
 
 function weekStart(dateStr) {
   const d = parseDate(dateStr);
@@ -49,6 +78,7 @@ async function loadAndDraw(container) {
 }
 
 function draw(container) {
+  computeRange();
   const pool = visibleStaff();
   const staffList = cal.staffFilter
     ? pool.filter((s) => s.id === cal.staffFilter)
@@ -96,11 +126,14 @@ function draw(container) {
   wireToolbar(container);
   wireGrid(container, staffList);
 
-  // scroll to ~1h before now (or open) on first paint
+  // Land on opening hours (off-hours sit above, reachable by scrolling up); on
+  // today, bias to ~1h before now but never above the opening time.
   const scroll = container.querySelector('#cal-scroll');
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const target = Math.max(0, yFor(Math.max(openMin(), nowMin - 60)));
-  scroll.scrollTop = cal.date === todayStr() ? target : 0;
+  const target = cal.date === todayStr()
+    ? Math.max(yFor(openMin()), yFor(nowMin - 60))
+    : yFor(openMin());
+  scroll.scrollTop = Math.max(0, target);
 }
 
 // ---------------------------------------------------------------------------
@@ -109,18 +142,18 @@ function draw(container) {
 
 function gridLinesHtml(height) {
   let html = '';
-  for (let t = openMin(); t <= closeMin(); t += 60) {
+  for (let t = gridStart(); t <= gridEnd(); t += 60) {
     html += `<div class="hour-line" style="top:${yFor(t)}px"></div>`;
-    if (t + 30 <= closeMin()) html += `<div class="half-line" style="top:${yFor(t + 30)}px"></div>`;
+    if (t + 30 <= gridEnd()) html += `<div class="half-line" style="top:${yFor(t + 30)}px"></div>`;
   }
   return html;
 }
 
 function gutterHtml(height) {
   let labels = '';
-  for (let t = openMin(); t <= closeMin(); t += 60) {
+  for (let t = gridStart(); t <= gridEnd(); t += 60) {
     // first label would be half-clipped by the sticky header if centered on its line
-    const align = t === openMin() ? ';transform:none' : '';
+    const align = t === gridStart() ? ';transform:none' : '';
     labels += `<div class="g-label" style="top:${yFor(t)}px${align}">${fmtTime(t).replace(':00', '')}</div>`;
   }
   return `<div class="cal-gutter" style="height:${height}px">${labels}</div>`;
@@ -163,7 +196,7 @@ function apptHtml(a, showStaff = false) {
 }
 
 function dayGridHtml(staffList) {
-  const height = yFor(closeMin());
+  const height = yFor(gridEnd());
   const isToday = cal.date === todayStr();
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
@@ -177,8 +210,9 @@ function dayGridHtml(staffList) {
     const appts = layoutLanes(cal.appointments.filter((a) => a.staff_id === s.id));
     return `
       <div class="cal-col" data-staff="${s.id}" data-date="${cal.date}" style="height:${height}px">
+        ${offHoursHtml(cal.date)}
         ${gridLinesHtml(height)}
-        ${isToday && nowMin >= openMin() && nowMin <= closeMin() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
+        ${isToday && nowMin >= gridStart() && nowMin <= gridEnd() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
         ${appts.map((a) => apptHtml(a)).join('')}
       </div>`;
   }).join('');
@@ -189,7 +223,7 @@ function dayGridHtml(staffList) {
 }
 
 function weekGridHtml() {
-  const height = yFor(closeMin());
+  const height = yFor(gridEnd());
   const start = weekStart(cal.date);
   const today = todayStr();
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
@@ -210,8 +244,9 @@ function weekGridHtml() {
     const appts = layoutLanes(weekAppts.filter((a) => a.date === d));
     return `
       <div class="cal-col ${d === today ? 'today-col' : ''}" data-date="${d}" data-staff="0" style="height:${height}px">
+        ${offHoursHtml(d)}
         ${gridLinesHtml(height)}
-        ${d === today && nowMin >= openMin() && nowMin <= closeMin() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
+        ${d === today && nowMin >= gridStart() && nowMin <= gridEnd() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
         ${appts.map((a) => apptHtml(a, true)).join('')}
       </div>`;
   }).join('');
@@ -278,13 +313,13 @@ function wireGrid(container, staffList) {
     const deltaMin = Math.round(dy / PX_PER_MIN / SNAP) * SNAP;
 
     if (drag.mode === 'resize') {
-      const newEnd = Math.max(drag.origStart + SNAP, Math.min(closeMin(), drag.origEnd + deltaMin));
+      const newEnd = Math.max(drag.origStart + SNAP, Math.min(gridEnd(), drag.origEnd + deltaMin));
       drag.newEnd = newEnd;
       drag.el.style.height = `${Math.max(20, (newEnd - drag.appt.start_min) * PX_PER_MIN - 2)}px`;
       return;
     }
-    // move: vertical time shift + horizontal column change
-    const newStart = Math.max(openMin(), Math.min(closeMin() - (drag.origEnd - drag.origStart), drag.origStart + deltaMin));
+    // move: vertical time shift + horizontal column change (into off-hours too)
+    const newStart = Math.max(gridStart(), Math.min(gridEnd() - (drag.origEnd - drag.origStart), drag.origStart + deltaMin));
     drag.newStart = newStart;
     drag.el.style.top = `${yFor(newStart)}px`;
     const col = document.elementsFromPoint(e.clientX, e.clientY).find((el) => el.classList?.contains('cal-col'));
@@ -331,7 +366,9 @@ function wireGrid(container, staffList) {
     const col = e.target.closest('.cal-col');
     if (!col) return;
     const rect = col.getBoundingClientRect();
-    const min = Math.max(openMin(), Math.min(closeMin() - SNAP, minFor(e.clientY - rect.top)));
+    // Clamp to the whole visible range, not just opening hours, so the owner
+    // can click the shaded off-hours area to book a walk-in before/after hours.
+    const min = Math.max(gridStart(), Math.min(gridEnd() - SNAP, minFor(e.clientY - rect.top)));
     openAppointmentModal({
       date: col.dataset.date,
       staff_id: Number(col.dataset.staff) || staffList[0]?.id,
