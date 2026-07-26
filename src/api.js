@@ -992,6 +992,81 @@ function findConflict(staffId, date, startMin, endMin, excludeId = 0) {
   ).get(staffId, date, excludeId, endMin, startMin);
 }
 
+// ---------------------------------------------------------------------------
+// Blocked time — owner-only periods that online booking must skip
+// ---------------------------------------------------------------------------
+
+/** Blocks covering one staff member on one date (a NULL staff_id = whole team). */
+function blocksFor(staffId, date) {
+  return db.prepare(
+    'SELECT start_min, end_min FROM time_blocks WHERE date = ? AND (staff_id IS NULL OR staff_id = ?)'
+  ).all(date, staffId);
+}
+
+/** The first block a proposed appointment would run into, if any. */
+function findBlockConflict(staffId, date, startMin, endMin) {
+  return db.prepare(
+    `SELECT * FROM time_blocks
+     WHERE date = ? AND (staff_id IS NULL OR staff_id = ?)
+       AND start_min < ? AND end_min > ?
+     LIMIT 1`
+  ).get(date, staffId, endMin, startMin);
+}
+
+const BLOCK_SCHEMA = {
+  staff_id: s.num(), date: s.str(10, { required: true }),
+  start_min: s.num({ min: 0, max: 1439, required: true }),
+  end_min: s.num({ min: 1, max: 1440, required: true }),
+  reason: s.str(500),
+};
+
+async function blockBody(req) {
+  const b = checkBody(await readJson(req), BLOCK_SCHEMA);
+  if (!isDateStr(b.date)) throw httpError(400, 'Date must be YYYY-MM-DD');
+  const start = clampInt(b.start_min, 0, 1439, NaN);
+  const end = clampInt(b.end_min, 1, 1440, NaN);
+  if (Number.isNaN(start) || Number.isNaN(end)) throw httpError(400, 'Start and end times are required');
+  if (end <= start) throw httpError(400, 'The end time must be after the start time');
+  // staff_id 0 / missing = every team member.
+  const staffId = Number(b.staff_id) || 0;
+  if (staffId && !db.prepare('SELECT id FROM staff WHERE id = ?').get(staffId)) throw httpError(400, 'Unknown team member');
+  return [staffId || null, b.date, start, end, str(b.reason, 500)];
+}
+
+route('GET', '/api/time-blocks', async ({ query }) => {
+  const from = query.get('from'), to = query.get('to');
+  const conds = [], args = [];
+  if (isDateStr(from)) { conds.push('b.date >= ?'); args.push(from); }
+  if (isDateStr(to)) { conds.push('b.date <= ?'); args.push(to); }
+  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  return db.prepare(
+    `SELECT b.*, st.name AS staff_name FROM time_blocks b
+     LEFT JOIN staff st ON st.id = b.staff_id
+     ${where} ORDER BY b.date, b.start_min LIMIT 2000`
+  ).all(...args);
+});
+
+route('POST', '/api/time-blocks', async ({ req }) => {
+  const fields = await blockBody(req);
+  const info = db.prepare(
+    'INSERT INTO time_blocks (staff_id, date, start_min, end_min, reason) VALUES (?, ?, ?, ?, ?)'
+  ).run(...fields);
+  return db.prepare('SELECT * FROM time_blocks WHERE id = ?').get(info.lastInsertRowid);
+});
+
+route('PUT', '/api/time-blocks/:id', async ({ req, params }) => {
+  if (!db.prepare('SELECT id FROM time_blocks WHERE id = ?').get(params.id)) throw httpError(404, 'Block not found');
+  db.prepare(
+    'UPDATE time_blocks SET staff_id = ?, date = ?, start_min = ?, end_min = ?, reason = ? WHERE id = ?'
+  ).run(...(await blockBody(req)), params.id);
+  return db.prepare('SELECT * FROM time_blocks WHERE id = ?').get(params.id);
+});
+
+route('DELETE', '/api/time-blocks/:id', async ({ params }) => {
+  db.prepare('DELETE FROM time_blocks WHERE id = ?').run(params.id);
+  return { ok: true };
+});
+
 async function apptBody(req) {
   const b = checkBody(await readJson(req), APPT_SCHEMA);
   const staffId = Number(b.staff_id);
@@ -1028,6 +1103,10 @@ route('POST', '/api/appointments', async ({ req }) => {
   if (conflict && !a.b.force) {
     throw Object.assign(httpError(409, 'This time overlaps another appointment'), { data: { conflict } });
   }
+  const block = findBlockConflict(a.staffId, a.date, a.start, a.end);
+  if (block && !a.b.force) {
+    throw Object.assign(httpError(409, 'This time is blocked out'), { data: { block } });
+  }
   const info = db.prepare(
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'staff')`
@@ -1046,6 +1125,10 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   const conflict = findConflict(a.staffId, a.date, a.start, a.end, params.id);
   if (conflict && !a.b.force) {
     throw Object.assign(httpError(409, 'This time overlaps another appointment'), { data: { conflict } });
+  }
+  const block = findBlockConflict(a.staffId, a.date, a.start, a.end);
+  if (block && !a.b.force) {
+    throw Object.assign(httpError(409, 'This time is blocked out'), { data: { block } });
   }
   // Only overwrite the service list when the caller sent one. A drag/resize
   // sends just the primary service_id (or none), so we keep the existing
@@ -1749,6 +1832,9 @@ function freeSlotsFor(staffId, date, durationMin) {
   const busy = db.prepare(
     "SELECT start_min, end_min FROM appointments WHERE staff_id = ? AND date = ? AND status NOT IN ('cancelled', 'no_show')"
   ).all(staffId, date);
+  // Owner-blocked time (lunch, training, holiday…) is unbookable online, exactly
+  // like an existing appointment. A block with no staff_id covers the whole team.
+  busy.push(...blocksFor(staffId, date));
 
   // "Now" in the business's own time zone, so a slot that has already passed
   // today is never offered (the server may run in UTC while the salon is in

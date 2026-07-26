@@ -26,6 +26,11 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
   (and any appointment booked outside hours); the off-hours are shaded but still clickable
   so the owner can slot in an early/late walk-in — the public booking page stays limited to opening hours
 - ✅ **Customizable day-book range** (Settings → Hours): pin a preferred start/end time so the owner can scroll to exactly the hours they want — or leave on Auto
+- ✅ **Block out time** with a private, owner-only reason (lunch, training, day off): shown as a hatched
+  band on the calendar, removed from online-booking availability instantly (verified: blocked slots never
+  offered, and a public booking attempt inside a block is rejected 409). Per-staff or whole-team, an
+  **All day** shortcut, click-to-edit/remove (time reopens), and the owner can still book over it with a
+  confirmation. The reason is never exposed publicly — the endpoint requires sign-in (verified 401)
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Point of Sale (v1.8)

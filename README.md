@@ -57,6 +57,12 @@ npm run reset-demo   # same thing from the terminal
 - **Customizable calendar range**: set a preferred start/end time for the day book in
   Settings → Hours (e.g. always show 6 AM → 11 PM) so the owner can scroll to exactly the
   times they want; leave it on **Auto** to follow opening hours.
+- **🔒 Block out time**: block any period (lunch, training, a dentist appointment, a whole
+  day off) with a **private reason only the owner sees** — customers never see it. Blocked
+  time is removed from online booking immediately, so nobody can book into it. Block one
+  team member or **everyone**, use **All day** for holidays, and click a block to edit or
+  remove it (the time reopens for booking straight away). The owner can still book over
+  their own block manually after a confirmation.
 
 ### ⚡ Online booking page (`/book`)
 - Customers pick **one or more services** (Colour + Blow Dry) → team member (or "any

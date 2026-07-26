@@ -181,6 +181,20 @@ export function initSchema() {
       response       TEXT NOT NULL DEFAULT '',
       created_at     TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Owner-only blocked time (lunch, training, holiday…). Blocked periods are
+    -- removed from online-booking availability; the reason is never shown to
+    -- customers, only on the owner's calendar. staff_id NULL = the whole team.
+    CREATE TABLE IF NOT EXISTS time_blocks (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id   INTEGER REFERENCES staff(id) ON DELETE CASCADE,
+      date       TEXT NOT NULL,             -- YYYY-MM-DD
+      start_min  INTEGER NOT NULL,          -- minutes from midnight
+      end_min    INTEGER NOT NULL,
+      reason     TEXT NOT NULL DEFAULT '',  -- owner's note, private
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_time_blocks_date ON time_blocks(date);
   `);
   migrate();
 }
@@ -628,8 +642,9 @@ export function seedDemo() {
 export function clearBusinessData() {
   db.exec(`
     DELETE FROM messages; DELETE FROM reviews; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
+    DELETE FROM time_blocks;
     DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM products; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
-    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','appointment_services','appointments','services','products','clients','staff','locations');
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','time_blocks','appointment_services','appointments','services','products','clients','staff','locations');
   `);
   setSetting('invoice_seq', '1000');
 }

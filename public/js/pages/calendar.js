@@ -16,6 +16,7 @@ const cal = {
   staffFilter: 0,     // 0 = everyone
   locationFilter: 0,  // 0 = all locations
   appointments: [],
+  blocks: [],         // owner-only blocked time (unbookable online)
 };
 
 function visibleStaff() {
@@ -40,7 +41,9 @@ function computeRange() {
   const cs = state.settings.cal_start_min, ce = state.settings.cal_end_min;
   let lo = (cs !== '' && cs != null) ? Number(cs) : openMin() - RANGE_PAD;
   let hi = (ce !== '' && ce != null) ? Number(ce) : closeMin() + RANGE_PAD;
-  for (const a of cal.appointments || []) { lo = Math.min(lo, a.start_min); hi = Math.max(hi, a.end_min); }
+  for (const a of [...(cal.appointments || []), ...(cal.blocks || [])]) {
+    lo = Math.min(lo, a.start_min); hi = Math.max(hi, a.end_min);
+  }
   cal.gridStart = Math.max(0, Math.floor(lo / 60) * 60);
   cal.gridEnd = Math.min(1440, Math.ceil(hi / 60) * 60);
 }
@@ -78,7 +81,14 @@ async function loadAndDraw(container) {
   const from = cal.view === 'day' ? cal.date : weekStart(cal.date);
   const to = cal.view === 'day' ? cal.date : addDaysStr(weekStart(cal.date), 6);
   const staffQ = cal.staffFilter ? `&staff_id=${cal.staffFilter}` : '';
-  cal.appointments = await api.get(`/api/appointments?from=${from}&to=${to}${staffQ}`);
+  const [appts, blocks] = await Promise.all([
+    api.get(`/api/appointments?from=${from}&to=${to}${staffQ}`),
+    api.get(`/api/time-blocks?from=${from}&to=${to}`),
+  ]);
+  cal.appointments = appts;
+  // Blocks are stored per staff member (or for everyone when staff_id is null),
+  // so apply the staff filter here rather than in the query.
+  cal.blocks = cal.staffFilter ? blocks.filter((b) => !b.staff_id || b.staff_id === cal.staffFilter) : blocks;
   draw(container);
 }
 
@@ -98,6 +108,7 @@ function draw(container) {
       <div class="ph-icon">${icon('calendar', 20)}</div>
       <div><h1>Calendar</h1><div class="ph-sub">Click an empty slot to book · drag to reschedule</div></div>
       <div class="ph-actions">
+        <button class="btn" id="block-time">${icon('lock')} Block time</button>
         <button class="btn primary" id="new-appt">${icon('plus')} New appointment</button>
       </div>
     </div>
@@ -200,6 +211,28 @@ function apptHtml(a, showStaff = false) {
     </div>`;
 }
 
+// Blocked time: a hatched band the owner can see (with their private reason)
+// that online booking will never offer. Rendered under the appointment layer so
+// an appointment booked over it still shows on top.
+function blockHtml(b) {
+  const top = yFor(b.start_min);
+  const height = Math.max(16, (b.end_min - b.start_min) * PX_PER_MIN - 2);
+  const compact = height < 36;
+  const who = b.staff_id ? '' : ' · everyone';
+  return `
+    <div class="cal-block" data-block="${b.id}" tabindex="0"
+      title="Blocked ${esc(fmtTimeShort(b.start_min))}–${esc(fmtTime(b.end_min))}${b.reason ? ` — ${esc(b.reason)}` : ''}"
+      style="top:${top}px;height:${height}px">
+      <div class="cb-label">${icon('lock', 12)} ${esc(b.reason || 'Blocked')}</div>
+      ${compact ? '' : `<div class="cb-time">${fmtTimeShort(b.start_min)} – ${fmtTime(b.end_min)}${who}</div>`}
+    </div>`;
+}
+
+/** Blocks that apply to one staff column on one date (null staff = everyone). */
+function blocksForCol(date, staffId) {
+  return (cal.blocks || []).filter((b) => b.date === date && (!b.staff_id || !staffId || b.staff_id === staffId));
+}
+
 function dayGridHtml(staffList) {
   const height = yFor(gridEnd());
   const isToday = cal.date === todayStr();
@@ -217,6 +250,7 @@ function dayGridHtml(staffList) {
       <div class="cal-col" data-staff="${s.id}" data-date="${cal.date}" style="height:${height}px">
         ${offHoursHtml(cal.date)}
         ${gridLinesHtml(height)}
+        ${blocksForCol(cal.date, s.id).map(blockHtml).join('')}
         ${isToday && nowMin >= gridStart() && nowMin <= gridEnd() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
         ${appts.map((a) => apptHtml(a)).join('')}
       </div>`;
@@ -251,6 +285,7 @@ function weekGridHtml() {
       <div class="cal-col ${d === today ? 'today-col' : ''}" data-date="${d}" data-staff="0" style="height:${height}px">
         ${offHoursHtml(d)}
         ${gridLinesHtml(height)}
+        ${blocksForCol(d, 0).map(blockHtml).join('')}
         ${d === today && nowMin >= gridStart() && nowMin <= gridEnd() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}
         ${appts.map((a) => apptHtml(a, true)).join('')}
       </div>`;
@@ -280,6 +315,8 @@ function wireToolbar(container) {
   });
   container.querySelector('#new-appt').onclick = () =>
     openAppointmentModal({ date: cal.date, onSaved: redraw });
+  container.querySelector('#block-time').onclick = () =>
+    openBlockModal({ date: cal.date, staff_id: cal.staffFilter, onSaved: redraw });
 }
 
 function wireGrid(container, staffList) {
@@ -356,7 +393,10 @@ function wireGrid(container, staffList) {
       toast('Appointment updated');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const force = await confirmDialog('Double booking', `${esc(err.data?.conflict?.client_name || 'Another appointment')} is already booked then. Book anyway?`, { okText: 'Double-book' });
+        const blk = err.data?.block;
+        const force = blk
+          ? await confirmDialog('Blocked time', `That time is blocked out${blk.reason ? ` — <b>${esc(blk.reason)}</b>` : ''}. Book over it anyway?`, { okText: 'Book anyway' })
+          : await confirmDialog('Double booking', `${esc(err.data?.conflict?.client_name || 'Another appointment')} is already booked then. Book anyway?`, { okText: 'Double-book' });
         if (force) { await api.put(`/api/appointments/${d.appt.id}`, { ...payload, force: true }); toast('Appointment updated'); }
       } else toast(err.message, 'err');
     }
@@ -365,9 +405,14 @@ function wireGrid(container, staffList) {
   scroll.addEventListener('mouseup', finishDrag);
   scroll.addEventListener('mouseleave', finishDrag);
 
-  // click empty slot → new appointment
+  // click empty slot → new appointment (or a blocked band → edit that block)
   scroll.addEventListener('click', (e) => {
     if (e.target.closest('.appt')) return;
+    const blockEl = e.target.closest('.cal-block');
+    if (blockEl) {
+      const block = cal.blocks.find((b) => b.id === Number(blockEl.dataset.block));
+      if (block) { openBlockModal({ block, onSaved: redraw }); return; }
+    }
     const col = e.target.closest('.cal-col');
     if (!col) return;
     const rect = col.getBoundingClientRect();
@@ -587,9 +632,14 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
       onSaved?.();
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const ok = await confirmDialog('Double booking',
-          `That slot overlaps <b>${esc(err.data?.conflict?.client_name || 'another appointment')}</b> (${fmtTime(err.data?.conflict?.start_min || 0)}). Book anyway?`,
-          { okText: 'Double-book' });
+        const blk = err.data?.block;
+        const ok = blk
+          ? await confirmDialog('Blocked time',
+              `That slot runs into time you blocked out${blk.reason ? ` — <b>${esc(blk.reason)}</b>` : ''} (${fmtTime(blk.start_min)} – ${fmtTime(blk.end_min)}). Book over it anyway?`,
+              { okText: 'Book anyway' })
+          : await confirmDialog('Double booking',
+              `That slot overlaps <b>${esc(err.data?.conflict?.client_name || 'another appointment')}</b> (${fmtTime(err.data?.conflict?.start_min || 0)}). Book anyway?`,
+              { okText: 'Double-book' });
         if (ok) save(true);
       } else toast(err.message, 'err');
     }
@@ -611,6 +661,102 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
         m.close();
         location.hash = `#/invoices?open=${inv.id}`;
       } catch (err) { toast(err.message, 'err'); }
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Blocked time modal (create / edit) — owner-only, never shown to customers.
+// ---------------------------------------------------------------------------
+
+export function openBlockModal({ block = null, date, staff_id, start_min, onSaved } = {}) {
+  const b = block;
+  const selStaff = b ? (b.staff_id || 0) : (staff_id || 0);
+  const selStart = b?.start_min ?? (start_min ?? Math.max(openMin(), 720));
+  const selEnd = b?.end_min ?? Math.min(1440, selStart + 60);
+
+  const m = openModal({
+    title: b ? 'Edit blocked time' : 'Block out time',
+    body: `
+      <form id="block-form" class="form-grid">
+        <div class="field span2"><label>Who is unavailable</label>
+          <select name="staff_id" class="nice-select">
+            <option value="0" ${!selStaff ? 'selected' : ''}>Everyone (whole business)</option>
+            ${state.staff.map((s) => `<option value="${s.id}" ${s.id === selStaff ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+          </select></div>
+        <div class="field"><label>Date</label>
+          <input type="date" name="date" value="${b?.date || date || todayStr()}" required style="color-scheme:dark"></div>
+        <div class="field"><label>Quick set</label>
+          <button type="button" class="btn small" id="block-allday" style="width:100%;justify-content:center">${icon('clock')} All day</button></div>
+        <div class="field"><label>From</label>
+          <select name="start_min" class="nice-select">${timeOptions(selStart, { from: 0, to: 1425 })}</select></div>
+        <div class="field"><label>Until</label>
+          <select name="end_min" class="nice-select">${timeOptions(selEnd, { from: 15, to: 1440 })}</select></div>
+        <div class="span2 appt-summary" id="block-summary"></div>
+        <div class="field span2"><label>Reason (only you can see this)</label>
+          <textarea name="reason" placeholder="Lunch, training, dentist, holiday…">${esc(b?.reason || '')}</textarea>
+          <div class="hint">${icon('lock', 12)} Shown on your calendar only — customers never see it. Online booking is turned off for this time.</div></div>
+      </form>`,
+    footer: `
+      ${b ? `<button class="btn danger" id="block-delete">${icon('trash')} Remove block</button>` : ''}
+      <div class="spacer"></div>
+      <button class="btn primary" id="block-save">${icon('check')} ${b ? 'Save changes' : 'Block this time'}</button>`,
+  });
+
+  const form = m.querySelector('#block-form');
+  const startSel = form.querySelector('[name=start_min]');
+  const endSel = form.querySelector('[name=end_min]');
+  const summaryEl = form.querySelector('#block-summary');
+
+  const fmtDur = (min) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`);
+  const updateSummary = () => {
+    const start = Number(startSel.value), end = Number(endSel.value);
+    const mins = end - start;
+    summaryEl.innerHTML = mins > 0
+      ? `<span class="as-dur">${icon('lock', 14)} Blocked for ${fmtDur(mins)}</span>
+         <span class="as-end">${fmtTime(start)} – ${fmtTime(end)}</span>`
+      : `<span class="as-dur" style="color:var(--amber)">${icon('alert', 14)} The end time must be after the start</span>`;
+  };
+  // Keep the end sensible when the start moves past it.
+  startSel.addEventListener('change', () => {
+    if (Number(endSel.value) <= Number(startSel.value)) endSel.value = Math.min(1440, Number(startSel.value) + 60);
+    updateSummary();
+  });
+  endSel.addEventListener('change', updateSummary);
+  form.querySelector('#block-allday').onclick = () => {
+    startSel.value = 0; endSel.value = 1440; updateSummary();
+  };
+  updateSummary();
+
+  m.querySelector('#block-save').onclick = async () => {
+    const fd = new FormData(form);
+    const payload = {
+      staff_id: Number(fd.get('staff_id')) || 0,
+      date: fd.get('date'),
+      start_min: Number(fd.get('start_min')),
+      end_min: Number(fd.get('end_min')),
+      reason: String(fd.get('reason') || '').trim(),
+    };
+    if (payload.end_min <= payload.start_min) { toast('The end time must be after the start time', 'err'); return; }
+    try {
+      if (b) await api.put(`/api/time-blocks/${b.id}`, payload);
+      else await api.post('/api/time-blocks', payload);
+      toast(b ? 'Blocked time updated' : 'Time blocked — online booking is off for it');
+      m.close();
+      onSaved?.();
+    } catch (err) { toast(err.message, 'err'); }
+  };
+
+  if (b) {
+    m.querySelector('#block-delete').onclick = async () => {
+      const ok = await confirmDialog('Remove this block?',
+        'The time opens back up and customers will be able to book it online again.',
+        { danger: true, okText: 'Remove block' });
+      if (!ok) return;
+      await api.del(`/api/time-blocks/${b.id}`);
+      toast('Block removed — the time is bookable again');
+      m.close();
+      onSaved?.();
     };
   }
 }
