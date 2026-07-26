@@ -16,12 +16,16 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Click an empty slot to book at that time/staff
 - ✅ Drag to reschedule (time, staff column, and day in week view); drag bottom edge to extend
 - ✅ Double-booking detection with explicit override; overlapping appointments **stack side-by-side** in the column (Fresha-style)
-- ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums)
+- ✅ **Searchable client picker** in the booking editor — type name/phone/email to filter, pick, or add a new client inline
+- ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums, even for odd totals like 5h 30m)
+- ✅ **"Calculated time" summary card** — live total duration, service count and exact end time as you build the booking
+- ✅ Clean, phone-friendly styled dropdowns throughout the editor (large tap targets)
 - ✅ Status flow: Booked → Confirmed → Completed / Cancelled / No-show
 - ✅ "Now" line, per-staff colours, ⚡ badge on online bookings, 💳 badge on deposits
 - ✅ **Extended day view (Fresha-style)**: shows a couple of hours before/after opening
   (and any appointment booked outside hours); the off-hours are shaded but still clickable
   so the owner can slot in an early/late walk-in — the public booking page stays limited to opening hours
+- ✅ **Customizable day-book range** (Settings → Hours): pin a preferred start/end time so the owner can scroll to exactly the hours they want — or leave on Auto
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Point of Sale (v1.8)

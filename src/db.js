@@ -287,6 +287,10 @@ const DEFAULT_SETTINGS = {
   // "no past times today" filter correct even when the server runs in UTC.
   business_tz: '',
   booking_lead_min: '0',  // minimum notice before an online slot can be booked (minutes)
+  // Owner's preferred visible calendar window (minutes from midnight). Empty =
+  // auto (a couple of hours around opening time). Purely a display preference.
+  cal_start_min: '',
+  cal_end_min: '',
   booking_enabled: '1',
   invoice_prefix: 'INV-',
   invoice_due_days: '7',

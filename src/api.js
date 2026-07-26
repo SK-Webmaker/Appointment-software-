@@ -244,7 +244,7 @@ route('GET', '/api/auth/verify-email', async ({ res, query }) => {
 const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
-  'business_tz', 'booking_lead_min',
+  'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'open_days', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',

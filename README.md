@@ -39,7 +39,13 @@ npm run reset-demo   # same thing from the terminal
 ### 📅 Calendar (the Fresha-style day book)
 - Day view with a column per team member, week view for planning
 - Click any empty slot to book; **drag appointments to reschedule**, drag the bottom edge to extend
-- **Multi-service appointments** (add/remove services in the editor; duration auto-sums)
+- **Searchable client picker** in the booking editor — type a name, phone or email to
+  filter your client book, pick from the list, or add a brand-new client inline
+- **Multi-service appointments with a live "calculated time" total** — add/remove services
+  in the editor and the duration auto-sums (even for odd totals like 5h 30m); a summary
+  card shows the running total, service count and the exact end time
+- **Clean, phone-friendly dropdowns** across the whole editor (styled to match the app,
+  large tap targets)
 - Double-booking detection with an explicit override; **overlapping appointments stack side-by-side** in the staff column
 - Status flow: Booked → Confirmed → Completed (plus Cancelled / No-show)
 - "Now" line, online-booking badge, per-staff colours
@@ -48,6 +54,9 @@ npm run reset-demo   # same thing from the terminal
   outside hours). Those off-hours are greyed but still clickable/draggable, so the owner
   can fit in an early or late walk-in — while the customer booking page stays limited to
   opening hours.
+- **Customizable calendar range**: set a preferred start/end time for the day book in
+  Settings → Hours (e.g. always show 6 AM → 11 PM) so the owner can scroll to exactly the
+  times they want; leave it on **Auto** to follow opening hours.
 
 ### ⚡ Online booking page (`/book`)
 - Customers pick **one or more services** (Colour + Blow Dry) → team member (or "any

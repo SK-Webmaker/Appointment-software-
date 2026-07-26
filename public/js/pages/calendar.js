@@ -32,9 +32,14 @@ const closeMin = () => Number(state.settings.close_min || 1200);
 // the owner squeezed in outside hours. Opening hours are the normal (bookable)
 // band; the padded off-hours are shaded but still schedulable by the owner.
 // The public booking page is unaffected — it still uses open/close only.
-const RANGE_PAD = 120; // minutes of padding shown before open / after close
+const RANGE_PAD = 120; // default padding shown before open / after close
 function computeRange() {
-  let lo = openMin() - RANGE_PAD, hi = closeMin() + RANGE_PAD;
+  // The owner can set an explicit visible window (Settings → Calendar view);
+  // otherwise it's a couple of hours around opening time. Either way it expands
+  // to include any appointment booked outside the window so none is hidden.
+  const cs = state.settings.cal_start_min, ce = state.settings.cal_end_min;
+  let lo = (cs !== '' && cs != null) ? Number(cs) : openMin() - RANGE_PAD;
+  let hi = (ce !== '' && ce != null) ? Number(ce) : closeMin() + RANGE_PAD;
   for (const a of cal.appointments || []) { lo = Math.min(lo, a.start_min); hi = Math.max(hi, a.end_min); }
   cal.gridStart = Math.max(0, Math.floor(lo / 60) * 60);
   cal.gridEnd = Math.min(1440, Math.ceil(hi / 60) * 60);
@@ -407,11 +412,14 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     body: `
       <form id="appt-form" class="form-grid">
         <div class="field span2"><label>Client</label>
-          <select name="client_id">
-            <option value="">— Walk-in / no client —</option>
-            ${clients.map((c) => `<option value="${c.id}" ${a?.client_id === c.id ? 'selected' : ''}>${esc(c.first_name)} ${esc(c.last_name)}${c.phone ? ` · ${esc(c.phone)}` : ''}</option>`).join('')}
-            <option value="__new__">＋ Add new client…</option>
-          </select></div>
+          <div class="combo" id="client-combo">
+            <div class="combo-input">${icon('search')}
+              <input type="text" id="client-search" autocomplete="off" placeholder="Search name, phone or email — or leave blank for a walk-in">
+              <button type="button" class="combo-clear icon-btn" id="client-clear" title="Clear" hidden>${icon('x', 14)}</button>
+            </div>
+            <input type="hidden" name="client_id" value="${a?.client_id || ''}">
+            <div class="combo-menu" id="client-menu" hidden></div>
+          </div></div>
         <div class="form-grid span2" id="new-client-fields" style="display:none">
           <div class="field"><label>First name *</label><input name="nc_first"></div>
           <div class="field"><label>Last name</label><input name="nc_last"></div>
@@ -422,16 +430,17 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           <div id="svc-list" class="svc-rows"></div>
           <button type="button" class="btn small" id="svc-add" style="margin-top:8px">${icon('plus')} Add another service</button></div>
         <div class="field"><label>Team member</label>
-          <select name="staff_id">${state.staff.map((s) => `<option value="${s.id}" ${s.id === selStaff ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
+          <select name="staff_id" class="nice-select">${state.staff.map((s) => `<option value="${s.id}" ${s.id === selStaff ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field"><label>Date</label>
           <input type="date" name="date" value="${a?.date || date || todayStr()}" required style="color-scheme:dark"></div>
         <div class="field"><label>Start</label>
-          <select name="start_min">${timeOptions(selStart, { from: 0, to: 1425 })}</select></div>
+          <select name="start_min" class="nice-select">${timeOptions(selStart, { from: 0, to: 1425 })}</select></div>
         <div class="field"><label>Duration</label>
-          <select name="duration">${[15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 240, 300].map((v) =>
+          <select name="duration" class="nice-select">${[15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 240, 300].map((v) =>
             `<option value="${v}" ${v === duration ? 'selected' : ''}>${v >= 60 ? `${Math.floor(v / 60)}h${v % 60 ? ` ${v % 60}m` : ''}` : `${v} min`}</option>`).join('')}</select></div>
+        <div class="span2 appt-summary" id="appt-summary"></div>
         <div class="field span2"><label>Status</label>
-          <select name="status">${['booked', 'confirmed', 'completed', 'cancelled', 'no_show'].map((s) =>
+          <select name="status" class="nice-select">${['booked', 'confirmed', 'completed', 'cancelled', 'no_show'].map((s) =>
             `<option value="${s}" ${(a?.status || 'booked') === s ? 'selected' : ''}>${{ booked: 'Booked', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' }[s]}</option>`).join('')}</select></div>
         <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea></div>
         ${a?.deposit_status ? `<div class="span2 cell-sub">💳 Online deposit ${a.deposit_status === 'paid'
@@ -446,23 +455,48 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   });
 
   const form = m.querySelector('#appt-form');
-  const clientSel = form.querySelector('[name=client_id]');
-  clientSel.addEventListener('change', () => {
-    form.querySelector('#new-client-fields').style.display = clientSel.value === '__new__' ? 'grid' : 'none';
-  });
-  // Multi-service rows: one or more service pickers; the duration auto-sums
-  // whenever the set changes (the owner can still override it afterwards).
   const svcList = form.querySelector('#svc-list');
   const durationSel = form.querySelector('[name=duration]');
+  const startSel = form.querySelector('[name=start_min]');
+  const summaryEl = form.querySelector('#appt-summary');
   const chosenServiceIds = () => [...svcList.querySelectorAll('.svc-sel')].map((s) => Number(s.value)).filter(Boolean);
+
+  // Live "calculated time" — the total of all chosen services and the end time,
+  // updated whenever the services, start or duration change.
+  const fmtDur = (min) => (min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min}m`);
+  const updateSummary = () => {
+    const start = Number(startSel.value) || 0;
+    const dur = Number(durationSel.value) || 0;
+    const n = chosenServiceIds().length;
+    summaryEl.innerHTML = `<span class="as-dur">${icon('clock', 14)} Total ${fmtDur(dur)}${n > 1 ? ` · ${n} services` : ''}</span>
+      <span class="as-end">Ends ${fmtTime(Math.min(1440, start + dur))}</span>`;
+  };
+  // Multi-service rows: one or more service pickers; the duration auto-sums to
+  // the total service time (the owner can still override it afterwards).
+  // A summed total may not be one of the preset duration options (e.g. 330m),
+  // so make sure a matching option exists before selecting it.
+  const setDuration = (min) => {
+    if (![...durationSel.options].some((o) => Number(o.value) === min)) {
+      const opt = document.createElement('option');
+      opt.value = min;
+      opt.textContent = min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ` ${min % 60}m` : ''}` : `${min} min`;
+      // Keep the options in ascending order so the list stays tidy.
+      const before = [...durationSel.options].find((o) => Number(o.value) > min);
+      durationSel.insertBefore(opt, before || null);
+    }
+    durationSel.value = min;
+  };
   const recomputeDuration = () => {
     const total = chosenServiceIds().reduce((sum, id) => sum + (state.services.find((s) => s.id === id)?.duration_min || 0), 0);
-    if (total) durationSel.value = total;
+    if (total) setDuration(total);
+    updateSummary();
   };
+  startSel.addEventListener('change', updateSummary);
+  durationSel.addEventListener('change', updateSummary);
   const addServiceRow = (selId = '') => {
     const row = document.createElement('div');
     row.className = 'svc-row';
-    row.innerHTML = `<select class="svc-sel">${serviceOpts(selId)}</select>
+    row.innerHTML = `<select class="svc-sel nice-select">${serviceOpts(selId)}</select>
       <button type="button" class="icon-btn svc-rm" title="Remove service">${icon('x', 14)}</button>`;
     svcList.appendChild(row);
     row.querySelector('.svc-sel').addEventListener('change', recomputeDuration);
@@ -474,6 +508,53 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   };
   (initialServiceIds.length ? initialServiceIds : ['']).forEach((id) => addServiceRow(id));
   form.querySelector('#svc-add').onclick = () => addServiceRow('');
+  updateSummary();
+
+  // Searchable client picker (type to filter by name / phone / email).
+  const combo = form.querySelector('#client-combo');
+  const searchInp = combo.querySelector('#client-search');
+  const hidden = combo.querySelector('[name=client_id]');
+  const menu = combo.querySelector('#client-menu');
+  const clearBtn = combo.querySelector('#client-clear');
+  const newFields = form.querySelector('#new-client-fields');
+  const nameOf = (c) => `${c.first_name} ${c.last_name}`.trim() || '(no name)';
+  if (a?.client_id) { const c = clients.find((x) => x.id === a.client_id); if (c) { searchInp.value = nameOf(c); clearBtn.hidden = false; } }
+
+  const renderMenu = (q = '') => {
+    const ql = q.trim().toLowerCase();
+    const matches = clients
+      .filter((c) => !ql || `${nameOf(c)} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(ql))
+      .slice(0, 60);
+    menu.innerHTML =
+      `<button type="button" class="combo-opt" data-id="">${icon('user', 14)} Walk-in / no client</button>` +
+      matches.map((c) => `<button type="button" class="combo-opt" data-id="${c.id}">
+        <span class="co-name">${esc(nameOf(c))}</span><span class="co-sub">${esc(c.phone || c.email || '')}</span></button>`).join('') +
+      (ql && !matches.length ? `<div class="combo-empty">No client matches “${esc(q.trim())}”</div>` : '') +
+      `<button type="button" class="combo-opt combo-new" data-id="__new__">${icon('plus', 14)} Add new client${ql ? `: “${esc(q.trim())}”` : ''}</button>`;
+    menu.hidden = false;
+  };
+  const selectClient = (id, label = '') => {
+    hidden.value = id;
+    const isNew = id === '__new__';
+    newFields.style.display = isNew ? 'grid' : 'none';
+    if (isNew) { searchInp.value = ''; searchInp.placeholder = 'New client — fill in the details below'; if (label) newFields.querySelector('[name=nc_first]').value = label; }
+    else { searchInp.value = id ? label : ''; }
+    clearBtn.hidden = !(id && id !== '__new__');
+    menu.hidden = true;
+  };
+  searchInp.addEventListener('focus', () => renderMenu(searchInp.value));
+  searchInp.addEventListener('input', () => { hidden.value = ''; clearBtn.hidden = true; renderMenu(searchInp.value); });
+  searchInp.addEventListener('blur', () => setTimeout(() => { menu.hidden = true; }, 150));
+  menu.addEventListener('mousedown', (e) => e.preventDefault()); // keep input focus so the click lands before blur hides the menu
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('.combo-opt'); if (!btn) return;
+    const id = btn.dataset.id;
+    if (id === '__new__') selectClient('__new__', searchInp.value.trim());
+    else if (id === '') selectClient('', '');
+    else { const c = clients.find((x) => x.id === Number(id)); selectClient(Number(id), c ? nameOf(c) : ''); }
+    searchInp.blur();
+  });
+  clearBtn.onclick = () => { selectClient('', ''); searchInp.focus(); };
 
   const save = async (force = false) => {
     const fd = new FormData(form);

@@ -5,3 +5,5 @@ data/*.db-wal
 data/*.db-shm
 .DS_Store
 *.log
+audit/
+scratchpad/

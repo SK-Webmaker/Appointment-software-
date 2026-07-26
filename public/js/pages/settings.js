@@ -16,6 +16,20 @@ export async function renderSettings(container) {
   const s = state.settings;
   const bookingUrl = `${location.origin}/book`;
 
+  // Hour options for the calendar view window ('' = auto).
+  const calHourOpts = (cur, autoLabel, isEnd = false) => {
+    const fmt = (min) => {
+      if (min >= 1440) return '12:00 AM (midnight)';
+      const h = Math.floor(min / 60), ap = h >= 12 ? 'PM' : 'AM';
+      return `${(h % 12) || 12}:00 ${ap}`;
+    };
+    let opts = `<option value="" ${!cur ? 'selected' : ''}>${autoLabel}</option>`;
+    for (let mn = isEnd ? 60 : 0; mn <= (isEnd ? 1440 : 1380); mn += 60) {
+      opts += `<option value="${mn}" ${String(cur) === String(mn) ? 'selected' : ''}>${fmt(mn)}</option>`;
+    }
+    return opts;
+  };
+
   // One row per customer notification type: an on/off toggle + a channel
   // picker (Email / SMS / Both) so the owner controls each type separately.
   const notifRow = (enKey, chanKey, label, hint) => {
@@ -81,6 +95,13 @@ export async function renderSettings(container) {
               ].map(([v, lbl]) => `<option value="${v}" ${Number(s.booking_lead_min || 0) === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select>
               <div class="hint">How far ahead a customer must book. Past times are never shown regardless.</div></div>
           </div>
+          <div class="form-grid">
+            <div class="field"><label>Calendar starts at</label>
+              <select name="cal_start_min" class="nice-select">${calHourOpts(s.cal_start_min, 'Auto (2h before open)')}</select></div>
+            <div class="field"><label>Calendar ends at</label>
+              <select name="cal_end_min" class="nice-select">${calHourOpts(s.cal_end_min, 'Auto (2h after close)', true)}</select></div>
+          </div>
+          <div class="hint" style="margin-top:-4px">How much of the day your calendar shows and scrolls through — set it wider to slot in early/late walk-ins. Appointments outside this window still always show.</div>
           <div class="field"><label>Time zone</label>
             <input name="business_tz" value="${esc(s.business_tz || '')}" placeholder="${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'e.g. Australia/Melbourne')}">
             <div class="hint">Auto-detected from your device — it keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
@@ -399,6 +420,8 @@ export async function renderSettings(container) {
       open_min: fd.get('open_min'), close_min: fd.get('close_min'),
       slot_interval: fd.get('slot_interval'),
       booking_lead_min: fd.get('booking_lead_min'),
+      cal_start_min: fd.get('cal_start_min') || '',
+      cal_end_min: fd.get('cal_end_min') || '',
       business_tz: String(fd.get('business_tz') || '').trim(),
       booking_enabled: e.target.elements.booking_enabled.checked ? '1' : '0',
       open_days: days.join(','),
