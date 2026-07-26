@@ -55,11 +55,16 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 
 ### Clients
 - ✅ Searchable book: visits, last visit, lifetime billed
-- ✅ CSV import wizard: auto column-mapping (adjustable), preview, duplicate detection, results summary
-- ✅ **Smart re-import / enrich**: matches each row to an existing client (email → phone → unambiguous
-  name) and backfills missing phone numbers / emails instead of skipping — so a fresh Fresha export
-  with phone numbers fills the gaps. De-dupes within the file, tidies phone formatting, and shows a
-  dry-run preview (X new vs Y updated, with phones/emails filled in) before writing anything
+- ✅ CSV **and Excel (.xlsx)** import wizard: auto column-mapping (adjustable), preview, duplicate detection, results summary
+- ✅ Reads .xlsx directly (dependency-free) — avoids CSV phone corruption (dropped leading 0 / "4.12E+11")
+- ✅ **Smart re-import / enrich**: matches each row to an existing client (email → phone → name, with
+  accents/punctuation normalised) and backfills missing phone numbers / emails instead of skipping — so a
+  fresh Fresha export with phone numbers fills the gaps. De-dupes within the file, tidies phone formatting,
+  and shows a dry-run preview (X new vs Y updated, with phones/emails filled in) before writing anything
+- ✅ **Update contacts from a spreadsheet**: focused "verify phone numbers" flow — fills in / corrects
+  numbers and emails on existing clients from an authoritative Excel/CSV (source-of-truth), only touches
+  people already in the book by default, and lists any unmatched rows (verified: name-match backfills
+  phones even when the sheet has accents the book doesn't)
 - ✅ Duplicate-safe re-import (verified: same file twice → 0 duplicates, phone-less client backfilled)
 - ✅ **Merge duplicates**: auto-detects clients sharing an email/phone/name and merges
   each set into one — history (appointments, invoices, messages, reviews) is reassigned,

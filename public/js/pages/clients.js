@@ -44,7 +44,8 @@ async function drawList(container, q = '') {
       <div><h1>Clients</h1><div class="ph-sub" id="cl-count">${clients.length} client${clients.length === 1 ? '' : 's'} in your book</div></div>
       <div class="ph-actions">
         <button class="btn" id="cl-merge">${icon('link')} Merge duplicates</button>
-        <button class="btn" id="cl-import">${icon('upload')} Import CSV</button>
+        <button class="btn" id="cl-contacts">${icon('phone')} Update contacts</button>
+        <button class="btn" id="cl-import">${icon('upload')} Import</button>
         <button class="btn" id="cl-export">${icon('download')} Export</button>
         <button class="btn primary" id="cl-new">${icon('plus')} New client</button>
       </div>
@@ -102,6 +103,10 @@ async function drawList(container, q = '') {
   };
   container.querySelector('#cl-import').onclick = () => runImportWizard({
     kind: 'clients',
+    onDone: () => drawList(container, q),
+  });
+  container.querySelector('#cl-contacts').onclick = () => runImportWizard({
+    kind: 'contacts',
     onDone: () => drawList(container, q),
   });
   container.querySelector('#cl-merge').onclick = () => openMergeDuplicates(() => drawList(container, q));

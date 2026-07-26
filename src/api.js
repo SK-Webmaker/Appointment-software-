@@ -24,6 +24,7 @@ import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
 import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
+import { parseXlsx } from './xlsx.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -654,27 +655,26 @@ const tidyPhone = (v) => {
 // A phone we consider "real" (enough digits to dial / send an SMS to).
 const hasPhone = (v) => digitsOf(v).length >= 7;
 
-// Smart client import / re-import. Instead of skipping any row that matches an
-// existing client (which left Fresha re-exports unable to backfill missing
-// phone numbers), each incoming row is matched to an existing client by
-// email → phone → unambiguous full name, and any details that client is
-// missing (phone, email, last name, notes) are filled in from the row. Genuine
-// new people are inserted. Email / phone matches never create a duplicate, and
-// duplicates *within* the uploaded file collapse together too. Pass
-// `dryRun: true` to preview the outcome without writing anything, and
-// `enrich: false` to fall back to the old "skip existing" behaviour.
-route('POST', '/api/clients/import', async ({ req }) => {
-  const { rows, dryRun = false, enrich = true } = await readJson(req);
-  if (!Array.isArray(rows)) throw httpError(400, 'Expected { rows: [...] }');
-  if (rows.length > 5000) throw httpError(400, 'Import is limited to 5000 rows at a time');
+const normEmail = (v) => String(v || '').trim().toLowerCase();
+// Hardened name key for matching: strip accents, then reduce to just the
+// letters/digits (no spaces or punctuation) so every spelling of the same name
+// collapses together — "Chantelle Dubé" -> "chantelledube", and
+// "O'Neill" == "ONeill" == "O Neill". This is what makes matching two Fresha
+// exports (which share names but not always emails) reliable.
+const nameKey = (f, l) => `${f || ''} ${l || ''}`
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '');
 
-  const normEmail = (v) => String(v || '').trim().toLowerCase();
-  const normName = (f, l) => `${String(f || '').trim().toLowerCase()} ${String(l || '').trim().toLowerCase()}`.trim();
-
-  // Working set: every existing client, plus new people as we discover them.
-  // We fold the file into this set, then diff against the originals to know
-  // exactly what changed. Match indexes are kept in sync as we go so the file's
-  // own repeated rows (and prior enrichments) match instead of duplicating.
+// The shared match-and-enrich engine behind both the CSV import and the
+// spreadsheet contact sync. Each incoming row is matched to an existing client
+// by email → phone → name, then that client's details are updated from the row.
+//   enrich          fill in details the client is MISSING (phone/email/last/notes)
+//   updateContacts  treat the sheet as the source of truth: also OVERWRITE an
+//                   existing phone/email when the sheet has a different value
+//   addNew          insert people who don't match anyone (off = only touch
+//                   existing clients and report the rest as "unmatched")
+//   dryRun          compute the outcome without writing anything
+function matchAndEnrich(rows, { enrich = true, updateContacts = false, addNew = true, dryRun = false } = {}) {
   const people = db.prepare('SELECT * FROM clients').all().map((c) => ({
     id: c.id, first_name: c.first_name, last_name: c.last_name,
     email: c.email, phone: c.phone, notes: c.notes,
@@ -682,16 +682,17 @@ route('POST', '/api/clients/import', async ({ req }) => {
   }));
   const emailIdx = new Map();  // normEmail -> person
   const phoneIdx = new Map();  // phone digits -> person
-  const nameIdx = new Map();   // normName -> [person, ...]
+  const nameIdx = new Map();   // nameKey -> [person, ...]
   const indexPerson = (p) => {
     const e = normEmail(p.email); if (e && !emailIdx.has(e)) emailIdx.set(e, p);
     const d = digitsOf(p.phone); if (d.length >= 7 && !phoneIdx.has(d)) phoneIdx.set(d, p);
-    const n = normName(p.first_name, p.last_name);
+    const n = nameKey(p.first_name, p.last_name);
     if (n.length >= 3) { const arr = nameIdx.get(n) || nameIdx.set(n, []).get(n); if (!arr.includes(p)) arr.push(p); }
   };
   people.forEach(indexPerson);
 
   let invalid = 0, matchedNoChange = 0, ambiguous = 0;
+  const unmatched = [];
   for (const raw of rows) {
     let fields;
     try { fields = clientBody(raw); } catch { invalid++; continue; }
@@ -699,40 +700,52 @@ route('POST', '/api/clients/import', async ({ req }) => {
     email = normEmail(email);
     phone = tidyPhone(phone);
 
-    // Find the existing person this row refers to: email is the most reliable
-    // bridge, then phone, then an *unambiguous* name (a name shared by two
-    // existing people is left alone to avoid enriching the wrong one).
+    // email → phone → name. A name shared by several existing clients is only
+    // used when exactly one of them is missing a phone (the obvious target);
+    // otherwise it's left as ambiguous rather than guessing.
     let match = null;
     if (email && emailIdx.has(email)) match = emailIdx.get(email);
     if (!match && hasPhone(phone) && phoneIdx.has(digitsOf(phone))) match = phoneIdx.get(digitsOf(phone));
     if (!match) {
-      const n = normName(first, last);
-      const named = n.length >= 3 ? nameIdx.get(n) : null;
+      const named = nameKey(first, last).length >= 3 ? nameIdx.get(nameKey(first, last)) : null;
       if (named && named.length === 1) match = named[0];
-      else if (named && named.length > 1) ambiguous++;
+      else if (named && named.length > 1) {
+        const needy = named.filter((p) => !hasPhone(p.phone));
+        if (needy.length === 1) match = needy[0]; else ambiguous++;
+      }
     }
 
-    if (match && enrich) {
+    if (match && (enrich || updateContacts)) {
       let changed = false;
-      if (!normEmail(match.email) && email) { match.email = email; emailIdx.set(email, match); changed = true; }
-      if (!hasPhone(match.phone) && hasPhone(phone)) { match.phone = phone; phoneIdx.set(digitsOf(phone), match); changed = true; }
+      // Email: fill when missing; refresh when the sheet is authoritative.
+      if (email && (!normEmail(match.email) || (updateContacts && normEmail(match.email) !== email))) {
+        match.email = email; emailIdx.set(email, match); changed = true;
+      }
+      // Phone: fill when missing; refresh a different number when authoritative.
+      if (hasPhone(phone) && (!hasPhone(match.phone) || (updateContacts && digitsOf(match.phone) !== digitsOf(phone)))) {
+        match.phone = phone; phoneIdx.set(digitsOf(phone), match); changed = true;
+      }
       if (!String(match.last_name || '').trim() && last) { match.last_name = last; changed = true; }
       if (notes && !String(match.notes || '').includes(notes)) { match.notes = match.notes ? `${match.notes}\n${notes}` : notes; changed = true; }
       if (!changed) matchedNoChange++;
     } else if (match) {
-      matchedNoChange++; // enrich disabled: matched rows are left untouched
-    } else {
+      matchedNoChange++; // updates disabled: matched rows are left untouched
+    } else if (addNew) {
       const p = { id: null, first_name: first, last_name: last, email, phone, notes, _new: true };
       people.push(p); indexPerson(p);
+    } else {
+      unmatched.push(`${first} ${last}`.trim() || email || phone);
     }
   }
 
-  // Diff the working set against the originals to build accurate counts.
+  // Diff the working set against the originals for accurate counts.
   const changed = people.filter((p) => !p._new && (
     p.email !== p._origEmail || p.phone !== p._origPhone || p.last_name !== p._origLast || p.notes !== p._origNotes));
   const created = people.filter((p) => p._new);
   const phonesAdded = changed.filter((p) => !hasPhone(p._origPhone) && hasPhone(p.phone)).length;
+  const phonesUpdated = changed.filter((p) => hasPhone(p._origPhone) && digitsOf(p._origPhone) !== digitsOf(p.phone)).length;
   const emailsAdded = changed.filter((p) => !normEmail(p._origEmail) && normEmail(p.email)).length;
+  const emailsUpdated = changed.filter((p) => normEmail(p._origEmail) && normEmail(p._origEmail) !== normEmail(p.email)).length;
 
   if (!dryRun && (changed.length || created.length)) {
     db.exec('BEGIN');
@@ -746,14 +759,39 @@ route('POST', '/api/clients/import', async ({ req }) => {
   }
 
   return {
-    dryRun, enrich,
-    created: created.length, updated: changed.length, matchedNoChange, invalid,
-    phonesAdded, emailsAdded, ambiguous,
+    dryRun, enrich, updateContacts, addNew,
+    created: created.length, updated: changed.length, matchedNoChange, invalid, ambiguous,
+    phonesAdded, phonesUpdated, emailsAdded, emailsUpdated,
+    unmatched: unmatched.length, unmatchedSample: unmatched.slice(0, 12),
     existingBefore: people.length - created.length,
     totalAfter: people.length,
     // Legacy keys kept so anything reading the old shape still works.
     imported: created.length, skipped: matchedNoChange,
   };
+}
+
+// Smart client import / re-import (CSV rows already parsed by the browser).
+route('POST', '/api/clients/import', async ({ req }) => {
+  const { rows, dryRun = false, enrich = true, updateContacts = false, addNew = true } = await readJson(req);
+  if (!Array.isArray(rows)) throw httpError(400, 'Expected { rows: [...] }');
+  if (rows.length > 5000) throw httpError(400, 'Import is limited to 5000 rows at a time');
+  return matchAndEnrich(rows, { enrich, updateContacts, addNew, dryRun });
+});
+
+// Parse an uploaded spreadsheet (.xlsx) into { headers, records } so the import
+// / contact-sync wizard can map its columns. Reading the real Excel file avoids
+// the phone-number corruption a CSV round-trip through Excel causes (a dropped
+// leading 0, or "0412…" becoming 4.12E+11).
+route('POST', '/api/clients/parse-sheet', async ({ req }) => {
+  const { dataBase64 } = await readJson(req);
+  if (!dataBase64 || typeof dataBase64 !== 'string') throw httpError(400, 'Expected { dataBase64 }');
+  let buf;
+  try { buf = Buffer.from(dataBase64, 'base64'); } catch { throw httpError(400, 'Could not read the uploaded file'); }
+  if (!buf.length) throw httpError(400, 'The uploaded file is empty');
+  if (buf.length > 8 * 1024 * 1024) throw httpError(413, 'Spreadsheet is too large (max 8 MB)');
+  const { headers, records } = parseXlsx(buf);
+  if (!headers.length) throw httpError(400, 'No rows found in the spreadsheet — check it has a header row and data');
+  return { headers, records: records.slice(0, 5000) };
 });
 
 // ---------------------------------------------------------------------------

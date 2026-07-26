@@ -73,14 +73,21 @@ npm run reset-demo   # same thing from the terminal
 
 ### 👥 Clients
 - Searchable client book with visit counts, last visit and lifetime billed
-- **Smart CSV import & re-import**: drop an export from Fresha, Square, Acuity or any
-  spreadsheet — columns are auto-matched by name (adjustable). Each row is matched to an
-  existing client by **email → phone → unambiguous name**, and instead of just skipping
-  people you already have, it **fills in the details they're missing** (a phone number or
-  email a previous import left blank). So you can re-export from Fresha with phone numbers
-  and re-import to backfill them — no duplicates created, duplicates *within* the file
-  collapse too, phone numbers are tidied to a consistent format, and a **preview** shows
-  exactly how many will be added vs. updated before anything is written. CSV export included.
+- **Smart CSV / Excel import & re-import**: drop an export from Fresha, Square, Acuity or
+  any spreadsheet — **`.csv` or `.xlsx`** — and columns are auto-matched by name
+  (adjustable). Reading the real Excel file directly avoids the phone-number corruption a
+  CSV round-trip through Excel causes (a dropped leading `0`, or `0412…` becoming
+  `4.12E+11`). Each row is matched to an existing client by **email → phone → name**
+  (accents and punctuation are normalised, so "Dubé" = "Dube" and "O'Neill" = "ONeill"),
+  and instead of just skipping people you already have, it **fills in the details they're
+  missing**. No duplicates created, duplicates *within* the file collapse too, phone numbers
+  are tidied to a consistent format, and a **preview** shows exactly how many will be added
+  vs. updated before anything is written. CSV export included.
+- **Update contacts from a spreadsheet** (📱 button): a focused "verify phone numbers" flow —
+  upload the authoritative Excel/CSV and it matches each row to a client you already have and
+  **fills in or corrects their phone number and email** (treating the sheet as the source of
+  truth). By default it only touches existing clients and clearly lists anyone in the file it
+  couldn't match, so contact details — which are vital — end up complete and correct.
 - **Merge duplicates**: finds clients that share an email, phone or name, and merges
   each set into one — the duplicate's appointments, invoices, messages and reviews move
   to the record you keep, missing details (email/phone/notes) are filled in, then the

@@ -9,6 +9,8 @@ const KINDS = {
     title: 'Import clients',
     endpoint: '/api/clients/import',
     preview: true, // show a dry-run summary before writing anything
+    accept: '.csv,.xlsx,text/csv', // Excel accepted directly (no CSV corruption)
+    dropNote: 'Drop a CSV or Excel (.xlsx) file here, or click to choose',
     sampleNote: 'Export from Fresha, Square, Acuity or any spreadsheet — Kairo matches columns by name.',
     fields: [
       { key: 'first_name', label: 'First name', required: true, candidates: ['firstname', 'first', 'givenname', 'name', 'client', 'fullname'] },
@@ -19,6 +21,32 @@ const KINDS = {
     ],
     // If the mapped "first name" cell contains a full name and there is no
     // separate last-name column, split it.
+    transform: (row, mapping) => {
+      if (mapping.last_name === -1 && row.first_name && row.first_name.includes(' ')) {
+        const parts = row.first_name.split(/\s+/);
+        row.first_name = parts.shift();
+        row.last_name = parts.join(' ');
+      }
+      return row;
+    },
+  },
+  // Focused "verify contacts" flow: read an authoritative spreadsheet (ideally
+  // the raw .xlsx, so phone numbers aren't mangled by a CSV round-trip) and fill
+  // in / correct the phone numbers and emails on clients you ALREADY have.
+  contacts: {
+    title: 'Update contacts from a spreadsheet',
+    endpoint: '/api/clients/import',
+    preview: true,
+    contacts: true,
+    accept: '.xlsx,.csv,text/csv',
+    dropNote: 'Drop your Excel (.xlsx) or CSV file here, or click to choose',
+    sampleNote: 'Best with the original Excel file — reading it directly keeps every phone number exactly as written (no dropped leading 0, no “4.12E+11”).',
+    fields: [
+      { key: 'first_name', label: 'First name', required: true, candidates: ['firstname', 'first', 'givenname', 'name', 'client', 'fullname'] },
+      { key: 'last_name', label: 'Last name', candidates: ['lastname', 'last', 'surname', 'familyname'] },
+      { key: 'phone', label: 'Phone / mobile', required: true, candidates: ['mobile', 'phone', 'cell', 'tel', 'number'] },
+      { key: 'email', label: 'Email', candidates: ['email', 'mail'] },
+    ],
     transform: (row, mapping) => {
       if (mapping.last_name === -1 && row.first_name && row.first_name.includes(' ')) {
         const parts = row.first_name.split(/\s+/);
@@ -70,10 +98,10 @@ export function runImportWizard({ kind, onDone }) {
       <div id="imp-step1">
         <div class="dropzone" id="imp-drop">
           ${icon('upload', 26)}
-          <div style="font-weight:600;color:var(--text)">Drop a CSV file here, or click to choose</div>
+          <div style="font-weight:600;color:var(--text)">${esc(cfg.dropNote || 'Drop a CSV file here, or click to choose')}</div>
           <div style="font-size:12px;margin-top:5px">${esc(cfg.sampleNote)}</div>
         </div>
-        <input type="file" id="imp-file" accept=".csv,text/csv" style="display:none">
+        <input type="file" id="imp-file" accept="${esc(cfg.accept || '.csv,text/csv')}" style="display:none">
       </div>
       <div id="imp-step2" style="display:none"></div>
       <div id="imp-step3" style="display:none"></div>`,
@@ -98,18 +126,36 @@ export function runImportWizard({ kind, onDone }) {
   let parsed = null;
   let mapping = {};
 
-  function readFile(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      parsed = parseCsvWithHeader(String(reader.result));
-      if (!parsed.headers.length || !parsed.records.length) {
-        toast('That file looks empty — check it has a header row and data rows', 'err');
-        return;
+  // ArrayBuffer -> base64 in chunks (btoa can't take a huge argument at once).
+  function toBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+
+  async function readFile(file) {
+    const isXlsx = /\.xlsx$/i.test(file.name) || (file.type || '').includes('spreadsheetml');
+    if (/\.xls$/i.test(file.name)) { toast('Old .xls files aren’t supported — in Excel choose “Save As → .xlsx” (or export CSV)', 'err'); return; }
+    try {
+      if (isXlsx) {
+        drop.classList.add('over');
+        const res = await api.post('/api/clients/parse-sheet', { dataBase64: toBase64(await file.arrayBuffer()) });
+        parsed = { headers: res.headers, records: res.records };
+      } else {
+        parsed = parseCsvWithHeader(await file.text());
       }
-      mapping = autoMapColumns(parsed.headers, Object.fromEntries(cfg.fields.map((f) => [f.key, f.candidates])));
-      showMapping();
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      drop.classList.remove('over');
+      toast(err.message || 'Could not read that file', 'err');
+      return;
+    }
+    if (!parsed.headers.length || !parsed.records.length) {
+      toast('That file looks empty — check it has a header row and data rows', 'err');
+      return;
+    }
+    mapping = autoMapColumns(parsed.headers, Object.fromEntries(cfg.fields.map((f) => [f.key, f.candidates])));
+    showMapping();
   }
 
   function showMapping() {
@@ -133,7 +179,12 @@ export function runImportWizard({ kind, onDone }) {
             ${parsed.headers.map((h, i) => `<option value="${i}" ${mapping[f.key] === i ? 'selected' : ''}>${esc(h)}</option>`).join('')}
           </select>
         </div>`).join('')}
-      ${cfg.preview ? `
+      ${cfg.contacts ? `
+      <label class="imp-enrich">
+        <input type="checkbox" id="imp-addnew">
+        <span><b>Also add people who aren't in my book yet</b> — off by default, so this only
+        updates the phone numbers and emails of clients you already have. Turn on to also add anyone new from the file.</span>
+      </label>` : cfg.preview ? `
       <label class="imp-enrich">
         <input type="checkbox" id="imp-enrich" checked>
         <span><b>Update existing clients with any new details</b> — fills in missing phone numbers
@@ -161,40 +212,57 @@ export function runImportWizard({ kind, onDone }) {
     }).filter((r) => Object.values(r).some((v) => v));
   }
 
-  const n = (v) => `<b>${Number(v || 0)}</b>`;
+  const plural = (nv, one, many = one + 's') => `${nv} ${nv === 1 ? one : many}`;
 
-  // Rich summary for the smart client import (created / updated / unchanged),
-  // used for both the dry-run preview and the final result.
+  // Rich summary for the smart client import / contact sync, used for both the
+  // dry-run preview and the final result. Adapts to whichever counts are present.
   function clientSummaryHtml(res, done) {
     const bits = [];
-    if (res.phonesAdded) bits.push(`${res.phonesAdded} phone number${res.phonesAdded === 1 ? '' : 's'}`);
-    if (res.emailsAdded) bits.push(`${res.emailsAdded} email${res.emailsAdded === 1 ? '' : 's'}`);
-    const fill = bits.length ? ` — including ${bits.join(' and ')} filled in` : '';
+    if (res.phonesAdded) bits.push(`${plural(res.phonesAdded, 'phone number')} added`);
+    if (res.phonesUpdated) bits.push(`${plural(res.phonesUpdated, 'phone number')} corrected`);
+    if (res.emailsAdded) bits.push(`${plural(res.emailsAdded, 'email')} added`);
+    if (res.emailsUpdated) bits.push(`${plural(res.emailsUpdated, 'email')} corrected`);
+    const fill = bits.length ? ` — ${bits.join(', ')}` : '';
+    const showNew = res.created > 0 || res.addNew || !cfg.contacts;
     return `
       <div class="imp-summary">
-        <div class="imp-stat imp-new"><span class="imp-num">${Number(res.created)}</span>
-          <span>New client${res.created === 1 ? '' : 's'} ${done ? 'added' : 'to add'}</span></div>
+        ${showNew ? `<div class="imp-stat imp-new"><span class="imp-num">${Number(res.created)}</span>
+          <span>${plural(Number(res.created), 'new client')} ${done ? 'added' : 'to add'}</span></div>` : ''}
         <div class="imp-stat imp-upd"><span class="imp-num">${Number(res.updated)}</span>
-          <span>Existing client${res.updated === 1 ? '' : 's'} ${done ? 'updated' : 'to update'}${fill}</span></div>
+          <span>${plural(Number(res.updated), 'existing client')} ${done ? 'updated' : 'to update'}${fill}</span></div>
         <div class="imp-stat imp-same"><span class="imp-num">${Number(res.matchedNoChange)}</span>
           <span>Already up to date</span></div>
+        ${res.unmatched ? `<div class="imp-stat imp-bad"><span class="imp-num">${Number(res.unmatched)}</span>
+          <span>In the file but not in your book${res.addNew ? '' : ' — not changed'}${res.unmatchedSample?.length
+            ? `<br><span class="cell-sub">${esc(res.unmatchedSample.slice(0, 6).join(', '))}${res.unmatched > 6 ? '…' : ''}</span>` : ''}</span></div>` : ''}
         ${res.invalid ? `<div class="imp-stat imp-bad"><span class="imp-num">${Number(res.invalid)}</span>
           <span>Blank / missing name — skipped</span></div>` : ''}
       </div>
-      ${res.ambiguous ? `<div class="hint" style="margin-top:10px">${icon('alert')} ${Number(res.ambiguous)} row${res.ambiguous === 1 ? '' : 's'}
-        shared a name with more than one existing client, so ${res.ambiguous === 1 ? 'it was' : 'they were'} added as new to be safe —
-        use <b>Merge duplicates</b> afterwards if any turn out to be the same person.</div>` : ''}
-      <div class="cell-sub" style="text-align:center;margin-top:12px">Your client book will have
-        <b style="color:var(--text)">${Number(res.totalAfter)}</b> ${done ? '' : 'clients '}total${done ? ' clients' : ''}.</div>`;
+      ${res.ambiguous ? `<div class="hint" style="margin-top:10px">${icon('alert')} ${plural(Number(res.ambiguous), 'row')}
+        shared a name with more than one client, so ${res.ambiguous === 1 ? 'it was' : 'they were'} left for you to check by hand
+        (use <b>Merge duplicates</b> if needed).</div>` : ''}
+      <div class="cell-sub" style="text-align:center;margin-top:12px">Your client book ${done ? 'now has' : 'will have'}
+        <b style="color:var(--text)">${Number(res.totalAfter)}</b> clients total.</div>`;
   }
 
   const goBtn = m.querySelector('#imp-go');
 
+  // Per-kind flags for the import call.
+  function importFlags() {
+    if (cfg.contacts) {
+      return { updateContacts: true, addNew: m.querySelector('#imp-addnew')?.checked || false };
+    }
+    if (cfg.preview) {
+      const el = m.querySelector('#imp-enrich');
+      return { enrich: el ? el.checked : true };
+    }
+    return {};
+  }
+
   // Run the import (or a dry-run preview) and return the server's summary.
   async function runImport(dryRun) {
     const rows = buildRows();
-    const enrich = m.querySelector('#imp-enrich') ? m.querySelector('#imp-enrich').checked : undefined;
-    return api.post(cfg.endpoint, { rows, ...(cfg.preview ? { dryRun, enrich } : {}) });
+    return api.post(cfg.endpoint, { rows, ...(cfg.preview ? { dryRun } : {}), ...importFlags() });
   }
 
   // Non-preview kinds (services): one click imports and shows a simple result.
@@ -231,15 +299,16 @@ export function runImportWizard({ kind, onDone }) {
     goBtn.style.display = 'none';
     const step3 = m.querySelector('#imp-step3');
     step3.style.display = 'block';
+    const verb = cfg.contacts ? 'update' : 'import';
     const nothing = !res.created && !res.updated;
     step3.innerHTML = `
-      <div style="margin-bottom:10px;font-weight:600">${icon('search')} Here's what this import will do:</div>
+      <div style="margin-bottom:10px;font-weight:600">${icon('search')} Here's what this will ${verb}:</div>
       ${clientSummaryHtml(res, false)}
       <div class="imp-actions">
         <button class="btn" id="imp-back">Back</button>
-        <button class="btn primary" id="imp-apply" ${nothing ? 'disabled' : ''}>${icon('check')} Apply import</button>
+        <button class="btn primary" id="imp-apply" ${nothing ? 'disabled' : ''}>${icon('check')} ${cfg.contacts ? 'Apply updates' : 'Apply import'}</button>
       </div>
-      ${nothing ? '<div class="cell-sub" style="text-align:center;margin-top:8px">Nothing new to import — everyone in this file is already in your client book and up to date.</div>' : ''}`;
+      ${nothing ? `<div class="cell-sub" style="text-align:center;margin-top:8px">Nothing to ${verb} — everyone in this file is already in your client book with the same details.</div>` : ''}`;
 
     step3.querySelector('#imp-back').onclick = () => {
       step3.style.display = 'none';
@@ -250,9 +319,10 @@ export function runImportWizard({ kind, onDone }) {
     const applyBtn = step3.querySelector('#imp-apply');
     if (applyBtn && !nothing) applyBtn.onclick = async () => {
       applyBtn.disabled = true;
-      applyBtn.innerHTML = 'Importing…';
+      applyBtn.innerHTML = 'Working…';
       try {
         const done = await runImport(false);
+        const numbers = (done.phonesAdded || 0) + (done.phonesUpdated || 0);
         step3.innerHTML = `
           <div style="margin-bottom:10px;font-weight:600;color:var(--green)">${icon('check')} Client book updated</div>
           ${clientSummaryHtml(done, true)}
@@ -260,8 +330,8 @@ export function runImportWizard({ kind, onDone }) {
             <button class="btn primary" id="imp-done">${icon('check')} Done</button>
           </div>`;
         step3.querySelector('#imp-done').onclick = () => { m.close(); onDone?.(); };
-        toast(`${done.created} added · ${done.updated} updated`);
-      } catch (err) { toast(err.message, 'err'); applyBtn.disabled = false; applyBtn.innerHTML = `${icon('check')} Apply import`; }
+        toast(cfg.contacts ? `${plural(done.updated, 'client')} updated${numbers ? ` · ${plural(numbers, 'number')}` : ''}` : `${done.created} added · ${done.updated} updated`);
+      } catch (err) { toast(err.message, 'err'); applyBtn.disabled = false; applyBtn.innerHTML = `${icon('check')} ${cfg.contacts ? 'Apply updates' : 'Apply import'}`; }
     };
   }
 
