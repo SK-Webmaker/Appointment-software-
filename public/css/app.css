@@ -584,6 +584,33 @@ table.data th.num { text-align: right; }
 }
 .import-result .ir b { display: block; font-size: 22px; margin-bottom: 2px; }
 
+/* Smart client import: enrich toggle, preview/result summary */
+.imp-enrich {
+  display: flex; gap: 10px; align-items: flex-start; margin-top: 14px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel-2); font-size: 13px; line-height: 1.45; cursor: pointer;
+}
+.imp-enrich input { margin-top: 2px; width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--accent); }
+.imp-enrich b { color: var(--text); }
+.imp-summary { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.imp-stat {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); font-size: 13px;
+}
+.imp-stat .imp-num {
+  flex: 0 0 auto; min-width: 40px; text-align: center; font-size: 22px; font-weight: 700;
+  color: var(--text); line-height: 1;
+}
+.imp-stat.imp-new { border-left: 3px solid var(--green); }
+.imp-stat.imp-new .imp-num { color: var(--green); }
+.imp-stat.imp-upd { border-left: 3px solid var(--accent); }
+.imp-stat.imp-upd .imp-num { color: var(--accent); }
+.imp-stat.imp-same { border-left: 3px solid var(--border); }
+.imp-stat.imp-bad { border-left: 3px solid var(--amber); }
+.imp-stat.imp-bad .imp-num { color: var(--amber); }
+.imp-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.imp-actions .btn { min-width: 120px; justify-content: center; }
+
 /* ---------- invoice detail ---------- */
 
 .inv-items-grid { display: grid; grid-template-columns: 1fr 84px 110px 100px 30px; gap: 8px; align-items: center; margin-bottom: 8px; }

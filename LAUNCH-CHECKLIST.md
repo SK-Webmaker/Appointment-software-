@@ -56,7 +56,11 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 ### Clients
 - ✅ Searchable book: visits, last visit, lifetime billed
 - ✅ CSV import wizard: auto column-mapping (adjustable), preview, duplicate detection, results summary
-- ✅ Duplicate-safe re-import (verified: same file twice → 0 duplicates created)
+- ✅ **Smart re-import / enrich**: matches each row to an existing client (email → phone → unambiguous
+  name) and backfills missing phone numbers / emails instead of skipping — so a fresh Fresha export
+  with phone numbers fills the gaps. De-dupes within the file, tidies phone formatting, and shows a
+  dry-run preview (X new vs Y updated, with phones/emails filled in) before writing anything
+- ✅ Duplicate-safe re-import (verified: same file twice → 0 duplicates, phone-less client backfilled)
 - ✅ **Merge duplicates**: auto-detects clients sharing an email/phone/name and merges
   each set into one — history (appointments, invoices, messages, reviews) is reassigned,
   missing fields filled, duplicates removed (transactional; owner picks which to keep, or

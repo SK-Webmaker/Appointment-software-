@@ -73,9 +73,14 @@ npm run reset-demo   # same thing from the terminal
 
 ### 👥 Clients
 - Searchable client book with visit counts, last visit and lifetime billed
-- **CSV import wizard**: drop an export from Fresha, Square, Acuity or any spreadsheet —
-  columns are auto-matched by name (adjustable), previewed, then imported with
-  duplicate detection (by email, or name + phone). CSV export included.
+- **Smart CSV import & re-import**: drop an export from Fresha, Square, Acuity or any
+  spreadsheet — columns are auto-matched by name (adjustable). Each row is matched to an
+  existing client by **email → phone → unambiguous name**, and instead of just skipping
+  people you already have, it **fills in the details they're missing** (a phone number or
+  email a previous import left blank). So you can re-export from Fresha with phone numbers
+  and re-import to backfill them — no duplicates created, duplicates *within* the file
+  collapse too, phone numbers are tidied to a consistent format, and a **preview** shows
+  exactly how many will be added vs. updated before anything is written. CSV export included.
 - **Merge duplicates**: finds clients that share an email, phone or name, and merges
   each set into one — the duplicate's appointments, invoices, messages and reviews move
   to the record you keep, missing details (email/phone/notes) are filled in, then the

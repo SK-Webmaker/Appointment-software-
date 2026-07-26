@@ -8,12 +8,13 @@ const KINDS = {
   clients: {
     title: 'Import clients',
     endpoint: '/api/clients/import',
+    preview: true, // show a dry-run summary before writing anything
     sampleNote: 'Export from Fresha, Square, Acuity or any spreadsheet — Kairo matches columns by name.',
     fields: [
       { key: 'first_name', label: 'First name', required: true, candidates: ['firstname', 'first', 'givenname', 'name', 'client', 'fullname'] },
       { key: 'last_name', label: 'Last name', candidates: ['lastname', 'last', 'surname', 'familyname'] },
       { key: 'email', label: 'Email', candidates: ['email', 'mail'] },
-      { key: 'phone', label: 'Phone', candidates: ['phone', 'mobile', 'cell', 'tel'] },
+      { key: 'phone', label: 'Phone', candidates: ['phone', 'mobile', 'cell', 'tel', 'number'] },
       { key: 'notes', label: 'Notes', candidates: ['note', 'comment', 'memo'] },
     ],
     // If the mapped "first name" cell contains a full name and there is no
@@ -132,6 +133,12 @@ export function runImportWizard({ kind, onDone }) {
             ${parsed.headers.map((h, i) => `<option value="${i}" ${mapping[f.key] === i ? 'selected' : ''}>${esc(h)}</option>`).join('')}
           </select>
         </div>`).join('')}
+      ${cfg.preview ? `
+      <label class="imp-enrich">
+        <input type="checkbox" id="imp-enrich" checked>
+        <span><b>Update existing clients with any new details</b> — fills in missing phone numbers
+        and emails from this file instead of skipping people you already have. Turn off to only add brand-new clients.</span>
+      </label>` : ''}
       <div class="preview-table"><table class="data">
         <thead><tr>${parsed.headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
         <tbody>${parsed.records.slice(0, 5).map((r) => `<tr style="cursor:default">${parsed.headers.map((_, i) => `<td>${esc(r[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -140,27 +147,61 @@ export function runImportWizard({ kind, onDone }) {
     step2.querySelectorAll('[data-map]').forEach((sel) => {
       sel.addEventListener('change', () => { mapping[sel.dataset.map] = Number(sel.value); });
     });
+    m.querySelector('#imp-go').innerHTML = cfg.preview ? `${icon('search')} Preview` : `${icon('check')} Import`;
   }
 
-  m.querySelector('#imp-go').onclick = async () => {
-    for (const f of cfg.fields) {
-      if (f.required && mapping[f.key] === -1) {
-        toast(`Match a column to "${f.label}" first`, 'err');
-        return;
-      }
-    }
-    const rows = parsed.records.map((rec) => {
+  // Turn the mapped columns into row objects to send to the server.
+  function buildRows() {
+    return parsed.records.map((rec) => {
       const row = {};
       for (const f of cfg.fields) {
         if (mapping[f.key] !== -1) row[f.key] = (rec[mapping[f.key]] || '').trim();
       }
       return cfg.transform ? cfg.transform(row, mapping) : row;
     }).filter((r) => Object.values(r).some((v) => v));
+  }
 
-    const goBtn = m.querySelector('#imp-go');
+  const n = (v) => `<b>${Number(v || 0)}</b>`;
+
+  // Rich summary for the smart client import (created / updated / unchanged),
+  // used for both the dry-run preview and the final result.
+  function clientSummaryHtml(res, done) {
+    const bits = [];
+    if (res.phonesAdded) bits.push(`${res.phonesAdded} phone number${res.phonesAdded === 1 ? '' : 's'}`);
+    if (res.emailsAdded) bits.push(`${res.emailsAdded} email${res.emailsAdded === 1 ? '' : 's'}`);
+    const fill = bits.length ? ` — including ${bits.join(' and ')} filled in` : '';
+    return `
+      <div class="imp-summary">
+        <div class="imp-stat imp-new"><span class="imp-num">${Number(res.created)}</span>
+          <span>New client${res.created === 1 ? '' : 's'} ${done ? 'added' : 'to add'}</span></div>
+        <div class="imp-stat imp-upd"><span class="imp-num">${Number(res.updated)}</span>
+          <span>Existing client${res.updated === 1 ? '' : 's'} ${done ? 'updated' : 'to update'}${fill}</span></div>
+        <div class="imp-stat imp-same"><span class="imp-num">${Number(res.matchedNoChange)}</span>
+          <span>Already up to date</span></div>
+        ${res.invalid ? `<div class="imp-stat imp-bad"><span class="imp-num">${Number(res.invalid)}</span>
+          <span>Blank / missing name — skipped</span></div>` : ''}
+      </div>
+      ${res.ambiguous ? `<div class="hint" style="margin-top:10px">${icon('alert')} ${Number(res.ambiguous)} row${res.ambiguous === 1 ? '' : 's'}
+        shared a name with more than one existing client, so ${res.ambiguous === 1 ? 'it was' : 'they were'} added as new to be safe —
+        use <b>Merge duplicates</b> afterwards if any turn out to be the same person.</div>` : ''}
+      <div class="cell-sub" style="text-align:center;margin-top:12px">Your client book will have
+        <b style="color:var(--text)">${Number(res.totalAfter)}</b> ${done ? '' : 'clients '}total${done ? ' clients' : ''}.</div>`;
+  }
+
+  const goBtn = m.querySelector('#imp-go');
+
+  // Run the import (or a dry-run preview) and return the server's summary.
+  async function runImport(dryRun) {
+    const rows = buildRows();
+    const enrich = m.querySelector('#imp-enrich') ? m.querySelector('#imp-enrich').checked : undefined;
+    return api.post(cfg.endpoint, { rows, ...(cfg.preview ? { dryRun, enrich } : {}) });
+  }
+
+  // Non-preview kinds (services): one click imports and shows a simple result.
+  async function importSimple() {
     goBtn.disabled = true;
     try {
-      const res = await api.post(cfg.endpoint, { rows });
+      const res = await runImport(false);
       m.querySelector('#imp-step2').style.display = 'none';
       goBtn.style.display = 'none';
       const step3 = m.querySelector('#imp-step3');
@@ -176,9 +217,61 @@ export function runImportWizard({ kind, onDone }) {
         </div>`;
       step3.querySelector('#imp-done').onclick = () => { m.close(); onDone?.(); };
       toast(`Imported ${res.imported} ${kind}`);
-    } catch (err) {
-      toast(err.message, 'err');
+    } catch (err) { toast(err.message, 'err'); goBtn.disabled = false; }
+  }
+
+  // Preview kinds (clients): dry-run first, show what will change, then apply.
+  async function previewThenApply() {
+    goBtn.disabled = true;
+    let res;
+    try { res = await runImport(true); }
+    catch (err) { toast(err.message, 'err'); goBtn.disabled = false; return; }
+
+    m.querySelector('#imp-step2').style.display = 'none';
+    goBtn.style.display = 'none';
+    const step3 = m.querySelector('#imp-step3');
+    step3.style.display = 'block';
+    const nothing = !res.created && !res.updated;
+    step3.innerHTML = `
+      <div style="margin-bottom:10px;font-weight:600">${icon('search')} Here's what this import will do:</div>
+      ${clientSummaryHtml(res, false)}
+      <div class="imp-actions">
+        <button class="btn" id="imp-back">Back</button>
+        <button class="btn primary" id="imp-apply" ${nothing ? 'disabled' : ''}>${icon('check')} Apply import</button>
+      </div>
+      ${nothing ? '<div class="cell-sub" style="text-align:center;margin-top:8px">Nothing new to import — everyone in this file is already in your client book and up to date.</div>' : ''}`;
+
+    step3.querySelector('#imp-back').onclick = () => {
+      step3.style.display = 'none';
+      m.querySelector('#imp-step2').style.display = 'block';
+      goBtn.style.display = '';
       goBtn.disabled = false;
+    };
+    const applyBtn = step3.querySelector('#imp-apply');
+    if (applyBtn && !nothing) applyBtn.onclick = async () => {
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = 'Importing…';
+      try {
+        const done = await runImport(false);
+        step3.innerHTML = `
+          <div style="margin-bottom:10px;font-weight:600;color:var(--green)">${icon('check')} Client book updated</div>
+          ${clientSummaryHtml(done, true)}
+          <div style="text-align:center;margin-top:16px">
+            <button class="btn primary" id="imp-done">${icon('check')} Done</button>
+          </div>`;
+        step3.querySelector('#imp-done').onclick = () => { m.close(); onDone?.(); };
+        toast(`${done.created} added · ${done.updated} updated`);
+      } catch (err) { toast(err.message, 'err'); applyBtn.disabled = false; applyBtn.innerHTML = `${icon('check')} Apply import`; }
+    };
+  }
+
+  goBtn.onclick = () => {
+    for (const f of cfg.fields) {
+      if (f.required && mapping[f.key] === -1) {
+        toast(`Match a column to "${f.label}" first`, 'err');
+        return;
+      }
     }
+    if (cfg.preview) previewThenApply(); else importSimple();
   };
 }

@@ -640,24 +640,120 @@ route('POST', '/api/clients/:id/merge', async ({ req, params }) => {
   return { ok: true, merged: fromIds.length, client: db.prepare(`${CLIENT_LIST_SQL} WHERE c.id = ?`).get(keepId) };
 });
 
+// Phone helpers, shared by the import matcher. `digitsOf` is used for matching
+// (two numbers are the "same" when their digits match); `tidyPhone` cleans a
+// number for storage — a leading "+" then digits only, which is lossless for
+// dialling and gives every imported number a consistent, SMS-ready shape.
+const digitsOf = (v) => String(v || '').replace(/\D/g, '');
+const tidyPhone = (v) => {
+  const raw = String(v || '').trim();
+  if (!raw) return '';
+  const d = digitsOf(raw);
+  return d ? (raw.startsWith('+') ? '+' : '') + d : '';
+};
+// A phone we consider "real" (enough digits to dial / send an SMS to).
+const hasPhone = (v) => digitsOf(v).length >= 7;
+
+// Smart client import / re-import. Instead of skipping any row that matches an
+// existing client (which left Fresha re-exports unable to backfill missing
+// phone numbers), each incoming row is matched to an existing client by
+// email → phone → unambiguous full name, and any details that client is
+// missing (phone, email, last name, notes) are filled in from the row. Genuine
+// new people are inserted. Email / phone matches never create a duplicate, and
+// duplicates *within* the uploaded file collapse together too. Pass
+// `dryRun: true` to preview the outcome without writing anything, and
+// `enrich: false` to fall back to the old "skip existing" behaviour.
 route('POST', '/api/clients/import', async ({ req }) => {
-  const { rows } = await readJson(req);
+  const { rows, dryRun = false, enrich = true } = await readJson(req);
   if (!Array.isArray(rows)) throw httpError(400, 'Expected { rows: [...] }');
   if (rows.length > 5000) throw httpError(400, 'Import is limited to 5000 rows at a time');
-  const byEmail = db.prepare('SELECT id FROM clients WHERE email = ? AND email != ?');
-  const byNamePhone = db.prepare("SELECT id FROM clients WHERE first_name = ? AND last_name = ? AND phone = ? AND phone != ''");
-  const ins = db.prepare('INSERT INTO clients (first_name, last_name, email, phone, notes) VALUES (?, ?, ?, ?, ?)');
-  let imported = 0, skipped = 0, invalid = 0;
+
+  const normEmail = (v) => String(v || '').trim().toLowerCase();
+  const normName = (f, l) => `${String(f || '').trim().toLowerCase()} ${String(l || '').trim().toLowerCase()}`.trim();
+
+  // Working set: every existing client, plus new people as we discover them.
+  // We fold the file into this set, then diff against the originals to know
+  // exactly what changed. Match indexes are kept in sync as we go so the file's
+  // own repeated rows (and prior enrichments) match instead of duplicating.
+  const people = db.prepare('SELECT * FROM clients').all().map((c) => ({
+    id: c.id, first_name: c.first_name, last_name: c.last_name,
+    email: c.email, phone: c.phone, notes: c.notes,
+    _origEmail: c.email, _origPhone: c.phone, _origLast: c.last_name, _origNotes: c.notes, _new: false,
+  }));
+  const emailIdx = new Map();  // normEmail -> person
+  const phoneIdx = new Map();  // phone digits -> person
+  const nameIdx = new Map();   // normName -> [person, ...]
+  const indexPerson = (p) => {
+    const e = normEmail(p.email); if (e && !emailIdx.has(e)) emailIdx.set(e, p);
+    const d = digitsOf(p.phone); if (d.length >= 7 && !phoneIdx.has(d)) phoneIdx.set(d, p);
+    const n = normName(p.first_name, p.last_name);
+    if (n.length >= 3) { const arr = nameIdx.get(n) || nameIdx.set(n, []).get(n); if (!arr.includes(p)) arr.push(p); }
+  };
+  people.forEach(indexPerson);
+
+  let invalid = 0, matchedNoChange = 0, ambiguous = 0;
   for (const raw of rows) {
     let fields;
     try { fields = clientBody(raw); } catch { invalid++; continue; }
-    const [first, last, email, phone] = fields;
-    const dupe = (email && byEmail.get(email, '')) || byNamePhone.get(first, last, phone);
-    if (dupe) { skipped++; continue; }
-    ins.run(...fields);
-    imported++;
+    let [first, last, email, phone, notes] = fields;
+    email = normEmail(email);
+    phone = tidyPhone(phone);
+
+    // Find the existing person this row refers to: email is the most reliable
+    // bridge, then phone, then an *unambiguous* name (a name shared by two
+    // existing people is left alone to avoid enriching the wrong one).
+    let match = null;
+    if (email && emailIdx.has(email)) match = emailIdx.get(email);
+    if (!match && hasPhone(phone) && phoneIdx.has(digitsOf(phone))) match = phoneIdx.get(digitsOf(phone));
+    if (!match) {
+      const n = normName(first, last);
+      const named = n.length >= 3 ? nameIdx.get(n) : null;
+      if (named && named.length === 1) match = named[0];
+      else if (named && named.length > 1) ambiguous++;
+    }
+
+    if (match && enrich) {
+      let changed = false;
+      if (!normEmail(match.email) && email) { match.email = email; emailIdx.set(email, match); changed = true; }
+      if (!hasPhone(match.phone) && hasPhone(phone)) { match.phone = phone; phoneIdx.set(digitsOf(phone), match); changed = true; }
+      if (!String(match.last_name || '').trim() && last) { match.last_name = last; changed = true; }
+      if (notes && !String(match.notes || '').includes(notes)) { match.notes = match.notes ? `${match.notes}\n${notes}` : notes; changed = true; }
+      if (!changed) matchedNoChange++;
+    } else if (match) {
+      matchedNoChange++; // enrich disabled: matched rows are left untouched
+    } else {
+      const p = { id: null, first_name: first, last_name: last, email, phone, notes, _new: true };
+      people.push(p); indexPerson(p);
+    }
   }
-  return { imported, skipped, invalid };
+
+  // Diff the working set against the originals to build accurate counts.
+  const changed = people.filter((p) => !p._new && (
+    p.email !== p._origEmail || p.phone !== p._origPhone || p.last_name !== p._origLast || p.notes !== p._origNotes));
+  const created = people.filter((p) => p._new);
+  const phonesAdded = changed.filter((p) => !hasPhone(p._origPhone) && hasPhone(p.phone)).length;
+  const emailsAdded = changed.filter((p) => !normEmail(p._origEmail) && normEmail(p.email)).length;
+
+  if (!dryRun && (changed.length || created.length)) {
+    db.exec('BEGIN');
+    try {
+      const upd = db.prepare('UPDATE clients SET last_name = ?, email = ?, phone = ?, notes = ? WHERE id = ?');
+      for (const p of changed) upd.run(str(p.last_name, 100), str(p.email, 200), str(p.phone, 50), str(p.notes, 2000), p.id);
+      const ins = db.prepare('INSERT INTO clients (first_name, last_name, email, phone, notes) VALUES (?, ?, ?, ?, ?)');
+      for (const p of created) ins.run(str(p.first_name, 100), str(p.last_name, 100), str(p.email, 200), str(p.phone, 50), str(p.notes, 2000));
+      db.exec('COMMIT');
+    } catch (err) { db.exec('ROLLBACK'); throw err; }
+  }
+
+  return {
+    dryRun, enrich,
+    created: created.length, updated: changed.length, matchedNoChange, invalid,
+    phonesAdded, emailsAdded, ambiguous,
+    existingBefore: people.length - created.length,
+    totalAfter: people.length,
+    // Legacy keys kept so anything reading the old shape still works.
+    imported: created.length, skipped: matchedNoChange,
+  };
 });
 
 // ---------------------------------------------------------------------------
