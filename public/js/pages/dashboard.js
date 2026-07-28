@@ -45,8 +45,9 @@ function timelineRowHtml(item) {
   }
   const a = item;
   const name = a.client_name || 'Walk-in';
+  const notes = String(a.client_notes || '').trim();
   return `
-    <a class="tl-row" href="#/calendar?date=${esc(a.date)}">
+    <a class="tl-row" href="#/calendar?date=${esc(a.date)}"${notes ? ` title="Note: ${esc(notes)}"` : ''}>
       <div class="tl-time">
         <div class="tl-t1">${tlTime(a.start_min)}</div>
         <div class="tl-t2">${fmtDur(a.end_min - a.start_min)}</div>
@@ -54,8 +55,9 @@ function timelineRowHtml(item) {
       <div class="tl-bar" style="background:${esc(a.staff_color || '#3987e5')}"></div>
       <div class="avatar-sm" style="background:${esc(avatarColor(name))}">${esc(initials(name))}</div>
       <div class="tl-main">
-        <div class="cell-main">${esc(name)}</div>
+        <div class="cell-main">${esc(name)}${notes ? `<span class="tl-noteflag" aria-label="Has client notes">${icon('note', 11)}</span>` : ''}</div>
         <div class="cell-sub">${esc(a.services_summary || a.service_name || 'Appointment')}${a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>
+        ${notes ? `<div class="tl-note">${icon('note', 11)}<span>${esc(notes)}</span></div>` : ''}
       </div>
       <div class="tl-end">${statusChip(a.status)}</div>
     </a>`;

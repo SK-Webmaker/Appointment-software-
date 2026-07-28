@@ -905,6 +905,9 @@ const APPT_SELECT = `
   SELECT a.*,
     c.first_name || CASE WHEN c.last_name != '' THEN ' ' || c.last_name ELSE '' END AS client_name,
     c.phone AS client_phone, c.email AS client_email,
+    -- The client's standing notes (allergies, colour formulas, preferences) so
+    -- the calendar can surface them before the appointment starts. Owner-only.
+    c.notes AS client_notes,
     s.name AS staff_name, s.color AS staff_color,
     sv.name AS service_name, sv.price_cents AS service_price_cents,
     (SELECT group_concat(nm, ' + ') FROM (

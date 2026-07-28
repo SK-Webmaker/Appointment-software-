@@ -17,6 +17,11 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Drag to reschedule (time, staff column, and day in week view); drag bottom edge to extend
 - ✅ Double-booking detection with explicit override; overlapping appointments **stack side-by-side** in the column (Fresha-style)
 - ✅ **Searchable client picker** in the booking editor — type name/phone/email to filter, pick, or add a new client inline
+- ✅ **Client notes surface on the booking**: an amber marker on every appointment for a client
+  with notes, the note text on blocks tall enough to carry it, the full note in the hover title,
+  a notes panel in the booking editor the moment a client is picked (with a link to their record),
+  a marker beside noted clients in the search list, and the note in the dashboard's run of the day.
+  Verified owner-only — the field never reaches the booking page or any public endpoint
 - ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums, even for odd totals like 5h 30m)
 - ✅ **"Calculated time" summary card** — live total duration, service count and exact end time as you build the booking
 - ✅ Clean, phone-friendly styled dropdowns throughout the editor (large tap targets)

@@ -41,6 +41,12 @@ npm run reset-demo   # same thing from the terminal
 - Click any empty slot to book; **drag appointments to reschedule**, drag the bottom edge to extend
 - **Searchable client picker** in the booking editor — type a name, phone or email to
   filter your client book, pick from the list, or add a brand-new client inline
+- **📝 Client notes right on the booking** — whatever you've recorded about someone
+  (allergies, colour formula, how they like it) shows on their appointment in the
+  calendar, in the day's run on the dashboard, and in the booking editor the moment you
+  pick them. An amber marker always appears (even on a short booking) so nothing is
+  missed, the note itself shows when the block has room, and the full text is in the
+  hover tooltip. Owner-only — customers never see it.
 - **Multi-service appointments with a live "calculated time" total** — add/remove services
   in the editor and the duration auto-sums (even for odd totals like 5h 30m); a summary
   card shows the running total, service count and the exact end time

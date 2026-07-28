@@ -257,6 +257,34 @@ a { color: var(--accent); text-decoration: none; }
 .appt-summary .as-dur svg { color: var(--accent); }
 .appt-summary .as-end { color: var(--text-2); font-variant-numeric: tabular-nums; }
 
+/* What's on record about the client, shown in the booking editor the moment
+   they're picked — allergies, colour formula, how they like it. Amber so it
+   reads as "read this", not as another form field. */
+.client-note {
+  padding: 11px 13px; border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-left-width: 3px;
+}
+.client-note .cn-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em;
+  color: var(--amber); text-transform: uppercase;
+}
+.client-note .cn-head svg { flex: none; }
+.client-note .cn-open {
+  margin-left: auto; text-transform: none; letter-spacing: 0;
+  font-size: 11.5px; font-weight: 600; color: var(--text-2); text-decoration: none;
+  border-bottom: 1px dotted var(--muted);
+}
+.client-note .cn-open:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.client-note .cn-body {
+  margin-top: 7px; color: var(--text); font-size: 13px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+/* Marker beside a name in the client search list. */
+.combo-opt .co-note { display: inline-flex; margin-left: 5px; color: var(--amber); vertical-align: -1px; }
+
 /* Searchable combobox (client picker in the appointment editor). */
 .combo { position: relative; }
 .combo-input {
@@ -427,6 +455,20 @@ a { color: var(--accent); text-decoration: none; }
 .tl-main { flex: 1; min-width: 0; }
 /* Long client/service names taper off rather than being sliced mid-letter. */
 .tl-main .cell-main, .tl-main .cell-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-main .cell-main { display: flex; align-items: center; gap: 5px; }
+.tl-noteflag { flex: none; display: inline-flex; color: var(--amber); }
+/* The client's standing note, right in the run of the day. */
+.tl-note {
+  display: flex; align-items: flex-start; gap: 5px; margin-top: 4px;
+  padding: 4px 7px; border-radius: 6px;
+  background: rgba(251, 191, 36, 0.1); border-left: 2px solid var(--amber);
+  color: #f7d488; font-size: 11.5px; line-height: 1.4;
+}
+.tl-note svg { flex: none; margin-top: 1px; opacity: 0.9; }
+.tl-note span {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-width: 0;
+}
 .tl-end { flex: 0 0 auto; }
 .tl-gap {
   display: flex; align-items: center; gap: 10px;
@@ -643,8 +685,26 @@ table.data th.num { text-align: right; }
 .appt { background: color-mix(in srgb, var(--c) 16%, var(--panel-2)); border-color: color-mix(in srgb, var(--c) 35%, transparent); }
 .appt:hover { filter: brightness(1.15); z-index: 3; box-shadow: var(--shadow); }
 .appt .a-time { font-weight: 600; color: var(--text-2); font-size: 11px; }
-.appt .a-client { font-weight: 700; color: var(--text); }
+.appt .a-client { font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 5px; min-width: 0; }
+.appt .a-client > :not(.a-noteflag) { min-width: 0; }
 .appt .a-service { color: var(--text-2); font-size: 11.5px; }
+
+/* Client notes on a booking — the amber marker is always visible (even on a
+   15-minute block) so a formula or allergy is never missed; the note text
+   itself only appears when the block is tall enough to carry it. */
+.appt .a-noteflag { flex: none; display: inline-flex; color: var(--amber); }
+.appt .a-note {
+  display: flex; align-items: flex-start; gap: 5px; margin-top: 4px;
+  padding: 4px 6px; border-radius: 6px;
+  background: rgba(251, 191, 36, 0.12); border-left: 2px solid var(--amber);
+  color: #f7d488; font-size: 11px; line-height: 1.35;
+  overflow: hidden;
+}
+.appt .a-note svg { flex: none; margin-top: 1px; opacity: 0.9; }
+.appt .a-note span {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; min-width: 0;
+}
 .appt.s-completed { opacity: 0.55; }
 .appt.s-cancelled { opacity: 0.4; }
 .appt.s-cancelled .a-client { text-decoration: line-through; }
@@ -1304,16 +1364,17 @@ table.data th.num { text-align: right; }
      row beneath (so buttons never clip). */
   .page-head { flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-bottom: 18px; }
   .page-head > div:not([class]) { flex: 1 1 auto; min-width: 0; }
-  /* An even grid rather than a ragged wrap: the primary action takes its own
-     full-width row at the top, the secondaries pair off evenly beneath it. */
+  /* Even rows rather than a ragged wrap: the primary action takes its own
+     full-width row at the top, secondaries pair off beneath it — and a lone
+     secondary grows to fill its row instead of leaving a gap. */
   .page-head .ph-actions {
     margin-left: 0; width: 100%;
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+    display: flex; flex-wrap: wrap; gap: 8px;
   }
-  .page-head .ph-actions .btn { width: 100%; justify-content: center; }
-  .page-head .ph-actions .btn.primary { grid-column: 1 / -1; order: -1; }
-  /* An odd one out stretches rather than leaving a hole in the grid. */
-  .page-head .ph-actions .btn:not(.primary):last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .page-head .ph-actions .btn {
+    flex: 1 1 calc(50% - 4px); min-width: calc(50% - 4px); justify-content: center;
+  }
+  .page-head .ph-actions .btn.primary { flex: 1 1 100%; min-width: 100%; order: -1; }
 
   /* Forms go single-column so no field is cut off. */
   .form-grid { grid-template-columns: 1fr; }

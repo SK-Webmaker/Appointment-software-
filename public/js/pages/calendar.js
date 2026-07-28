@@ -207,12 +207,25 @@ function apptHtml(a, showStaff = false) {
   const left = (a.lane || 0) * width;
   const color = a.staff_color || '#3987e5';
   const compact = height < 44;
+  // The client's standing notes (allergies, colour formula, preferences). A
+  // marker always shows so nothing is missed on a short booking; the text
+  // itself appears once the block is tall enough to hold it, and the full note
+  // is always in the hover title.
+  const notes = String(a.client_notes || '').trim();
+  const roomy = height >= 76;
+  const title = [
+    `${fmtTime(a.start_min)} – ${fmtTime(a.end_min)}`,
+    a.client_name || 'Walk-in',
+    a.services_summary || a.service_name || '',
+    notes ? `\nNote: ${notes}` : '',
+  ].filter(Boolean).join(' · ');
   return `
-    <div class="appt s-${esc(a.status)}" data-appt="${a.id}" tabindex="0"
+    <div class="appt s-${esc(a.status)}${notes ? ' has-note' : ''}" data-appt="${a.id}" tabindex="0" title="${esc(title)}"
       style="--c:${esc(color)};top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${width}% - 5px)">
       <div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>
-      <div class="a-client">${esc(a.client_name || 'Walk-in')}</div>
+      <div class="a-client">${esc(a.client_name || 'Walk-in')}${notes ? `<span class="a-noteflag" aria-label="Has client notes">${icon('note', 12)}</span>` : ''}</div>
       ${compact ? '' : `<div class="a-service">${esc(a.services_summary || a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
+      ${notes && roomy ? `<div class="a-note">${icon('note', 11)}<span>${esc(notes)}</span></div>` : ''}
       <div class="a-resize" data-resize="${a.id}"></div>
     </div>`;
 }
@@ -471,6 +484,9 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
             <input type="hidden" name="client_id" value="${a?.client_id || ''}">
             <div class="combo-menu" id="client-menu" hidden></div>
           </div></div>
+        <!-- Whatever you've recorded about this client (allergies, formula,
+             preferences) surfaces the moment they're picked. -->
+        <div class="span2 client-note" id="client-note" hidden></div>
         <div class="form-grid span2" id="new-client-fields" style="display:none">
           <div class="field"><label>First name *</label><input name="nc_first"></div>
           <div class="field"><label>Last name</label><input name="nc_last"></div>
@@ -568,8 +584,27 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   const menu = combo.querySelector('#client-menu');
   const clearBtn = combo.querySelector('#client-clear');
   const newFields = form.querySelector('#new-client-fields');
+  const notePanel = form.querySelector('#client-note');
   const nameOf = (c) => `${c.first_name} ${c.last_name}`.trim() || '(no name)';
-  if (a?.client_id) { const c = clients.find((x) => x.id === a.client_id); if (c) { searchInp.value = nameOf(c); clearBtn.hidden = false; } }
+
+  // Show whatever is on record for this client — the thing you want in front of
+  // you before you start (allergies, colour formula, how they like it).
+  const showClientNote = (id) => {
+    const c = clients.find((x) => x.id === Number(id));
+    const notes = String(c?.notes || '').trim();
+    if (!notes) { notePanel.hidden = true; notePanel.innerHTML = ''; return; }
+    notePanel.hidden = false;
+    notePanel.innerHTML = `
+      <div class="cn-head">${icon('note', 13)} Notes on ${esc(nameOf(c))}
+        <a class="cn-open" href="#/clients?open=${c.id}" title="Open client record">Open client</a></div>
+      <div class="cn-body">${esc(notes)}</div>`;
+  };
+
+  if (a?.client_id) {
+    const c = clients.find((x) => x.id === a.client_id);
+    if (c) { searchInp.value = nameOf(c); clearBtn.hidden = false; }
+    showClientNote(a.client_id);
+  }
 
   const renderMenu = (q = '') => {
     const ql = q.trim().toLowerCase();
@@ -579,7 +614,9 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     menu.innerHTML =
       `<button type="button" class="combo-opt" data-id="">${icon('user', 14)} Walk-in / no client</button>` +
       matches.map((c) => `<button type="button" class="combo-opt" data-id="${c.id}">
-        <span class="co-name">${esc(nameOf(c))}</span><span class="co-sub">${esc(c.phone || c.email || '')}</span></button>`).join('') +
+        <span class="co-name">${esc(nameOf(c))}${String(c.notes || '').trim()
+          ? `<span class="co-note" title="Has notes">${icon('note', 11)}</span>` : ''}</span>
+        <span class="co-sub">${esc(c.phone || c.email || '')}</span></button>`).join('') +
       (ql && !matches.length ? `<div class="combo-empty">No client matches “${esc(q.trim())}”</div>` : '') +
       `<button type="button" class="combo-opt combo-new" data-id="__new__">${icon('plus', 14)} Add new client${ql ? `: “${esc(q.trim())}”` : ''}</button>`;
     menu.hidden = false;
@@ -592,6 +629,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     else { searchInp.value = id ? label : ''; }
     clearBtn.hidden = !(id && id !== '__new__');
     menu.hidden = true;
+    showClientNote(id);
   };
   searchInp.addEventListener('focus', () => renderMenu(searchInp.value));
   searchInp.addEventListener('input', () => { hidden.value = ''; clearBtn.hidden = true; renderMenu(searchInp.value); });
