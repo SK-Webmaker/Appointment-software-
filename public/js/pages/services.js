@@ -87,7 +87,7 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
           <input name="price" type="number" min="0" step="0.01" ${s?.price_type === 'free' ? '' : 'required'} value="${s ? (s.price_cents / 100).toFixed(2) : ''}" placeholder="85.00"></div>
         <div class="field"><label>&nbsp;</label>
           <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
-            <input type="checkbox" name="active" ${!s || s.active ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)"> Bookable online</label></div>
+            <input type="checkbox" name="active" ${!s || s.active ? 'checked' : ''} class="chk"> Bookable online</label></div>
         <div class="field span2"><label>Description</label>
           <textarea name="description" placeholder="Shown to clients on your booking page">${esc(s?.description || '')}</textarea></div>
       </form>`,

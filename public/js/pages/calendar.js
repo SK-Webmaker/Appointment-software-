@@ -114,24 +114,30 @@ function draw(container) {
     </div>
     <div class="card cal-card">
       <div class="cal-toolbar">
-        <button class="btn small" id="cal-today">Today</button>
-        <button class="icon-btn" id="cal-prev">${icon('chevL')}</button>
-        <span class="cal-date-label">${esc(label)}</span>
-        <button class="icon-btn" id="cal-next">${icon('chevR')}</button>
-        <input type="date" id="cal-date" value="${cal.date}" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:5px 9px;color-scheme:dark">
-        <div class="spacer" style="flex:1"></div>
-        ${state.locations.length > 1 ? `
-        <select id="cal-location" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
-          <option value="0">All locations</option>
-          ${state.locations.map((l) => `<option value="${l.id}" ${cal.locationFilter === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
-        </select>` : ''}
-        <select id="cal-staff" style="background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
-          <option value="0">All team members</option>
-          ${visibleStaff().map((s) => `<option value="${s.id}" ${cal.staffFilter === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
-        </select>
-        <div class="seg">
-          <button data-view="day" class="${cal.view === 'day' ? 'active' : ''}">Day</button>
-          <button data-view="week" class="${cal.view === 'week' ? 'active' : ''}">Week</button>
+        <!-- Grouped so the chevrons can never be split from the date they move. -->
+        <div class="cal-nav">
+          <button class="icon-btn" id="cal-prev" aria-label="Previous">${icon('chevL')}</button>
+          <!-- The date doubles as the date picker: tapping it opens the native
+               calendar, so no separate date field is needed on a phone. -->
+          <label class="cal-date-label" title="Jump to a date">${esc(label)}
+            <input type="date" id="cal-date" value="${cal.date}" aria-label="Jump to date"></label>
+          <button class="icon-btn" id="cal-next" aria-label="Next">${icon('chevR')}</button>
+        </div>
+        <div class="cal-tools">
+          <button class="btn small" id="cal-today">Today</button>
+          ${state.locations.length > 1 ? `
+          <select id="cal-location" class="cal-pick">
+            <option value="0">All locations</option>
+            ${state.locations.map((l) => `<option value="${l.id}" ${cal.locationFilter === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
+          </select>` : ''}
+          <select id="cal-staff" class="cal-pick">
+            <option value="0">All team members</option>
+            ${visibleStaff().map((s) => `<option value="${s.id}" ${cal.staffFilter === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}
+          </select>
+          <div class="seg cal-viewseg">
+            <button data-view="day" class="${cal.view === 'day' ? 'active' : ''}">Day</button>
+            <button data-view="week" class="${cal.view === 'week' ? 'active' : ''}">Week</button>
+          </div>
         </div>
       </div>
       <div class="cal-scroll" id="cal-scroll">

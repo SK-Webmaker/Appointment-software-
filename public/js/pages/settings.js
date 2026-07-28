@@ -36,7 +36,7 @@ export async function renderSettings(container) {
     const chan = ['email', 'sms', 'both'].includes(s[chanKey]) ? s[chanKey] : 'email';
     return `<div class="notif-row">
       <label class="notif-toggle">
-        <input type="checkbox" name="${enKey}" ${s[enKey] === '1' ? 'checked' : ''}>
+        <input type="checkbox" class="chk" name="${enKey}" ${s[enKey] === '1' ? 'checked' : ''}>
         <span>${label}</span>
       </label>
       <select name="${chanKey}" class="notif-chan" aria-label="${label} — send by">
@@ -107,7 +107,7 @@ export async function renderSettings(container) {
             <div class="hint">Auto-detected from your device — it keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
           <div class="field">
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
-              <input type="checkbox" name="booking_enabled" ${s.booking_enabled === '1' ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)">
+              <input type="checkbox" name="booking_enabled" ${s.booking_enabled === '1' ? 'checked' : ''} class="chk">
               Accept online bookings</label></div>
           <div class="field"><label>Your booking link</label>
             <div class="copy-row">
@@ -149,11 +149,10 @@ export async function renderSettings(container) {
               <option value="rounded" ${s.brand_font === 'rounded' ? 'selected' : ''}>Rounded (friendly)</option>
             </select></div>
           <div class="field"><label>Brand colour</label>
-            <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap" id="brand-swatches">
+            <div class="color-row" id="brand-swatches">
               ${['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a'].map((c) =>
-                `<button type="button" data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${(s.brand_accent || '#38bdf8').toLowerCase() === c ? '#fff' : 'transparent'}"></button>`).join('')}
-              <input type="color" name="brand_accent" value="${esc(/^#[0-9a-fA-F]{6}$/.test(s.brand_accent || '') ? s.brand_accent : '#38bdf8')}"
-                style="width:44px;height:30px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--bg-raise);cursor:pointer" title="Custom colour">
+                `<button type="button" class="color-dot${(s.brand_accent || '#38bdf8').toLowerCase() === c ? ' is-on' : ''}" data-c="${c}" style="--dot:${c}" aria-label="Brand colour ${esc(c)}"></button>`).join('')}
+              <input type="color" class="color-pick" name="brand_accent" value="${esc(/^#[0-9a-fA-F]{6}$/.test(s.brand_accent || '') ? s.brand_accent : '#38bdf8')}" title="Custom colour">
             </div>
             <div class="hint">Buttons, highlights and time slots on the booking page use this colour.</div></div>
           <div class="field"><label>Logo (optional)</label>
@@ -212,7 +211,7 @@ export async function renderSettings(container) {
             <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS options only take effect once you turn on “Also send SMS” below</b> and add a provider — until then everything goes by email (so nothing is billed by accident).</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer;margin-top:4px">
-            <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent)">
+            <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} class="chk">
             Email me when a customer books online</label>
           <div class="form-grid">
             <div class="field"><label>Remind clients this many hours before</label>
@@ -241,7 +240,7 @@ export async function renderSettings(container) {
           it's <b>off by default</b> — nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
         <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
-            <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} style="width:17px;height:17px;margin-top:1px;accent-color:var(--accent)">
+            <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} class="chk">
             <span><b>Turn SMS on</b> — activates the SMS / Email + SMS choices you set per notification type above</span>
           </label>
           <div class="field"><label>SMS provider</label>
@@ -464,7 +463,7 @@ export async function renderSettings(container) {
     if (!b) return;
     brandForm.querySelector('[name=brand_accent]').value = b.dataset.c;
     container.querySelectorAll('#brand-swatches [data-c]').forEach((x) =>
-      (x.style.borderColor = x.dataset.c === b.dataset.c ? '#fff' : 'transparent'));
+      x.classList.toggle('is-on', x.dataset.c === b.dataset.c));
   });
 
   const readImage = (file, maxKb) => new Promise((resolve, reject) => {

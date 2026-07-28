@@ -115,7 +115,7 @@ export function openProductModal({ product = null, onSaved } = {}) {
             <input type="file" id="pr-img-file" accept="image/png,image/jpeg,image/webp" style="display:none">
           </div></div>
         <label class="span2" style="display:flex;gap:9px;align-items:center;cursor:pointer">
-          <input type="checkbox" name="taxable" ${!p || p.taxable ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent)">
+          <input type="checkbox" name="taxable" ${!p || p.taxable ? 'checked' : ''} class="chk">
           <span>GST/tax applies to this product</span>
         </label>
       </form>`,

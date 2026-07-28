@@ -50,12 +50,12 @@ function openStaffModal({ staff = null, onSaved } = {}) {
             ${state.locations.map((l) => `<option value="${l.id}" ${s?.location_id === l.id ? 'selected' : ''}>${esc(l.name)}</option>`).join('')}
           </select></div>` : ''}
         <div class="field span2"><label>Calendar colour</label>
-          <div id="st-colors" style="display:flex;gap:9px;padding:4px 0">
-            ${COLORS.map((c) => `<button type="button" data-c="${c}" style="width:28px;height:28px;border-radius:50%;background:${c};border:2px solid ${c === color ? '#fff' : 'transparent'}"></button>`).join('')}
+          <div id="st-colors" class="color-row">
+            ${COLORS.map((c) => `<button type="button" class="color-dot${c === color ? ' is-on' : ''}" data-c="${c}" style="--dot:${c}" aria-label="Colour ${esc(c)}"></button>`).join('')}
           </div></div>
         ${s ? `<div class="field span2">
           <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
-            <input type="checkbox" name="active" ${s.active ? 'checked' : ''} style="width:15px;height:15px;accent-color:var(--accent)"> Active (shown on calendar &amp; booking page)</label></div>` : ''}
+            <input type="checkbox" name="active" ${s.active ? 'checked' : ''} class="chk"> Active (shown on calendar &amp; booking page)</label></div>` : ''}
       </form>`,
     footer: `
       ${s ? `<button class="btn danger" id="st-delete">${icon('trash')} Remove</button>` : ''}
@@ -67,7 +67,7 @@ function openStaffModal({ staff = null, onSaved } = {}) {
     const b = e.target.closest('[data-c]');
     if (!b) return;
     color = b.dataset.c;
-    m.querySelectorAll('[data-c]').forEach((x) => (x.style.borderColor = x.dataset.c === color ? '#fff' : 'transparent'));
+    m.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('is-on', x.dataset.c === color));
   });
 
   m.querySelector('#st-save').onclick = async () => {

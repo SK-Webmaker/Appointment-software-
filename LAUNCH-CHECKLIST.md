@@ -130,6 +130,17 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Parameterized SQL everywhere, HTML-escaped rendering, path-traversal-safe static serving
 - ✅ Single-file SQLite database (one-file backup/restore), demo seed + one-click reset
 - ✅ **Phone-first responsive UI** — full-width pages, slide-out labelled nav, thumb-sized controls, no clipped values; verified across every screen at iPhone width
+- ✅ **One control scale on phones**: 44px inputs/buttons, 40px icon buttons, 38px segmented and
+  colour controls, shared `.chk` checkbox and `.color-dot` swatch — so every screen reads as one system
+- ✅ **No horizontal overflow anywhere** — audited at 320/360/390/402/430px, both in Chromium and with
+  WebKit's select-sizing behaviour simulated (Safari widens a `<select>` to its longest option, which is
+  what pushed the appointment editor off-screen). Guarded with `min-width:0` on grid/flex children and
+  `max-width:100%` on every control
+- ✅ `-webkit-text-size-adjust: 100%` — stops iOS silently inflating text and throwing label/value
+  proportions out
+- ✅ Modal footers wrap: the confirming action takes its own full-width row, so a third button
+  (Delete · Checkout · Save) can never be cut off
+- ✅ Date fields render left-aligned like every other field (iOS styles them right-aligned by default)
 - ✅ **Installable ("Add to Home Screen")** — web-app manifest + branded icons open Kairo full-screen like a native app, titled with the business's own name
 - ✅ Zero dependencies — Node 22 only; runs with one command
 

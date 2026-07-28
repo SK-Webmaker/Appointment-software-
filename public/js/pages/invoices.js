@@ -230,7 +230,7 @@ function openRefundModal(inv, refundableCents, onDone) {
           <div class="hint">Up to ${money(refundableCents)}. Lower the amount for a partial refund.</div></div>
         ${hasProducts ? `
         <label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer">
-          <input type="checkbox" name="restock" checked style="width:16px;height:16px;margin-top:2px;accent-color:var(--accent)">
+          <input type="checkbox" name="restock" checked class="chk">
           <span>Return products to stock<br><span class="hint" style="margin:0">Applies on full refunds — puts the sold items back in inventory.</span></span>
         </label>` : ''}
         <div class="field"><label>Reason (optional)</label><input name="note" maxlength="300" placeholder="e.g. product returned"></div>
@@ -341,11 +341,13 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
   const drawItems = () => {
     itemsEl.innerHTML = items.map((it, i) => `
       <div class="inv-items-grid">
-        <input data-f="description" data-i="${i}" value="${esc(it.description)}" placeholder="Service or product">
-        <input data-f="qty" data-i="${i}" type="number" step="0.5" min="0" value="${it.qty}">
-        <input data-f="unit" data-i="${i}" type="number" step="0.01" min="0" value="${(it.unit_cents / 100).toFixed(2)}">
+        <input data-f="description" data-i="${i}" value="${esc(it.description)}" placeholder="Service or product" aria-label="Description">
+        <label class="ii-field"><span>Qty</span>
+          <input data-f="qty" data-i="${i}" type="number" step="0.5" min="0" value="${it.qty}" aria-label="Quantity"></label>
+        <label class="ii-field"><span>Unit price</span>
+          <input data-f="unit" data-i="${i}" type="number" step="0.01" min="0" value="${(it.unit_cents / 100).toFixed(2)}" aria-label="Unit price"></label>
         <div class="money" style="text-align:right">${money(Math.round((Number(it.qty) || 0) * (Number(it.unit_cents) || 0)))}</div>
-        <button class="icon-btn" data-rm="${i}">${icon('x')}</button>
+        <button class="icon-btn" data-rm="${i}" aria-label="Remove line">${icon('x')}</button>
       </div>`).join('');
     itemsEl.querySelectorAll('input').forEach((inp) => {
       inp.style.cssText += ';background:var(--bg-raise);border:1px solid var(--border);border-radius:8px;padding:7px 10px';
@@ -354,9 +356,21 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
         if (inp.dataset.f === 'description') items[i].description = inp.value;
         if (inp.dataset.f === 'qty') items[i].qty = parseFloat(inp.value) || 0;
         if (inp.dataset.f === 'unit') items[i].unit_cents = Math.round(parseFloat(inp.value || 0) * 100);
+        // Update this line's amount as it's typed. Re-rendering the whole list
+        // here would steal focus mid-entry, so just refresh the figure.
+        const amt = inp.closest('.inv-items-grid')?.querySelector('.money');
+        if (amt) amt.textContent = money(Math.round((Number(items[i].qty) || 0) * (Number(items[i].unit_cents) || 0)));
         recalc();
       });
-      inp.addEventListener('change', drawItems);
+      // Tidy the figure when the field is left — but never re-render the whole
+      // list here: replacing the rows mid-entry drops focus and can discard the
+      // value being typed into the next field.
+      inp.addEventListener('change', () => {
+        const i = Number(inp.dataset.i);
+        if (!items[i]) return;
+        if (inp.dataset.f === 'unit') inp.value = ((items[i].unit_cents || 0) / 100).toFixed(2);
+        if (inp.dataset.f === 'qty') inp.value = String(items[i].qty || 0);
+      });
     });
     itemsEl.querySelectorAll('[data-rm]').forEach((b) => {
       b.onclick = () => { items.splice(Number(b.dataset.rm), 1); if (!items.length) items.push({ description: '', qty: 1, unit_cents: 0 }); drawItems(); recalc(); };
