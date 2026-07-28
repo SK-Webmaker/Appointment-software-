@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Kairo — Booking OS</title>
   <meta name="description" content="Kairo: appointment booking, client management and billing for modern service businesses.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect width='30' height='30' rx='8' fill='%232563eb'/%3E%3Ccircle cx='15' cy='15' r='7.5' stroke='%23e0f2fe' stroke-width='2.2' fill='none'/%3E%3Ccircle cx='21.4' cy='9.4' r='2.6' fill='%2338bdf8'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='t' x1='2' y1='2' x2='46' y2='46' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%231d4ed8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12.5' fill='url(%23t)'/%3E%3Cpath d='M15.6 13V35' stroke='%23fff' stroke-width='4.6' stroke-linecap='round'/%3E%3Cpath d='M18.5 25.4A13 13 0 0 1 28.6 15.9' stroke='%23fff' stroke-width='4.6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M18.5 25.4L31.6 35' stroke='%23fff' stroke-width='4.6' stroke-linecap='round'/%3E%3Ccircle cx='33' cy='13.2' r='3.2' fill='%23bae6fd'/%3E%3C/svg%3E">
   <!-- Add to Home Screen: full-screen "app" install on iOS + Android -->
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/icons/kairo-180.png">
@@ -17,6 +17,25 @@
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
+  <!-- Boot splash: painted the moment the HTML parses, so opening or refreshing
+       the app never shows a blank screen. app.js holds it until the workspace
+       has actually loaded, then fades it out. -->
+  <div id="boot-splash" class="boot-splash">
+    <div class="bs-lockup">
+      <svg class="bs-mark" width="62" height="62" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs><linearGradient id="bsg" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/>
+        </linearGradient></defs>
+        <path d="M13.75 10.5V37.5" stroke="url(#bsg)" stroke-width="5.5" stroke-linecap="round"/>
+        <path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#bsg)" stroke-width="5.5" stroke-linecap="round"/>
+        <path d="M17.2 25.6L33.6 37.5" stroke="url(#bsg)" stroke-width="5.5" stroke-linecap="round"/>
+        <circle class="bs-dot" cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/>
+      </svg>
+      <div class="bs-word">KAIRO</div>
+      <div class="bs-tag">THE BOOKING OS</div>
+      <div class="bs-bar"><i></i></div>
+    </div>
+  </div>
   <div id="app"></div>
   <script type="module" src="/js/app.js"></script>
 </body>

@@ -13,7 +13,7 @@ import { renderReviews } from './pages/reviews.js';
 import { renderPos } from './pages/pos.js';
 import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
-import { mountIntro } from './intro.js';
+import { mountIntro, adoptBootSplash } from './intro.js';
 
 export const state = {
   user: null,
@@ -200,6 +200,9 @@ async function navigate() {
 }
 
 async function boot() {
+  // The static splash from index.html is already on screen; hold it until the
+  // workspace (or the login screen) is really rendered, then fade it out.
+  const splash = adoptBootSplash();
   try {
     const me = await api.get('/api/auth/me');
     state.user = me.user;
@@ -212,6 +215,7 @@ async function boot() {
       runSetupWizard({ firstRun: true, settings: state.settings, onDone: () => boot() });
       pendingIntro?.reveal();
       pendingIntro = null;
+      splash.done();
       return;
     }
     await refreshLookups();
@@ -228,6 +232,7 @@ async function boot() {
     await navigate();
     pendingIntro?.reveal();
     pendingIntro = null;
+    splash.done();
   } catch (err) {
     pendingIntro?.abort();
     pendingIntro = null;
@@ -235,6 +240,7 @@ async function boot() {
     else {
       root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert')}<div>Cannot reach the Kairo server: ${esc(err.message)}</div></div>`;
     }
+    splash.done();
   }
 }
 

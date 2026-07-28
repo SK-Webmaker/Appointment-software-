@@ -11,6 +11,32 @@
 const MIN_DWELL_MS = 1700;   // logo moment always gets this long
 const SPLIT_MS = 1050;       // panels parting
 const REDUCED_FADE_MS = 450;
+const SPLASH_MIN_MS = 900;   // boot splash never flashes by faster than this
+const SPLASH_FADE_MS = 460;
+
+/**
+ * Take ownership of the static #boot-splash that index.html paints before any
+ * JS runs. Call done() once the workspace (or the login screen) is actually on
+ * screen — it holds the splash for a minimum beat so a fast load still reads as
+ * deliberate, then fades it out.
+ */
+export function adoptBootSplash() {
+  const el = document.getElementById('boot-splash');
+  if (!el) return { done() {} };
+  const t0 = performance.now();
+  let gone = false;
+  return {
+    done() {
+      if (gone) return;
+      gone = true;
+      const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - t0));
+      setTimeout(() => {
+        el.classList.add('bs-out');
+        setTimeout(() => el.remove(), SPLASH_FADE_MS + 60);
+      }, wait);
+    },
+  };
+}
 
 export function mountIntro() {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,15 +48,17 @@ export function mountIntro() {
   const lockup = (side) => `
     <div class="intro-stage">
       <div class="intro-lockup">
-        <svg class="intro-mark" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+        <svg class="intro-mark" viewBox="0 0 48 48" fill="none" aria-hidden="true">
           <defs>
-            <linearGradient id="introGrad-${side}" x1="20" y1="20" x2="100" y2="100">
+            <linearGradient id="introGrad-${side}" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse">
               <stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/>
             </linearGradient>
           </defs>
-          <circle class="im-halo" cx="60" cy="60" r="34"/>
-          <circle class="im-ring" cx="60" cy="60" r="34" stroke="url(#introGrad-${side})"/>
-          <circle class="im-dot" cx="87" cy="33" r="10.5"/>
+          <circle class="im-halo" cx="24" cy="24" r="14"/>
+          <path class="im-stem" d="M13.75 10.5V37.5" stroke="url(#introGrad-${side})"/>
+          <path class="im-arc" d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#introGrad-${side})"/>
+          <path class="im-leg" d="M17.2 25.6L33.6 37.5" stroke="url(#introGrad-${side})"/>
+          <circle class="im-dot" cx="35.2" cy="10.4" r="3.9"/>
         </svg>
         <div class="intro-word" aria-hidden="true">${'KAIRO'.split('').map((c, i) =>
           `<span style="animation-delay:${520 + i * 85}ms">${c}</span>`).join('')}</div>

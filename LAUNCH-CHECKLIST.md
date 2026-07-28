@@ -104,9 +104,26 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Reschedule re-queues the reminder; cancel withdraws it
 
 ### Dashboard & insights
-- ✅ Today's bookings, revenue (7d), outstanding, client growth
+- ✅ **Today at a glance**: appointment count, done vs to-go, taken vs expected, free time left
+- ✅ **Next up** card (flips to a live "With you now" during an appointment)
+- ✅ **Run of the day** timeline with the **free gaps between appointments** marked, so the
+  owner can see at a glance where they could fit someone in
+- ✅ **Client growth & retention**: new vs returning split (30d), rebooking rate, and a
+  "worth a nudge" win-back list (2+ visits, nothing in 8 weeks, nothing booked)
+- ✅ Revenue (7d), outstanding, client count, rebooking rate tiles
 - ✅ Booking-rhythm chart + automatic busiest-window insight
 - ✅ Revenue trend, top services, upcoming list
+- ✅ Quick actions on landing: Take payment · Block time · New appointment
+
+### Brand & first impression
+- ✅ **Kairo mark**: abstract "K" whose arm sweeps toward a separated dot — *kairos*, the
+  opportune moment. Legible from 16px up, works on light and dark
+- ✅ App icon / favicon tile regenerated at 180 / 192 / 512 px; favicon + booking &
+  review pages updated to match
+- ✅ **Boot splash on every open and refresh** — painted straight from `index.html` before
+  any JS runs, so the app never flashes blank; held until the workspace is really loaded,
+  then faded out (respects `prefers-reduced-motion`)
+- ✅ Post-login cinematic intro redrawn around the new mark (strokes draw in sequence)
 
 ### Platform
 - ✅ Login (scrypt-hashed passwords), HttpOnly signed session cookies, login rate limiting

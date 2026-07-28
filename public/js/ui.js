@@ -51,15 +51,38 @@ export function icon(name, size = 16) {
 const METHOD_LABELS = { card: 'Card', square: 'Square', cash: 'Cash', transfer: 'Bank transfer', other: 'Other', stripe: 'Card (Stripe)' };
 export function methodLabel(m) { return METHOD_LABELS[m] || (m ? m.charAt(0).toUpperCase() + m.slice(1) : ''); }
 
-export const LOGO_SVG = `
-<svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-  <rect width="30" height="30" rx="8" fill="url(#kg)"/>
-  <circle cx="15" cy="15" r="7.5" stroke="#04121f" stroke-width="2.2" fill="none"/>
-  <circle cx="21.4" cy="9.4" r="2.6" fill="#04121f"/>
-  <defs><linearGradient id="kg" x1="0" y1="0" x2="30" y2="30">
-    <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/>
+// Brand mark — an abstract "K" whose upper arm sweeps like a clock hand toward
+// a separated dot: kairos, the opportune moment. Drawn as strokes so it stays
+// legible from 16px up. `kairoMark()` returns the open mark (for dark UI
+// surfaces); `kairoTile()` returns the filled app-icon tile.
+export function kairoMark(size = 30, id = 'km') {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+  <defs><linearGradient id="${id}" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/>
   </linearGradient></defs>
+  <path d="M13.75 10.5V37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M17.2 25.6L33.6 37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/>
+  <circle cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/>
 </svg>`;
+}
+
+export function kairoTile(size = 30, id = 'kt') {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true">
+  <defs><linearGradient id="${id}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#1d4ed8"/>
+  </linearGradient></defs>
+  <rect width="48" height="48" rx="12.5" fill="url(#${id})"/>
+  <path d="M15.6 13V35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+  <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+  <path d="M18.5 25.4L31.6 35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+  <circle cx="33" cy="13.2" r="3.2" fill="#bae6fd"/>
+</svg>`;
+}
+
+export const LOGO_SVG = kairoMark(30, 'kg');
 
 // ---------- formatting ----------
 

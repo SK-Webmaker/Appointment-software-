@@ -150,10 +150,21 @@ npm run reset-demo   # same thing from the terminal
 - Outstanding-balance and collected-this-month tiles
 
 ### 📊 Dashboard
-- Today's bookings, revenue collected (7 days), outstanding balance, client growth
+- **Today at a glance** — the operational view the owner opens on: how many
+  appointments, how many are done vs still to come, what's actually been taken
+  against what's expected, and how much free time is left. A **Next up** card
+  (which switches to a live "With you now" while an appointment is running) plus
+  the **whole run of the day** as a timeline, with the **free gaps between
+  appointments** called out so you can see where someone could be fitted in.
+- **Client growth & retention** — new vs returning visits over 30 days, a
+  **rebooking rate** (how many clients come back within a month), and a
+  **"worth a nudge"** list of lapsed regulars: 2+ past visits, nothing in 8 weeks
+  and nothing booked, so it's a real win-back list rather than noise.
+- Revenue collected (7 days), outstanding balance, client count, rebooking rate
 - **Booking rhythm** chart (busiest hours, last 30 days) with an automatic insight
   ("You're busiest between 9–11 AM")
 - Revenue trend, top services, upcoming appointments
+- Quick actions right where you land: **Take payment · Block time · New appointment**
 
 ### 💬 Confirmations, reminders, receipts & review requests (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit

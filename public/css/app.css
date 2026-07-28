@@ -314,6 +314,100 @@ a { color: var(--accent); text-decoration: none; }
 .grid-31 { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
 .mt { margin-top: 14px; }
 
+/* ---------- dashboard: today at a glance ---------- */
+
+.today-card { margin-bottom: 20px; }
+.today-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px;
+}
+.today-head .btn { flex: 0 0 auto; }
+.today-grid { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: stretch; }
+
+.today-metrics {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.tm {
+  padding: 13px 14px; border-radius: 11px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  /* centre the figures so the tiles read evenly when the row stretches to
+     match the taller "next up" card beside it */
+  display: flex; flex-direction: column; justify-content: center;
+}
+.tm-value { font-size: 23px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+.tm-value .tm-of { font-size: 14px; font-weight: 600; color: var(--muted); }
+.tm-label { font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.35; }
+
+.next-up {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 15px 16px; border-radius: 12px; text-decoration: none; color: inherit;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  background: linear-gradient(160deg, rgba(56, 189, 248, 0.09), rgba(56, 189, 248, 0.02));
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.next-up:hover { border-color: rgba(56, 189, 248, 0.6); transform: translateY(-1px); }
+.next-up.is-empty { border-color: var(--border); background: var(--panel-2); cursor: default; }
+.next-up.is-now { border-color: rgba(52, 211, 153, 0.5); background: linear-gradient(160deg, rgba(52, 211, 153, 0.1), rgba(52, 211, 153, 0.02)); }
+.nu-tag {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--accent);
+}
+.next-up.is-now .nu-tag { color: var(--green); }
+.next-up.is-empty .nu-tag { color: var(--muted); }
+.nu-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); animation: nuPulse 2s infinite;
+}
+@keyframes nuPulse {
+  70% { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+.nu-row { display: flex; align-items: center; gap: 10px; }
+.nu-name { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+.nu-time { font-size: 12.5px; color: var(--text-2); font-weight: 600; }
+
+.today-timeline { margin-top: 16px; border-top: 1px solid var(--border-soft); padding-top: 6px; }
+.tl-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 4px; border-radius: 9px; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--border-soft);
+}
+.tl-row:last-child { border-bottom: 0; }
+.tl-row:hover { background: var(--panel-2); }
+.tl-time { flex: 0 0 62px; text-align: right; }
+.tl-t1 { font-weight: 700; font-size: 13px; }
+.tl-t2 { font-size: 11px; color: var(--muted); }
+.tl-bar { flex: 0 0 3px; align-self: stretch; border-radius: 3px; min-height: 30px; }
+.tl-main { flex: 1; min-width: 0; }
+.tl-end { flex: 0 0 auto; }
+.tl-gap {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 4px; color: var(--muted); font-size: 11.5px;
+}
+.tl-gap-line { flex: 1; height: 1px; background: repeating-linear-gradient(90deg, var(--border) 0 4px, transparent 4px 8px); }
+.tl-gap-text { flex: 0 0 auto; letter-spacing: 0.02em; }
+
+/* ---------- dashboard: growth & retention ---------- */
+
+.split-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--panel-3); }
+.sb-fill { height: 100%; }
+.sb-new { background: var(--accent); }
+.sb-ret { background: var(--green); }
+.split-key {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px;
+  font-size: 12.5px; color: var(--text-2);
+}
+.split-key span { display: flex; align-items: center; gap: 6px; }
+.split-key b { color: var(--text); }
+.split-key i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.split-key .k-new { background: var(--accent); }
+.split-key .k-ret { background: var(--green); }
+.lapsed-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin: 18px 0 4px; padding-top: 14px; border-top: 1px solid var(--border-soft);
+}
+
 .insight {
   margin-top: 16px; padding: 13px 16px;
   border: 1px solid rgba(56, 189, 248, 0.35);
@@ -703,6 +797,19 @@ table.data th.num { text-align: right; }
   /* minmax(0,…) so a single column can shrink below a wide child (e.g. the
      read-only booking-link field) instead of stretching the whole card. */
   .grid-2, .grid-31, .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  /* "Next up" drops under the metrics rather than squeezing beside them. */
+  .today-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  /* Phone: metrics go 2×2, and the day's run tightens up. */
+  .today-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .tm { padding: 11px 12px; }
+  .tm-value { font-size: 20px; }
+  .today-head { flex-direction: column; align-items: stretch; gap: 10px; }
+  .today-head .btn { justify-content: center; }
+  .tl-time { flex: 0 0 56px; }
+  .tl-t1 { font-size: 12.5px; }
+  .tl-row { gap: 9px; padding: 8px 2px; }
 }
 @media (max-width: 980px) {
   /* Tablet & phone: content takes the full width; the sidebar becomes an
@@ -836,6 +943,50 @@ table.data th.num { text-align: right; }
 }
 
 /* ---------------------------------------------------------------------------
+   Boot splash — painted straight from index.html (before any JS runs) so
+   opening or refreshing the app never flashes a blank screen. app.js holds it
+   until the workspace has really loaded, then adds .bs-out to fade it away.
+--------------------------------------------------------------------------- */
+.boot-splash {
+  position: fixed; inset: 0; z-index: 10000;
+  display: grid; place-items: center;
+  background: radial-gradient(120% 90% at 50% 30%, #101b2c 0%, #070a10 62%);
+  transition: opacity 0.42s ease, visibility 0.42s ease;
+}
+.boot-splash.bs-out { opacity: 0; visibility: hidden; pointer-events: none; }
+.bs-lockup {
+  display: flex; flex-direction: column; align-items: center; gap: 15px;
+  animation: bsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes bsRise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+.bs-mark { filter: drop-shadow(0 6px 22px rgba(56, 189, 248, 0.28)); }
+.bs-dot { animation: bsPulse 1.9s ease-in-out infinite; transform-origin: 35.2px 10.4px; }
+@keyframes bsPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.86); } }
+.bs-word {
+  font-size: 27px; font-weight: 700; color: #e7eef8;
+  letter-spacing: 0.26em; padding-left: 0.26em;
+}
+.bs-tag {
+  font-size: 9.5px; font-weight: 600; color: #7c8ba1;
+  letter-spacing: 0.34em; padding-left: 0.34em;
+}
+.bs-bar {
+  width: 132px; height: 2px; margin-top: 7px; border-radius: 2px;
+  background: rgba(148, 163, 184, 0.18); overflow: hidden;
+}
+.bs-bar i {
+  display: block; width: 42%; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+  animation: bsSweep 1.25s ease-in-out infinite;
+}
+@keyframes bsSweep { 0% { transform: translateX(-115%); } 100% { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) {
+  .bs-lockup { animation: none; }
+  .bs-dot, .bs-bar i { animation: none; }
+  .bs-bar i { width: 100%; background: #38bdf8; }
+}
+
+/* ---------------------------------------------------------------------------
    Cinematic post-login intro — the Kairo mark assembles on a dark stage while
    the workspace loads beneath, then the screen splits down the centre (each
    half carrying half of the logo) and parts to reveal the app.
@@ -867,20 +1018,24 @@ table.data th.num { text-align: right; }
 
 /* --- the mark: ring draws itself, halo breathes, dot lands with a pop --- */
 .intro-mark { width: 116px; height: 116px; overflow: visible; }
-.im-ring {
-  fill: none; stroke-width: 7; stroke-linecap: round;
-  stroke-dasharray: 213.6; stroke-dashoffset: 213.6;
-  transform: rotate(-118deg); transform-origin: 60px 60px;
-  animation: introRing 1.0s cubic-bezier(0.4, 0, 0.2, 1) 60ms forwards;
+/* The three strokes of the mark draw themselves in sequence — stem, sweeping
+   arm, leg — then the "moment" dot lands. Dash lengths are each path's own
+   length so the reveal finishes exactly on the stroke end. */
+.im-stem, .im-arc, .im-leg {
+  fill: none; stroke-width: 5.5; stroke-linecap: round;
 }
+.im-stem { stroke-dasharray: 27; stroke-dashoffset: 27; animation: introDraw 0.5s cubic-bezier(0.4, 0, 0.2, 1) 60ms forwards; }
+.im-arc  { stroke-dasharray: 18; stroke-dashoffset: 18; animation: introDraw 0.5s cubic-bezier(0.4, 0, 0.2, 1) 340ms forwards; }
+.im-leg  { stroke-dasharray: 21; stroke-dashoffset: 21; animation: introDraw 0.5s cubic-bezier(0.4, 0, 0.2, 1) 600ms forwards; }
+@keyframes introDraw { to { stroke-dashoffset: 0; } }
 .im-halo {
   fill: none; stroke: #38bdf8; stroke-width: 13; opacity: 0;
   filter: blur(10px);
   animation: introHalo 2.4s ease-in-out 700ms infinite;
 }
 .im-dot {
-  fill: #38bdf8; opacity: 0; transform-origin: 87px 33px;
-  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.85));
+  fill: #38bdf8; opacity: 0; transform-origin: 35.2px 10.4px;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.85));
   animation: introDot 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 980ms forwards;
 }
 
@@ -949,7 +1104,7 @@ table.data th.num { text-align: right; }
                          to   { transform: scale(1); filter: brightness(1) saturate(1); } }
 
 /* Reduced motion: a calm cross-fade, no split, no letter choreography */
-.intro-reduced .im-ring { animation: none; stroke-dashoffset: 0; }
+.intro-reduced .im-stem, .intro-reduced .im-arc, .intro-reduced .im-leg { animation: none; stroke-dashoffset: 0; }
 .intro-reduced .im-dot, .intro-reduced .intro-word span,
 .intro-reduced .intro-tag, .intro-reduced .intro-load { animation: none; opacity: 1; transform: none; filter: none; }
 .intro-reduced .intro-word { animation: none; letter-spacing: 0.34em; text-indent: 0.34em; }

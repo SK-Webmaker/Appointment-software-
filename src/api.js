@@ -1747,6 +1747,98 @@ route('GET', '/api/dashboard', async () => {
      ORDER BY a.date, a.start_min LIMIT 8`
   ).all(today);
 
+  // ---- Today at a glance -------------------------------------------------
+  // The full run of the day, plus what's next, where the gaps are and what has
+  // actually been taken so far — the operational view the owner opens on.
+  const todayAppts = db.prepare(
+    `${APPT_SELECT} WHERE a.date = ? ORDER BY a.start_min`
+  ).all(today);
+  const liveToday = todayAppts.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show');
+  const { min: nowMin } = nowParts(getSetting('business_tz', ''));
+
+  const doneCount = liveToday.filter((a) => a.status === 'completed' || a.end_min <= nowMin).length;
+  const next = liveToday.find((a) => a.start_min > nowMin && a.status !== 'completed') || null;
+  const inProgress = liveToday.find((a) => a.start_min <= nowMin && a.end_min > nowMin && a.status !== 'completed') || null;
+
+  const takingsToday = db.prepare(
+    'SELECT COALESCE(SUM(amount_cents), 0) AS v FROM payments WHERE substr(paid_at, 1, 10) = ?'
+  ).get(today).v;
+
+  // Free windows left in the day: opening hours minus appointments and blocks,
+  // from now onwards, so the owner can see where they could fit someone in.
+  const gaps = [];
+  if (isOpenDay(today)) {
+    const openM = Number(getSetting('open_min', '480'));
+    const closeM = Number(getSetting('close_min', '1200'));
+    const busy = [
+      ...liveToday.map((a) => ({ start_min: a.start_min, end_min: a.end_min })),
+      ...db.prepare('SELECT start_min, end_min FROM time_blocks WHERE date = ?').all(today),
+    ].sort((a, b) => a.start_min - b.start_min);
+    let cursor = Math.max(openM, Math.floor(nowMin / 15) * 15);
+    for (const b of busy) {
+      if (b.end_min <= cursor) continue;
+      if (b.start_min > cursor) gaps.push({ start_min: cursor, end_min: Math.min(b.start_min, closeM) });
+      cursor = Math.max(cursor, b.end_min);
+      if (cursor >= closeM) break;
+    }
+    if (cursor < closeM) gaps.push({ start_min: cursor, end_min: closeM });
+  }
+  const openGaps = gaps.filter((g) => g.end_min - g.start_min >= 15);
+
+  // ---- Client growth & retention ----------------------------------------
+  const visitCounts = db.prepare(
+    `SELECT client_id, COUNT(*) AS n, MAX(date) AS last_date FROM appointments
+     WHERE client_id IS NOT NULL AND status NOT IN ('cancelled', 'no_show')
+     GROUP BY client_id`
+  ).all();
+  const byClient = new Map(visitCounts.map((r) => [r.client_id, r]));
+
+  // New vs returning across the last 30 days: an appointment counts as
+  // "returning" when that client had an earlier visit before it.
+  const recentAppts = db.prepare(
+    `SELECT client_id, date FROM appointments
+     WHERE date >= ? AND date <= ? AND client_id IS NOT NULL AND status NOT IN ('cancelled', 'no_show')
+     ORDER BY date`
+  ).all(monthAgo, today);
+  const firstVisit = new Map(
+    db.prepare(
+      `SELECT client_id, MIN(date) AS first_date FROM appointments
+       WHERE client_id IS NOT NULL AND status NOT IN ('cancelled', 'no_show') GROUP BY client_id`
+    ).all().map((r) => [r.client_id, r.first_date])
+  );
+  let newVisits = 0, returningVisits = 0;
+  for (const a of recentAppts) {
+    if (firstVisit.get(a.client_id) === a.date) newVisits++; else returningVisits++;
+  }
+
+  // Rebooking rate: of the clients seen in the 30 days before last month, how
+  // many came back again afterwards. A plain, honest loyalty read.
+  const priorStart = addDays(today, -59), priorEnd = addDays(today, -30);
+  const priorClients = db.prepare(
+    `SELECT DISTINCT client_id FROM appointments
+     WHERE date >= ? AND date <= ? AND client_id IS NOT NULL AND status NOT IN ('cancelled', 'no_show')`
+  ).all(priorStart, priorEnd).map((r) => r.client_id);
+  const cameBack = priorClients.filter((id) => {
+    const r = byClient.get(id);
+    return r && r.last_date > priorEnd;
+  }).length;
+  const rebookRate = priorClients.length ? Math.round((cameBack / priorClients.length) * 100) : null;
+
+  // Lapsed regulars: 2+ past visits but nothing in 8 weeks and nothing booked.
+  const lapsedCutoff = addDays(today, -56);
+  const booked = new Set(
+    db.prepare("SELECT DISTINCT client_id FROM appointments WHERE date >= ? AND status IN ('booked','confirmed') AND client_id IS NOT NULL").all(today).map((r) => r.client_id)
+  );
+  const lapsedRows = visitCounts
+    .filter((r) => r.n >= 2 && r.last_date < lapsedCutoff && !booked.has(r.client_id))
+    .sort((a, b) => (b.n - a.n) || (a.last_date < b.last_date ? -1 : 1))
+    .slice(0, 6);
+  const lapsed = lapsedRows.map((r) => {
+    const c = db.prepare('SELECT id, first_name, last_name, phone, email FROM clients WHERE id = ?').get(r.client_id);
+    return c ? { ...c, visits: r.n, last_visit: r.last_date } : null;
+  }).filter(Boolean);
+  const lapsedCount = visitCounts.filter((r) => r.n >= 2 && r.last_date < lapsedCutoff && !booked.has(r.client_id)).length;
+
   const revenueByDay = [];
   for (let i = 6; i >= 0; i--) {
     const d = addDays(today, -i);
@@ -1768,10 +1860,33 @@ route('GET', '/api/dashboard', async () => {
   ).all(monthAgo);
 
   return {
-    today: { count: todayRow.n, expected_cents: todayRow.expected },
+    today: {
+      date: today,
+      count: todayRow.n,
+      expected_cents: todayRow.expected,
+      takings_cents: takingsToday,
+      done_count: doneCount,
+      remaining_count: Math.max(0, liveToday.length - doneCount),
+      now_min: nowMin,
+      is_open_day: isOpenDay(today),
+      appointments: liveToday,
+      cancelled_count: todayAppts.length - liveToday.length,
+      next,
+      in_progress: inProgress,
+      gaps: openGaps,
+      free_min: openGaps.reduce((n, g) => n + (g.end_min - g.start_min), 0),
+    },
     week_revenue_cents: weekRevenue,
     outstanding_cents: outstanding,
-    clients: { total: clientsTotal, new_30d: clientsNew },
+    clients: {
+      total: clientsTotal,
+      new_30d: clientsNew,
+      new_visits_30d: newVisits,
+      returning_visits_30d: returningVisits,
+      rebook_rate: rebookRate,
+      lapsed,
+      lapsed_count: lapsedCount,
+    },
     upcoming,
     revenue_by_day: revenueByDay,
     bookings_by_hour: bookingsByHour,
