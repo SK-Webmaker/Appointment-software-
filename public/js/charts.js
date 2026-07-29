@@ -1,6 +1,7 @@
 // Minimal SVG bar chart following the house dataviz rules:
 // thin marks with 4px rounded data-ends anchored to the baseline, hairline
 // grid, muted axis ink, per-mark hover tooltip. Single-series only (no legend).
+import { esc } from './ui.js';
 
 let tipEl = null;
 function tip() {
@@ -57,7 +58,9 @@ export function barChart(container, { data, color = '#3987e5', height = 210, for
     bars += `<path d="${path}" fill="${color}" data-i="${i}" class="bar-mark" style="cursor:default"/>`;
     // hover hit target wider than the mark
     bars += `<rect x="${padL + slot * i}" y="${padT}" width="${slot}" height="${plotH}" fill="transparent" data-i="${i}" class="bar-hit"/>`;
-    labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="#8b98ad">${d.label}</text>`;
+    // Labels are escaped: today they're only hours and dates, but a chart of
+    // service or client names would otherwise become a stored-XSS route.
+    labels += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="10.5" fill="#8b98ad">${esc(d.label)}</text>`;
   });
 
   container.innerHTML = `
@@ -76,7 +79,7 @@ export function barChart(container, { data, color = '#3987e5', height = 210, for
     const d = data[i];
     marks.forEach((m, j) => (m.style.filter = j === i ? 'brightness(1.25)' : 'brightness(0.75)'));
     const t = tip();
-    t.innerHTML = `<div class="t-label">${d.sub || d.label}</div><div class="t-value">${format(d.value)}</div>`;
+    t.innerHTML = `<div class="t-label">${esc(d.sub || d.label)}</div><div class="t-value">${esc(format(d.value))}</div>`;
     t.style.display = 'block';
     const pad = 12;
     let x = e.clientX + pad, y = e.clientY - 36;

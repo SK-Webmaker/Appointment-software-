@@ -178,6 +178,28 @@ Software can't do these for you:
 - **Open Stripe/Twilio/Resend accounts in the business's own name** so money and
   messages flow through their accounts, not yours.
 
+## 7b. Uploaded spreadsheets (v1.17 · hardened v1.21.1)
+
+The client importer reads `.xlsx` files, which are ZIP archives — so a hostile
+upload can be a **decompression bomb**: a few hundred kilobytes that expand to
+gigabytes and exhaust the server's memory. The reader therefore:
+
+- caps any single part at **64 MB inflated** and the whole workbook at
+  **128 MB**, passing `maxOutputLength` to `zlib` so inflation is aborted at the
+  limit rather than after the fact;
+- caps the archive at **512 entries**;
+- bounds-checks every attacker-controlled offset and length in the ZIP
+  directory, so a truncated or doctored archive fails as a clean `400` instead
+  of a crash;
+- never writes to disk and never resolves entry names as paths, so there is no
+  zip-slip surface;
+- parses the XML with plain string scanning — there is no entity resolution, so
+  no XXE / billion-laughs vector.
+
+Verified: a 199 KB bomb that inflates to 200 MB is refused with `400` in under
+100 ms and the server stays responsive; non-ZIP, truncated and empty uploads
+each return `400`, not `500`.
+
 ## 8. Verified by automated tests
 
 The end-to-end suites (66 checks across core, pricing, receipts/reviews, and a
