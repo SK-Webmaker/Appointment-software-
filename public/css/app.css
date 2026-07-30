@@ -38,6 +38,11 @@ html, body { height: 100%; }
    wide for the screen, which throws label/value proportions out and widens
    content until the layout overflows. Pin it to the authored sizes. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* The workspace runs as a home-screen app, so it holds one scale: `manipulation`
+   drops the double-tap-to-zoom gesture (and its 300ms click delay) while
+   leaving panning and scrolling untouched. Pinch is cancelled in js/nozoom.js,
+   because iOS ignores the viewport's user-scalable=no. */
+html, body { touch-action: manipulation; }
 body {
   font-family: var(--font);
   font-size: 14px;

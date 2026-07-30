@@ -155,6 +155,17 @@ npm run reset-demo   # same thing from the terminal
 - Print / save-as-PDF invoice, mark sent, void, delete
 - Outstanding-balance and collected-this-month tiles
 
+### 📱 Runs as an app from the home screen
+- Add the workspace to an iPhone/Android home screen and it opens full-screen with
+  your business's own name and icon (web manifest + Apple touch icons).
+- **Fixed scale, like a native app** — pinch-zoom and double-tap zoom are disabled in
+  the workspace, so a stray gesture can't leave the interface zoomed and offset
+  mid-service. Scrolling, sideways swiping on the calendar and typing all behave
+  normally. (iOS deliberately ignores `user-scalable=no`, so the pinch gesture is
+  cancelled in code; double-tap is handled by `touch-action`.)
+- The **public booking page is deliberately left zoomable**, so customers who need to
+  enlarge text still can.
+
 ### 📊 Dashboard
 - **Today at a glance** — the operational view the owner opens on: how many
   appointments, how many are done vs still to come, what's actually been taken

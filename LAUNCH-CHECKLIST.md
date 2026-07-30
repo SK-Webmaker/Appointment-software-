@@ -135,6 +135,11 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Parameterized SQL everywhere, HTML-escaped rendering, path-traversal-safe static serving
 - ✅ Single-file SQLite database (one-file backup/restore), demo seed + one-click reset
 - ✅ **Phone-first responsive UI** — full-width pages, slide-out labelled nav, thumb-sized controls, no clipped values; verified across every screen at iPhone width
+- ✅ **Fixed scale, like a native app**: pinch-zoom and double-tap zoom are off in the workspace, so a
+  stray gesture can't leave the UI zoomed and offset on the home-screen install. Pinch is cancelled in
+  JS (iOS ignores `user-scalable=no`), double-tap by `touch-action: manipulation` — no tap is ever
+  cancelled by our code, so nothing can be swallowed. Scrolling (page, modal, sideways calendar) and
+  typing are untouched. **The public booking page stays zoomable** for customer accessibility
 - ✅ **One control scale on phones**: 44px inputs/buttons, 40px icon buttons, 38px segmented and
   colour controls, shared `.chk` checkbox and `.color-dot` swatch — so every screen reads as one system
 - ✅ **No horizontal overflow anywhere** — audited at 320/360/390/402/430px, both in Chromium and with

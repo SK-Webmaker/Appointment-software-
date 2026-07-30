@@ -14,6 +14,7 @@ import { renderPos } from './pages/pos.js';
 import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
 import { mountIntro, adoptBootSplash } from './intro.js';
+import { lockZoom } from './nozoom.js';
 
 export const state = {
   user: null,
@@ -245,4 +246,5 @@ async function boot() {
 }
 
 window.addEventListener('hashchange', () => { if (state.user) navigate(); });
+lockZoom(); // fixed scale — the workspace runs as a home-screen app
 boot();
