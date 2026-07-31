@@ -301,6 +301,7 @@ const DEFAULT_SETTINGS = {
   // "no past times today" filter correct even when the server runs in UTC.
   business_tz: '',
   booking_lead_min: '0',  // minimum notice before an online slot can be booked (minutes)
+  rebook_weeks_default: '4', // "see you in N weeks" — the usual gap for this business
   // Owner's preferred visible calendar window (minutes from midnight). Empty =
   // auto (a couple of hours around opening time). Purely a display preference.
   cal_start_min: '',

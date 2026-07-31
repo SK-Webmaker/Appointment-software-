@@ -347,6 +347,11 @@ a { color: var(--accent); text-decoration: none; }
   accent-color: var(--accent); cursor: pointer;
 }
 
+/* Rebook "how far ahead" presets — a full-width segmented row so the usual
+   gaps are one tap away, and they stay comfortable on a phone. */
+.rebook-seg { display: flex; width: 100%; }
+.rebook-seg button { flex: 1; justify-content: center; padding: 9px 6px; }
+
 /* Colour pickers (staff calendar colour, brand accent) — one shared control so
    they size and highlight identically, and can grow for thumbs on a phone. */
 .color-row { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 2px 0; }

@@ -22,6 +22,11 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
   a notes panel in the booking editor the moment a client is picked (with a link to their record),
   a marker beside noted clients in the search list, and the note in the dashboard's run of the day.
   Verified owner-only — the field never reaches the booking page or any public endpoint
+- ✅ **Rebook in X weeks** from any appointment: one-tap 2/3/4/6/8/12-week presets or a typed
+  number, defaulting to the salon's usual gap (Settings → Hours). Carries the client, team
+  member, every service, the duration and the time of day; shows the exact resulting date and
+  time before you confirm, flags a closed day or a taken slot first (declining books nothing),
+  and jumps the calendar to the new date once booked
 - ✅ Multi-service appointments editable in the calendar (add/remove services; duration auto-sums, even for odd totals like 5h 30m)
 - ✅ **"Calculated time" summary card** — live total duration, service count and exact end time as you build the booking
 - ✅ Clean, phone-friendly styled dropdowns throughout the editor (large tap targets)

@@ -47,6 +47,12 @@ npm run reset-demo   # same thing from the terminal
   pick them. An amber marker always appears (even on a short booking) so nothing is
   missed, the note itself shows when the block has room, and the full text is in the
   hover tooltip. Owner-only — customers never see it.
+- **🔁 Rebook in X weeks** — open a client's appointment, hit **Rebook**, and tap
+  2 / 3 / 4 / 6 / 8 / 12 weeks (or type any number of weeks). Everything is carried
+  over — same client, team member, services, duration and time of day — and the dialog
+  shows the exact date and time you're about to book before you confirm, plus a warning
+  if that day is closed or the slot is already taken. Set the salon's usual gap in
+  **Settings → Hours** and that's what it suggests every time.
 - **Multi-service appointments with a live "calculated time" total** — add/remove services
   in the editor and the duration auto-sums (even for odd totals like 5h 30m); a summary
   card shows the running total, service count and the exact end time
@@ -281,7 +287,7 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 
 ### ⚙️ Settings
 - Business profile (shown on invoices + booking page), working hours, **working
-  days**, slot interval
+  days**, slot interval, **usual rebooking gap**
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
 - Password change, **email verification**, demo-data reset

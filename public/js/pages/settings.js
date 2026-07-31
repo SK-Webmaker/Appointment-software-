@@ -102,6 +102,10 @@ export async function renderSettings(container) {
               <select name="cal_end_min" class="nice-select">${calHourOpts(s.cal_end_min, 'Auto (2h after close)', true)}</select></div>
           </div>
           <div class="hint" style="margin-top:-4px">How much of the day your calendar shows and scrolls through — set it wider to slot in early/late walk-ins. Appointments outside this window still always show.</div>
+          <div class="field"><label>Usual rebooking gap</label>
+            <select name="rebook_weeks_default" class="nice-select">${[2, 3, 4, 5, 6, 8, 10, 12]
+              .map((w) => `<option value="${w}" ${Number(s.rebook_weeks_default || 4) === w ? 'selected' : ''}>${w} weeks</option>`).join('')}</select>
+            <div class="hint">What <b>Rebook</b> suggests when you book a client's next visit from the calendar. You can still change it each time.</div></div>
           <div class="field"><label>Time zone</label>
             <input name="business_tz" value="${esc(s.business_tz || '')}" placeholder="${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'e.g. Australia/Melbourne')}">
             <div class="hint">Auto-detected from your device — it keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
@@ -419,6 +423,7 @@ export async function renderSettings(container) {
       open_min: fd.get('open_min'), close_min: fd.get('close_min'),
       slot_interval: fd.get('slot_interval'),
       booking_lead_min: fd.get('booking_lead_min'),
+      rebook_weeks_default: fd.get('rebook_weeks_default'),
       cal_start_min: fd.get('cal_start_min') || '',
       cal_end_min: fd.get('cal_end_min') || '',
       business_tz: String(fd.get('business_tz') || '').trim(),

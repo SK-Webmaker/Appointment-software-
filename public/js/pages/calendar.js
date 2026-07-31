@@ -517,6 +517,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     footer: `
       ${a ? `<button class="btn danger" id="appt-delete">${icon('trash')} Delete</button>` : ''}
       <div class="spacer"></div>
+      ${a && a.client_id ? `<button class="btn" id="appt-rebook">${icon('reply')} Rebook</button>` : ''}
       ${a ? `<button class="btn" id="appt-invoice">${icon('invoice')} ${a.invoice_id ? 'View invoice' : 'Checkout / bill'}</button>` : ''}
       <button class="btn primary" id="appt-save">${icon('check')} ${a ? 'Save changes' : 'Book appointment'}</button>`,
   });
@@ -706,6 +707,8 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
         location.hash = `#/invoices?open=${inv.id}`;
       } catch (err) { toast(err.message, 'err'); }
     };
+    const rebookBtn = m.querySelector('#appt-rebook');
+    if (rebookBtn) rebookBtn.onclick = () => { m.close(); openRebookModal({ appointment: a, onSaved }); };
   }
 }
 
@@ -803,4 +806,121 @@ export function openBlockModal({ block = null, date, staff_id, start_min, onSave
       onSaved?.();
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Rebook — "see you in N weeks". Carries the same client, services, team member
+// and time of day forward to a date N weeks out, which is how a repeat booking
+// is almost always made at the chair.
+// ---------------------------------------------------------------------------
+
+const REBOOK_PRESETS = [2, 3, 4, 6, 8, 12];
+
+export function openRebookModal({ appointment, onSaved } = {}) {
+  const a = appointment;
+  if (!a) return;
+  const duration = a.end_min - a.start_min;
+  const defaultWeeks = Math.min(52, Math.max(1, Number(state.settings.rebook_weeks_default) || 4));
+  let weeks = defaultWeeks;
+
+  const dateFor = (w) => addDaysStr(a.date, w * 7);
+  const isOpenOn = (dateStr) => {
+    const openDays = String(state.settings.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number);
+    return openDays.includes(parseDate(dateStr).getDay());
+  };
+
+  const m = openModal({
+    title: `Rebook ${a.client_name || 'this client'}`,
+    body: `
+      <form id="rebook-form" class="form-grid">
+        <div class="field span2"><label>How far ahead</label>
+          <div class="seg rebook-seg" id="rb-presets">
+            ${REBOOK_PRESETS.map((w) => `<button type="button" data-w="${w}" class="${w === weeks ? 'active' : ''}">${w}w</button>`).join('')}
+          </div>
+        </div>
+        <div class="field"><label>Or exact weeks</label>
+          <input type="number" name="weeks" min="1" max="52" step="1" value="${weeks}" inputmode="numeric"></div>
+        <div class="field"><label>Time</label>
+          <select name="start_min" class="nice-select">${timeOptions(a.start_min, { from: 0, to: 1425 })}</select></div>
+        <div class="field span2"><label>Team member</label>
+          <select name="staff_id" class="nice-select">${state.staff.map((s) =>
+            `<option value="${s.id}" ${s.id === a.staff_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
+        <div class="span2 appt-summary" id="rb-summary"></div>
+        <div class="span2" id="rb-warn"></div>
+        <div class="field span2"><label>Repeating</label>
+          <div class="cell-sub">${esc(a.services_summary || a.service_name || 'Appointment')}
+            · ${duration >= 60 ? `${Math.floor(duration / 60)}h${duration % 60 ? ` ${duration % 60}m` : ''}` : `${duration}m`}</div></div>
+      </form>`,
+    footer: `
+      <div class="spacer"></div>
+      <button class="btn" data-rb-cancel>Cancel</button>
+      <button class="btn primary" id="rb-go">${icon('check')} Rebook</button>`,
+  });
+
+  const form = m.querySelector('#rebook-form');
+  const weeksInp = form.querySelector('[name=weeks]');
+  const startSel = form.querySelector('[name=start_min]');
+  const staffSel = form.querySelector('[name=staff_id]');
+  const summaryEl = form.querySelector('#rb-summary');
+  const warnEl = form.querySelector('#rb-warn');
+  const presets = form.querySelector('#rb-presets');
+
+  const refresh = () => {
+    weeks = Math.min(52, Math.max(1, Number(weeksInp.value) || defaultWeeks));
+    const date = dateFor(weeks);
+    const start = Number(startSel.value);
+    presets.querySelectorAll('[data-w]').forEach((b) => b.classList.toggle('active', Number(b.dataset.w) === weeks));
+    summaryEl.innerHTML = `<span class="as-dur">${icon('calendar', 14)} ${esc(fmtDate(date))}</span>
+      <span class="as-end">${fmtTime(start)} – ${fmtTime(Math.min(1440, start + duration))}</span>`;
+    warnEl.innerHTML = isOpenOn(date) ? '' :
+      `<div class="hint" style="color:var(--amber)">${icon('alert', 13)} That's a day you're normally closed — you can still book it.</div>`;
+  };
+  presets.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-w]');
+    if (!b) return;
+    weeksInp.value = b.dataset.w;
+    refresh();
+  });
+  weeksInp.addEventListener('input', refresh);
+  startSel.addEventListener('change', refresh);
+  refresh();
+
+  m.querySelector('[data-rb-cancel]').onclick = () => m.close();
+
+  const book = async (force = false) => {
+    const date = dateFor(weeks);
+    const start = Number(startSel.value);
+    const payload = {
+      client_id: a.client_id,
+      service_id: a.service_id,
+      service_ids: String(a.service_ids_csv || '').split(',').map(Number).filter(Boolean),
+      staff_id: Number(staffSel.value),
+      date,
+      start_min: start,
+      end_min: Math.min(1440, start + duration),
+      status: 'booked',
+      notes: a.notes || '',
+      force,
+    };
+    try {
+      await api.post('/api/appointments', payload);
+      toast(`Rebooked for ${fmtDate(date)}`);
+      m.close();
+      cal.date = date;          // jump the calendar to the new booking
+      onSaved?.();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const blk = err.data?.block;
+        const ok = blk
+          ? await confirmDialog('Blocked time',
+              `${esc(fmtDate(date))} at that time is blocked out${blk.reason ? ` — <b>${esc(blk.reason)}</b>` : ''}. Book over it anyway?`,
+              { okText: 'Book anyway' })
+          : await confirmDialog('Double booking',
+              `<b>${esc(err.data?.conflict?.client_name || 'Another appointment')}</b> is already booked at ${fmtTime(err.data?.conflict?.start_min || 0)} that day. Book anyway?`,
+              { okText: 'Double-book' });
+        if (ok) book(true);
+      } else toast(err.message, 'err');
+    }
+  };
+  m.querySelector('#rb-go').onclick = () => book();
 }
