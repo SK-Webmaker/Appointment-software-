@@ -1498,7 +1498,12 @@ table.data th.num { text-align: right; }
 
   /* Checkboxes are hard to hit at their default size. The label wrapping them
      carries the real tap area, so give that a comfortable height too. */
-  input.chk, input[type=checkbox], .field input[type=checkbox] { width: 22px; height: 22px; flex: none; }
+  /* .wiz-svc is listed because its own rule is more specific than the bare
+     element selector and would otherwise keep the setup wizard's tick boxes at
+     16px — the first screen a new owner touches is the worst place for a tap
+     target smaller than everywhere else. */
+  input.chk, input[type=checkbox], .field input[type=checkbox],
+  .wiz-svc input[type=checkbox] { width: 22px; height: 22px; flex: none; }
   label:has(> .chk), label:has(> input[type=checkbox]) { min-height: 44px; align-items: center; }
   .notif-toggle { min-height: 44px; }
   /* Any select outside .field still gets the shared control height. */
