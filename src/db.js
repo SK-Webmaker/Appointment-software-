@@ -295,6 +295,12 @@ const DEFAULT_SETTINGS = {
   open_min: '480',        // 08:00
   close_min: '1200',      // 20:00
   open_days: '1,2,3,4,5,6', // weekday numbers, 0=Sun … 6=Sat (default Mon–Sat)
+  // Per-weekday exceptions, keyed by weekday number:
+  //   {"0":{"every_weeks":2,"anchor":"2026-08-09","open_min":600,"close_min":900}}
+  // every_weeks 2-4 runs the day only on alternating weeks counted from the
+  // anchor date; open_min/close_min override the usual hours for that day.
+  // Empty object = every open day runs weekly on the usual hours.
+  day_rules: '{}',
   slot_interval: '15',
   // IANA time zone (e.g. 'Australia/Melbourne'), auto-captured from the owner's
   // browser. Empty = use the server's own clock. Makes the booking page's

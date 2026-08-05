@@ -6,6 +6,7 @@ import {
   openModal, confirmDialog, toast, timeOptions, statusChip, initials, avatarColor,
 } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
+import { hoursForDate, describeRule, parseDayRules } from '../hours.js';
 
 const PX_PER_MIN = 1.15;
 const SNAP = 15;
@@ -28,6 +29,16 @@ function visibleStaff() {
 const openMin = () => Number(state.settings.open_min || 480);
 const closeMin = () => Number(state.settings.close_min || 1200);
 
+// Opening hours for one date — respects days that run only every 2nd/3rd/4th
+// week and days with their own hours. Returns null when the salon is shut.
+const hoursOn = (date) => hoursForDate(date, state.settings);
+// The dates currently on screen: one in day view, seven in week view.
+function visibleDates() {
+  if (cal.view !== 'week') return [cal.date];
+  const ws = weekStart(cal.date);
+  return Array.from({ length: 7 }, (_, i) => addDaysStr(ws, i));
+}
+
 // The calendar shows a WIDER range than opening hours (Fresha-style): a couple
 // of padding hours before/after, expanded further to include any appointment
 // the owner squeezed in outside hours. Opening hours are the normal (bookable)
@@ -39,8 +50,13 @@ function computeRange() {
   // otherwise it's a couple of hours around opening time. Either way it expands
   // to include any appointment booked outside the window so none is hidden.
   const cs = state.settings.cal_start_min, ce = state.settings.cal_end_min;
-  let lo = (cs !== '' && cs != null) ? Number(cs) : openMin() - RANGE_PAD;
-  let hi = (ce !== '' && ce != null) ? Number(ce) : closeMin() + RANGE_PAD;
+  // On Auto, the band follows the hours of the days actually on screen, so a
+  // day with its own longer hours is never cut off at the top or bottom.
+  const shown = visibleDates().map(hoursOn).filter(Boolean);
+  const dayOpen = shown.length ? Math.min(...shown.map((h) => h.open)) : openMin();
+  const dayClose = shown.length ? Math.max(...shown.map((h) => h.close)) : closeMin();
+  let lo = (cs !== '' && cs != null) ? Number(cs) : dayOpen - RANGE_PAD;
+  let hi = (ce !== '' && ce != null) ? Number(ce) : dayClose + RANGE_PAD;
   for (const a of [...(cal.appointments || []), ...(cal.blocks || [])]) {
     lo = Math.min(lo, a.start_min); hi = Math.max(hi, a.end_min);
   }
@@ -55,14 +71,13 @@ const minFor = (y) => Math.round((y / PX_PER_MIN + gridStart()) / SNAP) * SNAP;
 // Shaded off-hours bands for one day column. On a closed day the whole column
 // is off-hours; otherwise the areas before open and after close are shaded.
 function offHoursHtml(date) {
-  const dow = parseDate(date).getDay();
-  const openDays = String(state.settings.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number);
   const gs = gridStart(), ge = gridEnd();
   const band = (from, to) => `<div class="off-hours" style="top:${(from - gs) * PX_PER_MIN}px;height:${(to - from) * PX_PER_MIN}px"></div>`;
-  if (!openDays.includes(dow)) return band(gs, ge); // closed day → all shaded
+  const hours = hoursOn(date);
+  if (!hours) return band(gs, ge); // shut that day → whole column shaded
   let html = '';
-  if (openMin() > gs) html += band(gs, openMin());
-  if (closeMin() < ge) html += band(closeMin(), ge);
+  if (hours.open > gs) html += band(gs, hours.open);
+  if (hours.close < ge) html += band(hours.close, ge);
   return html;
 }
 
@@ -140,6 +155,7 @@ function draw(container) {
           </div>
         </div>
       </div>
+      ${cal.view === 'day' ? closedNoticeHtml(cal.date) : ''}
       <div class="cal-scroll" id="cal-scroll">
         ${cal.view === 'day' ? dayGridHtml(staffList) : weekGridHtml()}
       </div>
@@ -250,6 +266,23 @@ function blockHtml(b) {
 /** Blocks that apply to one staff column on one date (null staff = everyone). */
 function blocksForCol(date, staffId) {
   return (cal.blocks || []).filter((b) => b.date === date && (!b.staff_id || !staffId || b.staff_id === staffId));
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Why the salon is shut today. Without this an "off" week of an alternating
+ * day is just a fully shaded column, which reads as a fault rather than a
+ * setting. The owner can still book over it — the grid stays clickable.
+ */
+function closedNoticeHtml(date) {
+  if (hoursOn(date)) return '';
+  const dow = parseDate(date).getDay();
+  const rule = parseDayRules(state.settings.day_rules)[dow];
+  const why = rule && rule.every_weeks > 1
+    ? `${DAY_NAMES[dow]}s only run ${describeRule(rule).replace(/^E/, 'e')} — this is an off week`
+    : `Closed on ${DAY_NAMES[dow]}s`;
+  return `<div class="cal-closed">${icon('lock', 14)}<span>${esc(why)}. Online booking is off; you can still book in here yourself.</span></div>`;
 }
 
 function dayGridHtml(staffList) {
@@ -824,10 +857,7 @@ export function openRebookModal({ appointment, onSaved } = {}) {
   let weeks = defaultWeeks;
 
   const dateFor = (w) => addDaysStr(a.date, w * 7);
-  const isOpenOn = (dateStr) => {
-    const openDays = String(state.settings.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number);
-    return openDays.includes(parseDate(dateStr).getDay());
-  };
+  const isOpenOn = (dateStr) => hoursOn(dateStr) !== null;
 
   const m = openModal({
     title: `Rebook ${a.client_name || 'this client'}`,

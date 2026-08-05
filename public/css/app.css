@@ -219,6 +219,12 @@ a { color: var(--accent); text-decoration: none; }
   transition: border-color 0.12s;
   width: 100%; max-width: 100%; min-width: 0;
 }
+/* Full width is for things you type or pick in — a checkbox stretched to the
+   field width swallows its own label. Sizing still comes from the shared .chk
+   control below; this only stops the full-width rule reaching a tick box. */
+.field input[type=checkbox], .field input[type=radio] {
+  width: 17px; height: 17px; min-height: 0; padding: 0; flex: none;
+}
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
 .field textarea { resize: vertical; min-height: 70px; }
 .field .hint { font-size: 11.5px; color: var(--muted); }
@@ -341,11 +347,45 @@ a { color: var(--accent); text-decoration: none; }
 .seg button.active { background: var(--panel-3); color: var(--accent); }
 
 /* One checkbox control everywhere, so every "tick this" reads the same and can
-   grow to a thumb-friendly size on a phone. */
-.chk {
+   grow to a thumb-friendly size on a phone. Written as `input.chk` so it also
+   outranks the full-width `.field input` rule wherever a form uses it. */
+input.chk {
   width: 17px; height: 17px; flex: none;
   accent-color: var(--accent); cursor: pointer;
 }
+
+/* Your week: one row per weekday (closed / weekly / every 2nd–4th week), with
+   a start date and its own hours revealed only when that day needs them. */
+.week-rules { display: flex; flex-direction: column; gap: 6px; }
+/* These parts are flex containers, and `display: flex` outranks the [hidden]
+   attribute's own display:none — so hiding has to be said explicitly or every
+   day would show a start date and hours it doesn't use. */
+.week-rules [hidden] { display: none; }
+/* The day and how often it runs share the first line; anything that day needs
+   on top of that flows underneath. Settings cards sit two-up on a desktop, so
+   a row never gets much more width than it does on a phone — one stacked
+   layout at every size beats a wide one that only fits in theory. */
+.wk-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(172px, auto);
+  gap: 9px 10px; align-items: center; padding: 9px 11px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+}
+.wk-row.off { opacity: .62; }
+.wk-name { font-size: 13px; font-weight: 600; color: var(--text); min-width: 0; }
+/* Held wide enough for "Every 2nd week" — the choice this control exists for
+   is also its longest label, so it must never be the one that gets clipped. */
+.wk-freq { min-width: 0; }
+/* One line per thing the day needs, rather than letting flex decide where to
+   wrap — the row is narrow (settings cards sit two-up) and a guessed wrap put
+   labels outside the card. */
+.wk-extra { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wk-hours { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; min-width: 0; }
+.wk-when, .wk-custom, .wk-times { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.wk-times { flex: 1 1 200px; }
+.wk-custom { flex: 0 0 auto; cursor: pointer; }
+.wk-when span, .wk-custom span, .wk-to { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.wk-when input[type=date] { flex: 1 1 0; width: auto; min-width: 0; max-width: 210px; font-size: 12.5px; padding: 5px 8px; }
+.wk-times select { flex: 1 1 0; width: auto; min-width: 0; font-size: 12.5px; padding: 5px 8px; }
 
 /* Rebook "how far ahead" presets — a full-width segmented row so the usual
    gaps are one tap away, and they stay comfortable on a phone. */
@@ -594,6 +634,15 @@ table.data th.num { text-align: right; }
   background: var(--panel);
   position: sticky; top: 0; z-index: 5;
 }
+/* Says why a shaded-out day is shut — an off week of an alternating day would
+   otherwise look like a fault rather than a setting. */
+.cal-closed {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 16px; font-size: 12.5px; color: var(--text-2);
+  background: var(--panel-2); border-bottom: 1px solid var(--border);
+}
+.cal-closed svg { flex: none; margin-top: 1px; color: var(--muted); }
+
 /* The date and its two chevrons travel together — grouping them stops the
    toolbar wrapping between them and stranding an arrow on its own row. */
 .cal-nav { display: flex; align-items: center; gap: 6px; flex: none; }
@@ -1449,7 +1498,7 @@ table.data th.num { text-align: right; }
 
   /* Checkboxes are hard to hit at their default size. The label wrapping them
      carries the real tap area, so give that a comfortable height too. */
-  .chk, input[type=checkbox] { width: 22px; height: 22px; flex: none; }
+  input.chk, input[type=checkbox], .field input[type=checkbox] { width: 22px; height: 22px; flex: none; }
   label:has(> .chk), label:has(> input[type=checkbox]) { min-height: 44px; align-items: center; }
   .notif-toggle { min-height: 44px; }
   /* Any select outside .field still gets the shared control height. */

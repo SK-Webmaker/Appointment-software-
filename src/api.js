@@ -20,6 +20,9 @@ import {
   createPosCheckout, verifyPosSession, createStripeRefund,
 } from './stripe.js';
 import { VERSION } from './version.js';
+// Shared with the calendar and the booking page (served from public/js), so all
+// three answer "is this date open, and between what times" identically.
+import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public/js/hours.js';
 import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
 import { renderEmail } from './email-html.js';
@@ -247,7 +250,7 @@ const EDITABLE_SETTINGS = new Set([
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
-  'open_days', 'brand_scheme',
+  'open_days', 'day_rules', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
   'owner_notify_enabled',
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
@@ -289,8 +292,30 @@ function applySettings(body) {
       setSetting(k, val);
       continue;
     }
+    // Per-day availability rules: re-serialise from the validated shape so only
+    // well-formed rules are ever stored, and snap each repeating day's start
+    // date onto its own weekday (an anchor on the wrong day would put the
+    // whole alternating pattern out of phase).
+    if (k === 'day_rules') {
+      if (typeof v === 'string' && v.length > settingCap(k)) continue;
+      const rules = parseDayRules(v);
+      for (const [dow, rule] of Object.entries(rules)) {
+        if (rule.anchor) rule.anchor = snapToWeekday(rule.anchor, Number(dow));
+      }
+      setSetting(k, JSON.stringify(rules));
+      continue;
+    }
     setSetting(k, str(v, settingCap(k)));
   }
+}
+
+/** Move a date forward to the next occurrence of `dow` (0=Sun), if it isn't one. */
+function snapToWeekday(dateStr, dow) {
+  const shift = ((dow - weekdayOf(dateStr)) % 7 + 7) % 7;
+  if (!shift) return dateStr;
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + shift);
+  return d.toISOString().slice(0, 10);
 }
 
 // Shared field schemas (validate.js): type checks, length limits, and
@@ -1770,9 +1795,10 @@ route('GET', '/api/dashboard', async () => {
   // Free windows left in the day: opening hours minus appointments and blocks,
   // from now onwards, so the owner can see where they could fit someone in.
   const gaps = [];
-  if (isOpenDay(today)) {
-    const openM = Number(getSetting('open_min', '480'));
-    const closeM = Number(getSetting('close_min', '1200'));
+  const todayHours = hoursFor(today);
+  if (todayHours) {
+    const openM = todayHours.open;
+    const closeM = todayHours.close;
     const busy = [
       ...liveToday.map((a) => ({ start_min: a.start_min, end_min: a.end_min })),
       ...db.prepare('SELECT start_min, end_min FROM time_blocks WHERE date = ?').all(today),
@@ -1911,6 +1937,10 @@ route('GET', '/api/public/info', async () => {
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
     open_days: String(getSetting('open_days', '0,1,2,3,4,5,6')).split(',').map(Number),
+    // The actual dates customers may book, worked out here rather than in the
+    // browser — a day that only runs on alternating weeks can't be derived
+    // from the weekday alone.
+    open_dates: openDatesFrom(nowParts(getSetting('business_tz', '')).date, hourSettings(), 21),
     brand: {
       accent: getSetting('brand_accent', '#38bdf8'),
       theme: getSetting('brand_theme', 'dark'),
@@ -1932,20 +1962,32 @@ route('GET', '/api/public/info', async () => {
   };
 }, { auth: false });
 
-/** Weekday numbers (0=Sun…6=Sat) the business is open. */
-function openDays() {
-  return String(getSetting('open_days', '0,1,2,3,4,5,6'))
-    .split(',').map((d) => Number(d.trim())).filter((d) => d >= 0 && d <= 6);
+/** The hour settings the shared rules engine needs. */
+function hourSettings() {
+  return {
+    open_days: getSetting('open_days', '0,1,2,3,4,5,6'),
+    open_min: getSetting('open_min', '480'),
+    close_min: getSetting('close_min', '1200'),
+    day_rules: getSetting('day_rules', '{}'),
+  };
+}
+
+/**
+ * Opening hours for a date, or null when shut — honouring both the weekly
+ * open days and any per-day rule (alternating weeks, different hours).
+ */
+function hoursFor(date) {
+  return hoursForDate(date, hourSettings());
 }
 
 function isOpenDay(date) {
-  return openDays().includes(new Date(`${date}T12:00:00`).getDay());
+  return hoursFor(date) !== null;
 }
 
 function freeSlotsFor(staffId, date, durationMin) {
-  if (!isOpenDay(date)) return []; // closed that day of the week
-  const open = Number(getSetting('open_min', '480'));
-  const close = Number(getSetting('close_min', '1200'));
+  const hours = hoursFor(date);
+  if (!hours) return []; // closed: weekday off, or an off week for this day
+  const { open, close } = hours;
   const step = Math.max(5, Number(getSetting('slot_interval', '15')));
   const busy = db.prepare(
     "SELECT start_min, end_min FROM appointments WHERE staff_id = ? AND date = ? AND status NOT IN ('cancelled', 'no_show')"
@@ -2033,6 +2075,11 @@ route('POST', '/api/public/book', async ({ req }) => {
   const phone = str(b.client?.phone, 50);
   if (!first) throw httpError(400, 'Your first name is required');
   if (!phone && !str(b.client?.email)) throw httpError(400, 'A phone number or email is required');
+
+  // Shut that day — a closed weekday, or an off week of a day that only runs
+  // every 2nd/3rd/4th week. Said plainly, because "that time was just taken"
+  // would send someone hunting for another slot that was never there.
+  if (!isOpenDay(b.date)) throw httpError(409, "We're closed that day — please pick another date");
 
   let staffId = Number(b.staff_id) || 0;
   if (staffId) {

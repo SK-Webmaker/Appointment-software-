@@ -256,11 +256,23 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - All images are stored in the business's own database as size-capped data URIs;
   nothing is uploaded to a third party
 
-### 📆 Working days
-- Pick the days the business is open (*Settings → Hours & booking* or the setup
-  wizard) — closed days **never appear** on the customer booking page's date
-  picker, and the server refuses closed-day bookings even from crafted requests
-- Staff can still add walk-ins on a closed day from the calendar (one-off openings)
+### 📆 Working days — including every-second-week days
+- *Settings → Hours & booking → **Your week*** gives each weekday its own line:
+  **Closed**, **Every week**, or **every 2nd / 3rd / 4th week** — plus an
+  optional **"Own hours"** for that day. So "we open every second Sunday, 10
+  till 3" is two taps, and a late-night Thursday is one.
+- A repeating day is anchored to a **start date you pick**, and alternates on and
+  off from there (in both directions, so past weeks read correctly too). Pick any
+  date and Kairo snaps it onto that weekday.
+- Off weeks behave exactly like closed days: they **never appear** on the customer
+  booking page's date picker, and the server refuses those bookings even from a
+  crafted request. On the calendar an off week is shaded end to end with a line
+  saying *why* — "Sundays only run every 2nd week, 10 AM–3 PM — this is an off
+  week" — so it never reads as a fault.
+- Staff can still add walk-ins on a closed day or an off week from the calendar
+  (one-off openings)
+- Because the offered dates can now skip a week, the booking page's date strip
+  **names the month** whenever the dates it shows cross one.
 
 ### ✉️ Branded HTML emails
 - Confirmations, reminders, receipts and review requests go out as **polished,
@@ -286,8 +298,9 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - Online bookings marked ⚡ on the calendar
 
 ### ⚙️ Settings
-- Business profile (shown on invoices + booking page), working hours, **working
-  days**, slot interval, **usual rebooking gap**
+- Business profile (shown on invoices + booking page), usual hours, **your week**
+  (per-day: closed / weekly / every 2nd–4th week, each with optional own hours),
+  slot interval, **usual rebooking gap**
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
 - Password change, **email verification**, demo-data reset

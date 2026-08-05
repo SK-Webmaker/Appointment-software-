@@ -4,12 +4,97 @@ import { api } from '../api.js';
 import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
 import { SCHEMES } from '../schemes.js';
+import { parseDayRules } from '../hours.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
 const keySaved = (set) => (set === '1'
   ? ' <span style="color:var(--green);font-weight:600;font-size:11px">● saved</span>' : '');
 const keyPlaceholder = (set, empty) => (set === '1' ? '•••••••••• — leave blank to keep' : empty);
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** The next date on or after today that falls on weekday `dow` (0=Sun). */
+function nextWeekday(dow) {
+  const d = new Date();
+  d.setDate(d.getDate() + (((dow - d.getDay()) % 7) + 7) % 7);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * One row per weekday: open or closed, how often it runs, and whether it keeps
+ * its own hours. Replaces the old on/off day chips — a day that runs every
+ * second week can't be expressed as a single toggle.
+ */
+function weekRulesHtml(s) {
+  const open = String(s.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number);
+  const rules = parseDayRules(s.day_rules);
+  const usualOpen = Number(s.open_min || 480);
+  const usualClose = Number(s.close_min || 1200);
+
+  return DAY_NAMES.map((name, dow) => {
+    const isOpen = open.includes(dow);
+    const rule = rules[dow] || {};
+    const every = isOpen ? (rule.every_weeks || 1) : 0;   // 0 = closed
+    const custom = rule.open_min !== undefined;
+    const anchor = rule.anchor || nextWeekday(dow);
+    return `
+      <div class="wk-row${isOpen ? '' : ' off'}" data-day="${dow}">
+        <div class="wk-name">${name}</div>
+        <select class="wk-freq nice-select" data-freq aria-label="${name} availability">
+          <option value="0" ${every === 0 ? 'selected' : ''}>Closed</option>
+          <option value="1" ${every === 1 ? 'selected' : ''}>Every week</option>
+          <option value="2" ${every === 2 ? 'selected' : ''}>Every 2nd week</option>
+          <option value="3" ${every === 3 ? 'selected' : ''}>Every 3rd week</option>
+          <option value="4" ${every === 4 ? 'selected' : ''}>Every 4th week</option>
+        </select>
+        <div class="wk-extra" ${every === 0 ? 'hidden' : ''}>
+          <label class="wk-when" ${every > 1 ? '' : 'hidden'}>
+            <span>Starting</span>
+            <input type="date" data-anchor value="${esc(anchor)}" aria-label="${name} start date">
+          </label>
+          <div class="wk-hours">
+            <label class="wk-custom">
+              <input type="checkbox" class="chk" data-custom ${custom ? 'checked' : ''}>
+              <span>Own hours</span>
+            </label>
+            <div class="wk-times" ${custom ? '' : 'hidden'}>
+              <select data-open class="nice-select" aria-label="${name} opening time">${timeOptions(custom ? rule.open_min : usualOpen, { from: 0, to: 1410, step: 30 })}</select>
+              <span class="wk-to">to</span>
+              <select data-close class="nice-select" aria-label="${name} closing time">${timeOptions(custom ? rule.close_min : usualClose, { from: 30, to: 1440, step: 30 })}</select>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/** Read the week rows back into `open_days` + `day_rules`. */
+function readWeekRules(container) {
+  const days = [];
+  const rules = {};
+  for (const row of container.querySelectorAll('#week-rules .wk-row')) {
+    const dow = Number(row.dataset.day);
+    const every = Number(row.querySelector('[data-freq]').value);
+    if (!every) continue;                       // closed — no day, no rule
+    days.push(dow);
+    const rule = {};
+    if (every > 1) {
+      rule.every_weeks = every;
+      rule.anchor = row.querySelector('[data-anchor]').value || nextWeekday(dow);
+    }
+    if (row.querySelector('[data-custom]').checked) {
+      const open = Number(row.querySelector('[data-open]').value);
+      const close = Number(row.querySelector('[data-close]').value);
+      if (close <= open) return { error: `${DAY_NAMES[dow]} closes before it opens` };
+      rule.open_min = open;
+      rule.close_min = close;
+    }
+    if (Object.keys(rule).length) rules[dow] = rule;
+  }
+  if (!days.length) return { error: 'Pick at least one open day' };
+  return { open_days: days.join(','), day_rules: JSON.stringify(rules) };
+}
 
 
 export async function renderSettings(container) {
@@ -77,14 +162,9 @@ export async function renderSettings(container) {
             <div class="field"><label>Closes</label>
               <select name="close_min">${timeOptions(Number(s.close_min || 1200), { from: 780, to: 1440, step: 30 })}</select></div>
           </div>
-          <div class="field"><label>Days you're open</label>
-            <div id="open-days" style="display:flex;gap:6px;flex-wrap:wrap">
-              ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
-                const on = String(s.open_days ?? '0,1,2,3,4,5,6').split(',').map(Number).includes(i);
-                return `<button type="button" class="btn small ${on ? 'primary' : ''}" data-day="${i}" aria-pressed="${on}">${d}</button>`;
-              }).join('')}
-            </div>
-            <div class="hint">Closed days never appear as options on the customer booking page. Staff can still add walk-ins on closed days from the calendar.</div></div>
+          <div class="field"><label>Your week</label>
+            <div class="week-rules" id="week-rules">${weekRulesHtml(s)}</div>
+            <div class="hint">Set each day to closed, weekly, or <b>every 2nd/3rd/4th week</b> — so you can open, say, every second Sunday, with its own hours. Closed days and off weeks never appear on the customer booking page; you can still add a walk-in from the calendar.</div></div>
           <div class="form-grid">
             <div class="field"><label>Online booking slot interval</label>
               <select name="slot_interval">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${Number(s.slot_interval) === v ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
@@ -404,20 +484,26 @@ export async function renderSettings(container) {
     e.preventDefault();
     saveSettings(e.target, ['business_name', 'business_phone', 'business_email', 'business_address']);
   });
-  // day-of-week toggles for "Days you're open"
-  container.querySelector('#open-days').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-day]');
-    if (!b) return;
-    const on = b.getAttribute('aria-pressed') !== 'true';
-    b.setAttribute('aria-pressed', String(on));
-    b.classList.toggle('primary', on);
+  // Each weekday row reveals only the controls its own answer needs: a start
+  // date once it repeats, times once it keeps its own hours.
+  const weekRules = container.querySelector('#week-rules');
+  weekRules.addEventListener('change', (e) => {
+    const row = e.target.closest('.wk-row');
+    if (!row) return;
+    if (e.target.matches('[data-freq]')) {
+      const every = Number(e.target.value);
+      row.classList.toggle('off', every === 0);
+      row.querySelector('.wk-extra').hidden = every === 0;
+      row.querySelector('.wk-when').hidden = every <= 1;
+    }
+    if (e.target.matches('[data-custom]')) {
+      row.querySelector('.wk-times').hidden = !e.target.checked;
+    }
   });
   container.querySelector('#set-hours').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const days = [...container.querySelectorAll('#open-days [data-day]')]
-      .filter((b) => b.getAttribute('aria-pressed') === 'true')
-      .map((b) => b.dataset.day);
-    if (!days.length) { toast('Pick at least one open day', 'err'); return; }
+    const week = readWeekRules(container);
+    if (week.error) { toast(week.error, 'err'); return; }
     const fd = new FormData(e.target);
     state.settings = await api.put('/api/settings', {
       open_min: fd.get('open_min'), close_min: fd.get('close_min'),
@@ -428,8 +514,12 @@ export async function renderSettings(container) {
       cal_end_min: fd.get('cal_end_min') || '',
       business_tz: String(fd.get('business_tz') || '').trim(),
       booking_enabled: e.target.elements.booking_enabled.checked ? '1' : '0',
-      open_days: days.join(','),
+      open_days: week.open_days,
+      day_rules: week.day_rules,
     });
+    // The server snaps each repeating day's start date onto its own weekday, so
+    // redraw the rows from what was actually stored.
+    weekRules.innerHTML = weekRulesHtml(state.settings);
     toast('Hours saved');
   });
   container.querySelector('#set-billing').addEventListener('submit', (e) => {

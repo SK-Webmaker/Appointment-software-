@@ -35,6 +35,12 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ **Extended day view (Fresha-style)**: shows a couple of hours before/after opening
   (and any appointment booked outside hours); the off-hours are shaded but still clickable
   so the owner can slot in an early/late walk-in — the public booking page stays limited to opening hours
+- ✅ **Every-second-week days** (Settings → Hours → *Your week*): each weekday is closed, weekly, or
+  every 2nd/3rd/4th week, with optional hours of its own — so "open every second Sunday, 10 till 3"
+  is a two-tap setting. Anchored to a start date the owner picks (snapped onto that weekday server-side),
+  alternating correctly forwards and backwards. Verified: off weeks are absent from the booking page's
+  dates, a crafted booking on an off week is refused and writes nothing, the calendar shades the day
+  end to end and says why, and Rebook flags a target landing on an off week
 - ✅ **Customizable day-book range** (Settings → Hours): pin a preferred start/end time so the owner can scroll to exactly the hours they want — or leave on Auto
 - ✅ **Block out time** with a private, owner-only reason (lunch, training, day off): shown as a hatched
   band on the calendar, removed from online-booking availability instantly (verified: blocked slots never

@@ -107,6 +107,9 @@
     }
     .date-chip .d-day { font-size: 11px; color: var(--muted); text-transform: uppercase; }
     .date-chip .d-num { font-size: 17px; font-weight: 700; margin-top: 2px; }
+    /* Only shown when the offered dates cross a month, which alternating-week
+       days make common — without it "Sun 5" is ambiguous. */
+    .date-chip .d-mon { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
     .date-chip.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
     .date-chip.sel .d-day { color: var(--accent); }
     .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }

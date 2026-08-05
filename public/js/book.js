@@ -231,17 +231,24 @@ function renderStaffStep() {
 async function renderTimeStep() {
   state.step = 3;
   state.slot = null;
-  // Show the next 14 days the business is actually OPEN — closed weekdays
-  // (Settings → Hours → open days) never appear as options at all.
-  const openDays = Array.isArray(state.info.open_days) && state.info.open_days.length
-    ? state.info.open_days : [0, 1, 2, 3, 4, 5, 6];
-  const days = [];
-  for (let i = 0; i < 45 && days.length < 14; i++) {
-    const d = addDaysStr(todayStr(), i);
-    if (openDays.includes(parseDate(d).getDay())) days.push(d);
+  // Show the next 14 days the business is actually OPEN. The server works the
+  // list out, because a day that only runs on alternating weeks (every second
+  // Sunday, say) can't be told from its weekday alone.
+  let days = (state.info.open_dates || []).map((d) => d.date).filter((d) => d >= todayStr()).slice(0, 14);
+  if (!days.length) {
+    const openDays = Array.isArray(state.info.open_days) && state.info.open_days.length
+      ? state.info.open_days : [0, 1, 2, 3, 4, 5, 6];
+    for (let i = 0; i < 45 && days.length < 14; i++) {
+      const d = addDaysStr(todayStr(), i);
+      if (openDays.includes(parseDate(d).getDay())) days.push(d);
+    }
   }
   if (!days.includes(state.date)) state.date = days[0];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Days that run only every second week leave gaps, so the strip can cross a
+  // month boundary — name the month when it does, or "Sun 5" is ambiguous.
+  const spansMonths = new Set(days.map((d) => d.slice(0, 7))).size > 1;
 
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
@@ -251,7 +258,8 @@ async function renderTimeStep() {
       ${days.map((d) => {
         const dt = parseDate(d);
         return `<button class="date-chip ${d === state.date ? 'sel' : ''}" data-date="${d}">
-          <div class="d-day">${dayNames[dt.getDay()]}</div><div class="d-num">${dt.getDate()}</div></button>`;
+          <div class="d-day">${dayNames[dt.getDay()]}</div><div class="d-num">${dt.getDate()}</div>
+          ${spansMonths ? `<div class="d-mon">${monNames[dt.getMonth()]}</div>` : ''}</button>`;
       }).join('')}
     </div>
     <div id="slots"><div class="empty">Loading times…</div></div>
