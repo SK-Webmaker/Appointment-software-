@@ -548,7 +548,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           : '<b style="color:var(--amber)">pending</b> — the client started but didn\'t finish the deposit payment'}</div>` : ''}
       </form>`,
     footer: `
-      ${a ? `<button class="btn danger" id="appt-delete">${icon('trash')} Delete</button>` : ''}
+      ${a && a.status !== 'cancelled' ? `<button class="btn danger" id="appt-cancel">${icon('x')} Cancel appointment</button>` : ''}
       <div class="spacer"></div>
       ${a && a.client_id ? `<button class="btn" id="appt-rebook">${icon('reply')} Rebook</button>` : ''}
       ${a ? `<button class="btn" id="appt-invoice">${icon('invoice')} ${a.invoice_id ? 'View invoice' : 'Checkout / bill'}</button>` : ''}
@@ -725,13 +725,25 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   m.querySelector('#appt-save').onclick = () => save();
 
   if (a) {
-    m.querySelector('#appt-delete').onclick = async () => {
-      const ok = await confirmDialog('Delete appointment', 'This permanently removes the appointment. Cancelling instead keeps it on record.', { danger: true, okText: 'Delete' });
+    // Cancelling is the only way an appointment comes off the day — it frees
+    // the slot, tells the client, and keeps the booking on record. There is no
+    // separate delete: the two did the same job, except delete told nobody.
+    const cancelBtn = m.querySelector('#appt-cancel');
+    if (cancelBtn) cancelBtn.onclick = async () => {
+      const who = a.client_name ? esc(a.client_name) : 'this client';
+      const ok = await confirmDialog(
+        'Cancel this appointment?',
+        `<b>${who}</b> will be emailed to let them know, and <b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> `
+        + 'goes back on your booking page straight away. It stays on the calendar marked Cancelled.',
+        { danger: true, okText: 'Cancel appointment', cancelText: 'Keep it' },
+      );
       if (!ok) return;
-      await api.del(`/api/appointments/${a.id}`);
-      toast('Appointment deleted');
-      m.close();
-      onSaved?.();
+      try {
+        await api.post(`/api/appointments/${a.id}/cancel`, {});
+        toast('Appointment cancelled — the client has been notified');
+        m.close();
+        onSaved?.();
+      } catch (err) { toast(err.message, 'err'); }
     };
     m.querySelector('#appt-invoice').onclick = async () => {
       try {

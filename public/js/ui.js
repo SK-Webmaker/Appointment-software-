@@ -190,13 +190,16 @@ export function openModal({ title, body, footer = '', wide = false, onClose = nu
   return overlay;
 }
 
-export function confirmDialog(title, message, { danger = false, okText = 'Confirm' } = {}) {
+// `cancelText` exists because the dismiss button is not always "Cancel" — on a
+// dialog that cancels an appointment, two buttons both reading Cancel is a
+// coin toss rather than a choice.
+export function confirmDialog(title, message, { danger = false, okText = 'Confirm', cancelText = 'Cancel' } = {}) {
   return new Promise((resolve) => {
     const m = openModal({
       title,
       body: `<p style="color:var(--text-2);line-height:1.6">${message}</p>`,
       footer: `<div class="spacer"></div>
-        <button class="btn" data-cancel>Cancel</button>
+        <button class="btn" data-cancel>${esc(cancelText)}</button>
         <button class="btn ${danger ? 'danger' : 'primary'}" data-ok>${esc(okText)}</button>`,
       onClose: () => resolve(false),
     });

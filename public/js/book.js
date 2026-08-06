@@ -1,6 +1,7 @@
 // Public booking flow: service → staff → date & time → details → confirmed.
 import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
+import { lockZoom } from './nozoom.js';
 
 const root = document.getElementById('book');
 // state.services is the "cart" — one or more chosen services, booked back-to-
@@ -231,19 +232,33 @@ function renderStaffStep() {
 async function renderTimeStep() {
   state.step = 3;
   state.slot = null;
-  // Show the next 14 days the business is actually OPEN. The server works the
+  // Every open date the business allows booking into — the server works the
   // list out, because a day that only runs on alternating weeks (every second
-  // Sunday, say) can't be told from its weekday alone.
-  let days = (state.info.open_dates || []).map((d) => d.date).filter((d) => d >= todayStr()).slice(0, 14);
-  if (!days.length) {
+  // Sunday, say) can't be told from its weekday alone. The strip shows a
+  // fortnight at a time; the picker beside it reaches the whole horizon, so a
+  // client wanting a slot two or three months out isn't stuck scrolling.
+  let allDays = (state.info.open_dates || []).map((d) => d.date).filter((d) => d >= todayStr());
+  if (!allDays.length) {
     const openDays = Array.isArray(state.info.open_days) && state.info.open_days.length
       ? state.info.open_days : [0, 1, 2, 3, 4, 5, 6];
-    for (let i = 0; i < 45 && days.length < 14; i++) {
+    for (let i = 0; i < 120 && allDays.length < 60; i++) {
       const d = addDaysStr(todayStr(), i);
-      if (openDays.includes(parseDate(d).getDay())) days.push(d);
+      if (openDays.includes(parseDate(d).getDay())) allDays.push(d);
     }
   }
-  if (!days.includes(state.date)) state.date = days[0];
+  if (!allDays.length) {
+    root.innerHTML = `${headHtml()}${stepsHtml()}
+      <div class="empty">${icon('calendar', 22)}<div>There are no dates open for booking right now.</div></div>
+      ${poweredHtml()}`;
+    return;
+  }
+  if (!allDays.includes(state.date)) state.date = allDays[0];
+  // The window of dates on screen: a fortnight starting at whatever's selected,
+  // so jumping to November shows November rather than snapping back to today.
+  const selIdx = Math.max(0, allDays.indexOf(state.date));
+  const from = Math.min(selIdx, Math.max(0, allDays.length - 14));
+  const days = allDays.slice(from, from + 14);
+  const lastDay = allDays[allDays.length - 1];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const monNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // Days that run only every second week leave gaps, so the strip can cross a
@@ -253,7 +268,13 @@ async function renderTimeStep() {
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
     <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(cartLabel())} with ${esc(state.staff?.name || 'any available')}</button>
-    <div class="bk-section-title">Pick a date &amp; time</div>
+    <div class="bk-datehead">
+      <div class="bk-section-title" style="margin-bottom:0">Pick a date &amp; time</div>
+      <label class="bk-jump" title="Jump to a date">
+        ${icon('calendar', 14)}<span>Another date</span>
+        <input type="date" id="date-jump" value="${esc(state.date)}" min="${esc(allDays[0])}" max="${esc(lastDay)}">
+      </label>
+    </div>
     <div class="date-strip" id="dates">
       ${days.map((d) => {
         const dt = parseDate(d);
@@ -277,6 +298,15 @@ async function renderTimeStep() {
     loadSlots();
   });
   root.querySelector('#next').onclick = () => { if (state.slot != null) renderDetailsStep(); };
+
+  // Jumping to a date the salon is shut on lands on the next open one, so the
+  // picker can never leave someone staring at an empty day.
+  root.querySelector('#date-jump').addEventListener('change', (e) => {
+    const wanted = e.target.value;
+    if (!wanted) return;
+    state.date = allDays.includes(wanted) ? wanted : (allDays.find((d) => d >= wanted) || allDays[allDays.length - 1]);
+    renderTimeStep();
+  });
 
   await loadSlots();
 
@@ -321,6 +351,7 @@ function renderDetailsStep() {
       </div>
     </div>
     ${depositNoteHtml()}
+    ${cancelPolicyHtml()}
     <div class="bk-section-title">Your details</div>
     <form id="bk-form" class="form-grid">
       <div class="field"><label>First name *</label><input name="first_name" required></div>
@@ -389,6 +420,29 @@ function depositNoteHtml() {
     </div>`;
 }
 
+/** "12 hours" / "24 hours" / "2 days" — reads naturally mid-sentence. */
+const hoursLabel = (h) => (h >= 48 && h % 24 === 0 ? `${h / 24} days` : h === 1 ? '1 hour' : `${h} hours`);
+
+/**
+ * The cancellation terms, stated before someone commits rather than buried in
+ * the confirmation email. -1 means the business handles changes by phone.
+ */
+function cancelPolicyHtml() {
+  const hrs = state.info?.cancel_window_hours;
+  if (hrs === undefined || hrs === null) return '';
+  const phone = state.info.business_phone ? ` or call us on <b>${esc(state.info.business_phone)}</b>` : '';
+  return `
+    <div class="bk-policy">
+      ${icon('clock', 15)}
+      <div>${hrs < 0
+        ? `Need to change or cancel? Just give us a call${state.info.business_phone ? ` on <b>${esc(state.info.business_phone)}</b>` : ''} — we'll sort it out.`
+        : hrs === 0
+          ? `You can cancel any time from the link in your confirmation${phone}.`
+          : `Plans change — you can cancel from the link in your confirmation up to
+             <b>${hoursLabel(hrs)}</b> before your appointment${phone}.`}</div>
+    </div>`;
+}
+
 function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0 } = {}) {
   state.step = 4;
   root.innerHTML = `
@@ -413,4 +467,5 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
     ${poweredHtml()}`;
 }
 
+lockZoom(); // fixed scale, so a stray pinch can't leave the page offset mid-booking
 boot();

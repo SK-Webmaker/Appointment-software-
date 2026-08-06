@@ -69,6 +69,11 @@ npm run reset-demo   # same thing from the terminal
 - **Customizable calendar range**: set a preferred start/end time for the day book in
   Settings → Hours (e.g. always show 6 AM → 11 PM) so the owner can scroll to exactly the
   times they want; leave it on **Auto** to follow opening hours.
+- **❌ One way to cancel** — Cancel is the only way a booking comes off the day.
+  It frees the slot immediately, **emails the client and the owner**, and keeps
+  the booking on record marked Cancelled so the history survives. There is no
+  separate "delete": the two did the same job, except delete told nobody and
+  lost the record.
 - **🔒 Block out time**: block any period (lunch, training, a dentist appointment, a whole
   day off) with a **private reason only the owner sees** — customers never see it. Blocked
   time is removed from online booking immediately, so nobody can book into it. Block one
@@ -86,6 +91,17 @@ npm run reset-demo   # same thing from the terminal
   shown or bookable, computed in the **business's own time zone** (auto-detected from the
   owner's device) so it stays correct even when the server runs in UTC. An optional
   **minimum booking notice** (e.g. 1 hour ahead) is configurable in Settings.
+- **Book months ahead** — the date strip shows a fortnight at a time with a
+  picker beside it that reaches the whole booking window (default 90 days,
+  configurable up to a year), so a client wanting a slot in two months isn't
+  stuck scrolling. Dates beyond the window are refused server-side too.
+- **Every offered time is real** — the slot list is computed from the same
+  availability the calendar uses: opening hours for that specific date, minus
+  existing appointments, minus owner-blocked time, minus anything already gone
+  today. A time the page never offered is rejected server-side even if crafted
+  by hand, and a slot vanishes the moment someone else takes it.
+- **Fixed scale, like the workspace** — pinch, double-tap and ⌘-zoom are off, so
+  a stray gesture can't leave the booking page zoomed and offset mid-booking.
 - New customers are added to your client book automatically; returning ones are matched by email/phone
 - Toggle it on/off in Settings; put the link in an Instagram bio / Google Business profile
 
@@ -188,6 +204,21 @@ npm run reset-demo   # same thing from the terminal
   ("You're busiest between 9–11 AM")
 - Revenue trend, top services, upcoming appointments
 - Quick actions right where you land: **Take payment · Block time · New appointment**
+
+### ❌ Cancellations that handle themselves
+- Every confirmation and reminder carries a **cancel link** and states the
+  notice period, so the terms are wherever the client looks — and the same
+  line appears on the booking page **before** they commit.
+- The client taps it, sees exactly what they're cancelling, and confirms. The
+  slot reopens instantly, **the owner is emailed**, and **the client gets a
+  confirmation** so nobody is left guessing.
+- **Inside the notice window the link stops working** and the client is asked
+  to call instead — the owner always gets enough warning to fill the gap.
+  Enforced server-side, not just hidden in the page.
+- Set it in *Settings → Hours & booking*: any time before, 2/6/12/24 hours,
+  2 days, or no online cancelling at all. Default is **12 hours**.
+- When the **owner** cancels, the same thing happens in reverse: the client is
+  emailed, the slot reopens, the record stays.
 
 ### 💬 Confirmations, reminders, receipts & review requests (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit
@@ -300,7 +331,8 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 ### ⚙️ Settings
 - Business profile (shown on invoices + booking page), usual hours, **your week**
   (per-day: closed / weekly / every 2nd–4th week, each with optional own hours),
-  slot interval, **usual rebooking gap**
+  slot interval, **how far ahead customers can book**, **cancellation notice**,
+  **usual rebooking gap**
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
 - Password change, **email verification**, demo-data reset

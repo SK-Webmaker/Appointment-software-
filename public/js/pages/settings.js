@@ -182,6 +182,21 @@ export async function renderSettings(container) {
               <select name="cal_end_min" class="nice-select">${calHourOpts(s.cal_end_min, 'Auto (2h after close)', true)}</select></div>
           </div>
           <div class="hint" style="margin-top:-4px">How much of the day your calendar shows and scrolls through — set it wider to slot in early/late walk-ins. Appointments outside this window still always show.</div>
+          <div class="form-grid">
+            <div class="field"><label>Customers can book up to</label>
+              <select name="booking_horizon_days" class="nice-select">${[30, 60, 90, 120, 180, 365]
+                .map((d) => `<option value="${d}" ${Number(s.booking_horizon_days || 90) === d ? 'selected' : ''}>${d >= 365 ? '1 year' : `${d / 30} months`} ahead</option>`).join('')}</select>
+              <div class="hint">How far into the future your booking page offers dates.</div></div>
+            <div class="field"><label>Customers can cancel until</label>
+              <select name="cancel_window_hours" class="nice-select">${[
+                ['off', 'No online cancelling'], ['0', 'Any time before'], ['2', '2 hours before'],
+                ['6', '6 hours before'], ['12', '12 hours before'], ['24', '24 hours before'], ['48', '2 days before'],
+              ].map(([v, lbl]) => {
+                const cur = s.client_cancel_enabled === '0' ? 'off' : String(Number(s.cancel_window_hours ?? 12));
+                return `<option value="${v}" ${cur === v ? 'selected' : ''}>${lbl}</option>`;
+              }).join('')}</select>
+              <div class="hint">Their confirmation and reminder carry a cancel link. Inside this window it stops working and they're asked to call, so you always get notice.</div></div>
+          </div>
           <div class="field"><label>Usual rebooking gap</label>
             <select name="rebook_weeks_default" class="nice-select">${[2, 3, 4, 5, 6, 8, 10, 12]
               .map((w) => `<option value="${w}" ${Number(s.rebook_weeks_default || 4) === w ? 'selected' : ''}>${w} weeks</option>`).join('')}</select>
@@ -510,6 +525,11 @@ export async function renderSettings(container) {
       slot_interval: fd.get('slot_interval'),
       booking_lead_min: fd.get('booking_lead_min'),
       rebook_weeks_default: fd.get('rebook_weeks_default'),
+      booking_horizon_days: fd.get('booking_horizon_days'),
+      // One control on screen, two settings underneath: "no online cancelling"
+      // is the switch, anything else is the notice period.
+      client_cancel_enabled: fd.get('cancel_window_hours') === 'off' ? '0' : '1',
+      ...(fd.get('cancel_window_hours') === 'off' ? {} : { cancel_window_hours: fd.get('cancel_window_hours') }),
       cal_start_min: fd.get('cal_start_min') || '',
       cal_end_min: fd.get('cal_end_min') || '',
       business_tz: String(fd.get('business_tz') || '').trim(),

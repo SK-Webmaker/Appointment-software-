@@ -47,6 +47,10 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
   offered, and a public booking attempt inside a block is rejected 409). Per-staff or whole-team, an
   **All day** shortcut, click-to-edit/remove (time reopens), and the owner can still book over it with a
   confirmation. The reason is never exposed publicly — the endpoint requires sign-in (verified 401)
+- ✅ **One cancellation path** — Cancel is the only way a booking leaves the day. It frees the
+  slot instantly, emails both the client and the owner, and keeps the record marked Cancelled.
+  Delete no longer erases: verified that `DELETE` cancels, that the editor offers a single
+  Cancel action, and that its confirmation dialog never shows two buttons both reading "Cancel"
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Point of Sale (v1.8)
@@ -72,6 +76,22 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Card deposit via Stripe Checkout (fixed or % of price), fail-safe if Stripe errors
 - ✅ New clients auto-added to the client book; returning clients matched by email/phone
 - ✅ Booking reference (BK-xxxxx), "Add to calendar" (.ics) download
+- ✅ **Client self-cancellation**: every confirmation and reminder carries a cancel link and
+  states the notice period. The client sees what they're cancelling, confirms once, and the slot
+  reopens — with a confirmation email to them and an alert to the owner. Inside the notice window
+  (default 12h) the link stops working and points them at the phone; enforced server-side (409),
+  not just hidden in the page. Verified: link present in email and SMS copy, page states the terms
+  before committing, double-cancel is a no-op, reminder is dropped, slot is bookable again
+- ✅ **Cancel link security**: 128-bit token, its own rate-limit bucket (30 / 10 min), payload
+  carries no contact details, notes, ids or prices, unexpected fields rejected, and SQL-injection /
+  enumeration / traversal probes all 404. Owner-side cancel and delete still require a login (401)
+- ✅ **Book months ahead**: fortnight strip plus a picker across the whole window (default 90 days,
+  settable to a year); verified a real booking 60+ days out and a refusal beyond the horizon
+- ✅ **Booking page pinned to one scale** like the workspace — pinch, ⌘-wheel and ⌘+/- blocked,
+  one-finger scrolling untouched
+- ✅ **Slot accuracy proven**: no offered time collides with an appointment or a block, none starts
+  before opening or runs past closing, all follow the slot interval, an offered slot really books
+  and then vanishes, and a time never offered is refused server-side
 - ✅ On/off switch in Settings
 
 ### Clients

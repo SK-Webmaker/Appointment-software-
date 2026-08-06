@@ -88,6 +88,12 @@ export function todayStr(offsetDays = 0) {
   return dateStr(d);
 }
 
+/** N days after a YYYY-MM-DD string, computed in UTC so DST can't shift it. */
+export function addDaysStr(dateStr_, days) {
+  const [y, m, d] = String(dateStr_).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
 /**
  * "Now" expressed in a specific IANA time zone (e.g. 'Australia/Melbourne'):
  * { date: 'YYYY-MM-DD', min: minutes-since-midnight }. This is what makes the

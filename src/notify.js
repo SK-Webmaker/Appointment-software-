@@ -86,6 +86,29 @@ function channelsFor(kind, email, phone) {
   return out;
 }
 
+/** "12 hours" / "1 hour" / "2 days" — reads naturally in a sentence. */
+function hoursLabel(h) {
+  if (h >= 48 && h % 24 === 0) return `${h / 24} days`;
+  if (h === 24) return '24 hours';
+  return `${h} hour${h === 1 ? '' : 's'}`;
+}
+
+/**
+ * The client's own cancel link for an appointment, minting the token on first
+ * use. Empty when self-cancellation is switched off, which is what keeps the
+ * link out of the message copy entirely rather than sending a dead one.
+ */
+export function cancelUrlFor(apptId, existingToken = '') {
+  if (getSetting('client_cancel_enabled', '1') !== '1') return '';
+  let token = existingToken;
+  if (!token) {
+    token = crypto.randomBytes(16).toString('hex');
+    db.prepare('UPDATE appointments SET cancel_token = ? WHERE id = ?').run(token, apptId);
+  }
+  const origin = getSetting('public_url') || '';
+  return origin ? `${origin}/cancel/${token}` : `/cancel/${token}`;
+}
+
 // Builds {subject, body (plain text — used for SMS and as the email text
 // fallback), html (branded email layout)} for every message kind.
 function buildCopy(kind, a, extra = {}) {
@@ -103,29 +126,86 @@ function buildCopy(kind, a, extra = {}) {
     ['Where', getSetting('business_address', '')],
   ];
 
+  // Self-cancellation link + the notice period, so the deadline is stated
+  // wherever a client might look for it rather than only on the booking page.
+  const cancelUrl = extra.cancelUrl || '';
+  const windowHrs = Number(getSetting('cancel_window_hours', '12')) || 0;
+  const noticeText = windowHrs
+    ? `You can cancel online up to ${hoursLabel(windowHrs)} before your appointment. After that, please call${phone ? ` us on ${phone}` : ''} so we can fill the slot.`
+    : 'You can cancel online any time before your appointment.';
+
   if (kind === 'confirmation') {
     return {
       subject: `Booking confirmed — ${what} on ${fmtDate(a.date)}`,
-      body: `Hi ${name},\n\nYou're booked for ${what}${who} on ${when}.\n\nSee you soon!\n${biz}${phoneLine}`,
+      body: `Hi ${name},\n\nYou're booked for ${what}${who} on ${when}.`
+        + (cancelUrl ? `\n\nNeed to cancel? ${cancelUrl}\n${noticeText}` : '')
+        + `\n\nSee you soon!\n${biz}${phoneLine}`,
       html: renderEmail({
         heading: 'Your booking is confirmed',
         greeting: `Hi ${name},`,
         paragraphs: ['Great news — your appointment is locked in. Here are the details:'],
         details: visitDetails,
-        footNote: phone ? `Need to change it? Call us on ${phone}.` : '',
+        ...(cancelUrl ? { cta: { label: 'Cancel this appointment', url: cancelUrl } } : {}),
+        footNote: cancelUrl
+          ? noticeText
+          : (phone ? `Need to change it? Call us on ${phone}.` : ''),
       }),
     };
   }
   if (kind === 'reminder') {
     return {
       subject: `Reminder — ${what} ${fmtDate(a.date)}`,
-      body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.\n\nNeed to change it? Call us on ${phone || 'our usual number'}.\n\n${biz}`,
+      body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.`
+        + (cancelUrl ? `\n\nCan't make it? ${cancelUrl}\n${noticeText}` : `\n\nNeed to change it? Call us on ${phone || 'our usual number'}.`)
+        + `\n\n${biz}`,
       html: renderEmail({
         heading: 'See you soon!',
         greeting: `Hi ${name},`,
         paragraphs: ['A friendly reminder about your upcoming visit:'],
         details: visitDetails,
-        footNote: phone ? `Running late or need to reschedule? Call us on ${phone}.` : '',
+        ...(cancelUrl ? { cta: { label: "Can't make it? Cancel here", url: cancelUrl } } : {}),
+        footNote: cancelUrl ? noticeText : (phone ? `Running late or need to reschedule? Call us on ${phone}.` : ''),
+      }),
+    };
+  }
+  if (kind === 'cancellation') {
+    const byClient = extra.by === 'client';
+    return {
+      subject: `Cancelled — ${what} on ${fmtDate(a.date)}`,
+      body: `Hi ${name},\n\n${byClient ? 'Your appointment has been cancelled as requested' : `We've had to cancel your appointment`}: ${what}${who} on ${when}.\n\n`
+        + `You haven't been charged.${phone ? ` To rebook, call us on ${phone}.` : ' Book again any time.'}\n\n${biz}`,
+      html: renderEmail({
+        heading: 'Your appointment is cancelled',
+        greeting: `Hi ${name},`,
+        paragraphs: [byClient
+          ? "That's done — your appointment has been cancelled and the time released. Nothing more to do."
+          : "We're sorry — we've had to cancel this appointment. Nothing has been charged."],
+        details: visitDetails,
+        ...(extra.bookUrl ? { cta: { label: 'Book another time', url: extra.bookUrl } } : {}),
+        footNote: phone ? `Want a different time? Call us on ${phone} and we'll sort it.` : '',
+      }),
+    };
+  }
+  if (kind === 'owner_cancellation') {
+    const clientName = [a.first_name, a.client_last].filter(Boolean).join(' ') || 'A client';
+    const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
+    const byClient = extra.by === 'client';
+    return {
+      subject: `Cancelled — ${clientName}, ${what} on ${fmtDate(a.date)}`,
+      body: `${byClient ? `${clientName} cancelled online` : 'Appointment cancelled'}\n\n${what}${who}\n${when}${contact ? `\nContact: ${contact}` : ''}\n\nThe slot is free again and back on your booking page.\n${biz}`,
+      html: renderEmail({
+        heading: byClient ? 'A client cancelled' : 'Appointment cancelled',
+        paragraphs: [byClient
+          ? `${clientName} cancelled this appointment online. The slot is free again and already back on your booking page.`
+          : 'This appointment has been cancelled. The slot is free again and already back on your booking page.'],
+        details: [
+          ['Customer', clientName],
+          ['Contact', contact],
+          ['Service', a.service_name || ''],
+          ['With', a.staff_name || ''],
+          ['Was booked for', when],
+        ],
+        footNote: 'It stays on your calendar marked Cancelled, so the history is intact.',
       }),
     };
   }
@@ -211,9 +291,12 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
 
   const now = localStamp();
   const ins = insMessage();
+  // One link per appointment, reused by the confirmation and the reminder so a
+  // client can cancel from whichever message they still have.
+  const cancelUrl = cancelUrlFor(a.id, a.cancel_token);
 
   if (confirmation && getSetting('confirm_enabled', '1') === '1') {
-    const copy = buildCopy('confirmation', a);
+    const copy = buildCopy('confirmation', a, { cancelUrl });
     for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
       ins.run(a.id, a.client_id, channel, 'confirmation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
     }
@@ -225,7 +308,7 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
     start.setMinutes(a.start_min - hours * 60);
     const sendAfter = localStamp(start);
     if (sendAfter > now) { // don't remind about appointments that are (nearly) now
-      const copy = buildCopy('reminder', a);
+      const copy = buildCopy('reminder', a, { cancelUrl });
       for (const [channel, to] of channelsFor('reminder', a.client_email, a.client_phone)) {
         ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
       }
@@ -329,6 +412,34 @@ export function queueReviewRequest(apptId) {
   const ins = insMessage();
   for (const [channel, to] of channels) {
     ins.run(a.id, a.client_id, channel, 'review_request', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
+  }
+}
+
+/**
+ * Tell both sides an appointment is off — the client gets a confirmation that
+ * it's really cancelled, the owner gets an alert so a freed slot never goes
+ * unnoticed. Sent whoever cancelled, so neither side is ever left guessing.
+ */
+export function queueCancellationMessages(apptId, { by = 'owner' } = {}) {
+  const a = apptContext(apptId);
+  if (!a) return;
+  const ins = insMessage();
+  const now = localStamp();
+  const origin = getSetting('public_url') || '';
+
+  // → the client
+  if (a.client_id && getSetting('confirm_enabled', '1') === '1') {
+    const copy = buildCopy('cancellation', a, { by, bookUrl: origin ? `${origin}/book` : '' });
+    for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
+      ins.run(a.id, a.client_id, channel, 'cancellation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
+    }
+  }
+
+  // → the owner, by email only (an internal alert should never cost a text)
+  const ownerTo = getSetting('business_email', '');
+  if (ownerTo && getSetting('owner_notify_enabled', '1') === '1') {
+    const copy = buildCopy('owner_cancellation', a, { by });
+    ins.run(a.id, a.client_id || null, 'email', 'owner_cancellation', ownerTo, copy.subject, copy.body, copy.html, now);
   }
 }
 

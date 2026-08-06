@@ -4,7 +4,7 @@ import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
 } from './db.js';
 import {
-  readJson, sendJson, sendText, httpError, parseCookies, todayStr, nowParts, isDateStr, clampInt, toCsv,
+  readJson, sendJson, sendText, httpError, parseCookies, todayStr, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
 } from './util.js';
 import {
   hashPassword, verifyPassword, createSession, verifySession,
@@ -13,6 +13,7 @@ import {
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
+  queueCancellationMessages, cancelUrlFor,
   deliverMessage, processQueue,
 } from './notify.js';
 import {
@@ -249,6 +250,7 @@ const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
+  'booking_horizon_days', 'cancel_window_hours', 'client_cancel_enabled',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'open_days', 'day_rules', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
@@ -1167,6 +1169,11 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
      WHERE id = ?`
   ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
   if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
+  // Cancelling from the editor goes through the same path as the Cancel
+  // button, so the client is told either way.
+  if (a.status === 'cancelled' && before.status !== 'cancelled') {
+    return cancelAppointment(params.id, { by: 'owner' });
+  }
   if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
     cancelQueuedMessages(params.id);
     if (a.status === 'completed' && before.status !== 'completed') queueReviewRequest(params.id);
@@ -1180,6 +1187,11 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
   const { status } = checkBody(await readJson(req), { status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show'], { required: true }) });
   if (!APPT_STATUSES.has(status)) throw httpError(400, 'Invalid status');
   const before = db.prepare('SELECT status FROM appointments WHERE id = ?').get(params.id);
+  if (status === 'cancelled' && before?.status !== 'cancelled') {
+    const out = cancelAppointment(params.id, { by: 'owner' });
+    if (!out) throw httpError(404, 'Appointment not found');
+    return out;
+  }
   db.prepare('UPDATE appointments SET status = ? WHERE id = ?').run(status, params.id);
   if (['cancelled', 'no_show', 'completed'].includes(status)) {
     cancelQueuedMessages(params.id);
@@ -1188,10 +1200,47 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id);
 });
 
+/**
+ * The one way an appointment gets cancelled — used by the owner's calendar, a
+ * status change to "cancelled", and the client's own cancel link.
+ *
+ * Cancelling and deleting were separate actions doing practically the same
+ * job, except deleting threw away the history and told nobody. Now there is a
+ * single path: the booking stays on record marked cancelled, its pending
+ * reminders are dropped, both sides are emailed, and the slot is immediately
+ * bookable again — availability already ignores cancelled bookings, so the
+ * time reopens the moment this runs.
+ *
+ * Returns null if there was nothing to cancel, so callers can 404 honestly.
+ */
+function cancelAppointment(id, { by = 'owner', reason = '' } = {}) {
+  const a = db.prepare('SELECT id, status FROM appointments WHERE id = ?').get(id);
+  if (!a) return null;
+  const already = a.status === 'cancelled';
+  if (!already) {
+    db.prepare(
+      "UPDATE appointments SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?"
+    ).run(new Date().toISOString().slice(0, 19).replace('T', ' '), by === 'client' ? 'client' : 'owner', str(reason, 300), id);
+    cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
+    queueCancellationMessages(id, { by });
+  }
+  return { ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id), already_cancelled: already };
+}
+
+// Kept as DELETE so existing callers keep working, but it cancels rather than
+// erases: same outcome for the calendar, without losing the record or the
+// chance to tell the client.
 route('DELETE', '/api/appointments/:id', async ({ params }) => {
-  cancelQueuedMessages(params.id);
-  db.prepare('DELETE FROM appointments WHERE id = ?').run(params.id);
-  return { ok: true };
+  const out = cancelAppointment(params.id, { by: 'owner' });
+  if (!out) throw httpError(404, 'Appointment not found');
+  return { ok: true, cancelled: true, appointment: out };
+});
+
+route('POST', '/api/appointments/:id/cancel', async ({ req, params }) => {
+  const b = checkBody(await readJson(req), { reason: s.str(300) });
+  const out = cancelAppointment(params.id, { by: 'owner', reason: b.reason || '' });
+  if (!out) throw httpError(404, 'Appointment not found');
+  return out;
 });
 
 // ---------------------------------------------------------------------------
@@ -1937,10 +1986,15 @@ route('GET', '/api/public/info', async () => {
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
     open_days: String(getSetting('open_days', '0,1,2,3,4,5,6')).split(',').map(Number),
-    // The actual dates customers may book, worked out here rather than in the
+    // Every date customers may book, worked out here rather than in the
     // browser — a day that only runs on alternating weeks can't be derived
-    // from the weekday alone.
-    open_dates: openDatesFrom(nowParts(getSetting('business_tz', '')).date, hourSettings(), 21),
+    // from the weekday alone. The full horizon is sent (not just the next
+    // fortnight) so someone can book two or three months ahead.
+    open_dates: openDatesFrom(nowParts(getSetting('business_tz', '')).date, hourSettings(),
+      bookingHorizonDays(), bookingHorizonDays()),
+    booking_horizon_days: bookingHorizonDays(),
+    cancel_window_hours: getSetting('client_cancel_enabled', '1') === '1'
+      ? Math.max(0, Number(getSetting('cancel_window_hours', '12')) || 0) : -1,
     brand: {
       accent: getSetting('brand_accent', '#38bdf8'),
       theme: getSetting('brand_theme', 'dark'),
@@ -1961,6 +2015,11 @@ route('GET', '/api/public/info', async () => {
     },
   };
 }, { auth: false });
+
+/** How far ahead customers may book online (days), clamped to something sane. */
+function bookingHorizonDays() {
+  return clampInt(getSetting('booking_horizon_days', '90'), 1, 365, 90);
+}
 
 /** The hour settings the shared rules engine needs. */
 function hourSettings() {
@@ -2016,7 +2075,9 @@ function freeSlotsFor(staffId, date, durationMin) {
 route('GET', '/api/public/availability', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const date = query.get('date');
-  if (!isDateStr(date) || date < nowParts(getSetting('business_tz', '')).date) throw httpError(400, 'Choose an upcoming date');
+  const todayForSlots = nowParts(getSetting('business_tz', '')).date;
+  if (!isDateStr(date) || date < todayForSlots) throw httpError(400, 'Choose an upcoming date');
+  if (date > addDaysStr(todayForSlots, bookingHorizonDays())) throw httpError(400, 'That date is too far ahead');
   // Duration is the sum of every chosen service (service_ids CSV), or a single
   // service (service_id). All must be real, active services.
   const idsParam = (query.get('service_ids') || '').split(',').map((v) => Number(v)).filter(Boolean);
@@ -2064,6 +2125,11 @@ route('POST', '/api/public/book', async ({ req }) => {
   const duration = svc.totalDuration;
   const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
   if (!isDateStr(b.date) || b.date < todayLocal) throw httpError(400, 'Choose an upcoming date');
+  // Far-future bookings are welcome, but not beyond the horizon the owner set —
+  // otherwise a crafted request could sit in the diary years out.
+  if (b.date > addDaysStr(todayLocal, bookingHorizonDays())) {
+    throw httpError(400, `We only take bookings up to ${bookingHorizonDays()} days ahead`);
+  }
   const start = clampInt(b.start_min, 0, 1439, NaN);
   if (Number.isNaN(start)) throw httpError(400, 'Choose a time');
   // Reject a time that's already passed today, even if a stale page offered it.
@@ -2210,6 +2276,94 @@ route('GET', '/api/public/ics/:id', async ({ res, params }) => {
 // numeric id, so a guessed/incremented URL can't leave a review on someone
 // else's visit. Only a 'completed' appointment can be reviewed, once.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Client self-cancellation (no auth — the token in the link IS the credential)
+// ---------------------------------------------------------------------------
+
+/** Everything the cancel page and the cancel action both need to decide. */
+function cancelLinkContext(token) {
+  const a = db.prepare(
+    `SELECT a.id, a.status, a.date, a.start_min, a.end_min, a.cancelled_by,
+            c.first_name, s.name AS staff_name
+     FROM appointments a
+     LEFT JOIN clients c ON c.id = a.client_id
+     LEFT JOIN staff s ON s.id = a.staff_id
+     WHERE a.cancel_token = ? AND a.cancel_token != ''`
+  ).get(token);
+  if (!a) return null;
+  const names = db.prepare(
+    `SELECT sv.name FROM appointment_services aps JOIN services sv ON sv.id = aps.service_id
+     WHERE aps.appointment_id = ? ORDER BY aps.sort_order, aps.id`
+  ).all(a.id).map((r) => r.name);
+  a.service_name = names.join(' + ') || db.prepare(
+    'SELECT sv.name FROM appointments ap LEFT JOIN services sv ON sv.id = ap.service_id WHERE ap.id = ?'
+  ).get(a.id)?.name || 'your appointment';
+
+  // Minutes from now until the appointment starts, in the business's own time
+  // zone — the same clock the booking page uses, so "12 hours before" means
+  // the same thing to the client and the salon.
+  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  const dayDiff = (Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${todayLocal}T00:00:00Z`)) / 86400000;
+  const minutesUntil = dayDiff * 1440 + a.start_min - nowMin;
+  const windowHrs = Math.max(0, Number(getSetting('cancel_window_hours', '12')) || 0);
+
+  return {
+    appt: a,
+    windowHrs,
+    minutesUntil,
+    past: minutesUntil <= 0,
+    tooLate: minutesUntil > 0 && minutesUntil < windowHrs * 60,
+    enabled: getSetting('client_cancel_enabled', '1') === '1',
+  };
+}
+
+const cancelPayload = (ctx) => ({
+  business_name: getSetting('business_name'),
+  business_phone: getSetting('business_phone', ''),
+  first_name: ctx.appt.first_name || '',
+  service_name: ctx.appt.service_name,
+  staff_name: ctx.appt.staff_name || '',
+  date: ctx.appt.date,
+  start_min: ctx.appt.start_min,
+  end_min: ctx.appt.end_min,
+  status: ctx.appt.status,
+  cancelled_by: ctx.appt.cancelled_by || '',
+  cancel_window_hours: ctx.windowHrs,
+  can_cancel: ctx.enabled && !ctx.past && !ctx.tooLate && ctx.appt.status !== 'cancelled' && ctx.appt.status !== 'completed',
+  too_late: ctx.tooLate,
+  past: ctx.past,
+  disabled: !ctx.enabled,
+  brand: {
+    accent: getSetting('brand_accent', '#38bdf8'),
+    theme: getSetting('brand_theme', 'dark'),
+    scheme: getSetting('brand_scheme', ''),
+    font: getSetting('brand_font', 'modern'),
+    logo: getSetting('brand_logo', ''),
+  },
+});
+
+route('GET', '/api/public/cancel', async ({ query }) => {
+  const ctx = cancelLinkContext(str(query.get('token'), 64));
+  if (!ctx) throw httpError(404, 'This cancellation link is no longer valid');
+  return cancelPayload(ctx);
+}, { auth: false });
+
+route('POST', '/api/public/cancel', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(64, { required: true }), reason: s.str(300) });
+  const ctx = cancelLinkContext(str(b.token, 64));
+  if (!ctx) throw httpError(404, 'This cancellation link is no longer valid');
+  if (!ctx.enabled) throw httpError(403, 'Online cancellation is turned off — please call us instead');
+  if (ctx.appt.status === 'cancelled') return { ...cancelPayload(ctx), ok: true, already: true };
+  if (ctx.appt.status === 'completed') throw httpError(409, 'That visit has already happened');
+  if (ctx.past) throw httpError(409, 'That appointment has already started — please call us');
+  if (ctx.tooLate) {
+    throw httpError(409, `Cancellations need ${ctx.windowHrs} hours' notice — please call us so we can free the slot`);
+  }
+  cancelAppointment(ctx.appt.id, { by: 'client', reason: b.reason || '' });
+  const after = cancelLinkContext(str(b.token, 64));
+  return { ...cancelPayload(after), ok: true };
+}, { auth: false });
 
 route('GET', '/api/public/review', async ({ query }) => {
   const token = str(query.get('token'), 64);

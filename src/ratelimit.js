@@ -17,6 +17,11 @@ const POLICIES = {
   login:          { limit: 20,  windowMs: 10 * 60 * 1000 }, // brute-force guard
   public_book:    { limit: 12,  windowMs: 5 * 60 * 1000 },  // booking spam guard
   public_review:  { limit: 10,  windowMs: 10 * 60 * 1000 },
+  // The cancel link's token is a credential, so looking one up is guessable in
+  // principle — kept tight for the same reason login is, even though a 128-bit
+  // token makes brute force hopeless. Generous enough for a client who opens
+  // their link, thinks about it, and comes back.
+  public_cancel:  { limit: 30,  windowMs: 10 * 60 * 1000 },
   public_deposit: { limit: 20,  windowMs: 10 * 60 * 1000 },
   public_read:    { limit: 240, windowMs: 60 * 1000 },      // info/availability/ics/review-form
   authed:         { limit: 600, windowMs: 60 * 1000 },      // per user+IP, anti-runaway
@@ -55,6 +60,7 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/auth/login') return 'login';
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
+  if (pathname === '/api/public/cancel') return 'public_cancel'; // GET too — the lookup is the guessable part
   if (pathname === '/api/public/confirm-deposit') return 'public_deposit';
   if (pathname.startsWith('/api/public/') || pathname.startsWith('/api/auth/verify-email')) return 'public_read';
   return 'authed';

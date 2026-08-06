@@ -34,6 +34,7 @@ function serveStatic(res, urlPath) {
   if (rel === '/book') rel = '/book.html';
   if (rel === '/pay-done') rel = '/paydone.html'; // Stripe Checkout return page (POS sales)
   if (rel.startsWith('/review/')) rel = '/review.html'; // client reads the token from the URL itself
+  if (rel.startsWith('/cancel/')) rel = '/cancel.html'; // same pattern for the cancel link
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403); res.end('Forbidden'); return;

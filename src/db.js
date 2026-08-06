@@ -227,6 +227,13 @@ function migrate() {
   // invoice id it can never collide after a demo reset re-uses id numbers.
   addColumn('invoices', 'pos_token', "pos_token TEXT NOT NULL DEFAULT ''");
   addColumn('payments', 'stripe_pi', "stripe_pi TEXT NOT NULL DEFAULT ''");
+  // Self-service cancellation: the token is the client's link from their
+  // confirmation message; who/when is kept so the owner can see at a glance
+  // whether the client dropped out or the salon called it off.
+  addColumn('appointments', 'cancel_token', "cancel_token TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'cancelled_at', "cancelled_at TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'cancelled_by', "cancelled_by TEXT NOT NULL DEFAULT ''"); // ''|client|owner
+  addColumn('appointments', 'cancel_reason', "cancel_reason TEXT NOT NULL DEFAULT ''");
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
@@ -307,6 +314,13 @@ const DEFAULT_SETTINGS = {
   // "no past times today" filter correct even when the server runs in UTC.
   business_tz: '',
   booking_lead_min: '0',  // minimum notice before an online slot can be booked (minutes)
+  // How far ahead customers may book online, and how late they may cancel
+  // themselves. The cancellation window is the owner's protection: inside it
+  // the link stops working and the client is told to ring instead, so a
+  // no-notice drop-out is always a conversation rather than a silent gap.
+  booking_horizon_days: '90',
+  cancel_window_hours: '12',
+  client_cancel_enabled: '1',
   rebook_weeks_default: '4', // "see you in N weeks" — the usual gap for this business
   // Owner's preferred visible calendar window (minutes from midnight). Empty =
   // auto (a couple of hours around opening time). Purely a display preference.
