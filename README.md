@@ -70,10 +70,15 @@ npm run reset-demo   # same thing from the terminal
   Settings → Hours (e.g. always show 6 AM → 11 PM) so the owner can scroll to exactly the
   times they want; leave it on **Auto** to follow opening hours.
 - **❌ One way to cancel** — Cancel is the only way a booking comes off the day.
-  It frees the slot immediately, **emails the client and the owner**, and keeps
-  the booking on record marked Cancelled so the history survives. There is no
-  separate "delete": the two did the same job, except delete told nobody and
-  lost the record.
+  It frees the slot immediately and keeps the booking on record marked Cancelled
+  so the history survives. There is no separate "delete": the two did the same
+  job, except delete told nobody and lost the record.
+- **You choose whether the client is told.** The confirmation dialog carries a
+  tick box, on by default, naming the client and the channel it would actually
+  use ("Let Amara Osei know by email"). Turn it off when you're already on the
+  phone to them or you'd rather say it in person, and the appointment is
+  cancelled quietly. The owner's own alert still goes out either way, and a
+  client with no email or phone is never promised a message that can't be sent.
 - **🔒 Block out time**: block any period (lunch, training, a dentist appointment, a whole
   day off) with a **private reason only the owner sees** — customers never see it. Blocked
   time is removed from online booking immediately, so nobody can book into it. Block one

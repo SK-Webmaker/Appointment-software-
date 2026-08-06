@@ -271,6 +271,28 @@ function blocksForCol(date, staffId) {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
+ * How a cancellation would actually reach this client: "email", "text",
+ * "email and text", or '' when there's no way to contact them. Mirrors the
+ * server's channel rules so the dialog promises only what will really be sent.
+ */
+function clientReach(a) {
+  if (!a?.client_id) return '';
+  const pref = ['email', 'sms', 'both'].includes(state.settings.chan_confirmation)
+    ? state.settings.chan_confirmation : 'email';
+  const canEmail = Boolean(a.client_email);
+  const canText = Boolean(a.client_phone) && state.settings.sms_notifications_enabled === '1';
+  const out = [];
+  if (pref !== 'sms' && canEmail) out.push('email');
+  if (pref !== 'email' && canText) out.push('text');
+  // The server falls back to whatever the client CAN receive, so match that.
+  if (!out.length) {
+    if (canEmail) out.push('email');
+    else if (canText) out.push('text');
+  }
+  return out.join(' and ');
+}
+
+/**
  * Why the salon is shut today. Without this an "off" week of an alternating
  * day is just a fully shaded column, which reads as a fault rather than a
  * setting. The owner can still book over it — the grid stays clickable.
@@ -731,16 +753,28 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     const cancelBtn = m.querySelector('#appt-cancel');
     if (cancelBtn) cancelBtn.onclick = async () => {
       const who = a.client_name ? esc(a.client_name) : 'this client';
+      const reach = clientReach(a);
       const ok = await confirmDialog(
         'Cancel this appointment?',
-        `<b>${who}</b> will be emailed to let them know, and <b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> `
-        + 'goes back on your booking page straight away. It stays on the calendar marked Cancelled.',
-        { danger: true, okText: 'Cancel appointment', cancelText: 'Keep it' },
+        `<b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> goes back on your booking page `
+        + 'straight away. It stays on the calendar marked Cancelled.',
+        {
+          danger: true,
+          okText: 'Cancel appointment',
+          cancelText: 'Keep it',
+          // Sometimes the owner is already on the phone to them, or it's a
+          // no-show they'd rather handle in person. The choice belongs here,
+          // at the moment of cancelling, not in Settings.
+          ...(reach ? {
+            checkbox: { label: `Let ${who} know by ${reach}`, hint: 'Turn off if you\'d rather tell them yourself.', checked: true },
+          } : {}),
+        },
       );
       if (!ok) return;
+      const notify = reach ? Boolean(ok.checked) : false;
       try {
-        await api.post(`/api/appointments/${a.id}/cancel`, {});
-        toast('Appointment cancelled — the client has been notified');
+        await api.post(`/api/appointments/${a.id}/cancel`, { notify_client: notify });
+        toast(notify ? `Cancelled — ${a.client_name || 'the client'} has been notified` : 'Appointment cancelled');
         m.close();
         onSaved?.();
       } catch (err) { toast(err.message, 'err'); }

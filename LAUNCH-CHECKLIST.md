@@ -48,9 +48,15 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
   **All day** shortcut, click-to-edit/remove (time reopens), and the owner can still book over it with a
   confirmation. The reason is never exposed publicly — the endpoint requires sign-in (verified 401)
 - ✅ **One cancellation path** — Cancel is the only way a booking leaves the day. It frees the
-  slot instantly, emails both the client and the owner, and keeps the record marked Cancelled.
-  Delete no longer erases: verified that `DELETE` cancels, that the editor offers a single
-  Cancel action, and that its confirmation dialog never shows two buttons both reading "Cancel"
+  slot instantly, keeps the record marked Cancelled, and alerts the owner. Delete no longer
+  erases: verified that `DELETE` cancels, that the editor offers a single Cancel action, and
+  that its confirmation dialog never shows two buttons both reading "Cancel"
+- ✅ **Owner chooses whether to notify the client**, per cancellation, from the confirmation
+  dialog. On by default; the label names the client and the channel that would really be used.
+  Verified: ticked cancels and emails, unticked cancels silently but still frees the slot and
+  alerts the owner, the API enforces it (`notify_client`) rather than trusting the dialog, a
+  non-boolean is rejected 400, omitting it still notifies, a self-cancelling client always gets
+  their confirmation, and a client with no contact details is offered no empty promise
 - ✅ Location filter (appears automatically with 2+ locations)
 
 ### Point of Sale (v1.8)

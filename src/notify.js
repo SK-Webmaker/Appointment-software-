@@ -420,15 +420,16 @@ export function queueReviewRequest(apptId) {
  * it's really cancelled, the owner gets an alert so a freed slot never goes
  * unnoticed. Sent whoever cancelled, so neither side is ever left guessing.
  */
-export function queueCancellationMessages(apptId, { by = 'owner' } = {}) {
+export function queueCancellationMessages(apptId, { by = 'owner', notifyClient = true } = {}) {
   const a = apptContext(apptId);
   if (!a) return;
   const ins = insMessage();
   const now = localStamp();
   const origin = getSetting('public_url') || '';
 
-  // → the client
-  if (a.client_id && getSetting('confirm_enabled', '1') === '1') {
+  // → the client, unless the owner chose to tell them in person. A client who
+  // cancelled themselves always gets the confirmation: they asked for it.
+  if (notifyClient && a.client_id && getSetting('confirm_enabled', '1') === '1') {
     const copy = buildCopy('cancellation', a, { by, bookUrl: origin ? `${origin}/book` : '' });
     for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
       ins.run(a.id, a.client_id, channel, 'cancellation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);

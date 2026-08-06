@@ -1213,7 +1213,7 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
  *
  * Returns null if there was nothing to cancel, so callers can 404 honestly.
  */
-function cancelAppointment(id, { by = 'owner', reason = '' } = {}) {
+function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true } = {}) {
   const a = db.prepare('SELECT id, status FROM appointments WHERE id = ?').get(id);
   if (!a) return null;
   const already = a.status === 'cancelled';
@@ -1222,9 +1222,13 @@ function cancelAppointment(id, { by = 'owner', reason = '' } = {}) {
       "UPDATE appointments SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?"
     ).run(new Date().toISOString().slice(0, 19).replace('T', ' '), by === 'client' ? 'client' : 'owner', str(reason, 300), id);
     cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
-    queueCancellationMessages(id, { by });
+    queueCancellationMessages(id, { by, notifyClient });
   }
-  return { ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id), already_cancelled: already };
+  return {
+    ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id),
+    already_cancelled: already,
+    client_notified: !already && notifyClient,
+  };
 }
 
 // Kept as DELETE so existing callers keep working, but it cancels rather than
@@ -1237,8 +1241,14 @@ route('DELETE', '/api/appointments/:id', async ({ params }) => {
 });
 
 route('POST', '/api/appointments/:id/cancel', async ({ req, params }) => {
-  const b = checkBody(await readJson(req), { reason: s.str(300) });
-  const out = cancelAppointment(params.id, { by: 'owner', reason: b.reason || '' });
+  const b = checkBody(await readJson(req), { reason: s.str(300), notify_client: s.bool() });
+  // Telling the client is the default; the owner opts out per cancellation
+  // when they'd rather say it themselves.
+  const out = cancelAppointment(params.id, {
+    by: 'owner',
+    reason: b.reason || '',
+    notifyClient: b.notify_client !== false,   // schema guarantees a real boolean or absent
+  });
   if (!out) throw httpError(404, 'Appointment not found');
   return out;
 });

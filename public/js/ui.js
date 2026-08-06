@@ -193,18 +193,41 @@ export function openModal({ title, body, footer = '', wide = false, onClose = nu
 // `cancelText` exists because the dismiss button is not always "Cancel" — on a
 // dialog that cancels an appointment, two buttons both reading Cancel is a
 // coin toss rather than a choice.
-export function confirmDialog(title, message, { danger = false, okText = 'Confirm', cancelText = 'Cancel' } = {}) {
+/**
+ * `checkbox: { label, hint, checked }` adds one decision to the dialog — for a
+ * choice that belongs with the confirmation rather than in Settings, like
+ * whether to tell the client an appointment is off.
+ *
+ * Resolves `false` when dismissed, so `if (!ok) return` keeps working. With a
+ * checkbox it resolves `{ checked }` on confirm, which is truthy, instead of
+ * plain `true`.
+ */
+export function confirmDialog(title, message, {
+  danger = false, okText = 'Confirm', cancelText = 'Cancel', checkbox = null,
+} = {}) {
   return new Promise((resolve) => {
     const m = openModal({
       title,
-      body: `<p style="color:var(--text-2);line-height:1.6">${message}</p>`,
+      body: `<p style="color:var(--text-2);line-height:1.6">${message}</p>`
+        + (checkbox ? `
+        <label class="confirm-opt">
+          <input type="checkbox" class="chk" data-opt ${checkbox.checked === false ? '' : 'checked'}>
+          <span>
+            <b>${esc(checkbox.label)}</b>
+            ${checkbox.hint ? `<span class="co-hint">${esc(checkbox.hint)}</span>` : ''}
+          </span>
+        </label>` : ''),
       footer: `<div class="spacer"></div>
         <button class="btn" data-cancel>${esc(cancelText)}</button>
         <button class="btn ${danger ? 'danger' : 'primary'}" data-ok>${esc(okText)}</button>`,
       onClose: () => resolve(false),
     });
+    const opt = m.querySelector('[data-opt]');
     m.querySelector('[data-cancel]').onclick = () => { m.close(); };
-    m.querySelector('[data-ok]').onclick = () => { resolve(true); m.close(); };
+    m.querySelector('[data-ok]').onclick = () => {
+      resolve(checkbox ? { checked: Boolean(opt?.checked) } : true);
+      m.close();
+    };
   });
 }
 
