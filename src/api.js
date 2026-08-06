@@ -2343,6 +2343,29 @@ const cancelPayload = (ctx) => ({
   },
 });
 
+/**
+ * The business's logo as a real image over HTTP.
+ *
+ * It is stored as a data: URI, which is fine in a browser but blocked outright
+ * by Gmail and Outlook — so an email has to point at a URL instead. Public by
+ * design: it is the same logo already on the booking page.
+ */
+route('GET', '/api/public/logo', async ({ res }) => {
+  const raw = getSetting('brand_logo', '');
+  const m = /^data:(image\/[a-z+.-]{1,20});base64,([A-Za-z0-9+/=\s]+)$/i.exec(raw || '');
+  if (!m) throw httpError(404, 'No logo set');
+  const bytes = Buffer.from(m[2], 'base64');
+  if (!bytes.length) throw httpError(404, 'No logo set');
+  res.writeHead(200, {
+    'Content-Type': m[1],
+    'Content-Length': bytes.length,
+    'Cache-Control': 'public, max-age=3600',
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'; sandbox", // it is an image, never a document
+  });
+  res.end(bytes);
+}, { auth: false });
+
 route('GET', '/api/public/cancel', async ({ query }) => {
   const ctx = cancelLinkContext(str(query.get('token'), 64));
   if (!ctx) throw httpError(404, 'This cancellation link is no longer valid');

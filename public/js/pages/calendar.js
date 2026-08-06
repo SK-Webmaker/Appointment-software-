@@ -280,7 +280,7 @@ function closedNoticeHtml(date) {
   const dow = parseDate(date).getDay();
   const rule = parseDayRules(state.settings.day_rules)[dow];
   const why = rule && rule.every_weeks > 1
-    ? `${DAY_NAMES[dow]}s only run ${describeRule(rule).replace(/^E/, 'e')} — this is an off week`
+    ? `${DAY_NAMES[dow]}s only run ${describeRule(rule).replace(/^E/, 'e')}, and this is an off week`
     : `Closed on ${DAY_NAMES[dow]}s`;
   return `<div class="cal-closed">${icon('lock', 14)}<span>${esc(why)}. Online booking is off; you can still book in here yourself.</span></div>`;
 }
@@ -447,7 +447,7 @@ function wireGrid(container, staffList) {
       if (err instanceof ApiError && err.status === 409) {
         const blk = err.data?.block;
         const force = blk
-          ? await confirmDialog('Blocked time', `That time is blocked out${blk.reason ? ` — <b>${esc(blk.reason)}</b>` : ''}. Book over it anyway?`, { okText: 'Book anyway' })
+          ? await confirmDialog('Blocked time', `That time is blocked out${blk.reason ? ` for <b>${esc(blk.reason)}</b>` : ''}. Book over it anyway?`, { okText: 'Book anyway' })
           : await confirmDialog('Double booking', `${esc(err.data?.conflict?.client_name || 'Another appointment')} is already booked then. Book anyway?`, { okText: 'Double-book' });
         if (force) { await api.put(`/api/appointments/${d.appt.id}`, { ...payload, force: true }); toast('Appointment updated'); }
       } else toast(err.message, 'err');
@@ -497,9 +497,9 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
 
   const serviceOpts = (selId) => {
     const cats = [...new Set(state.services.map((s) => s.category))];
-    return `<option value="">— No service —</option>` + cats.map((c) =>
+    return `<option value="">No service</option>` + cats.map((c) =>
       `<optgroup label="${esc(c)}">${state.services.filter((s) => s.category === c).map((s) =>
-        `<option value="${s.id}" data-dur="${s.duration_min}" ${s.id === selId ? 'selected' : ''}>${esc(s.name)} — ${priceLabel(s)}</option>`).join('')}</optgroup>`
+        `<option value="${s.id}" data-dur="${s.duration_min}" ${s.id === selId ? 'selected' : ''}>${esc(s.name)} · ${priceLabel(s)}</option>`).join('')}</optgroup>`
     ).join('');
   };
 
@@ -511,7 +511,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
         <div class="field span2"><label>Client</label>
           <div class="combo" id="client-combo">
             <div class="combo-input">${icon('search')}
-              <input type="text" id="client-search" autocomplete="off" placeholder="Search name, phone or email — or leave blank for a walk-in">
+              <input type="text" id="client-search" autocomplete="off" placeholder="Search name, phone or email, or leave blank for a walk-in">
               <button type="button" class="combo-clear icon-btn" id="client-clear" title="Clear" hidden>${icon('x', 14)}</button>
             </div>
             <input type="hidden" name="client_id" value="${a?.client_id || ''}">
@@ -544,8 +544,8 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
             `<option value="${s}" ${(a?.status || 'booked') === s ? 'selected' : ''}>${{ booked: 'Booked', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' }[s]}</option>`).join('')}</select></div>
         <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea></div>
         ${a?.deposit_status ? `<div class="span2 cell-sub">💳 Online deposit ${a.deposit_status === 'paid'
-          ? `<b style="color:var(--green)">${money(a.deposit_cents)} paid</b> — it will be credited automatically at checkout`
-          : '<b style="color:var(--amber)">pending</b> — the client started but didn\'t finish the deposit payment'}</div>` : ''}
+          ? `<b style="color:var(--green)">${money(a.deposit_cents)} paid</b>, credited automatically at checkout`
+          : '<b style="color:var(--amber)">pending</b>. The client started but didn\'t finish the deposit payment'}</div>` : ''}
       </form>`,
     footer: `
       ${a && a.status !== 'cancelled' ? `<button class="btn danger" id="appt-cancel">${icon('x')} Cancel appointment</button>` : ''}
@@ -659,7 +659,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     hidden.value = id;
     const isNew = id === '__new__';
     newFields.style.display = isNew ? 'grid' : 'none';
-    if (isNew) { searchInp.value = ''; searchInp.placeholder = 'New client — fill in the details below'; if (label) newFields.querySelector('[name=nc_first]').value = label; }
+    if (isNew) { searchInp.value = ''; searchInp.placeholder = 'New client: fill in the details below'; if (label) newFields.querySelector('[name=nc_first]').value = label; }
     else { searchInp.value = id ? label : ''; }
     clearBtn.hidden = !(id && id !== '__new__');
     menu.hidden = true;

@@ -305,9 +305,19 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - Because the offered dates can now skip a week, the booking page's date strip
   **names the month** whenever the dates it shows cross one.
 
+### 🎛 Interface
+- **Flat, solid colour throughout.** No gradient buttons, no coloured glow
+  behind controls, no decorative wash on page backgrounds. Filled controls take
+  one solid accent with a neutral shadow, the way working software does; the
+  only gradients left are the hatched textures that mark blocked and off-hours
+  time, where the pattern carries meaning.
+- A disabled primary button drops its fill entirely rather than dimming the
+  brand colour, so an inert control reads as inert.
+
 ### ✉️ Branded HTML emails
 - Confirmations, reminders, receipts and review requests go out as **polished,
-  mobile-friendly HTML emails** in the business's brand colour, with a details
+  mobile-friendly HTML emails** carrying the **business's own logo** in the
+  header, in their brand colour, with a details
   card (service, time, amount paid, balance) and the business's name and address
   in the footer — plus a plain-text fallback for old mail apps
 

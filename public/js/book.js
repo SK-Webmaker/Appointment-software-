@@ -64,11 +64,14 @@ function applyBrand(brand) {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   root.style.setProperty('--accent', accent);
   root.style.setProperty('--accent-ink', luminance > 0.56 ? '#0b1220' : '#ffffff');
-  root.style.setProperty('--accent-grad', `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 72%, #000))`);
+  // Filled surfaces take the brand colour flat. A gradient here would fight
+  // whatever the business actually uses on its own signage.
+  root.style.setProperty('--accent-fill', accent);
+  root.style.setProperty('--accent-hover', `color-mix(in srgb, ${accent} 86%, #fff)`);
 }
 
 function poweredHtml() {
-  return '<div class="powered">Powered by <b>◆ Kairo</b> — booking for modern businesses</div>';
+  return '<div class="powered">Powered by <b>◆ Kairo</b></div>';
 }
 
 async function boot() {
@@ -81,7 +84,7 @@ async function boot() {
     state.info = await getJson('/api/public/info');
     setCurrency(state.info.currency);
     applyBrand(state.info.brand);
-    document.title = `Book — ${state.info.business_name}`;
+    document.title = `Book with ${state.info.business_name}`;
 
     // Returning from Stripe after a deposit?
     const params = new URLSearchParams(location.search);
@@ -152,7 +155,7 @@ function renderServiceStep() {
     ${headHtml({ cover: !state.location })}${stepsHtml()}
     ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
     <div class="bk-section-title">Choose your services</div>
-    <div class="bk-hint">Add as many as you like — tap to select.</div>
+    <div class="bk-hint">Add as many as you like. Tap to select.</div>
     ${cats.map((cat) => `
       <div class="bk-cat">${esc(cat)}</div>
       ${state.info.services.filter((s) => s.category === cat).map((s) => `
@@ -318,7 +321,7 @@ async function renderTimeStep() {
       const locQ = state.location ? `&location_id=${state.location.id}` : '';
       const res = await getJson(`/api/public/availability?service_ids=${cartIds().join(',')}&staff_id=${staffQ}&date=${state.date}${locQ}`);
       if (!res.slots.length) {
-        slotsEl.innerHTML = `<div class="empty">${icon('clock', 22)}<div>No free times that day — try another date.</div></div>`;
+        slotsEl.innerHTML = `<div class="empty">${icon('clock', 22)}<div>No free times that day. Try another date.</div></div>`;
         return;
       }
       slotsEl.innerHTML = `<div class="slot-grid">${res.slots.map((s) =>
@@ -415,7 +418,7 @@ function depositNoteHtml() {
   return `
     <div class="bk-summary" style="border-color:color-mix(in srgb, var(--accent) 40%, transparent)">
       <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('card')}</span>
-      <div>A <b>${money(cents)} deposit</b> secures your booking — you'll pay it by card on the next screen.
+      <div>A <b>${money(cents)} deposit</b> secures your booking. You'll pay it by card on the next screen.
         <span style="color:var(--text-2)">It comes off your bill on the day.</span></div>
     </div>`;
 }
@@ -435,10 +438,10 @@ function cancelPolicyHtml() {
     <div class="bk-policy">
       ${icon('clock', 15)}
       <div>${hrs < 0
-        ? `Need to change or cancel? Just give us a call${state.info.business_phone ? ` on <b>${esc(state.info.business_phone)}</b>` : ''} — we'll sort it out.`
+        ? `Need to change or cancel? Give us a call${state.info.business_phone ? ` on <b>${esc(state.info.business_phone)}</b>` : ''} and we'll sort it out.`
         : hrs === 0
           ? `You can cancel any time from the link in your confirmation${phone}.`
-          : `Plans change — you can cancel from the link in your confirmation up to
+          : `Plans change. You can cancel from the link in your confirmation up to
              <b>${hoursLabel(hrs)}</b> before your appointment${phone}.`}</div>
     </div>`;
 }

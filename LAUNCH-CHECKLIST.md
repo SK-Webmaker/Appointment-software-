@@ -151,6 +151,15 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Revenue trend, top services, upcoming list
 - ✅ Quick actions on landing: Take payment · Block time · New appointment
 
+### Interface finish
+- ✅ **No gradient anywhere in the interface** — buttons, page backgrounds, cards, the login
+  screen, the boot splash and the booking page all use flat colour. Verified by walking every
+  screen and reading computed styles: zero decorative gradients painted. The hatched patterns on
+  blocked/off-hours time are kept, because there the texture carries meaning
+- ✅ Filled controls use one solid accent with a neutral shadow; a disabled primary drops the
+  fill rather than dimming the brand colour
+- ✅ Interface copy reads as plain sentences rather than dash-joined clauses
+
 ### Brand & first impression
 - ✅ **Kairo mark**: abstract "K" whose arm sweeps toward a separated dot — *kairos*, the
   opportune moment. Legible from 16px up, works on light and dark

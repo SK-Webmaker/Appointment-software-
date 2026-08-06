@@ -136,14 +136,14 @@ function buildCopy(kind, a, extra = {}) {
 
   if (kind === 'confirmation') {
     return {
-      subject: `Booking confirmed — ${what} on ${fmtDate(a.date)}`,
+      subject: `Booking confirmed: ${what} on ${fmtDate(a.date)}`,
       body: `Hi ${name},\n\nYou're booked for ${what}${who} on ${when}.`
         + (cancelUrl ? `\n\nNeed to cancel? ${cancelUrl}\n${noticeText}` : '')
         + `\n\nSee you soon!\n${biz}${phoneLine}`,
       html: renderEmail({
         heading: 'Your booking is confirmed',
         greeting: `Hi ${name},`,
-        paragraphs: ['Great news — your appointment is locked in. Here are the details:'],
+        paragraphs: ['Your appointment is locked in. Here are the details:'],
         details: visitDetails,
         ...(cancelUrl ? { cta: { label: 'Cancel this appointment', url: cancelUrl } } : {}),
         footNote: cancelUrl
@@ -154,7 +154,7 @@ function buildCopy(kind, a, extra = {}) {
   }
   if (kind === 'reminder') {
     return {
-      subject: `Reminder — ${what} ${fmtDate(a.date)}`,
+      subject: `Reminder: ${what} on ${fmtDate(a.date)}`,
       body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.`
         + (cancelUrl ? `\n\nCan't make it? ${cancelUrl}\n${noticeText}` : `\n\nNeed to change it? Call us on ${phone || 'our usual number'}.`)
         + `\n\n${biz}`,
@@ -171,15 +171,15 @@ function buildCopy(kind, a, extra = {}) {
   if (kind === 'cancellation') {
     const byClient = extra.by === 'client';
     return {
-      subject: `Cancelled — ${what} on ${fmtDate(a.date)}`,
+      subject: `Cancelled: ${what} on ${fmtDate(a.date)}`,
       body: `Hi ${name},\n\n${byClient ? 'Your appointment has been cancelled as requested' : `We've had to cancel your appointment`}: ${what}${who} on ${when}.\n\n`
         + `You haven't been charged.${phone ? ` To rebook, call us on ${phone}.` : ' Book again any time.'}\n\n${biz}`,
       html: renderEmail({
         heading: 'Your appointment is cancelled',
         greeting: `Hi ${name},`,
         paragraphs: [byClient
-          ? "That's done — your appointment has been cancelled and the time released. Nothing more to do."
-          : "We're sorry — we've had to cancel this appointment. Nothing has been charged."],
+          ? "That's done. Your appointment has been cancelled and the time released."
+          : "We're sorry, we've had to cancel this appointment. Nothing has been charged."],
         details: visitDetails,
         ...(extra.bookUrl ? { cta: { label: 'Book another time', url: extra.bookUrl } } : {}),
         footNote: phone ? `Want a different time? Call us on ${phone} and we'll sort it.` : '',
@@ -191,7 +191,7 @@ function buildCopy(kind, a, extra = {}) {
     const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
     const byClient = extra.by === 'client';
     return {
-      subject: `Cancelled — ${clientName}, ${what} on ${fmtDate(a.date)}`,
+      subject: `Cancelled: ${clientName}, ${what} on ${fmtDate(a.date)}`,
       body: `${byClient ? `${clientName} cancelled online` : 'Appointment cancelled'}\n\n${what}${who}\n${when}${contact ? `\nContact: ${contact}` : ''}\n\nThe slot is free again and back on your booking page.\n${biz}`,
       html: renderEmail({
         heading: byClient ? 'A client cancelled' : 'Appointment cancelled',
@@ -212,22 +212,22 @@ function buildCopy(kind, a, extra = {}) {
   if (kind === 'receipt') {
     if (extra.isDeposit) {
       return {
-        subject: `Deposit received — ${money(extra.amountCents)} · ${biz}`,
+        subject: `Deposit received: ${money(extra.amountCents)} · ${biz}`,
         body: `Hi ${name},\n\nWe've received your ${money(extra.amountCents)} deposit for ${what}${who} on ${when}. It comes off your total when you visit.\n\nSee you soon!\n${biz}${phoneLine}`,
         html: renderEmail({
           heading: 'Deposit received',
           greeting: `Hi ${name},`,
-          paragraphs: ['Thanks — your deposit is in, and your appointment is secured. It comes off your total on the day.'],
+          paragraphs: ['Your deposit is in and your appointment is secured. It comes off your total on the day.'],
           details: [['Deposit paid', money(extra.amountCents)], ...visitDetails],
         }),
       };
     }
     const paidInFull = !(extra.balanceCents > 0);
     return {
-      subject: `Receipt — ${money(extra.amountCents)} · ${a.invoiceNumber || biz}`,
-      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${methodLabel(extra.method)}) for ${what}${who}.${paidInFull ? '\nPaid in full — thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
+      subject: `Receipt: ${money(extra.amountCents)} · ${a.invoiceNumber || biz}`,
+      body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${methodLabel(extra.method)}) for ${what}${who}.${paidInFull ? '\nPaid in full. Thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
       html: renderEmail({
-        heading: paidInFull ? 'Payment received — thank you!' : 'Payment received',
+        heading: paidInFull ? 'Payment received, thank you!' : 'Payment received',
         greeting: `Hi ${name},`,
         paragraphs: ['This confirms your payment. A summary for your records:'],
         details: [
@@ -244,11 +244,11 @@ function buildCopy(kind, a, extra = {}) {
     const clientName = [a.first_name, a.client_last].filter(Boolean).join(' ') || 'A new client';
     const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
     return {
-      subject: `New booking — ${clientName}, ${what} on ${fmtDate(a.date)}`,
+      subject: `New booking: ${clientName}, ${what} on ${fmtDate(a.date)}`,
       body: `New online booking\n\n${clientName}\n${what}${who}\n${when}${contact ? `\nContact: ${contact}` : ''}\n\nIt's already on your calendar.\n${biz}`,
       html: renderEmail({
         heading: 'New booking received',
-        paragraphs: [`${clientName} just booked online — it's already on your calendar. Here are the details:`],
+        paragraphs: [`${clientName} just booked online. It's already on your calendar:`],
         details: [
           ['Customer', clientName],
           ['Contact', contact],
@@ -263,7 +263,7 @@ function buildCopy(kind, a, extra = {}) {
   if (kind === 'review_request') {
     return {
       subject: `How was your visit to ${biz}?`,
-      body: `Hi ${name},\n\nThanks for visiting ${biz} for ${what}${who}. We'd love to hear how it went — it takes 30 seconds:\n${extra.reviewUrl}\n\n${biz}`,
+      body: `Hi ${name},\n\nThanks for visiting ${biz} for ${what}${who}. We'd love to hear how it went. It takes 30 seconds:\n${extra.reviewUrl}\n\n${biz}`,
       html: renderEmail({
         heading: 'How did we do?',
         greeting: `Hi ${name},`,

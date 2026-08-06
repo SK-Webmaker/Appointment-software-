@@ -173,7 +173,7 @@ export async function renderDashboard(container) {
     <div class="grid-31 mt">
       <div class="card">
         <div class="card-title">Client growth &amp; retention</div>
-        <div class="card-sub">New vs returning visits — last 30 days</div>
+        <div class="card-sub">New vs returning visits, last 30 days</div>
         <div id="retention-body" class="mt"></div>
       </div>
       <div class="card">
@@ -188,7 +188,7 @@ export async function renderDashboard(container) {
         <div style="display:flex;align-items:flex-start;justify-content:space-between">
           <div>
             <div class="card-title">Your booking rhythm</div>
-            <div class="card-sub">Appointments by hour of day — last 30 days</div>
+            <div class="card-sub">Appointments by hour of day, last 30 days</div>
           </div>
           <span class="st-icon tint-cyan">${icon('trendUp')}</span>
         </div>
@@ -197,14 +197,14 @@ export async function renderDashboard(container) {
       </div>
       <div class="card">
         <div class="card-title">Revenue trend</div>
-        <div class="card-sub">Payments collected per day — last 7 days</div>
+        <div class="card-sub">Payments collected per day, last 7 days</div>
         <div class="chart-box" id="revenue-chart"></div>
       </div>
     </div>
 
     <div class="card mt">
       <div class="card-title">Top services</div>
-      <div class="card-sub">Most booked — last 30 days</div>
+      <div class="card-sub">Most booked over the last 30 days</div>
       <div class="mt" id="top-services"></div>
     </div>`;
 
@@ -245,8 +245,8 @@ export async function renderDashboard(container) {
       </div>
       <div class="insight" style="margin-top:12px">${
         newPct >= 50
-          ? `Lots of fresh faces — <b>${newPct}% new</b>. Getting them to rebook before they leave is the big win.`
-          : `A loyal book — <b>${100 - newPct}% returning</b>.${c.rebook_rate != null ? ` About <b>${c.rebook_rate}%</b> come back within a month.` : ''}`
+          ? `Lots of fresh faces: <b>${newPct}% new</b>. Getting them to rebook before they leave is the big win.`
+          : `A loyal book: <b>${100 - newPct}% returning</b>.${c.rebook_rate != null ? ` About <b>${c.rebook_rate}%</b> come back within a month.` : ''}`
       }</div>` : `<div class="empty">${icon('users')}<div>No visits in the last 30 days yet.</div></div>`}
 
     <div class="lapsed-head">
@@ -268,7 +268,7 @@ export async function renderDashboard(container) {
   // --- Upcoming ------------------------------------------------------------
   const up = container.querySelector('#upcoming-list');
   if (!d.upcoming.length) {
-    up.innerHTML = `<div class="empty">${icon('calendar')}<div>Nothing coming up — add an appointment.</div></div>`;
+    up.innerHTML = `<div class="empty">${icon('calendar')}<div>Nothing coming up. Add an appointment.</div></div>`;
   } else {
     up.innerHTML = d.upcoming.map((a) => `
       <a class="list-item" href="#/calendar?date=${a.date}" style="color:inherit">
@@ -296,10 +296,10 @@ export async function renderDashboard(container) {
     const windowLabel = busiestWindow(d.bookings_by_hour);
     if (windowLabel) {
       container.querySelector('#rhythm-insight').innerHTML =
-        `<div class="insight">You're busiest between <b>${esc(windowLabel)}</b> — keep those slots protected for your best-selling services.</div>`;
+        `<div class="insight">You're busiest between <b>${esc(windowLabel)}</b>. Keep those slots protected for your best-selling services.</div>`;
     }
   } else {
-    container.querySelector('#rhythm-chart').innerHTML = '<div class="empty">No bookings yet — your rhythm will appear here.</div>';
+    container.querySelector('#rhythm-chart').innerHTML = '<div class="empty">No bookings yet. Your rhythm will appear here.</div>';
   }
 
   barChart(container.querySelector('#revenue-chart'), {
@@ -321,7 +321,7 @@ export async function renderDashboard(container) {
         <div style="flex:1;min-width:0">
           <div class="cell-main">${esc(s.name)}</div>
           <div style="height:5px;border-radius:3px;background:var(--panel-3);margin-top:7px;overflow:hidden">
-            <div style="height:100%;width:${Math.round((s.n / maxN) * 100)}%;background:var(--accent-grad);border-radius:3px"></div>
+            <div style="height:100%;width:${Math.round((s.n / maxN) * 100)}%;background:var(--accent-fill);border-radius:3px"></div>
           </div>
         </div>
         <div style="text-align:right;padding-left:14px">

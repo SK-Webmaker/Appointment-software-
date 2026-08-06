@@ -8,12 +8,7 @@
   <link rel="stylesheet" href="/css/app.css">
   <style>
     .rv-wrap { max-width: 520px; margin: 0 auto; padding: 48px 20px 80px; min-height: 100vh; }
-    body {
-      background:
-        radial-gradient(700px 400px at 15% 0%, color-mix(in srgb, var(--accent) 9%, transparent), transparent),
-        radial-gradient(500px 350px at 90% 100%, color-mix(in srgb, var(--accent) 5%, transparent), transparent),
-        var(--bg);
-    }
+    body { background: var(--bg); }
     :root[data-brand-theme="light"] {
       --bg: #f5f7fa; --bg-raise: #ffffff; --panel: #ffffff; --panel-2: #eef2f7; --panel-3: #e5ebf4;
       --border: #d9e1ec; --border-soft: #e6ecf4; --text: #131c2b; --text-2: #4a5a70; --muted: #8895a9;
@@ -55,7 +50,7 @@
     }
     .rv-google {
       display: inline-flex; align-items: center; gap: 8px; margin-top: 6px;
-      background: var(--accent-grad); color: var(--accent-ink, #051422);
+      background: var(--accent-fill); color: var(--accent-ink, #051422);
       padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13.5px;
       text-decoration: none;
     }

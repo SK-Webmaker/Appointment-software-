@@ -25,7 +25,10 @@ function applyBrand(brand) {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   root.style.setProperty('--accent', accent);
   root.style.setProperty('--accent-ink', luminance > 0.56 ? '#0b1220' : '#ffffff');
-  root.style.setProperty('--accent-grad', `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 72%, #000))`);
+  // Filled surfaces take the brand colour flat. A gradient here would fight
+  // whatever the business actually uses on its own signage.
+  root.style.setProperty('--accent-fill', accent);
+  root.style.setProperty('--accent-hover', `color-mix(in srgb, ${accent} 86%, #fff)`);
 }
 
 const STAR_LABELS = ['', 'Not great', 'Could be better', 'Good', 'Great!', 'Excellent!'];

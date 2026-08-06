@@ -33,6 +33,19 @@ export function renderEmail(p) {
   const phone = getSetting('business_phone', '');
   const address = getSetting('business_address', '');
 
+  // The business's own logo, served over HTTP. It is stored as a data: URI,
+  // which Gmail and Outlook strip from <img> — so it only goes in when the
+  // instance has a public address to serve it from, and the name stands in
+  // otherwise. Sits on its own light strip so a logo with its own background
+  // never clashes with the brand colour below it.
+  const origin = String(getSetting('public_url', '') || '').replace(/\/+$/, '');
+  const hasLogo = /^data:image\//i.test(getSetting('brand_logo', '') || '');
+  const logoBand = (hasLogo && origin) ? `
+    <tr><td align="center" style="background:#ffffff;border-radius:14px 14px 0 0;padding:22px 32px 18px;border-bottom:1px solid #e6eaf0;">
+      <img src="${esc(origin)}/api/public/logo" alt="${esc(biz)}" height="44"
+           style="display:block;max-height:44px;max-width:190px;width:auto;border:0;outline:none;text-decoration:none;">
+    </td></tr>` : '';
+
   const detailRows = (p.details || []).filter(([, v]) => v !== '' && v != null).map(([label, value]) => `
     <tr>
       <td style="padding:7px 0;font-size:12px;color:#6b7686;letter-spacing:0.04em;text-transform:uppercase;vertical-align:top;white-space:nowrap;padding-right:18px;">${esc(label)}</td>
@@ -62,9 +75,10 @@ export function renderEmail(p) {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f5;padding:28px 12px;">
 <tr><td align="center">
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;font-family:Arial,Helvetica,sans-serif;">
-    <tr><td style="background:${accent};border-radius:14px 14px 0 0;padding:26px 32px;">
-      <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:${ink};opacity:0.75;">${esc(biz)}</div>
-      <div style="font-size:22px;font-weight:bold;color:${ink};margin-top:6px;line-height:1.3;">${esc(p.heading)}</div>
+    ${logoBand}
+    <tr><td style="background:${accent};${logoBand ? '' : 'border-radius:14px 14px 0 0;'}padding:24px 32px;">
+      ${logoBand ? '' : `<div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:${ink};opacity:0.75;">${esc(biz)}</div>`}
+      <div style="font-size:21px;font-weight:bold;color:${ink};${logoBand ? '' : 'margin-top:6px;'}line-height:1.3;">${esc(p.heading)}</div>
     </td></tr>
     <tr><td style="background:#ffffff;padding:28px 32px 24px;border-radius:0 0 14px 14px;">
       ${p.greeting ? `<p style="margin:0 0 14px;font-size:14.5px;line-height:1.65;color:#101828;font-weight:bold;">${esc(p.greeting)}</p>` : ''}

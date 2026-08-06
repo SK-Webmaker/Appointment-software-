@@ -26,7 +26,10 @@ function applyBrand(brand) {
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   el.style.setProperty('--accent', accent);
   el.style.setProperty('--accent-ink', luminance > 0.56 ? '#0b1220' : '#ffffff');
-  el.style.setProperty('--accent-grad', `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 72%, #000))`);
+  // Filled surfaces take the brand colour flat. A gradient here would fight
+  // whatever the business actually uses on its own signage.
+  el.style.setProperty('--accent-fill', accent);
+  el.style.setProperty('--accent-hover', `color-mix(in srgb, ${accent} 86%, #fff)`);
 }
 
 /** "12 hours" / "24 hours" / "2 days" — reads naturally mid-sentence. */
@@ -73,9 +76,9 @@ function renderCancelled(info, justNow) {
     <div class="cx-mark done">${icon('check', 28)}</div>
     <h2>${justNow ? 'Your appointment is cancelled' : 'This appointment is already cancelled'}</h2>
     <div class="lede">${justNow
-      ? 'That\'s done. The time has been released and we\'ve emailed you a confirmation — nothing else to do.'
+      ? 'That\'s done. The time has been released and we\'ve emailed you a confirmation.'
       : byUs
-        ? 'This booking was cancelled by us. If that\'s a surprise, give us a call.'
+        ? 'This booking was cancelled by us. If that\'s a surprise, please give us a call.'
         : 'You\'ve already cancelled this one, so there\'s nothing left to do.'}</div>
     ${detailsHtml(info)}
     <div class="cx-actions">
@@ -98,7 +101,7 @@ function renderPast(info) {
   shell(info, `
     <div class="cx-mark warn">${icon('clock', 26)}</div>
     <h2>This appointment has passed</h2>
-    <div class="lede">There's nothing to cancel — this booking was for a time that's already been and gone.</div>
+    <div class="lede">There's nothing to cancel. This booking was for a time that has already been and gone.</div>
     ${detailsHtml(info)}
     <div class="cx-actions">
       <a class="cx-btn brand" href="/book">${icon('calendar', 16)} Book another time</a>
@@ -117,12 +120,12 @@ function renderDisabled(info) {
 function renderConfirm(info) {
   shell(info, `
     <h2>Cancel this appointment?</h2>
-    <div class="lede">${info.first_name ? `Hi ${esc(info.first_name)} — ` : ''}here's the booking you're about to cancel.
+    <div class="lede">${info.first_name ? `Hi ${esc(info.first_name)}. ` : ''}Here's the booking you're about to cancel.
       You won't be charged anything.</div>
     ${detailsHtml(info)}
     <div class="cx-actions">
       <button class="cx-btn danger" id="cx-go">${icon('x', 16)} Yes, cancel it</button>
-      <a class="cx-btn quiet" href="/book">Keep it — I'll be there</a>
+      <a class="cx-btn quiet" href="/book">Keep it, I'll be there</a>
     </div>
     <div class="cx-note">${info.cancel_window_hours > 0
       ? `Cancelling online is open until ${esc(hoursLabel(info.cancel_window_hours))} before your appointment.`
@@ -154,7 +157,7 @@ function renderConfirm(info) {
 }
 
 async function boot() {
-  if (!token) { renderError('That link is missing its code — please use the link from your booking message.'); return; }
+  if (!token) { renderError('That link is missing its code. Please use the link from your booking message.'); return; }
   let info;
   try {
     info = await getJson(`/api/public/cancel?token=${encodeURIComponent(token)}`);
@@ -163,7 +166,7 @@ async function boot() {
     return;
   }
   applyBrand(info.brand);
-  document.title = `Cancel your appointment — ${info.business_name || 'Booking'}`;
+  document.title = `Cancel your appointment · ${info.business_name || 'Booking'}`;
 
   if (info.status === 'cancelled') renderCancelled(info, false);
   else if (info.past) renderPast(info);

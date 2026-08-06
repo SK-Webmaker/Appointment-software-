@@ -11,9 +11,13 @@
   --text: #e8edf6;
   --text-2: #9aa7bd;
   --muted: #64748b;
-  --accent: #38bdf8;
+  --accent: #2f7fd6;        /* solid, readable on dark and light */
   --accent-deep: #2563eb;
-  --accent-grad: linear-gradient(135deg, #38bdf8, #2563eb);
+  --accent-hover: #3a8ee2;
+  /* Filled accent surfaces (primary buttons, selected states). A flat colour,
+     not a gradient: gradients on controls read as decoration and date quickly. */
+  --accent-fill: #2f7fd6;
+  --accent-ink: #ffffff;    /* text on a filled accent surface */
   --green: #34d399;
   --amber: #fbbf24;
   --red: #f87171;
@@ -108,7 +112,7 @@ a { color: var(--accent); text-decoration: none; }
 .user-card .avatar {
   width: 30px; height: 30px; border-radius: 50%;
   display: grid; place-items: center;
-  background: var(--accent-grad); color: #04121f; font-weight: 700; font-size: 13px;
+  background: var(--accent-fill); color: #04121f; font-weight: 700; font-size: 13px;
 }
 .user-card .u-name { font-size: 13px; font-weight: 600; }
 .user-card .u-role { font-size: 11px; color: var(--green); }
@@ -188,16 +192,23 @@ a { color: var(--accent); text-decoration: none; }
 .btn:hover { border-color: #2b3a52; background: var(--panel-3); }
 .btn:active { transform: translateY(1px); }
 .btn.primary {
-  background: var(--accent-grad); color: var(--accent-ink, #051422);
-  border: none; box-shadow: 0 4px 18px color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-fill); color: var(--accent-ink);
+  border: 1px solid transparent; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
 }
-.btn.primary:hover { filter: brightness(1.08); }
+.btn.primary:hover { background: var(--accent-hover, var(--accent-fill)); }
+.btn.primary:active { transform: translateY(1px); box-shadow: none; }
 .btn.danger { color: var(--red); border-color: rgba(248, 113, 113, 0.3); }
 .btn.danger:hover { background: rgba(248, 113, 113, 0.08); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--text-2); }
 .btn.ghost:hover { color: var(--text); background: var(--panel-2); }
 .btn.small { padding: 5px 10px; font-size: 12px; border-radius: 7px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
+/* A dimmed brand colour still looks like a button you should press. An inert
+   control should read as inert, so a disabled primary drops the fill entirely. */
+.btn.primary:disabled {
+  background: var(--panel-3); color: var(--muted);
+  border-color: var(--border); box-shadow: none; opacity: 1;
+}
 
 .icon-btn {
   width: 30px; height: 30px; border-radius: 8px;
@@ -465,12 +476,12 @@ input.chk {
   display: flex; flex-direction: column; gap: 9px;
   padding: 15px 16px; border-radius: 12px; text-decoration: none; color: inherit;
   border: 1px solid rgba(56, 189, 248, 0.32);
-  background: linear-gradient(160deg, rgba(56, 189, 248, 0.09), rgba(56, 189, 248, 0.02));
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 .next-up:hover { border-color: rgba(56, 189, 248, 0.6); transform: translateY(-1px); }
 .next-up.is-empty { border-color: var(--border); background: var(--panel-2); cursor: default; }
-.next-up.is-now { border-color: rgba(52, 211, 153, 0.5); background: linear-gradient(160deg, rgba(52, 211, 153, 0.1), rgba(52, 211, 153, 0.02)); }
+.next-up.is-now { border-color: rgba(52, 211, 153, 0.5); background: color-mix(in srgb, var(--green) 8%, var(--panel)); }
 .nu-tag {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
@@ -855,10 +866,7 @@ table.data th.num { text-align: right; }
 
 .login-wrap {
   min-height: 100vh; display: grid; place-items: center;
-  background:
-    radial-gradient(600px 400px at 20% 10%, rgba(37, 99, 235, 0.12), transparent),
-    radial-gradient(500px 350px at 85% 85%, rgba(56, 189, 248, 0.08), transparent),
-    var(--bg);
+  background: var(--bg);
   padding: calc(24px + var(--safe-top)) calc(24px + var(--safe-right)) calc(24px + var(--safe-bottom)) calc(24px + var(--safe-left));
 }
 .login-card {
@@ -1057,10 +1065,7 @@ table.data th.num { text-align: right; }
 /* ---------- setup wizard ---------- */
 .wiz-overlay {
   position: fixed; inset: 0; z-index: 500;
-  background:
-    radial-gradient(700px 420px at 15% 0%, rgba(37,99,235,0.12), transparent),
-    radial-gradient(560px 380px at 90% 100%, rgba(56,189,248,0.08), transparent),
-    var(--bg);
+  background: var(--bg);
   display: grid; place-items: center; padding: 24px; overflow-y: auto;
 }
 .wiz-card {
@@ -1071,7 +1076,7 @@ table.data th.num { text-align: right; }
   animation: riseIn 0.2s ease;
 }
 .wiz-progress { height: 3px; background: var(--panel-3); }
-.wiz-bar { height: 100%; background: var(--accent-grad); transition: width 0.25s ease; }
+.wiz-bar { height: 100%; background: var(--accent-fill); transition: width 0.25s ease; }
 .wiz-body { padding: 30px 34px 8px; }
 .wiz-body h1 { font-size: 25px; letter-spacing: -0.03em; margin-bottom: 8px; text-align: center; }
 .wiz-body h2 { font-size: 20px; letter-spacing: -0.02em; margin-bottom: 6px; }
@@ -1160,7 +1165,7 @@ table.data th.num { text-align: right; }
 .boot-splash {
   position: fixed; inset: 0; z-index: 10000;
   display: grid; place-items: center;
-  background: radial-gradient(120% 90% at 50% 30%, #101b2c 0%, #070a10 62%);
+  background: #0a0f18;
   transition: opacity 0.42s ease, visibility 0.42s ease;
 }
 .boot-splash.bs-out { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -1169,7 +1174,7 @@ table.data th.num { text-align: right; }
   animation: bsRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes bsRise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
-.bs-mark { filter: drop-shadow(0 6px 22px rgba(56, 189, 248, 0.28)); }
+.bs-mark { /* no glow: the mark carries itself */ }
 .bs-dot { animation: bsPulse 1.9s ease-in-out infinite; transform-origin: 35.2px 10.4px; }
 @keyframes bsPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.86); } }
 .bs-word {
@@ -1207,17 +1212,11 @@ table.data th.num { text-align: right; }
    apart splits everything they contain — including the logo — down the middle. */
 .intro-half {
   position: absolute; inset: 0;
-  background:
-    radial-gradient(1100px 520px at 50% 42%, rgba(37, 99, 235, 0.16), transparent 62%),
-    radial-gradient(700px 300px at 50% 46%, rgba(56, 189, 248, 0.10), transparent 60%),
-    linear-gradient(180deg, #030509 0%, #070c18 48%, #04060d 100%);
+  background: #05080f;
   will-change: transform;
   transition: transform 1.05s cubic-bezier(0.87, 0, 0.13, 1);
 }
-.intro-half::after { /* vignette for a filmic edge falloff */
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(130% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
-}
+/* The vignette went with the washes: on a flat ground it only muddies the edges. */
 .ih-left  { clip-path: inset(0 50% 0 0); }
 .ih-right { clip-path: inset(0 0 0 50%); }
 .intro-open .ih-left  { transform: translateX(-64vw); }
@@ -1334,8 +1333,8 @@ table.data th.num { text-align: right; }
 .pos-hero {
   width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px;
   padding: 22px; border-radius: 16px; font-size: 17px; font-weight: 800;
-  background: var(--accent-grad); color: var(--accent-ink, #051422);
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-fill); color: var(--accent-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .pos-hero:active { transform: translateY(1px); }
 .pos-appt {
@@ -1374,8 +1373,8 @@ table.data th.num { text-align: right; }
 .pos-charge {
   width: min(560px, 100%); padding: 16px; border-radius: 14px;
   font-size: 17px; font-weight: 800;
-  background: var(--accent-grad); color: var(--accent-ink, #051422);
-  box-shadow: 0 8px 26px color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--accent-fill); color: var(--accent-ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 .pos-charge:disabled { opacity: 0.45; }
 .pos-paychoice {

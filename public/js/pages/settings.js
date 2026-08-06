@@ -10,7 +10,7 @@ import { parseDayRules } from '../hours.js';
 // flag instead. These render the "already saved" affordance.
 const keySaved = (set) => (set === '1'
   ? ' <span style="color:var(--green);font-weight:600;font-size:11px">● saved</span>' : '');
-const keyPlaceholder = (set, empty) => (set === '1' ? '•••••••••• — leave blank to keep' : empty);
+const keyPlaceholder = (set, empty) => (set === '1' ? '•••••••••• (leave blank to keep)' : empty);
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -124,7 +124,7 @@ export async function renderSettings(container) {
         <input type="checkbox" class="chk" name="${enKey}" ${s[enKey] === '1' ? 'checked' : ''}>
         <span>${label}</span>
       </label>
-      <select name="${chanKey}" class="notif-chan" aria-label="${label} — send by">
+      <select name="${chanKey}" class="notif-chan" aria-label="${label} delivery channel">
         <option value="email" ${chan === 'email' ? 'selected' : ''}>Email</option>
         <option value="sms" ${chan === 'sms' ? 'selected' : ''}>SMS</option>
         <option value="both" ${chan === 'both' ? 'selected' : ''}>Email + SMS</option>
@@ -164,13 +164,13 @@ export async function renderSettings(container) {
           </div>
           <div class="field"><label>Your week</label>
             <div class="week-rules" id="week-rules">${weekRulesHtml(s)}</div>
-            <div class="hint">Set each day to closed, weekly, or <b>every 2nd/3rd/4th week</b> — so you can open, say, every second Sunday, with its own hours. Closed days and off weeks never appear on the customer booking page; you can still add a walk-in from the calendar.</div></div>
+            <div class="hint">Set each day to closed, weekly, or <b>every 2nd/3rd/4th week</b>, so you can open every second Sunday with its own hours. Closed days and off weeks never appear on the customer booking page; you can still add a walk-in from the calendar.</div></div>
           <div class="form-grid">
             <div class="field"><label>Online booking slot interval</label>
               <select name="slot_interval">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${Number(s.slot_interval) === v ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
             <div class="field"><label>Minimum booking notice</label>
               <select name="booking_lead_min">${[
-                [0, 'None — up to the last minute'], [15, '15 minutes ahead'], [30, '30 minutes ahead'],
+                [0, 'None, up to the last minute'], [15, '15 minutes ahead'], [30, '30 minutes ahead'],
                 [60, '1 hour ahead'], [120, '2 hours ahead'], [240, '4 hours ahead'], [1440, '1 day ahead'],
               ].map(([v, lbl]) => `<option value="${v}" ${Number(s.booking_lead_min || 0) === v ? 'selected' : ''}>${lbl}</option>`).join('')}</select>
               <div class="hint">How far ahead a customer must book. Past times are never shown regardless.</div></div>
@@ -181,7 +181,7 @@ export async function renderSettings(container) {
             <div class="field"><label>Calendar ends at</label>
               <select name="cal_end_min" class="nice-select">${calHourOpts(s.cal_end_min, 'Auto (2h after close)', true)}</select></div>
           </div>
-          <div class="hint" style="margin-top:-4px">How much of the day your calendar shows and scrolls through — set it wider to slot in early/late walk-ins. Appointments outside this window still always show.</div>
+          <div class="hint" style="margin-top:-4px">How much of the day your calendar shows and scrolls through. Set it wider to slot in early or late walk-ins. Appointments outside this window still always show.</div>
           <div class="form-grid">
             <div class="field"><label>Customers can book up to</label>
               <select name="booking_horizon_days" class="nice-select">${[30, 60, 90, 120, 180, 365]
@@ -195,7 +195,7 @@ export async function renderSettings(container) {
                 const cur = s.client_cancel_enabled === '0' ? 'off' : String(Number(s.cancel_window_hours ?? 12));
                 return `<option value="${v}" ${cur === v ? 'selected' : ''}>${lbl}</option>`;
               }).join('')}</select>
-              <div class="hint">Their confirmation and reminder carry a cancel link. Inside this window it stops working and they're asked to call, so you always get notice.</div></div>
+              <div class="hint">Their confirmation and reminder carry a cancel link. Inside this window it stops working and they are asked to call, so you always get notice.</div></div>
           </div>
           <div class="field"><label>Usual rebooking gap</label>
             <select name="rebook_weeks_default" class="nice-select">${[2, 3, 4, 5, 6, 8, 10, 12]
@@ -203,7 +203,7 @@ export async function renderSettings(container) {
             <div class="hint">What <b>Rebook</b> suggests when you book a client's next visit from the calendar. You can still change it each time.</div></div>
           <div class="field"><label>Time zone</label>
             <input name="business_tz" value="${esc(s.business_tz || '')}" placeholder="${esc(Intl.DateTimeFormat().resolvedOptions().timeZone || 'e.g. Australia/Melbourne')}">
-            <div class="hint">Auto-detected from your device — it keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
+            <div class="hint">Auto-detected from your device. It keeps the booking page showing the right upcoming times. Only change it if your salon is in a different zone to you.</div></div>
           <div class="field">
             <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
               <input type="checkbox" name="booking_enabled" ${s.booking_enabled === '1' ? 'checked' : ''} class="chk">
@@ -220,7 +220,7 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">Booking page appearance</div>
-        <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand —
+        <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand.
           logo, colour and light/dark style. <a href="/book" target="_blank">Open the booking page ↗</a> to preview.</div>
         <form id="set-brand" style="display:flex;flex-direction:column;gap:13px">
           <div class="field"><label>Colour scheme</label>
@@ -240,7 +240,7 @@ export async function renderSettings(container) {
               }).join('')}
             </div>
             <input type="hidden" name="brand_scheme" value="${esc(s.brand_scheme || (s.brand_theme === 'light' ? 'daylight' : 'midnight'))}">
-            <div class="hint">The whole booking page — background, cards, text — takes this scheme; your brand colour below is used for buttons and highlights on top of it.</div></div>
+            <div class="hint">The whole booking page takes this scheme (background, cards and text); your brand colour below is used for buttons and highlights on top of it.</div></div>
           <div class="field"><label>Font style</label>
             <select name="brand_font">
               <option value="modern" ${s.brand_font !== 'classic' && s.brand_font !== 'rounded' ? 'selected' : ''}>Modern (clean sans)</option>
@@ -298,7 +298,7 @@ export async function renderSettings(container) {
         <div class="card-title">Notifications</div>
         <div class="card-sub" style="margin-bottom:16px">Automatic confirmations, reminders, payment receipts &amp;
           post-visit review requests. Email uses <a href="https://resend.com" target="_blank" rel="noreferrer">Resend</a>
-          (free up to 3,000/mo — plenty for this). Paste keys, hit save, send a test from the
+          (free up to 3,000 a month, plenty for this). Paste keys, hit save, send a test from the
           <a href="#/messages">Messages</a> page.</div>
         <form id="set-notif" style="display:flex;flex-direction:column;gap:13px">
           <div>
@@ -307,7 +307,7 @@ export async function renderSettings(container) {
             ${notifRow('reminders_enabled', 'chan_reminder', 'Appointment reminders', 'Sent a set number of hours before the visit.')}
             ${notifRow('receipts_enabled', 'chan_receipt', 'Payment receipts', 'Sent the moment a payment or deposit is recorded.')}
             ${notifRow('review_requests_enabled', 'chan_review_request', 'Review requests', 'Sent after a visit is marked Completed.')}
-            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS options only take effect once you turn on “Also send SMS” below</b> and add a provider — until then everything goes by email (so nothing is billed by accident).</div>
+            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS options only take effect once you turn on “Also send SMS” below</b> and add a provider. Until then everything goes by email (so nothing is billed by accident).</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer;margin-top:4px">
             <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} class="chk">
@@ -323,7 +323,7 @@ export async function renderSettings(container) {
             <div class="hint">Clients who rate you 4-5★ get a one-tap link to also post this on Google.</div></div>
           <div class="field"><label>Your website address</label>
             <input name="public_url" value="${esc(s.public_url || '')}" placeholder="${esc(location.origin)}">
-            <div class="hint">Used to build review links in messages. Auto-filled during setup — only change this if you move to a custom domain.</div></div>
+            <div class="hint">Used to build review links in messages. Auto-filled during setup. Only change this if you move to a custom domain.</div></div>
           <div class="field"><label>Resend API key (email)${keySaved(s.resend_api_key_set)}</label>
             <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
           <div class="field"><label>From email (verified in Resend)</label>
@@ -336,17 +336,17 @@ export async function renderSettings(container) {
         <div class="card-title">SMS (text messages)</div>
         <div class="card-sub" style="margin-bottom:16px">This is the master switch for SMS. Turn it on and the types you set to
           <b>SMS</b> or <b>Email + SMS</b> above will text as well. SMS costs money per message (there's no free option), so
-          it's <b>off by default</b> — nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
+          it's <b>off by default</b>, so nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
         <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
             <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} class="chk">
-            <span><b>Turn SMS on</b> — activates the SMS / Email + SMS choices you set per notification type above</span>
+            <span><b>Turn SMS on</b>, activating the SMS and Email + SMS choices set per notification type above</span>
           </label>
           <div class="field"><label>SMS provider</label>
             <select name="sms_provider" id="sms-provider">
-              <option value="clicksend" ${(s.sms_provider || 'clicksend') === 'clicksend' ? 'selected' : ''}>ClickSend — simplest setup, great for Australia</option>
-              <option value="telnyx" ${s.sms_provider === 'telnyx' ? 'selected' : ''}>Telnyx — cheapest per message, more setup</option>
-              <option value="twilio" ${s.sms_provider === 'twilio' ? 'selected' : ''}>Twilio — widely used, has monthly number fees</option>
+              <option value="clicksend" ${(s.sms_provider || 'clicksend') === 'clicksend' ? 'selected' : ''}>ClickSend · simplest setup, great for Australia</option>
+              <option value="telnyx" ${s.sms_provider === 'telnyx' ? 'selected' : ''}>Telnyx · cheapest per message, more setup</option>
+              <option value="twilio" ${s.sms_provider === 'twilio' ? 'selected' : ''}>Twilio · widely used, has monthly number fees</option>
             </select>
             <div class="hint" id="sms-provider-hint"></div>
           </div>
@@ -402,7 +402,7 @@ export async function renderSettings(container) {
           <label class="pay-opt ${s.pos_card_method === 'square' ? 'sel' : ''}">
             <input type="radio" name="pos_card_method" value="square" ${s.pos_card_method === 'square' ? 'checked' : ''}>
             <span><b>Square</b><br><span class="cell-sub">Charge on your own Square reader / app the way you already do, then tap
-              <b>Paid</b> in Kairo. No key or Square login needed — the bill is tracked here, the card is taken on Square.</span></span>
+              <b>Paid</b> in Kairo. No key or Square login needed. The bill is tracked here, the card is taken on Square.</span></span>
           </label>
           <button class="btn primary" style="align-self:flex-start;margin-top:4px">${icon('check')} Save card method</button>
         </form>
@@ -410,7 +410,7 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">Online deposits (Stripe)</div>
-        <div class="card-sub" style="margin-bottom:16px">Take a card deposit when clients book online — the #1 no-show killer.
+        <div class="card-sub" style="margin-bottom:16px">Take a card deposit when clients book online. The single biggest no-show killer.
           Get a secret key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe</a>;
           deposits are credited automatically when you bill the visit.</div>
         <form id="set-payments" style="display:flex;flex-direction:column;gap:13px">
@@ -475,7 +475,7 @@ export async function renderSettings(container) {
         </div>
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Demo data</div>
-          <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset — useful before a sales demo.</div>
+          <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset. Useful before a sales demo.</div>
           <button class="btn danger" id="reset-demo">${icon('zap')} Reset to demo data</button>
         </div>`}
       </div>
@@ -582,7 +582,7 @@ export async function renderSettings(container) {
   });
 
   const readImage = (file, maxKb) => new Promise((resolve, reject) => {
-    if (file.size > maxKb * 1024) { reject(new Error(`Image must be under ${maxKb} KB — try a smaller one`)); return; }
+    if (file.size > maxKb * 1024) { reject(new Error(`Image must be under ${maxKb} KB. Try a smaller one.`)); return; }
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
     reader.onerror = () => reject(new Error('Could not read that file'));
@@ -639,9 +639,9 @@ export async function renderSettings(container) {
         brand_logo: brandLogo,
         brand_cover: brandCover,
       });
-      toast('Booking page updated — open it to see the new look');
+      toast('Booking page updated. Open it to see the new look.');
     } catch (err) {
-      toast(err.message.includes('large') ? 'Those images are too large together — remove one or use smaller files' : err.message, 'err');
+      toast(err.message.includes('large') ? 'Those images are too large together. Remove one or use smaller files.' : err.message, 'err');
     }
   });
 
