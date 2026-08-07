@@ -157,6 +157,20 @@ Every ✅ below was exercised end-to-end in a real browser (66/66 automated chec
 - ✅ Revenue trend, top services, upcoming list
 - ✅ Quick actions on landing: Take payment · Block time · New appointment
 
+### Account & billing readiness
+- ✅ **Account page** separate from Settings: profile, plan, usage, security and workspace status,
+  reached from the sidebar or the avatar
+- ✅ **Plan card driven per deployment** — name, price, interval, status, start/next-payment dates,
+  billing contact and note are settings you control, so each business sees the terms it was sold
+- ✅ **Usage counters** (clients, team, services, products, 30-day appointments and online bookings,
+  messages and money collected this month) — real numbers, ready to underpin metered pricing
+- ✅ Profile edits validated: malformed email rejected, duplicate email 409, `role` cannot be
+  self-assigned, and changing the sign-in email clears verification
+- ✅ Both account endpoints require a session (verified 401) and never return the password hash,
+  salt, session epoch or verification token
+- ✅ Password and email verification live in exactly one place; Settings links across rather than
+  duplicating the forms
+
 ### Interface finish
 - ✅ **No gradient anywhere in the interface** — buttons, page backgrounds, cards, the login
   screen, the boot splash and the booking page all use flat colour. Verified by walking every

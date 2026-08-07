@@ -450,23 +450,11 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
-        <div class="card-title">Security</div>
+        <div class="card-title">Your account</div>
         <div class="card-sub" style="margin-bottom:16px">Signed in as ${esc(state.user.email)}</div>
-        <div class="field" style="margin-bottom:16px"><label>Email verification</label>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            ${state.user.email_verified
-              ? `<span class="chip s-paid"><span class="dot"></span>Verified</span>
-                 <span class="hint" style="margin:0">${esc(state.user.email)} is confirmed.</span>`
-              : `<span class="chip s-sent"><span class="dot"></span>Not verified</span>
-                 <button type="button" class="btn small" id="send-verify">${icon('mail')} Send verification email</button>`}
-          </div>
-          ${state.user.email_verified ? '' : '<div class="hint">Confirms you own this address. Needs email set up (Notifications card) first.</div>'}
-        </div>
-        <form id="set-password" style="display:flex;flex-direction:column;gap:13px">
-          <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
-          <div class="field"><label>New password (min 8 chars)</label><input name="next" type="password" autocomplete="new-password" required minlength="8"></div>
-          <button class="btn primary" style="align-self:flex-start">${icon('check')} Change password</button>
-        </form>
+        <div class="hint" style="margin-bottom:14px">Your own name, password, email verification and plan live on your
+          Account page. This page is for the business itself.</div>
+        <a class="btn" href="#/account">${icon('user')} Open your account</a>
         ${state.user.email_verified ? '' : `
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Guided setup</div>
@@ -562,16 +550,6 @@ export async function renderSettings(container) {
     });
   });
 
-  container.querySelector('#send-verify')?.addEventListener('click', async (e) => {
-    e.target.disabled = true;
-    try {
-      const res = await api.post('/api/auth/send-verification', {});
-      toast(res.already_verified ? 'Already verified' : `Verification email sent to ${res.sent_to}`);
-    } catch (err) {
-      toast(err.message, 'err');
-      e.target.disabled = false;
-    }
-  });
 
   container.querySelector('#brand-swatches').addEventListener('click', (e) => {
     const b = e.target.closest('[data-c]');
@@ -738,15 +716,6 @@ export async function renderSettings(container) {
     await navigator.clipboard.writeText(container.querySelector('#book-url').value);
     toast('Booking link copied');
   };
-  container.querySelector('#set-password').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    try {
-      await api.put('/api/auth/password', { current: fd.get('current'), next: fd.get('next') });
-      toast('Password changed');
-      e.target.reset();
-    } catch (err) { toast(err.message, 'err'); }
-  });
   // Guided-setup + demo-reset controls only exist before the owner verifies
   // their email (a real, verified business has no need to wipe & reseed).
   const rerunBtn = container.querySelector('#rerun-setup');

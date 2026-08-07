@@ -8,6 +8,7 @@ import { renderServices } from './pages/services.js';
 import { renderInvoices } from './pages/invoices.js';
 import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
+import { renderAccount } from './pages/account.js';
 import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
 import { renderPos } from './pages/pos.js';
@@ -43,6 +44,7 @@ const ROUTES = {
   reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
+  account: { title: 'Account', icon: 'user', render: renderAccount },
 };
 
 const root = document.getElementById('app');
@@ -105,7 +107,7 @@ function renderShell() {
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
   const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
-  const navManage = ['messages', 'reviews', 'staff', 'settings'];
+  const navManage = ['messages', 'reviews', 'staff', 'settings', 'account'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');
@@ -128,8 +130,9 @@ function renderShell() {
         </nav>
         <div class="sidebar-foot">
           <div class="user-card">
-            <div class="avatar">${esc(initials(state.user.name))}</div>
-            <div><div class="u-name">${esc(state.user.name)}</div><div class="u-role">${esc(state.user.role)}</div></div>
+            <a class="avatar" href="#/account" title="Your account">${esc(initials(state.user.name))}</a>
+            <a class="u-id" href="#/account" title="Your account">
+              <div class="u-name">${esc(state.user.name)}</div><div class="u-role">${esc(state.user.role)}</div></a>
             <button class="icon-btn" id="logout" title="Sign out">${icon('logout')}</button>
           </div>
           <div style="text-align:center;color:var(--muted);font-size:10.5px;margin-top:8px;letter-spacing:0.03em">Kairo v${esc(state.version || '')}</div>

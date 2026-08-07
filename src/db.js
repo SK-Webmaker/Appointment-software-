@@ -16,6 +16,11 @@ const DB_PATH = process.env.KAIRO_DB_PATH || path.join(DATA_DIR, 'kairo.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);
+
+/** Size of the database file on disk — the whole business, in bytes. */
+export function dbFileBytes() {
+  try { return fs.statSync(DB_PATH).size; } catch { return 0; }
+}
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
@@ -318,6 +323,19 @@ const DEFAULT_SETTINGS = {
   // themselves. The cancellation window is the owner's protection: inside it
   // the link stops working and the client is told to ring instead, so a
   // no-notice drop-out is always a conversation rather than a silent gap.
+  // What this business is paying whoever sold them Kairo. Set per deployment by
+  // the reseller; the owner sees it read-only on their Account page. Kept as
+  // settings rather than a table because one instance is one business on one
+  // plan — an invoice history table can come when there are invoices to store.
+  plan_name: 'Kairo',
+  plan_status: 'active',        // active | trial | pilot | past_due | cancelled
+  plan_price_cents: '0',
+  plan_interval: 'month',       // month | year | once
+  plan_started_at: '',          // YYYY-MM-DD
+  plan_renews_at: '',           // YYYY-MM-DD, blank while nothing is being charged
+  billing_contact: '',          // who the owner asks about their bill
+  billing_note: '',
+
   booking_horizon_days: '90',
   cancel_window_hours: '12',
   client_cancel_enabled: '1',

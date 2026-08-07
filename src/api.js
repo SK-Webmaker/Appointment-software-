@@ -2,6 +2,7 @@
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
+  dbFileBytes,
 } from './db.js';
 import {
   readJson, sendJson, sendText, httpError, parseCookies, todayStr, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
@@ -162,6 +163,96 @@ route('GET', '/api/auth/me', async ({ user }) => {
 
 route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
 
+// ---------------------------------------------------------------------------
+// Account — the owner's own profile, what they're paying, and what they're
+// using. Separate from Settings, which configures the business: this page
+// answers "who am I, what am I on, and what am I getting for it".
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/account', async ({ user }) => {
+  const row = db.prepare('SELECT id, name, email, role, created_at, email_verified FROM users WHERE id = ?').get(user.id);
+  const one = (sql, ...args) => db.prepare(sql).get(...args)?.n ?? 0;
+  const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
+  const since30 = addDaysStr(todayStr(), -30);
+
+  return {
+    user: {
+      ...row,
+      email_verified: Boolean(row.email_verified),
+      // Flagged so the Account page can nag about it in the one place the
+      // owner goes to look at their account.
+      default_password: getSetting('default_password_active') === '1',
+    },
+    business: {
+      name: getSetting('business_name', ''),
+      email: getSetting('business_email', ''),
+      phone: getSetting('business_phone', ''),
+      address: getSetting('business_address', ''),
+    },
+    plan: {
+      name: getSetting('plan_name', 'Kairo'),
+      status: getSetting('plan_status', 'active'),
+      price_cents: Number(getSetting('plan_price_cents', '0')) || 0,
+      interval: getSetting('plan_interval', 'month'),
+      started_at: getSetting('plan_started_at', ''),
+      renews_at: getSetting('plan_renews_at', ''),
+      contact: getSetting('billing_contact', ''),
+      note: getSetting('billing_note', ''),
+      currency: getSetting('currency', '$'),
+    },
+    // What they're actually getting out of it. Also the honest basis for any
+    // future metered pricing — no counter is invented that isn't already real.
+    usage: {
+      clients: one('SELECT COUNT(*) AS n FROM clients'),
+      team: one('SELECT COUNT(*) AS n FROM staff WHERE active = 1'),
+      services: one('SELECT COUNT(*) AS n FROM services WHERE active = 1'),
+      products: one('SELECT COUNT(*) AS n FROM products WHERE active = 1'),
+      appointments_30d: one("SELECT COUNT(*) AS n FROM appointments WHERE date >= ? AND status != 'cancelled'", since30),
+      online_bookings_30d: one("SELECT COUNT(*) AS n FROM appointments WHERE date >= ? AND source = 'online' AND status != 'cancelled'", since30),
+      messages_this_month: one('SELECT COUNT(*) AS n FROM messages WHERE substr(created_at, 1, 10) >= ?', monthStart),
+      invoices_this_month: one('SELECT COUNT(*) AS n FROM invoices WHERE issue_date >= ?', monthStart),
+      collected_cents_this_month: db.prepare(
+        'SELECT COALESCE(SUM(amount_cents), 0) AS n FROM payments WHERE substr(paid_at, 1, 10) >= ?'
+      ).get(monthStart).n,
+    },
+    instance: {
+      version: VERSION,
+      booking_url: getSetting('public_url', '') ? `${getSetting('public_url').replace(/\/+$/, '')}/book` : '/book',
+      online_booking: getSetting('booking_enabled', '1') === '1',
+      email_ready: Boolean(getSetting('resend_api_key') && getSetting('notif_from_email')),
+      sms_ready: getSetting('sms_notifications_enabled', '1') === '1',
+      db_bytes: dbFileBytes(),
+    },
+  };
+});
+
+route('PUT', '/api/account/profile', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), {
+    name: s.str(100, { required: true }),
+    email: s.str(200, { required: true }),
+  });
+  const name = str(b.name, 100).trim();
+  const email = str(b.email, 200).trim().toLowerCase();
+  if (!name) throw httpError(400, 'Your name is required');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw httpError(400, 'Enter a valid email address');
+  const clash = db.prepare('SELECT id FROM users WHERE lower(email) = ? AND id != ?').get(email, user.id);
+  if (clash) throw httpError(409, 'Another account already uses that email');
+
+  const row = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(user.id);
+  const changed = row.email.toLowerCase() !== email;
+  // A new address hasn't been proven yet, so verification starts over and the
+  // old token is burned — otherwise changing the email would inherit a tick
+  // that was earned by a different inbox.
+  if (changed) {
+    db.prepare("UPDATE users SET name = ?, email = ?, email_verified = 0, verify_token = '', verify_sent_at = '' WHERE id = ?")
+      .run(name, email, user.id);
+  } else {
+    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, user.id);
+  }
+  const after = db.prepare('SELECT id, name, email, role, created_at, email_verified FROM users WHERE id = ?').get(user.id);
+  return { ...after, email_verified: Boolean(after.email_verified), email_changed: changed };
+});
+
 route('PUT', '/api/auth/password', async ({ req, res, user }) => {
   const { current, next } = checkBody(await readJson(req), {
     current: s.str(200, { required: true }),
@@ -251,6 +342,8 @@ const EDITABLE_SETTINGS = new Set([
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
   'booking_horizon_days', 'cancel_window_hours', 'client_cancel_enabled',
+  'plan_name', 'plan_status', 'plan_price_cents', 'plan_interval',
+  'plan_started_at', 'plan_renews_at', 'billing_contact', 'billing_note',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
   'open_days', 'day_rules', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',

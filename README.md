@@ -343,6 +343,24 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - "Add to calendar" (.ics) button on the customer confirmation screen
 - Online bookings marked ⚡ on the calendar
 
+### 👤 Account (the owner's own page)
+- Separate from Settings, which configures the *business*. Account answers a
+  different question: **who am I signed in as, what am I on, and what am I
+  getting for it.** Reached from the sidebar or by tapping your avatar.
+- **Profile** — your name and sign-in email. Changing the email restarts
+  verification, because a tick earned by one inbox shouldn't transfer to another.
+- **Your plan** — name, price, interval, status (Active / Free trial / Pilot /
+  Payment due / Cancelled), start and next-payment dates, who to ask about the
+  bill, and a free-text note. All set per deployment in Settings, so **you
+  decide what each business sees and is charged**; the owner reads it.
+- **What you're using** — clients, team, services, products, appointments and
+  online bookings (30 days), messages sent and money collected this month. Real
+  counts, which is also the honest basis for metered pricing later.
+- **Security** — password, email verification, and a warning if the instance is
+  still on the default password.
+- **Your workspace** — booking-page status, whether email and SMS are set up,
+  the size of your database, the version, and a one-click client export.
+
 ### ⚙️ Settings
 - Business profile (shown on invoices + booking page), usual hours, **your week**
   (per-day: closed / weekly / every 2nd–4th week, each with optional own hours),
@@ -350,7 +368,10 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
   **usual rebooking gap**
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
-- Password change, **email verification**, demo-data reset
+- Plan and billing terms shown to the business owner (name, price, status,
+  dates, billing contact, note)
+- Demo-data reset and the guided setup wizard; personal profile, password and
+  email verification live on the **Account** page
 
 ## Running a pilot with a real business
 
