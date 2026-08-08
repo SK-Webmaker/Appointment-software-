@@ -6,6 +6,7 @@ import {
 } from './db.js';
 import {
   readJson, sendJson, sendText, httpError, parseCookies, todayStr, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
+  isValidTimeZone,
 } from './util.js';
 import {
   hashPassword, verifyPassword, createSession, verifySession,
@@ -398,6 +399,19 @@ function applySettings(body) {
         if (rule.anchor) rule.anchor = snapToWeekday(rule.anchor, Number(dow));
       }
       setSetting(k, JSON.stringify(rules));
+      continue;
+    }
+    // A time zone the server can't resolve is worse than none at all: it is
+    // stored, looks configured, and silently falls back to the server's own
+    // clock — which on a hosted box is UTC. A salon then gets told its 9am
+    // client is still "next up" at lunchtime, and its booking page offers
+    // times that have already passed. Refuse the typo instead.
+    if (k === 'business_tz') {
+      const tz = str(v, 100).trim();
+      if (tz && !isValidTimeZone(tz)) {
+        throw httpError(400, `"${tz}" isn't a time zone Kairo recognises. Use a name like Australia/Melbourne.`);
+      }
+      setSetting(k, tz);
       continue;
     }
     setSetting(k, str(v, settingCap(k)));

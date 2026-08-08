@@ -263,6 +263,10 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
       — it does the folder, service, HTTPS, login and settings, and prints the admin password **once**
 - [ ] Generated password saved somewhere you'll have it in the room
 - [ ] Both pages checked: workspace loads with a padlock, `/book` shows the demo salon
+- [ ] **Time zone confirmed on the dashboard** — sign in once and check no amber
+      "your time zone needs fixing" bar appears. A hosted box runs on UTC, so a
+      wrong zone makes the booking page offer times that have already passed and
+      sends reminders at the wrong hour
 - [ ] **Setup wizard NOT run** — that happens with the owner watching, and it's what clears the demo data
 - [ ] Nightly backup of `/srv/kairo/data/` configured (a daily copy is enough)
 

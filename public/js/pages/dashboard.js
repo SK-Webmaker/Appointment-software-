@@ -86,7 +86,7 @@ function nextUpHtml(s, t) {
 // One row of the day's run — an appointment, or a free window between them.
 function timelineRowHtml(item) {
   if (item.gap) {
-    return `<div class="tl-gap"><span class="tl-gap-line"></span>
+    return `<div class="tl-gap" data-start="${item.start_min}" data-end="${item.end_min}"><span class="tl-gap-line"></span>
       <span class="tl-gap-text">${fmtDur(item.end_min - item.start_min)} free · ${fmtTimeShort(item.start_min)}–${fmtTime(item.end_min)}</span>
       <span class="tl-gap-line"></span></div>`;
   }
@@ -126,11 +126,24 @@ export async function renderDashboard(container) {
   const runOfDay = [...t.appointments.map((a) => ({ ...a, gap: false })), ...t.gaps.map((g) => ({ ...g, gap: true }))]
     .sort((a, b) => a.start_min - b.start_min);
 
-  // The clock the page runs on. Anchored to the server's minute — which is
-  // already in the business's own time zone, not the device's — and advanced by
-  // however long the page has actually been open.
+  // The clock this page runs on.
+  //
+  // The server sends the minute in the business's configured time zone; the
+  // device knows the minute where the owner is actually standing. They should
+  // agree to within a rounding error. When they don't, the configured zone is
+  // wrong — most often never set at all, in which case the server falls back to
+  // its own clock, which on a hosted box is UTC. That is how a salon at 1pm gets
+  // told its 9:15 client is still "Next up": the server genuinely believes it is
+  // three in the morning. Advancing from that anchor keeps it wrong all day, so
+  // fall back to the device, which is right about where the owner is.
+  const deviceMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  // Signed difference, wrapped so 23:55 vs 00:05 reads as 10 minutes, not 1430.
+  const drift = ((deviceMin() - t.now_min + 2160) % 1440) - 720;
+  const clockOff = Math.abs(drift) > 10;
+  const baseMin = clockOff ? deviceMin() : t.now_min;
+
   const loadedAt = Date.now();
-  const nowMin = () => t.now_min + Math.floor((Date.now() - loadedAt) / 60000);
+  const nowMin = () => baseMin + Math.floor((Date.now() - loadedAt) / 60000);
 
   let dayState = liveState(t, nowMin());
 
@@ -157,6 +170,15 @@ export async function renderDashboard(container) {
         </div>
         <a class="btn small" href="#/calendar?date=${esc(t.date)}">${icon('calendar')} Open calendar</a>
       </div>
+
+      ${clockOff ? `
+      <div class="clock-warn">${icon('alert', 15)}
+        <div><b>Your time zone needs fixing.</b> Kairo thinks it's
+          <b>${fmtTime(((t.now_min % 1440) + 1440) % 1440)}</b> right now, but your phone says
+          <b>${fmtTime(deviceMin())}</b>. Today's panel below is using your phone's time so it
+          reads correctly — but your <b>booking page and reminders are still using the wrong
+          one</b>, so set it in <a href="#/settings">Settings → Hours &amp; booking → Time zone</a>.</div>
+      </div>` : ''}
 
       <div class="today-grid">
         <div class="today-metrics">
@@ -295,6 +317,10 @@ export async function renderDashboard(container) {
       const start = Number(row.dataset.start), end = Number(row.dataset.end);
       row.classList.toggle('is-past', end <= dayState.now);
       row.classList.toggle('is-now', start <= dayState.now && end > dayState.now);
+    });
+    // A free window that has already gone by isn't a window you can fill.
+    tl.querySelectorAll('.tl-gap[data-end]').forEach((g) => {
+      g.classList.toggle('is-past', Number(g.dataset.end) <= dayState.now);
     });
   }
   paintLive();

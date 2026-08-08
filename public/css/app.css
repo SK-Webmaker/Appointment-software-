@@ -591,7 +591,19 @@ input.chk {
 /* The day's run is read as a to-do list, so it has to age in real time: a visit
    that's been and gone recedes, the one happening now is marked. Both are set
    from the clock in dashboard.js, not from the stored status. */
-.tl-row.is-past { opacity: 0.5; }
+/* Shown only when the server's clock and the owner's device disagree — i.e.
+   the business time zone is wrong, which quietly breaks the booking page too. */
+.clock-warn {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 0 0 14px; padding: 11px 13px; border-radius: 10px;
+  font-size: 13px; line-height: 1.55; color: var(--text-2);
+  background: color-mix(in srgb, var(--amber) 12%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent);
+}
+.clock-warn svg { flex: none; margin-top: 2px; color: var(--amber); }
+.clock-warn b { color: var(--text); }
+
+.tl-row.is-past, .tl-gap.is-past { opacity: 0.5; }
 .tl-row.is-past:hover { opacity: 1; }
 .tl-row.is-now { background: color-mix(in srgb, var(--green) 9%, transparent); }
 .tl-row.is-now .tl-t1 { color: var(--green); }

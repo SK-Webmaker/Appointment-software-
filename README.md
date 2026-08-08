@@ -218,11 +218,19 @@ npm run reset-demo   # same thing from the terminal
   back bench all morning, so it can't be a snapshot: the card, the done/to-go
   count and the free time left all re-derive from the clock every 30 seconds, and
   the run of the day ages with it — a visit that's been and gone recedes, the one
-  happening now is marked. So a client whose appointment finished at 10am is never
-  still sitting there as "Next up" at 2pm. The clock is anchored to the **server's**
-  minute (already in the business's own time zone), not the device's, so a laptop
-  set to the wrong time zone can't shift it. Coming back to the tab, crossing
-  midnight, or waking a slept phone refetches rather than guessing.
+  happening now is marked, and a free window that's passed stops being offered.
+  So a client whose appointment finished at 10am is never still sitting there as
+  "Next up" at 2pm. Coming back to the tab, crossing midnight, or waking a slept
+  phone refetches rather than guessing.
+- **It catches a wrong time zone instead of quietly lying.** The clock normally
+  comes from the server, in the business's own zone. If that disagrees with the
+  owner's device by more than 10 minutes the zone is misconfigured — the classic
+  case being a hosted box falling back to UTC, which tells a salon at 1pm that
+  its 9:15 client is still next. The panel then uses the device's clock so it
+  reads correctly, and says plainly that the zone needs fixing **and that the
+  booking page and reminders are still using the wrong one**. A time zone the
+  server can't resolve is now rejected on save rather than stored, so the
+  "looks configured but silently falls back to UTC" state can't be created.
 - **Client growth & retention** — new vs returning visits over 30 days, a
   **rebooking rate** (how many clients come back within a month), and a
   **"worth a nudge"** list of lapsed regulars: 2+ past visits, nothing in 8 weeks

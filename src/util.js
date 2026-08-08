@@ -100,6 +100,17 @@ export function addDaysStr(dateStr_, days) {
  * booking page's past-slot filter correct even when the server runs in UTC.
  * Falls back to the server's own local time when tz is empty/invalid.
  */
+/** Does the runtime actually know this IANA zone? "Australia/Melbourn" does not count. */
+export function isValidTimeZone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function nowParts(tz) {
   const d = new Date();
   const local = () => ({ date: dateStr(d), min: d.getHours() * 60 + d.getMinutes() });
