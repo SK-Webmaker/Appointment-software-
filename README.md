@@ -407,17 +407,33 @@ A suggested two-week test script:
 
 ### Deploying for a customer
 
-Any box that runs Node 22 works (a $5 VPS is plenty):
+**One command per business**, on a box with Node 22 and Caddy:
 
 ```bash
-PORT=80 node --disable-warning=ExperimentalWarning server.js
+sudo scripts/new-business.sh \
+  --name "Hair by Sha" \
+  --host book.hairbysha.com.au \
+  --email sha@hairbysha.com.au \
+  --resend-key re_xxx --from "Hair by Sha <hello@hairbysha.com.au>"
 ```
 
-- One Kairo instance = one business (single-tenant by design; run one instance per customer)
-- Data lives in `data/kairo.db` — back it up with a nightly `cp`/object-storage upload
-- Put nginx/Caddy in front for HTTPS and a real domain
+It picks a free port, creates that business's own data folder, writes and starts a
+systemd unit, writes the Caddy site so HTTPS appears by itself, waits for the instance
+to answer, signs in to prove the login works, saves their name/address/keys, and prints
+a generated admin password once. `--dry-run` shows every file and command without
+touching anything; it refuses to touch a business that already exists. `--help` lists
+the flags.
+
+- **One code checkout, one data folder per business.** Updating everyone is
+  `git pull && systemctl restart 'kairo-*'`
+- One Kairo instance = one business (single-tenant by design), so they share nothing but
+  the files in this repo
+- Each database is one file under `/srv/kairo/data/<slug>/` — back the folder up nightly
+- `/srv/kairo/businesses.tsv` records every business, host, port and service
 - Environment overrides: `PORT`, `HOST`, `KAIRO_DATA_DIR`, `KAIRO_ADMIN_EMAIL`,
-  `KAIRO_ADMIN_PASSWORD` (first-run only)
+  `KAIRO_ADMIN_PASSWORD` (first-run only); the script sets all of these for you
+- Doing it by hand instead: `PORT=80 node --disable-warning=ExperimentalWarning server.js`
+  behind nginx/Caddy works the same way
 
 ## CSV formats
 

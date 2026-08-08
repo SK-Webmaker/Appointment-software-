@@ -253,11 +253,18 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 
 ## 3. Pre-onboarding checklist (do these before the pilot business touches it)
 
-**Deploy (once per client)**
-- [ ] Server running (Render/VPS — see SELLING.md § Deployment) with HTTPS + their subdomain
-- [ ] `KAIRO_ADMIN_EMAIL` / `KAIRO_ADMIN_PASSWORD` env vars set (or password changed on first login)
-- [ ] Reset demo data (*Settings → Reset to demo data*) **before** entering real info
-- [ ] Nightly backup of `data/kairo.db` configured (a daily copy is enough)
+**Deploy (one command per client)**
+- [ ] DNS: their hostname resolves to the server (a wildcard `*` record on your own domain
+      removes this step for anyone not using their own domain)
+- [ ] Their Resend account created **in the business's name** and an `re_…` key copied
+      (free tier: 100/day, 3,000/month — counted **per account**, so one account each)
+- [ ] ClickSend subaccount added, if they want texts (`Modify users` off, `Hide pricing` on)
+- [ ] `sudo scripts/new-business.sh --name … --host … --email … --resend-key …` run
+      — it does the folder, service, HTTPS, login and settings, and prints the admin password **once**
+- [ ] Generated password saved somewhere you'll have it in the room
+- [ ] Both pages checked: workspace loads with a padlock, `/book` shows the demo salon
+- [ ] **Setup wizard NOT run** — that happens with the owner watching, and it's what clears the demo data
+- [ ] Nightly backup of `/srv/kairo/data/` configured (a daily copy is enough)
 
 **Configure (15 minutes, with the owner)**
 - [ ] Business name / phone / address / email
