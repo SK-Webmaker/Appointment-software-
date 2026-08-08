@@ -42,6 +42,8 @@ const ICONS = {
   menu: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
   lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   note: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/>',
+  external: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
 };
 
 export function icon(name, size = 16) {
@@ -263,4 +265,46 @@ export function downloadText(filename, text, mime = 'text/csv') {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+/** True when Kairo was opened from the home screen, with no browser chrome. */
+export function isStandalone() {
+  return window.navigator.standalone === true
+    || window.matchMedia?.('(display-mode: standalone)').matches === true
+    || window.matchMedia?.('(display-mode: fullscreen)').matches === true;
+}
+
+/**
+ * Hand a URL to the phone's own browser instead of opening it inside Kairo.
+ *
+ * The booking page is same-origin and sits inside the app's manifest scope, so
+ * an ordinary link keeps it in the home-screen app — where there is no address
+ * bar and no back button, stranding the owner on their own customer page with
+ * no way out but force-quitting. A target="_blank" click is what Safari and
+ * Chrome both read as "send this to the browser": the owner keeps their place
+ * in Kairo, and over in the browser they get an address bar and a share button.
+ */
+export function openExternal(url) {
+  const a = document.createElement('a');
+  a.href = new URL(url, location.href).href;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/**
+ * Push a link out through the phone's share sheet — the shortest path from
+ * Kairo to an Instagram bio. Falls back to the clipboard on desktop, and says
+ * which of the two happened so the caller can word the confirmation honestly.
+ */
+export async function shareLink(url, title = '') {
+  if (navigator.share) {
+    try { await navigator.share({ title, url }); return 'shared'; } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  try { await navigator.clipboard.writeText(url); return 'copied'; } catch { return 'failed'; }
 }

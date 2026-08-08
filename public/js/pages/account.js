@@ -150,7 +150,7 @@ export async function renderAccount(container) {
         <div class="card-sub" style="margin-bottom:16px">This instance and what's switched on</div>
         <dl class="plan-rows">
           <div><dt>Booking page</dt><dd>${a.instance.online_booking
-            ? `<a href="${esc(a.instance.booking_url)}" target="_blank" rel="noreferrer">Live ↗</a>`
+            ? `<a href="${esc(a.instance.booking_url)}" target="_blank" rel="noopener noreferrer">Live ↗</a>`
             : 'Turned off'}</dd></div>
           <div><dt>Email sending</dt><dd>${a.instance.email_ready ? 'Set up' : 'Not set up'}</dd></div>
           <div><dt>Text messages</dt><dd>${a.instance.sms_ready ? 'On' : 'Off'}</dd></div>

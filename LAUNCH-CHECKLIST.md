@@ -278,6 +278,9 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 - [ ] Bill it, record a payment, print the invoice
 - [ ] Make one online booking from the owner's phone
 - [ ] Booking link in Instagram bio / Google Business profile / WhatsApp auto-reply
+      (Settings → **Share** puts it straight into Instagram from their phone)
+- [ ] Owner knows that link is permanent: every service, price and opening-days change
+      they make later shows on it by itself, so it never needs re-posting
 - [ ] Owner knows the Messages page = proof of what was sent
 
 **Week-2 review (your sales moment)**

@@ -52,6 +52,15 @@
       border: 1px solid var(--border);
     }
     @media (max-width: 520px) { .brand-gallery img { height: 70px; } }
+    /* Only ever added when the booking page opened inside Kairo's home-screen
+       app, where there is no address bar to get back with. See book.js. */
+    .back-to-app {
+      position: fixed; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 40;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 12px 7px 9px; border-radius: 999px; text-decoration: none;
+      font-size: 12.5px; font-weight: 600; color: var(--text-2);
+      background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow);
+    }
     .book-head { text-align: center; margin-bottom: 30px; }
     .book-head h1 { font-size: 24px; letter-spacing: -0.02em; }
     .book-head .sub { color: var(--text-2); font-size: 13.5px; margin-top: 6px; }

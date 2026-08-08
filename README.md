@@ -109,6 +109,15 @@ npm run reset-demo   # same thing from the terminal
   a stray gesture can't leave the booking page zoomed and offset mid-booking.
 - New customers are added to your client book automatically; returning ones are matched by email/phone
 - Toggle it on/off in Settings; put the link in an Instagram bio / Google Business profile
+- **One permanent link, always current.** `/book` is a fixed URL whose contents are read
+  live on every visit: add a service, rename one, change a price, archive one, close a
+  weekday, switch a day to alternating weeks, rename the business — the link a customer
+  bookmarked six months ago shows it on their next load. Nothing is baked in at share
+  time, and `/api/public/info` is served `Cache-Control: no-store` so no proxy or browser
+  can hand back a stale menu. The owner never re-posts the link. Settings says so on the
+  card where the link is copied, so nobody wonders.
+- **Open in browser / Share** beside the link: hands it to Safari or Chrome (with the
+  phone's share sheet where there is one) rather than opening it inside Kairo
 
 ### 👥 Clients
 - Searchable client book with visit counts, last visit and lifetime billed
@@ -190,8 +199,13 @@ npm run reset-demo   # same thing from the terminal
   mid-service. Scrolling, sideways swiping on the calendar and typing all behave
   normally. (iOS deliberately ignores `user-scalable=no`, so the pinch gesture is
   cancelled in code; double-tap is handled by `touch-action`.)
-- The **public booking page is deliberately left zoomable**, so customers who need to
-  enlarge text still can.
+- **The booking link leaves the app.** Every route into `/book` — the sidebar shortcut,
+  the Settings preview, the Account card, the **Open in browser** button — is a
+  `target="_blank"` hand-off, so the phone opens it in Safari or Chrome and the owner
+  keeps their place in Kairo. That also gives them an address bar and a share button,
+  which a home-screen app has neither of. Where a phone insists on keeping it in the
+  app window anyway, the booking page notices it is running standalone and adds a
+  **← Back to Kairo** bar; customers, who have no manifest, never see it.
 
 ### 📊 Dashboard
 - **Today at a glance** — the operational view the owner opens on: how many

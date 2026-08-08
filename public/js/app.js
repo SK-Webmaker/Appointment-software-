@@ -126,7 +126,7 @@ function renderShell() {
           ${navHtml(navMain)}
           <div class="nav-label">Manage</div>
           ${navHtml(navManage)}
-          <a class="nav-item" href="/book" target="_blank">${icon('globe')}<span>Booking page ↗</span></a>
+          <a class="nav-item" href="/book" target="_blank" rel="noopener noreferrer">${icon('globe')}<span>Booking page ↗</span></a>
         </nav>
         <div class="sidebar-foot">
           <div class="user-card">

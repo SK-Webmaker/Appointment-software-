@@ -74,7 +74,28 @@ function poweredHtml() {
   return '<div class="powered">Powered by <b>◆ Kairo</b></div>';
 }
 
+/**
+ * A way back when the phone refused to hand this page to the browser.
+ *
+ * The booking page carries no manifest of its own, so "running standalone"
+ * here can only mean one thing: the owner tapped their booking link inside
+ * Kairo's home-screen app and the OS kept it in the same window. There's no
+ * address bar and no back button in that window, so without this bar the only
+ * escape is force-quitting the app. Customers never see it.
+ */
+function addReturnBar() {
+  const inApp = window.navigator.standalone === true
+    || window.matchMedia?.('(display-mode: standalone)').matches === true;
+  if (!inApp) return;
+  const bar = document.createElement('a');
+  bar.className = 'back-to-app';
+  bar.href = '/';
+  bar.innerHTML = `${icon('chevL', 15)} Back to Kairo`;
+  document.body.appendChild(bar);
+}
+
 async function boot() {
+  addReturnBar();
   // "Book another / a different time" buttons — delegated so no inline
   // onclick is needed (keeps the page compatible with a strict script-src CSP).
   root.addEventListener('click', (e) => {

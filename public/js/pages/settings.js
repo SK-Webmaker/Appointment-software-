@@ -1,7 +1,7 @@
 // Settings: business profile, hours, billing defaults, notifications,
 // payments/deposits, locations, booking link, password.
 import { api } from '../api.js';
-import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal } from '../ui.js';
+import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, openExternal, shareLink } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
@@ -213,7 +213,15 @@ export async function renderSettings(container) {
               <input readonly value="${esc(bookingUrl)}" id="book-url">
               <button type="button" class="btn" id="copy-url">${icon('link')} Copy</button>
             </div>
-            <div class="hint">Put this link in your Instagram bio, Google profile and WhatsApp auto-reply.</div></div>
+            <div class="link-actions">
+              <button type="button" class="btn small" id="open-url">${icon('external')} Open in browser</button>
+              <button type="button" class="btn small" id="share-url" hidden>${icon('share')} Share</button>
+            </div>
+            <div class="live-note">${icon('check', 15)}
+              <div><b>This link never changes.</b> Add a service, change a price or close a day and the same link
+                shows it the moment you save. You never have to re-post it or send anyone a new one.</div></div>
+            <div class="hint">Put it in your Instagram bio, Google profile and WhatsApp auto-reply. It opens in Safari
+              or Chrome, so you keep your place in Kairo.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save hours</button>
         </form>
       </div>
@@ -221,7 +229,7 @@ export async function renderSettings(container) {
       <div class="card">
         <div class="card-title">Booking page appearance</div>
         <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand.
-          logo, colour and light/dark style. <a href="/book" target="_blank">Open the booking page ↗</a> to preview.</div>
+          logo, colour and light/dark style. <a href="/book" target="_blank" rel="noopener noreferrer">Open the booking page ↗</a> to preview.</div>
         <form id="set-brand" style="display:flex;flex-direction:column;gap:13px">
           <div class="field"><label>Colour scheme</label>
             <div id="brand-schemes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:9px">
@@ -716,6 +724,18 @@ export async function renderSettings(container) {
     await navigator.clipboard.writeText(container.querySelector('#book-url').value);
     toast('Booking link copied');
   };
+  container.querySelector('#open-url').onclick = () => openExternal(container.querySelector('#book-url').value);
+  // Only offered where there is a share sheet to offer — on a desktop it would
+  // be a second Copy button wearing a different name.
+  const shareBtn = container.querySelector('#share-url');
+  if (navigator.share) {
+    shareBtn.hidden = false;
+    shareBtn.onclick = async () => {
+      const how = await shareLink(container.querySelector('#book-url').value, `Book with ${state.settings.business_name || 'us'}`);
+      if (how === 'copied') toast('Booking link copied');
+      else if (how === 'failed') toast('Could not share that link', 'err');
+    };
+  }
   // Guided-setup + demo-reset controls only exist before the owner verifies
   // their email (a real, verified business has no need to wipe & reseed).
   const rerunBtn = container.querySelector('#rerun-setup');
