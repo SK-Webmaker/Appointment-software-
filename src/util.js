@@ -31,11 +31,21 @@ export function readBody(req, maxBytes = MAX_BODY_BYTES) {
 export async function readJson(req) {
   const raw = await readBody(req);
   if (!raw) return {};
+  let parsed;
   try {
-    return JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     throw Object.assign(new Error('Invalid JSON body'), { status: 400 });
   }
+  // Every handler here reads named fields off the body, so anything that isn't
+  // an object has to be refused right here. `JSON.parse('null')` is valid JSON
+  // and yields null, which then blows up in the handler's destructuring and
+  // surfaces to the caller as a 500 — an internal error for what is really just
+  // a bad request.
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw Object.assign(new Error('Expected a JSON object'), { status: 400 });
+  }
+  return parsed;
 }
 
 export function sendJson(res, status, data) {

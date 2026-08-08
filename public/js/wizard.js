@@ -2,7 +2,7 @@
 // Settings) and walks the owner through business details, hours, branding,
 // services, team, and reminders — then applies everything in one call.
 import { api } from './api.js';
-import { esc, icon, toast, LOGO_SVG } from './ui.js';
+import { esc, icon, toast, LOGO_SVG, copyText } from './ui.js';
 
 // Starter service menus by business type: [name, category, duration_min,
 // price, price_type?]. price_type omitted = 'fixed'; 'from' marks services
@@ -347,7 +347,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     overlay.querySelector('#w-next')?.addEventListener('click', onNext);
     overlay.querySelector('#w-finish')?.addEventListener('click', () => { close(); onDone?.(); });
     overlay.querySelector('#w-copy')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(`${location.origin}/book`); toast('Booking link copied');
+      copyText(`${location.origin}/book`).then((done) => {
+        toast(done ? 'Booking link copied' : 'Could not copy — open Settings to copy it there', done ? 'ok' : 'err');
+      });
     });
 
     if (id === 'type') {

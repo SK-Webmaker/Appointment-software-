@@ -7,7 +7,7 @@
 // The screen polls the server, which verifies payment with Stripe directly —
 // success flips the moment the money is confirmed. No refresh, no duplicates.
 import { api } from '../api.js';
-import { esc, icon, money, fmtTime, todayStr, openModal, confirmDialog, toast } from '../ui.js';
+import { esc, icon, money, fmtTime, todayStr, openModal, confirmDialog, toast, copyText } from '../ui.js';
 import { state } from '../app.js';
 
 const pos = {
@@ -380,8 +380,8 @@ function wire(container) {
       if (navigator.share) {
         try { await navigator.share({ title: 'Pay for your visit', url: pos.checkoutUrl }); } catch { /* user closed the sheet */ }
       } else {
-        try { await navigator.clipboard.writeText(pos.checkoutUrl); toast('Payment link copied — send it to the customer'); }
-        catch { toast('Could not copy — use Open payment page instead', 'err'); }
+        if (await copyText(pos.checkoutUrl)) toast('Payment link copied — send it to the customer');
+        else toast('Could not copy — use Open payment page instead', 'err');
       }
     };
     container.querySelector('#pay-cancel').onclick = async () => {

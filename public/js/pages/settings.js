@@ -1,7 +1,7 @@
 // Settings: business profile, hours, billing defaults, notifications,
 // payments/deposits, locations, booking link, password.
 import { api } from '../api.js';
-import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, openExternal, shareLink } from '../ui.js';
+import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, openExternal, shareLink, copyText } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
@@ -721,8 +721,9 @@ export async function renderSettings(container) {
     b.onclick = () => openLocationModal(state.locations.find((l) => l.id === Number(b.dataset.editLoc)));
   });
   container.querySelector('#copy-url').onclick = async () => {
-    await navigator.clipboard.writeText(container.querySelector('#book-url').value);
-    toast('Booking link copied');
+    const field = container.querySelector('#book-url');
+    if (await copyText(field.value)) toast('Booking link copied');
+    else { field.select(); toast('Could not copy automatically — the link is selected, press copy', 'err'); }
   };
   container.querySelector('#open-url').onclick = () => openExternal(container.querySelector('#book-url').value);
   // Only offered where there is a share sheet to offer — on a desktop it would

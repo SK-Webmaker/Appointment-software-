@@ -296,6 +296,37 @@ export function openExternal(url) {
 }
 
 /**
+ * Copy text to the clipboard, and say honestly whether it worked.
+ *
+ * `navigator.clipboard` only exists in a secure context, so it is simply
+ * missing whenever Kairo is opened over plain HTTP — a salon reaching it on the
+ * shop's own network by IP, or a demo before the certificate is set up. The old
+ * code called it unguarded, which meant the Copy button either did nothing at
+ * all or, worse, reported success while copying nothing. The textarea fallback
+ * is the pre-Clipboard-API technique and still works on HTTP.
+ */
+export async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through */ }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    // Off-screen but still focusable — display:none would make the copy a no-op.
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    const done = document.execCommand('copy');
+    ta.remove();
+    return done;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Push a link out through the phone's share sheet — the shortest path from
  * Kairo to an Instagram bio. Falls back to the clipboard on desktop, and says
  * which of the two happened so the caller can word the confirmation honestly.
@@ -306,5 +337,5 @@ export async function shareLink(url, title = '') {
       if (err?.name === 'AbortError') return 'cancelled';
     }
   }
-  try { await navigator.clipboard.writeText(url); return 'copied'; } catch { return 'failed'; }
+  return (await copyText(url)) ? 'copied' : 'failed';
 }
