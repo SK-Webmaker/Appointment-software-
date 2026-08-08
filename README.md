@@ -214,6 +214,15 @@ npm run reset-demo   # same thing from the terminal
   (which switches to a live "With you now" while an appointment is running) plus
   the **whole run of the day** as a timeline, with the **free gaps between
   appointments** called out so you can see where someone could be fitted in.
+- **It stays true as the day passes.** The dashboard is the page left open on the
+  back bench all morning, so it can't be a snapshot: the card, the done/to-go
+  count and the free time left all re-derive from the clock every 30 seconds, and
+  the run of the day ages with it — a visit that's been and gone recedes, the one
+  happening now is marked. So a client whose appointment finished at 10am is never
+  still sitting there as "Next up" at 2pm. The clock is anchored to the **server's**
+  minute (already in the business's own time zone), not the device's, so a laptop
+  set to the wrong time zone can't shift it. Coming back to the tab, crossing
+  midnight, or waking a slept phone refetches rather than guessing.
 - **Client growth & retention** — new vs returning visits over 30 days, a
   **rebooking rate** (how many clients come back within a month), and a
   **"worth a nudge"** list of lapsed regulars: 2+ past visits, nothing in 8 weeks

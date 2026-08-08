@@ -36,6 +36,53 @@ function busiestWindow(byHour) {
   return `${HOUR_LABEL(best.from)}–${HOUR_LABEL(best.to)}`;
 }
 
+/**
+ * Who is with them now, who is next, and how much of the day is behind them —
+ * worked out from the current clock rather than the one the server had when
+ * the page loaded.
+ *
+ * The dashboard is the page an owner leaves open on the back bench all day, so
+ * a snapshot goes wrong within the hour: the 9:30 client stays "Next up" long
+ * after they've gone home. Mirrors the server's rules exactly (src/api.js), so
+ * a reload never disagrees with what was on screen a second earlier.
+ */
+function liveState(t, nowMin) {
+  const live = t.appointments; // already excludes cancelled and no-shows, sorted by start
+  const unfinished = (a) => a.status !== 'completed';
+  return {
+    now: nowMin,
+    in_progress: live.find((a) => a.start_min <= nowMin && a.end_min > nowMin && unfinished(a)) || null,
+    next: live.find((a) => a.start_min > nowMin && unfinished(a)) || null,
+    done_count: live.filter((a) => a.status === 'completed' || a.end_min <= nowMin).length,
+    // A gap only counts as free time if it hasn't been used up by the clock.
+    free_min: t.gaps.reduce((n, g) => n + Math.max(0, g.end_min - Math.max(g.start_min, nowMin)), 0),
+  };
+}
+
+/** The "Next up" / "With you now" / "All done" card, rebuilt as the day moves. */
+function nextUpHtml(s, t) {
+  const appt = s.in_progress || s.next;
+  if (!appt) {
+    return `<div class="next-up is-empty">
+      <div class="nu-tag">${icon('check', 13)} ${t.count ? 'All done' : 'Nothing booked'}</div>
+      <div class="nu-name">${t.count ? "That's everyone for today" : 'No appointments today'}</div>
+      <div class="cell-sub">${t.count ? 'Nice work.' : t.is_open_day ? 'Your day is wide open.' : "You're closed today."}</div>
+    </div>`;
+  }
+  const name = appt.client_name || 'Walk-in';
+  return `<a class="next-up ${s.in_progress ? 'is-now' : ''}" href="#/calendar?date=${esc(appt.date)}">
+      <div class="nu-tag">${s.in_progress ? '<span class="nu-dot"></span>' : icon('clock', 13)} ${s.in_progress ? 'With you now' : 'Next up'}</div>
+      <div class="nu-row">
+        <div class="avatar-sm" style="background:${esc(avatarColor(name))}">${esc(initials(name))}</div>
+        <div style="min-width:0">
+          <div class="nu-name">${esc(name)}</div>
+          <div class="cell-sub">${esc(appt.services_summary || appt.service_name || 'Appointment')}</div>
+        </div>
+      </div>
+      <div class="nu-time">${fmtTime(appt.start_min)} – ${fmtTime(appt.end_min)}${appt.staff_name ? ` · ${esc(appt.staff_name)}` : ''}</div>
+    </a>`;
+}
+
 // One row of the day's run — an appointment, or a free window between them.
 function timelineRowHtml(item) {
   if (item.gap) {
@@ -47,7 +94,7 @@ function timelineRowHtml(item) {
   const name = a.client_name || 'Walk-in';
   const notes = String(a.client_notes || '').trim();
   return `
-    <a class="tl-row" href="#/calendar?date=${esc(a.date)}"${notes ? ` title="Note: ${esc(notes)}"` : ''}>
+    <a class="tl-row" href="#/calendar?date=${esc(a.date)}" data-start="${a.start_min}" data-end="${a.end_min}"${notes ? ` title="Note: ${esc(notes)}"` : ''}>
       <div class="tl-time">
         <div class="tl-t1">${tlTime(a.start_min)}</div>
         <div class="tl-t2">${fmtDur(a.end_min - a.start_min)}</div>
@@ -63,7 +110,12 @@ function timelineRowHtml(item) {
     </a>`;
 }
 
+// Only ever one dashboard on screen; a re-render or a move to another page
+// must not leave the previous page's clock running.
+let liveTimer = null;
+
 export async function renderDashboard(container) {
+  if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   const d = await api.get('/api/dashboard');
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -74,8 +126,13 @@ export async function renderDashboard(container) {
   const runOfDay = [...t.appointments.map((a) => ({ ...a, gap: false })), ...t.gaps.map((g) => ({ ...g, gap: true }))]
     .sort((a, b) => a.start_min - b.start_min);
 
-  const nextUp = t.in_progress || t.next;
-  const nextLabel = t.in_progress ? 'With you now' : 'Next up';
+  // The clock the page runs on. Anchored to the server's minute — which is
+  // already in the business's own time zone, not the device's — and advanced by
+  // however long the page has actually been open.
+  const loadedAt = Date.now();
+  const nowMin = () => t.now_min + Math.floor((Date.now() - loadedAt) / 60000);
+
+  let dayState = liveState(t, nowMin());
 
   container.innerHTML = `
     <div class="page-head">
@@ -108,36 +165,20 @@ export async function renderDashboard(container) {
             <div class="tm-label">appointment${t.count === 1 ? '' : 's'}</div>
           </div>
           <div class="tm">
-            <div class="tm-value">${t.done_count}<span class="tm-of">/${t.count}</span></div>
-            <div class="tm-label">done · ${t.remaining_count} to go</div>
+            <div class="tm-value" id="tm-done">${dayState.done_count}<span class="tm-of">/${t.count}</span></div>
+            <div class="tm-label" id="tm-done-label">done · ${Math.max(0, t.appointments.length - dayState.done_count)} to go</div>
           </div>
           <div class="tm">
             <div class="tm-value money">${money(t.takings_cents)}</div>
             <div class="tm-label">taken · ${money(t.expected_cents)} expected</div>
           </div>
           <div class="tm">
-            <div class="tm-value">${t.free_min ? fmtDur(t.free_min) : '—'}</div>
-            <div class="tm-label">${t.free_min ? 'free time left' : 'fully booked'}</div>
+            <div class="tm-value" id="tm-free">${dayState.free_min ? fmtDur(dayState.free_min) : '—'}</div>
+            <div class="tm-label" id="tm-free-label">${dayState.free_min ? 'free time left' : 'fully booked'}</div>
           </div>
         </div>
 
-        ${nextUp ? `
-        <a class="next-up ${t.in_progress ? 'is-now' : ''}" href="#/calendar?date=${esc(nextUp.date)}">
-          <div class="nu-tag">${t.in_progress ? '<span class="nu-dot"></span>' : icon('clock', 13)} ${nextLabel}</div>
-          <div class="nu-row">
-            <div class="avatar-sm" style="background:${esc(avatarColor(nextUp.client_name || 'Walk-in'))}">${esc(initials(nextUp.client_name || 'W'))}</div>
-            <div style="min-width:0">
-              <div class="nu-name">${esc(nextUp.client_name || 'Walk-in')}</div>
-              <div class="cell-sub">${esc(nextUp.services_summary || nextUp.service_name || 'Appointment')}</div>
-            </div>
-          </div>
-          <div class="nu-time">${fmtTime(nextUp.start_min)} – ${fmtTime(nextUp.end_min)}${nextUp.staff_name ? ` · ${esc(nextUp.staff_name)}` : ''}</div>
-        </a>` : `
-        <div class="next-up is-empty">
-          <div class="nu-tag">${icon('check', 13)} ${t.count ? 'All done' : 'Nothing booked'}</div>
-          <div class="nu-name">${t.count ? "That's everyone for today" : 'No appointments today'}</div>
-          <div class="cell-sub">${t.count ? 'Nice work.' : t.is_open_day ? 'Your day is wide open.' : "You're closed today."}</div>
-        </div>`}
+        ${nextUpHtml(dayState, t)}
       </div>
 
       <div class="today-timeline" id="today-timeline"></div>
@@ -227,6 +268,55 @@ export async function renderDashboard(container) {
   } else {
     tl.innerHTML = runOfDay.map(timelineRowHtml).join('');
   }
+
+  // --- Keep it honest as the day passes ------------------------------------
+  // Repaint only the parts that depend on the clock. Everything else (the
+  // charts, the month's figures) is unaffected by a minute going by.
+  function paintLive() {
+    const card = container.querySelector('.next-up');
+    if (!card) return;
+    dayState = liveState(t, nowMin());
+
+    card.outerHTML = nextUpHtml(dayState, t);
+
+    const done = container.querySelector('#tm-done');
+    if (done) done.innerHTML = `${dayState.done_count}<span class="tm-of">/${t.count}</span>`;
+    const doneLabel = container.querySelector('#tm-done-label');
+    if (doneLabel) doneLabel.textContent = `done · ${Math.max(0, t.appointments.length - dayState.done_count)} to go`;
+
+    const free = container.querySelector('#tm-free');
+    if (free) free.textContent = dayState.free_min ? fmtDur(dayState.free_min) : '—';
+    const freeLabel = container.querySelector('#tm-free-label');
+    if (freeLabel) freeLabel.textContent = dayState.free_min ? 'free time left' : 'fully booked';
+
+    // The run of the day reads as a to-do list, so a visit that's been and gone
+    // should not look identical to one still ahead of them.
+    tl.querySelectorAll('.tl-row[data-end]').forEach((row) => {
+      const start = Number(row.dataset.start), end = Number(row.dataset.end);
+      row.classList.toggle('is-past', end <= dayState.now);
+      row.classList.toggle('is-now', start <= dayState.now && end > dayState.now);
+    });
+  }
+  paintLive();
+
+  liveTimer = setInterval(() => {
+    // There is no page-teardown hook to unsubscribe from, so the timer stops
+    // itself once its container is no longer on the page.
+    if (!container.isConnected) { clearInterval(liveTimer); liveTimer = null; return; }
+    // Past midnight the day itself is stale, not just the minute — and a phone
+    // that slept for hours comes back to a page built for yesterday.
+    if (nowMin() >= 24 * 60 || t.date !== todayStr()) { renderDashboard(container); return; }
+    paintLive();
+  }, 30000);
+
+  // Coming back to the tab is the moment stale data is most obvious, and
+  // anything booked or completed elsewhere since needs picking up.
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!container.isConnected) { document.removeEventListener('visibilitychange', onVisible); return; }
+    renderDashboard(container);
+  };
+  document.addEventListener('visibilitychange', onVisible);
 
   // --- Growth & retention --------------------------------------------------
   const c = d.clients;

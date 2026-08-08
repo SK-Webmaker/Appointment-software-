@@ -588,6 +588,13 @@ input.chk {
 }
 .tl-row:last-child { border-bottom: 0; }
 .tl-row:hover { background: var(--panel-2); }
+/* The day's run is read as a to-do list, so it has to age in real time: a visit
+   that's been and gone recedes, the one happening now is marked. Both are set
+   from the clock in dashboard.js, not from the stored status. */
+.tl-row.is-past { opacity: 0.5; }
+.tl-row.is-past:hover { opacity: 1; }
+.tl-row.is-now { background: color-mix(in srgb, var(--green) 9%, transparent); }
+.tl-row.is-now .tl-t1 { color: var(--green); }
 .tl-time { flex: 0 0 62px; text-align: right; }
 .tl-t1 { font-weight: 700; font-size: 13px; }
 .tl-t2 { font-size: 11px; color: var(--muted); }
