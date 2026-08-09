@@ -1,0 +1,53 @@
+# Render Blueprint — one Kairo instance for one business.
+#
+# Why this file exists: setting a service up by hand means eight form fields,
+# and the one that is easiest to forget (the persistent disk) is the one that
+# silently destroys the salon's data on the next deploy. Here it is declared,
+# so every business gets it.
+#
+# To add a business, entirely in the browser:
+#   Render → New → Blueprint → pick this repo → give the service the business's
+#   name → fill in the two values marked below → Apply.
+#
+# Everything else — Node version, the disk, HTTPS, auto-deploy — comes from here.
+services:
+  - type: web
+    name: kairo
+    runtime: node
+    plan: starter          # a disk cannot be attached to the free plan
+    region: oregon         # change to the region nearest the business
+    branch: main
+    buildCommand: ""       # nothing to build: no dependencies, no bundler
+    startCommand: npm start
+    healthCheckPath: /api/version
+    autoDeploy: true
+
+    # The whole business lives in one SQLite file on this disk. Without it,
+    # Render hands the service a clean filesystem on every deploy and the file
+    # goes with it. Kairo refuses to start quietly in that state — it prints a
+    # DATA WILL BE LOST banner — but the point is to never get there.
+    disk:
+      name: kairo-data
+      mountPath: /var/data
+      sizeGB: 1            # a busy salon's database is single-digit megabytes
+
+    envVars:
+      - key: KAIRO_DATA_DIR
+        value: /var/data   # must match mountPath above
+
+      # node:sqlite needs a recent Node. Render's default is older than this.
+      - key: NODE_VERSION
+        value: "22.22.2"
+
+      # Render terminates TLS in front of the app, so the session cookie can be
+      # marked Secure and the rate limiter can trust x-forwarded-for.
+      - key: KAIRO_SECURE_COOKIES
+        value: "1"
+
+      # ---- fill these two in when you create the service -------------------
+      # They are only read on the very first boot, when the owner's account is
+      # created. Setting them later does nothing.
+      - key: KAIRO_ADMIN_EMAIL
+        sync: false        # Render will prompt for it
+      - key: KAIRO_ADMIN_PASSWORD
+        sync: false        # use a generated one; the owner changes it with you

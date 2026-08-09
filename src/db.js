@@ -13,6 +13,40 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const DATA_DIR = process.env.KAIRO_DATA_DIR || path.join(ROOT, 'data');
 const DB_PATH = process.env.KAIRO_DB_PATH || path.join(DATA_DIR, 'kairo.db');
 
+/**
+ * Is this database sitting somewhere that will be wiped?
+ *
+ * Render, Railway, Fly and Heroku all give a container a fresh filesystem on
+ * every deploy and restart. Anything written inside the app's own folder goes
+ * with it — so a salon that has been taking bookings for a month loses the lot
+ * the next time the code is updated, silently, with no error anywhere.
+ *
+ * The fix is always the same: attach a persistent disk and point
+ * KAIRO_DATA_DIR at its mount path. This detects the dangerous case so it can
+ * be said out loud at boot and shown in the app, rather than discovered later.
+ *
+ * Returns null when the storage is safe, or when we can't tell — a plain VPS
+ * keeps its disk, so there is nothing to warn about there.
+ */
+export function storageWarning() {
+  const host = process.env.RENDER ? 'Render'
+    : process.env.RAILWAY_ENVIRONMENT ? 'Railway'
+      : process.env.FLY_APP_NAME ? 'Fly.io'
+        : process.env.DYNO ? 'Heroku' : null;
+  if (!host) return null;
+  const dir = path.resolve(DATA_DIR);
+  const appDir = path.resolve(ROOT);
+  // Inside the checked-out app directory = on the container's own throwaway disk.
+  if (dir !== appDir && !dir.startsWith(appDir + path.sep)) return null;
+  return {
+    host,
+    dir,
+    message: `This database is inside the app folder on ${host}, which is erased on every deploy `
+      + 'and restart. Every client, booking and invoice would be lost. Attach a persistent disk '
+      + 'and set KAIRO_DATA_DIR to its mount path (e.g. /var/data).',
+  };
+}
+
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 export const db = new DatabaseSync(DB_PATH);

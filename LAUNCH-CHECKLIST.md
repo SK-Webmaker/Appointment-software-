@@ -259,8 +259,11 @@ web app works fine on phones), no Google Calendar sync yet, one staff login per 
 - [ ] Their Resend account created **in the business's name** and an `re_…` key copied
       (free tier: 100/day, 3,000/month — counted **per account**, so one account each)
 - [ ] ClickSend subaccount added, if they want texts (`Modify users` off, `Hide pricing` on)
-- [ ] `sudo scripts/new-business.sh --name … --host … --email … --resend-key …` run
-      — it does the folder, service, HTTPS, login and settings, and prints the admin password **once**
+- [ ] Instance created — **Render: New → Blueprint → this repo** (the `render.yaml`
+      brings the persistent disk, Node version and HTTPS with it), or on a VPS
+      `sudo scripts/new-business.sh --name … --host … --email … --resend-key …`
+- [ ] **Persistent disk attached** and `KAIRO_DATA_DIR` pointing at its mount path.
+      Check the service log says `Kairo v… is running` and **not** `DATA WILL BE LOST`
 - [ ] Generated password saved somewhere you'll have it in the room
 - [ ] Both pages checked: workspace loads with a padlock, `/book` shows the demo salon
 - [ ] **Time zone confirmed on the dashboard** — sign in once and check no amber

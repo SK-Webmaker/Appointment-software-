@@ -113,15 +113,32 @@ check, occasional "how do I…" texts, and you push product updates when you add
 
 ## 6. Deployment options (per client)
 
-**Option A — Render.com (recommended: all-browser, ~$7/mo/client)**
-1. Render → New → Web Service → connect the GitHub repo.
-2. Runtime Node; build command: *(leave empty)*; start command: `npm start`.
-3. Add a **Persistent Disk** (1 GB) mounted at `/var/data`; env var `KAIRO_DATA_DIR=/var/data`.
-4. Env vars: `KAIRO_ADMIN_EMAIL`, `KAIRO_ADMIN_PASSWORD` (first boot only).
-5. Attach the client's subdomain (Render gives free HTTPS automatically).
+**Option A — Render.com (recommended: all-browser, nothing to install, ~$7/mo/client)**
 
-> The persistent disk matters: it's where the SQLite database lives. Free-tier Render
-> has no disk — fine for demos, wrong for a paying client.
+Use the **Blueprint** in this repo (`render.yaml`) rather than filling in the form
+by hand — it declares the disk, the Node version and the HTTPS settings for you,
+so the step that is easiest to forget can't be forgotten:
+
+1. Render → **New → Blueprint** → pick this repo.
+2. Name the service after the business (`kairo-hairbysha`).
+3. Fill in the two prompted values: `KAIRO_ADMIN_EMAIL` (the owner's address) and
+   `KAIRO_ADMIN_PASSWORD` (generate a strong one — they change it with you later).
+4. **Apply.** Render builds it, attaches the 1 GB disk, and issues HTTPS.
+5. Optional: attach the business's own subdomain under Settings → Custom Domains.
+
+One Render account holds as many of these as you like — one service per business,
+each with its own disk, its own database and its own URL. They share nothing but
+the repo they deploy from, so `git push` updates all of them at once.
+
+> **The persistent disk is the whole ball game.** It's where the SQLite database
+> lives. A Render service *without* a disk gets a clean filesystem on every deploy
+> — every client, booking and invoice, gone, with no error. Free-tier Render has no
+> disk: fine for a demo you throw away, catastrophic for a paying client.
+>
+> Since v1.30.1 Kairo checks this itself. On Render/Railway/Fly/Heroku with the
+> database inside the app folder, it prints a **DATA WILL BE LOST** banner at boot.
+> If you ever see that in a service's logs, stop and attach a disk before the
+> business books anything else.
 
 **Option B — any $5 VPS (Hetzner/DigitalOcean)**
 ```bash

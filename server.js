@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bootstrap, getSetting } from './src/db.js';
+import { bootstrap, getSetting, storageWarning } from './src/db.js';
 import { handleApi } from './src/api.js';
 import { startScheduler } from './src/notify.js';
 import { VERSION } from './src/version.js';
@@ -133,6 +133,17 @@ function serveManifest(res) {
 
 server.listen(PORT, HOST, () => {
   const name = getSetting('business_name', 'your business');
+  const risk = storageWarning();
+  if (risk) {
+    // Loud, and first. This is the one misconfiguration that loses a business
+    // its whole history, and it stays silent until the day it isn't.
+    console.log('');
+    console.log('  ##################################################################');
+    console.log('  #  DATA WILL BE LOST — this instance has no persistent disk      #');
+    console.log('  ##################################################################');
+    console.log(`    ${risk.message}`);
+    console.log(`    Writing to: ${risk.dir}`);
+  }
   console.log('');
   console.log(`  ◆ Kairo v${VERSION} is running`);
   console.log(`    Workspace (${name}):  http://localhost:${PORT}`);

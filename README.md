@@ -424,7 +424,18 @@ A suggested two-week test script:
 
 ### Deploying for a customer
 
-**One command per business**, on a box with Node 22 and Caddy:
+**Render (no terminal needed).** Use the Blueprint in this repo: Render → New →
+Blueprint → pick the repo → name it after the business → fill in
+`KAIRO_ADMIN_EMAIL` and `KAIRO_ADMIN_PASSWORD` → Apply. `render.yaml` declares the
+**1 GB persistent disk** and `KAIRO_DATA_DIR`, which is the setting that decides
+whether the business's data survives the next deploy. One Render account holds one
+service per business; a single `git push` updates all of them.
+
+> Kairo checks its own storage at boot. On Render, Railway, Fly or Heroku with the
+> database inside the app folder — i.e. no disk attached — it prints a
+> **DATA WILL BE LOST** banner. Never leave a paying customer in that state.
+
+**Or one command per business**, on a box with Node 22 and Caddy:
 
 ```bash
 sudo scripts/new-business.sh \
