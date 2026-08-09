@@ -19,6 +19,38 @@ const PLAN_LABELS = {
 
 const INTERVALS = { month: 'per month', year: 'per year', once: 'one-off' };
 
+// Kept in step with MIN_LENGTH in src/password.js — the server is the enforcer,
+// this is only so the owner finds out before pressing the button.
+const PW_MIN = 10;
+const PW_COMMON = ['password', 'letmein', 'welcome', 'qwerty', 'admin', 'kairo', 'salon',
+  'hair', 'changeme', 'iloveyou', 'monkey', 'dragon', 'sunshine', 'football', 'secret'];
+
+/** Live, honest feedback on a candidate password. Mirrors the server's rules. */
+function judgePassword(pw, context) {
+  const skeleton = (s) => String(s).toLowerCase().replace(/[^a-z]/g, '');
+  const skel = skeleton(pw);
+  if (!pw) return null;
+  if (pw.length < PW_MIN) return { level: 0, say: `${PW_MIN - pw.length} more character${PW_MIN - pw.length === 1 ? '' : 's'} needed` };
+  if (PW_COMMON.includes(skel)) return { level: 0, say: 'Far too common — anyone would try this' };
+  if (/^(.)\1+$/.test(pw)) return { level: 0, say: 'That is one character repeated' };
+  if (/^(?:0123456789|1234567890|abcdefghij|qwertyuiop)/.test(pw.toLowerCase())) {
+    return { level: 0, say: 'That is a keyboard run' };
+  }
+  // Mirrors tooPersonal() in src/password.js: a single word from their world,
+  // and the whole name run together, which is what people actually type.
+  const near = (c) => c.length >= 4 && (skel === c || (skel.startsWith(c) && skel.length - c.length <= 2));
+  for (const raw of context) {
+    const words = String(raw || '').split(/[^A-Za-z]+/).map((w) => w.toLowerCase());
+    if (near(skeleton(raw)) || near(skeleton(String(raw || '').split('@')[0])) || words.some(near)) {
+      return { level: 0, say: 'Too close to your own name or business' };
+    }
+  }
+  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length;
+  if (pw.length >= 16 || (pw.length >= 12 && variety >= 3)) return { level: 3, say: 'Strong' };
+  if (pw.length >= 12 || variety >= 3) return { level: 2, say: 'Good' };
+  return { level: 1, say: 'Passable — longer would be better' };
+}
+
 /** Bytes as something a salon owner would actually say out loud. */
 function fileSize(bytes) {
   if (!bytes) return '—';
@@ -139,10 +171,15 @@ export async function renderAccount(container) {
 
         <form id="acct-password" style="display:flex;flex-direction:column;gap:13px">
           <div class="field"><label>Current password</label><input name="current" type="password" autocomplete="current-password" required></div>
-          <div class="field"><label>New password (min 8 chars)</label><input name="next" type="password" autocomplete="new-password" required minlength="8"></div>
+          <div class="field"><label>New password</label>
+            <input name="next" type="password" autocomplete="new-password" required minlength="${PW_MIN}" id="pw-next">
+            <div class="pw-meter" id="pw-meter" hidden><span class="pw-bar"><i></i></span><span class="pw-say"></span></div>
+            <div class="hint">At least ${PW_MIN} characters. A few ordinary words you'll remember beats one clever word with symbols.</div>
+          </div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Change password</button>
         </form>
-        <div class="hint" style="margin-top:10px">Changing your password signs out every other device.</div>
+        <div class="hint" style="margin-top:10px">Changing your password signs out every other device. We also check it against
+          known data breaches — only a fragment of its fingerprint is sent, never the password itself.</div>
       </div>
 
       <div class="card">
@@ -196,6 +233,19 @@ export async function renderAccount(container) {
     } catch (err) { toast(err.message, 'err'); }
     verifyBtn.disabled = false;
   };
+
+  // Live verdict as they type. The server still decides; this only saves them
+  // filling in the form and being told no.
+  const pwField = container.querySelector('#pw-next');
+  const meter = container.querySelector('#pw-meter');
+  const pwContext = [a.user.email, a.user.name, a.business.name];
+  pwField.addEventListener('input', () => {
+    const verdict = judgePassword(pwField.value, pwContext);
+    meter.hidden = !verdict;
+    if (!verdict) return;
+    meter.dataset.level = String(verdict.level);
+    meter.querySelector('.pw-say').textContent = verdict.say;
+  });
 
   container.querySelector('#acct-password').addEventListener('submit', async (e) => {
     e.preventDefault();

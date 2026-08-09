@@ -600,6 +600,21 @@ input.chk {
   background: color-mix(in srgb, var(--amber) 12%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--amber) 38%, transparent);
 }
+/* Live password verdict on the Account page. Colour follows the level so the
+   judgement reads before the words do. */
+.pw-meter { display: flex; align-items: center; gap: 9px; margin-top: 7px; font-size: 12px; }
+.pw-meter[hidden] { display: none; }
+.pw-bar { flex: 0 0 78px; height: 4px; border-radius: 2px; background: var(--panel-3); overflow: hidden; }
+.pw-bar i { display: block; height: 100%; border-radius: 2px; transition: width 0.15s, background 0.15s; }
+.pw-meter[data-level="0"] .pw-bar i { width: 20%; background: var(--red); }
+.pw-meter[data-level="1"] .pw-bar i { width: 45%; background: var(--amber); }
+.pw-meter[data-level="2"] .pw-bar i { width: 72%; background: var(--accent); }
+.pw-meter[data-level="3"] .pw-bar i { width: 100%; background: var(--green); }
+.pw-meter[data-level="0"] .pw-say { color: var(--red); }
+.pw-meter[data-level="1"] .pw-say { color: var(--amber); }
+.pw-meter[data-level="3"] .pw-say { color: var(--green); }
+.pw-say { color: var(--muted); }
+
 .clock-warn svg { flex: none; margin-top: 2px; color: var(--amber); }
 .clock-warn b { color: var(--text); }
 

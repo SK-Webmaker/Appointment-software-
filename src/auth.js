@@ -21,6 +21,28 @@ function sign(payload, secret) {
 }
 
 /**
+ * A short unguessable proof that the bearer was given this particular record,
+ * for links handed to customers that carry no session — e.g. the .ics download
+ * on a booking confirmation.
+ *
+ * Derived rather than stored, so there is no column to migrate and nothing to
+ * leak from the database. Scoped by `purpose` so a token minted for one thing
+ * can never be replayed against another, and unrelated to the cancel token, so
+ * forwarding a calendar file never hands over the power to cancel the booking.
+ */
+export function recordToken(purpose, id, secret) {
+  return sign(`${purpose}:${id}`, secret).slice(0, 32);
+}
+
+/** Constant-time check of a recordToken. */
+export function recordTokenValid(purpose, id, token, secret) {
+  const expected = recordToken(purpose, id, secret);
+  const a = Buffer.from(String(token || ''));
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/**
  * Create a session token: `<userId>.<tokenVersion>.<expiresMs>.<hmac>`.
  * The tokenVersion is baked into the signature, so bumping a user's
  * token_version (on password change or "sign out everywhere") instantly

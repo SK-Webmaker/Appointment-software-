@@ -15,6 +15,11 @@ const DISABLED = process.env.KAIRO_RATELIMIT === 'off';
 // bucket → { limit, windowMs }
 const POLICIES = {
   login:          { limit: 20,  windowMs: 10 * 60 * 1000 }, // brute-force guard
+  // Changing a password requires the current one, so a stolen session is not
+  // enough on its own — but at the generic authed limit a hijacked session
+  // could still guess the current password hundreds of times a minute. This
+  // bucket makes that as slow as attacking the login itself.
+  password:       { limit: 10,  windowMs: 15 * 60 * 1000 },
   public_book:    { limit: 12,  windowMs: 5 * 60 * 1000 },  // booking spam guard
   public_review:  { limit: 10,  windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
@@ -58,6 +63,7 @@ export function clientIp(req) {
 /** Which policy bucket a request falls into (public routes get their own). */
 export function classifyRequest(method, pathname) {
   if (pathname === '/api/auth/login') return 'login';
+  if (pathname === '/api/auth/password') return 'password';
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/cancel') return 'public_cancel'; // GET too — the lookup is the guessable part

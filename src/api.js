@@ -11,7 +11,9 @@ import {
 import {
   hashPassword, verifyPassword, createSession, verifySession,
   sessionCookie, clearSessionCookie, secureForRequest, COOKIE_NAME,
+  recordToken, recordTokenValid,
 } from './auth.js';
+import { checkPassword, checkBreached, MIN_LENGTH as PASSWORD_MIN } from './password.js';
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
@@ -263,7 +265,11 @@ route('PUT', '/api/auth/password', async ({ req, res, user }) => {
   if (!verifyPassword(String(current || ''), row.salt, row.pass_hash)) {
     throw httpError(400, 'Current password is incorrect');
   }
-  if (!next || String(next).length < 8) throw httpError(400, 'New password must be at least 8 characters');
+  // Rules first (instant, offline), then the breach check (network, fails open).
+  const problem = checkPassword(next, [row.email, row.name, getSetting('business_name', '')]);
+  if (problem) throw httpError(400, problem);
+  const breached = await checkBreached(String(next));
+  if (breached) throw httpError(400, breached);
   const { salt, hash } = hashPassword(String(next));
   // Bump token_version → every existing session (including any a thief holds)
   // is retired. Then hand THIS browser a fresh cookie so the owner stays in.
@@ -2323,6 +2329,9 @@ route('POST', '/api/public/book', async ({ req }) => {
   return {
     reference: `BK-${String(appt.id).padStart(5, '0')}`,
     appointment_id: appt.id,
+    // The signed link for this booking's calendar file — the customer gets it
+    // because they just made the booking, not because they know its id.
+    ics_url: `/api/public/ics/${appt.id}?t=${recordToken('ics', appt.id, getSetting('session_secret'))}`,
     date: appt.date, start_min: appt.start_min, end_min: appt.end_min,
     service: appt.services_summary || appt.service_name, staff: appt.staff_name,
     business_name: getSetting('business_name'),
@@ -2358,6 +2367,7 @@ route('POST', '/api/public/confirm-deposit', async ({ req }) => {
     paid, deposit_cents: cents,
     reference: `BK-${String(full.id).padStart(5, '0')}`,
     appointment_id: full.id,
+    ics_url: `/api/public/ics/${full.id}?t=${recordToken('ics', full.id, getSetting('session_secret'))}`,
     date: full.date, start_min: full.start_min, end_min: full.end_min,
     service: full.service_name, staff: full.staff_name,
     business_name: getSetting('business_name'),
@@ -2366,7 +2376,16 @@ route('POST', '/api/public/confirm-deposit', async ({ req }) => {
 
 // "Add to calendar" file for a confirmed booking. Exposes only service/time/
 // business (no client details), so a guessed id leaks nothing personal.
-route('GET', '/api/public/ics/:id', async ({ res, params }) => {
+// The calendar file for one booking. The appointment id alone is not proof of
+// anything — ids are sequential, so without a token anyone could walk 1,2,3…
+// and read back the salon's whole diary: every date, time and service booked.
+// The signed token in the link is the credential, exactly as it is for the
+// cancel and review links. A wrong or missing one is a 404, not a 403, so the
+// response never confirms whether that booking exists.
+route('GET', '/api/public/ics/:id', async ({ res, params, query }) => {
+  if (!recordTokenValid('ics', params.id, query.get('t'), getSetting('session_secret'))) {
+    throw httpError(404, 'Booking not found');
+  }
   const a = db.prepare(
     `SELECT a.*, sv.name AS service_name FROM appointments a
      LEFT JOIN services sv ON sv.id = a.service_id WHERE a.id = ?`

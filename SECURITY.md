@@ -35,13 +35,25 @@ without either a session or being an intentional public booking endpoint.
 | `GET /api/public/availability` | Free time slots | open slot times only | who is booked, client details |
 | `POST /api/public/book` | Make a booking | the caller's own confirmation | anyone else's booking |
 | `POST /api/public/confirm-deposit` | Confirm a Stripe deposit | one booking's own details, only when the caller presents the matching unguessable Stripe session id | other bookings |
-| `GET /api/public/ics/:id` | "Add to calendar" file | service name, time, business address | client name, email, phone |
+| `GET /api/public/ics/:id?t=…` | "Add to calendar" file | service name, time, business address — **only with the signed token issued to whoever made the booking** | client name, email, phone, and anything at all without the token |
 | `GET /api/public/review` | Load the review form | business name, brand, service/staff/date for *this* visit only, given a random unguessable per-appointment token | any other appointment, other clients' reviews |
 | `POST /api/public/review` | Submit a review | the caller's own new review (requires the same token; rejects a second submission) | any other appointment |
 
-Review links use a 32-character random token (`crypto.randomBytes(16)`), not the
-appointment's numeric id — so a guessed or incremented URL cannot land on someone
-else's visit, and a review can only be left once a visit is marked Completed.
+**Every public link that names one booking is token-scoped, never id-scoped.**
+Ids are sequential, so an endpoint keyed on the id alone can be walked
+(`/1`, `/2`, `/3`…) to read back the whole diary. Review and cancel links use a
+32-character random token (`crypto.randomBytes(16)`) stored on the appointment;
+the calendar file uses a token derived by HMAC from the server secret
+(`recordToken('ics', id)` in `src/auth.js`), so there is nothing extra to store
+and a forwarded calendar file never carries the power to cancel the booking.
+A missing or wrong token returns **404, not 403**, so the response never
+confirms whether that booking exists. A review can only be left once a visit is
+marked Completed.
+
+> Fixed in v1.30.0: `GET /api/public/ics/:id` previously accepted the bare
+> numeric id, which let an unauthenticated caller enumerate every appointment's
+> date, time and service. Found by the security-checklist sweep, which now
+> walks the id range on every run and fails if a single booking is readable.
 
 No public endpoint returns a client's contact details, another customer's
 booking, revenue, or any credential. This is verified by an automated test that
@@ -84,6 +96,24 @@ never included in any API response.
 - Login is rate-limited per IP to blunt brute-force attempts, and runs a hash
   comparison even for unknown emails so response timing can't reveal which
   addresses have accounts.
+- **Changing a password has its own tight limit** (10 per 15 minutes, v1.30.0).
+  The endpoint already required the current password, but at the generic
+  authenticated ceiling a hijacked session could have guessed it hundreds of
+  times a minute.
+- **Password rules are enforced on the server** (v1.30.0, `src/password.js`):
+  at least 10 characters, and refused if it is a password from the top of every
+  breach list, a keyboard or number run, one character repeated, or essentially
+  just the owner's name, email or business name — including run together
+  (`LuxeHairStudio`). The Account page shows the same verdict live as you type,
+  but the server is the enforcer; the browser only saves you a round trip.
+- **Breached passwords are refused** (v1.30.0) using the Have I Been Pwned range
+  API with k-anonymity: only the first five characters of the password's SHA-1
+  hash leave the server, never the password. It **fails open** — if that service
+  is unreachable the change still goes through, because a salon must never be
+  locked out of securing its own account by someone else's outage. Set
+  `KAIRO_BREACH_CHECK=off` for air-gapped installs.
+- There is **no password-reset endpoint**, so there is no reset flow to abuse:
+  a locked-out owner is helped by whoever runs their deployment.
 - **Default-password warning** (v1.6): a fresh install ships with a default
   password. Until it is changed, a red banner across the top of the app warns
   the owner that anyone who knows it can get in. Set `KAIRO_ADMIN_PASSWORD` at

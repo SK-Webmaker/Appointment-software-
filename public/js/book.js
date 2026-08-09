@@ -484,7 +484,7 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
       </div>
       <div style="color:var(--muted);font-size:13px">We look forward to seeing you at ${esc(res.business_name)}.</div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:22px">
-        <a class="btn" href="/api/public/ics/${res.appointment_id}" download>${icon('calendar')} Add to calendar</a>
+        <a class="btn" href="${esc(res.ics_url || '')}" download>${icon('calendar')} Add to calendar</a>
         <button class="btn" data-book-again>Book another</button>
       </div>
     </div>
