@@ -464,6 +464,9 @@ const APPT_SCHEMA = {
   end_min: s.num({ min: 0, max: 1440 }),
   status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']),
   notes: s.str(2000), force: s.bool(),
+  // Only read when a save turns the status to Cancelled: whether the client is
+  // told. Absent means yes, so an older caller can't accidentally go silent.
+  notify_client: s.bool(),
 };
 
 route('GET', '/api/settings', async () => getSettings());
@@ -1320,16 +1323,24 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   // sends just the primary service_id (or none), so we keep the existing
   // multi-service rows intact rather than flattening them to one.
   const serviceId = a.sentServices ? a.serviceId : before.service_id;
+  // Setting Status to Cancelled in the editor IS a cancellation, so it takes
+  // the same path as the Cancel button — including the owner's choice about
+  // whether the client hears about it, and the undo window that follows.
+  //
+  // The status is deliberately left alone in this write: cancelAppointment
+  // reads the row to work out what the booking is coming FROM. Writing
+  // 'cancelled' here first made it find a booking that was already cancelled,
+  // so it returned early and nobody — client or owner — was ever told.
+  const cancelling = a.status === 'cancelled' && before.status !== 'cancelled';
   db.prepare(
     `UPDATE appointments SET client_id = ?, staff_id = ?, service_id = ?, date = ?, start_min = ?, end_min = ?, status = ?, notes = ?
      WHERE id = ?`
-  ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
+  ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end,
+    cancelling ? before.status : a.status, a.notes, params.id);
   if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
   carryNoteToClient(a.clientId, a.notes, a.date);
-  // Cancelling from the editor goes through the same path as the Cancel
-  // button, so the client is told either way.
-  if (a.status === 'cancelled' && before.status !== 'cancelled') {
-    return cancelAppointment(params.id, { by: 'owner' });
+  if (cancelling) {
+    return cancelAppointment(params.id, { by: 'owner', notifyClient: a.b.notify_client !== false });
   }
   if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
     cancelQueuedMessages(params.id);
@@ -1341,11 +1352,15 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
 });
 
 route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
-  const { status } = checkBody(await readJson(req), { status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show'], { required: true }) });
+  const b = checkBody(await readJson(req), {
+    status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show'], { required: true }),
+    notify_client: s.bool(),
+  });
+  const { status } = b;
   if (!APPT_STATUSES.has(status)) throw httpError(400, 'Invalid status');
   const before = db.prepare('SELECT status FROM appointments WHERE id = ?').get(params.id);
   if (status === 'cancelled' && before?.status !== 'cancelled') {
-    const out = cancelAppointment(params.id, { by: 'owner' });
+    const out = cancelAppointment(params.id, { by: 'owner', notifyClient: b.notify_client !== false });
     if (!out) throw httpError(404, 'Appointment not found');
     return out;
   }
@@ -1392,6 +1407,7 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
   if (!a) return null;
   const already = a.status === 'cancelled';
   const holdSeconds = by === 'client' ? 0 : CANCEL_HOLD_SECONDS;
+  const lastMsgId = db.prepare('SELECT COALESCE(MAX(id), 0) AS m FROM messages').get().m;
   if (!already) {
     db.prepare(
       `UPDATE appointments SET status = 'cancelled', prev_status = ?, cancelled_at = ?,
@@ -1401,12 +1417,18 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
     cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
     queueCancellationMessages(id, { by, notifyClient, holdSeconds });
   }
+  // Whether the client was actually told — counted, not assumed. Asking for a
+  // message doesn't create a way to send one: a walk-in with no email or phone
+  // gets nothing, and the owner must never be left thinking otherwise.
+  const clientTold = db.prepare(
+    "SELECT COUNT(*) AS n FROM messages WHERE appointment_id = ? AND kind = 'cancellation' AND id > ?"
+  ).get(id, lastMsgId).n > 0;
   return {
     ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id),
     already_cancelled: already,
-    client_notified: !already && notifyClient,
+    client_notified: clientTold,
     // How long the owner has to change their mind before the client is told.
-    undo_seconds: already ? 0 : holdSeconds,
+    undo_seconds: already || !clientTold ? 0 : holdSeconds,
   };
 }
 
@@ -1460,8 +1482,10 @@ function undoCancellation(id) {
 // Kept as DELETE so existing callers keep working, but it cancels rather than
 // erases: same outcome for the calendar, without losing the record or the
 // chance to tell the client.
-route('DELETE', '/api/appointments/:id', async ({ params }) => {
-  const out = cancelAppointment(params.id, { by: 'owner' });
+route('DELETE', '/api/appointments/:id', async ({ params, query }) => {
+  // ?notify=0 for a quiet cancellation — a DELETE carries no body, so the
+  // choice has to live in the query string.
+  const out = cancelAppointment(params.id, { by: 'owner', notifyClient: query.get('notify') !== '0' });
   if (!out) throw httpError(404, 'Appointment not found');
   return { ok: true, cancelled: true, appointment: out };
 });

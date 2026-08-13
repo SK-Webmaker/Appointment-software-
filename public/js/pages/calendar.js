@@ -702,7 +702,66 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
   });
   clearBtn.onclick = () => { selectClient('', ''); searchInp.focus(); };
 
-  const save = async (force = false) => {
+  // There are two ways to call off a booking — the Cancel button, and setting
+  // Status to Cancelled in the editor — and they must behave identically. Both
+  // ask first, both offer the same choice about telling the client, and both
+  // leave an undo. Shared here so the two can't drift apart.
+  const askCancel = async () => {
+    const who = a.client_name ? esc(a.client_name) : 'this client';
+    const reach = clientReach(a);
+    const ok = await confirmDialog(
+      'Cancel this appointment?',
+      `<b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> goes back on your booking page `
+      + 'straight away. It stays on the calendar marked Cancelled.',
+      {
+        danger: true,
+        okText: 'Cancel appointment',
+        cancelText: 'Keep it',
+        // Sometimes the owner is already on the phone to them, or it's a
+        // no-show they'd rather handle in person. The choice belongs here,
+        // at the moment of cancelling, not in Settings.
+        ...(reach ? {
+          checkbox: { label: `Let ${who} know by ${reach}`, hint: 'Turn off if you\'d rather tell them yourself.', checked: true },
+        } : {}),
+      },
+    );
+    if (!ok) return null;
+    return { notify: reach ? Boolean(ok.checked) : false };
+  };
+
+  const cancelledToast = (out) => {
+    // The client's message is held for a moment, so undo can still catch it —
+    // that is what makes this a real undo and not just a re-booking. The server
+    // is the one that knows whether a message actually went out: asking for one
+    // doesn't create an email address, so this follows what it reports back.
+    const held = out?.undo_seconds > 0;
+    toast(
+      held ? `Cancelled — ${a.client_name || 'the client'} will be told in a moment`
+        : 'Cancelled — no message sent',
+      'ok',
+      {
+        ms: 15000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              const back = await api.post(`/api/appointments/${a.id}/undo-cancel`, {});
+              onSaved?.();
+              toast(
+                back.client_already_told
+                  ? `Put back — but ${a.client_name || 'the client'} was already told, so give them a call`
+                  : 'Put back on the calendar',
+                back.client_already_told ? 'err' : 'ok',
+                { ms: back.client_already_told ? 9000 : 3200 },
+              );
+            } catch (err) { toast(err.message, 'err', { ms: 7000 }); }
+          },
+        },
+      },
+    );
+  };
+
+  const save = async (force = false, cancelChoice = null) => {
     const fd = new FormData(form);
     const start = Number(fd.get('start_min'));
     const payload = {
@@ -725,12 +784,21 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
       toast('Enter the new client\'s first name', 'err');
       return;
     }
+    // Switching Status to Cancelled and hitting Save is a cancellation, so it
+    // asks the same question rather than quietly emailing the client.
+    if (a && payload.status === 'cancelled' && a.status !== 'cancelled') {
+      cancelChoice = cancelChoice || await askCancel();
+      if (!cancelChoice) return;
+      payload.notify_client = cancelChoice.notify;
+    }
     try {
-      if (a) await api.put(`/api/appointments/${a.id}`, payload);
-      else await api.post('/api/appointments', payload);
-      toast(a ? 'Appointment updated' : 'Appointment booked');
+      let out;
+      if (a) out = await api.put(`/api/appointments/${a.id}`, payload);
+      else out = await api.post('/api/appointments', payload);
       m.close();
       onSaved?.();
+      if (cancelChoice) cancelledToast(out);
+      else toast(a ? 'Appointment updated' : 'Appointment booked');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const blk = err.data?.block;
@@ -741,7 +809,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           : await confirmDialog('Double booking',
               `That slot overlaps <b>${esc(err.data?.conflict?.client_name || 'another appointment')}</b> (${fmtTime(err.data?.conflict?.start_min || 0)}). Book anyway?`,
               { okText: 'Double-book' });
-        if (ok) save(true);
+        if (ok) save(true, cancelChoice);   // don't ask about the client twice
       } else toast(err.message, 'err');
     }
   };
@@ -753,57 +821,13 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     // separate delete: the two did the same job, except delete told nobody.
     const cancelBtn = m.querySelector('#appt-cancel');
     if (cancelBtn) cancelBtn.onclick = async () => {
-      const who = a.client_name ? esc(a.client_name) : 'this client';
-      const reach = clientReach(a);
-      const ok = await confirmDialog(
-        'Cancel this appointment?',
-        `<b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> goes back on your booking page `
-        + 'straight away. It stays on the calendar marked Cancelled.',
-        {
-          danger: true,
-          okText: 'Cancel appointment',
-          cancelText: 'Keep it',
-          // Sometimes the owner is already on the phone to them, or it's a
-          // no-show they'd rather handle in person. The choice belongs here,
-          // at the moment of cancelling, not in Settings.
-          ...(reach ? {
-            checkbox: { label: `Let ${who} know by ${reach}`, hint: 'Turn off if you\'d rather tell them yourself.', checked: true },
-          } : {}),
-        },
-      );
-      if (!ok) return;
-      const notify = reach ? Boolean(ok.checked) : false;
+      const choice = await askCancel();
+      if (!choice) return;
       try {
-        const out = await api.post(`/api/appointments/${a.id}/cancel`, { notify_client: notify });
+        const out = await api.post(`/api/appointments/${a.id}/cancel`, { notify_client: choice.notify });
         m.close();
         onSaved?.();
-        // The client's message is held for a moment, so undo can still catch
-        // it — that is what makes this a real undo and not just a re-booking.
-        const held = notify && out.undo_seconds > 0;
-        toast(
-          held ? `Cancelled — ${a.client_name || 'the client'} will be told in a moment`
-            : 'Appointment cancelled',
-          'ok',
-          {
-            ms: 15000,
-            action: {
-              label: 'Undo',
-              onClick: async () => {
-                try {
-                  const back = await api.post(`/api/appointments/${a.id}/undo-cancel`, {});
-                  onSaved?.();
-                  toast(
-                    back.client_already_told
-                      ? `Put back — but ${a.client_name || 'the client'} was already told, so give them a call`
-                      : 'Put back on the calendar',
-                    back.client_already_told ? 'err' : 'ok',
-                    { ms: back.client_already_told ? 9000 : 3200 },
-                  );
-                } catch (err) { toast(err.message, 'err', { ms: 7000 }); }
-              },
-            },
-          },
-        );
+        cancelledToast(out);
       } catch (err) { toast(err.message, 'err'); }
     };
     m.querySelector('#appt-invoice').onclick = async () => {

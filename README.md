@@ -78,7 +78,14 @@ npm run reset-demo   # same thing from the terminal
   use ("Let Amara Osei know by email"). Turn it off when you're already on the
   phone to them or you'd rather say it in person, and the appointment is
   cancelled quietly. The owner's own alert still goes out either way, and a
-  client with no email or phone is never promised a message that can't be sent.
+  client with no email or phone is never promised a message that can't be sent —
+  Kairo counts what was actually queued rather than assuming, so the toast can't
+  claim someone was told when there was no way to tell them.
+- **The same question on every route out.** Setting Status to **Cancelled** in
+  the editor and hitting Save is a cancellation too, so it asks exactly the same
+  thing — same wording, same tick box, same undo. One action, one behaviour, no
+  matter which control the owner reached for. (Fixed in v1.30.3: that path used
+  to skip the cancellation entirely, so nobody — client *or* owner — was told.)
 - **↩️ Undo, and the client never knows.** Cancelling the wrong booking is the
   one mistake that can't be walked back with an apology, so the client's message
   is **held for two minutes** and an **Undo** button sits in the confirmation
@@ -273,7 +280,11 @@ npm run reset-demo   # same thing from the terminal
 - When the **owner** cancels, the same thing happens in reverse: the client is
   emailed, the slot reopens, the record stays — except the client's email waits
   two minutes, so the **Undo** in the toast can catch it if the wrong booking
-  was tapped.
+  was tapped. The owner is always asked first and can **turn the client's
+  message off** for that one cancellation; their own alert goes either way.
+- **A client cancelling their own booking is never silenced.** The "don't tell
+  them" choice belongs to the owner alone — the public cancel link refuses the
+  flag outright, so a client always gets their confirmation.
 
 ### 💬 Confirmations, reminders, receipts & review requests (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit
