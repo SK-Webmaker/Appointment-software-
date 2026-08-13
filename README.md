@@ -79,6 +79,16 @@ npm run reset-demo   # same thing from the terminal
   phone to them or you'd rather say it in person, and the appointment is
   cancelled quietly. The owner's own alert still goes out either way, and a
   client with no email or phone is never promised a message that can't be sent.
+- **↩️ Undo, and the client never knows.** Cancelling the wrong booking is the
+  one mistake that can't be walked back with an apology, so the client's message
+  is **held for two minutes** and an **Undo** button sits in the confirmation
+  toast for fifteen seconds. Tap it and the appointment goes back on the
+  calendar with the status it had before, the held message is stopped before it
+  sends, and the reminder is re-queued. If the slot was taken in the meantime
+  the undo is **refused rather than double-booking**, and if the message did
+  manage to go out Kairo says so plainly — *"put back, but she was already told,
+  so give her a call"* — instead of pretending nothing happened. The owner's own
+  alert is never held; only the client's.
 - **🔒 Block out time**: block any period (lunch, training, a dentist appointment, a whole
   day off) with a **private reason only the owner sees** — customers never see it. Blocked
   time is removed from online booking immediately, so nobody can book into it. Block one
@@ -142,6 +152,13 @@ npm run reset-demo   # same thing from the terminal
   duplicates are removed. Runs in one transaction; you pick which record survives, and a
   **Merge all** button clears every detected set at once.
 - Client profile: upcoming visits, history, invoices, notes (formulas, allergies, preferences)
+- **📌 Notes written on a booking follow the client.** Anything typed in the notes
+  box on an appointment ("wants to go shorter next time", "allergic to the blue
+  toner") is copied onto that client's record as a **dated line**, so it comes up
+  the next time they're in — no separate step to remember. Re-saving the same
+  booking never duplicates it, a second note is **appended not swapped in**,
+  anything the owner typed on the client themselves is never overwritten, and a
+  walk-in with no client record is simply skipped.
 
 ### 🏷 Services
 - Category-grouped service menu with duration, price and description
@@ -254,7 +271,9 @@ npm run reset-demo   # same thing from the terminal
 - Set it in *Settings → Hours & booking*: any time before, 2/6/12/24 hours,
   2 days, or no online cancelling at all. Default is **12 hours**.
 - When the **owner** cancels, the same thing happens in reverse: the client is
-  emailed, the slot reopens, the record stays.
+  emailed, the slot reopens, the record stays — except the client's email waits
+  two minutes, so the **Undo** in the toast can catch it if the wrong booking
+  was tapped.
 
 ### 💬 Confirmations, reminders, receipts & review requests (email + SMS)
 - Booking confirmations sent immediately; reminders sent N hours before the visit

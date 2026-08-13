@@ -564,7 +564,8 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
         <div class="field span2"><label>Status</label>
           <select name="status" class="nice-select">${['booked', 'confirmed', 'completed', 'cancelled', 'no_show'].map((s) =>
             `<option value="${s}" ${(a?.status || 'booked') === s ? 'selected' : ''}>${{ booked: 'Booked', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' }[s]}</option>`).join('')}</select></div>
-        <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea></div>
+        <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea>
+          <div class="hint">Saved to this booking and added to the client's record, dated, so it comes up next time.</div></div>
         ${a?.deposit_status ? `<div class="span2 cell-sub">💳 Online deposit ${a.deposit_status === 'paid'
           ? `<b style="color:var(--green)">${money(a.deposit_cents)} paid</b>, credited automatically at checkout`
           : '<b style="color:var(--amber)">pending</b>. The client started but didn\'t finish the deposit payment'}</div>` : ''}
@@ -773,10 +774,36 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
       if (!ok) return;
       const notify = reach ? Boolean(ok.checked) : false;
       try {
-        await api.post(`/api/appointments/${a.id}/cancel`, { notify_client: notify });
-        toast(notify ? `Cancelled — ${a.client_name || 'the client'} has been notified` : 'Appointment cancelled');
+        const out = await api.post(`/api/appointments/${a.id}/cancel`, { notify_client: notify });
         m.close();
         onSaved?.();
+        // The client's message is held for a moment, so undo can still catch
+        // it — that is what makes this a real undo and not just a re-booking.
+        const held = notify && out.undo_seconds > 0;
+        toast(
+          held ? `Cancelled — ${a.client_name || 'the client'} will be told in a moment`
+            : 'Appointment cancelled',
+          'ok',
+          {
+            ms: 15000,
+            action: {
+              label: 'Undo',
+              onClick: async () => {
+                try {
+                  const back = await api.post(`/api/appointments/${a.id}/undo-cancel`, {});
+                  onSaved?.();
+                  toast(
+                    back.client_already_told
+                      ? `Put back — but ${a.client_name || 'the client'} was already told, so give them a call`
+                      : 'Put back on the calendar',
+                    back.client_already_told ? 'err' : 'ok',
+                    { ms: back.client_already_told ? 9000 : 3200 },
+                  );
+                } catch (err) { toast(err.message, 'err', { ms: 7000 }); }
+              },
+            },
+          },
+        );
       } catch (err) { toast(err.message, 'err'); }
     };
     m.querySelector('#appt-invoice').onclick = async () => {

@@ -236,7 +236,7 @@ export function confirmDialog(title, message, {
 // ---------- toast ----------
 
 let toastWrap;
-export function toast(message, type = 'ok') {
+export function toast(message, type = 'ok', { action = null, ms = 3200 } = {}) {
   if (!toastWrap) {
     toastWrap = document.createElement('div');
     toastWrap.className = 'toasts';
@@ -245,8 +245,34 @@ export function toast(message, type = 'ok') {
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.innerHTML = `${icon(type === 'ok' ? 'check' : 'alert')}<span>${esc(message)}</span>`;
+
+  let timer = null;
+  const dismiss = () => {
+    clearTimeout(timer);
+    t.style.opacity = '0';
+    t.style.transition = 'opacity 0.3s';
+    setTimeout(() => t.remove(), 320);
+  };
+
+  // An action turns the toast into the undo affordance: the only place the
+  // owner can reverse something they've just done, so it has to stay put long
+  // enough to be read, noticed and reached for.
+  if (action) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.onclick = async () => {
+      btn.disabled = true;
+      dismiss();
+      await action.onClick();
+    };
+    t.appendChild(btn);
+  }
+
   toastWrap.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 320); }, 3200);
+  timer = setTimeout(dismiss, ms);
+  return { dismiss };
 }
 
 // time <select> options in `step`-minute increments

@@ -273,6 +273,9 @@ function migrate() {
   addColumn('appointments', 'cancelled_at', "cancelled_at TEXT NOT NULL DEFAULT ''");
   addColumn('appointments', 'cancelled_by', "cancelled_by TEXT NOT NULL DEFAULT ''"); // ''|client|owner
   addColumn('appointments', 'cancel_reason', "cancel_reason TEXT NOT NULL DEFAULT ''");
+  // What the appointment was before it was cancelled, so an undo can put it
+  // back exactly as it stood rather than guessing at 'booked'.
+  addColumn('appointments', 'prev_status', "prev_status TEXT NOT NULL DEFAULT ''");
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:

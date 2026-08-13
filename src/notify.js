@@ -420,11 +420,14 @@ export function queueReviewRequest(apptId) {
  * it's really cancelled, the owner gets an alert so a freed slot never goes
  * unnoticed. Sent whoever cancelled, so neither side is ever left guessing.
  */
-export function queueCancellationMessages(apptId, { by = 'owner', notifyClient = true } = {}) {
+export function queueCancellationMessages(apptId, { by = 'owner', notifyClient = true, holdSeconds = 0 } = {}) {
   const a = apptContext(apptId);
   if (!a) return;
   const ins = insMessage();
   const now = localStamp();
+  // The client's message can be held back for a moment so an undo can catch it.
+  // The owner's own copy is never held — it is the record that it happened.
+  const clientAfter = holdSeconds > 0 ? localStamp(new Date(Date.now() + holdSeconds * 1000)) : now;
   const origin = getSetting('public_url') || '';
 
   // → the client, unless the owner chose to tell them in person. A client who
@@ -432,7 +435,7 @@ export function queueCancellationMessages(apptId, { by = 'owner', notifyClient =
   if (notifyClient && a.client_id && getSetting('confirm_enabled', '1') === '1') {
     const copy = buildCopy('cancellation', a, { by, bookUrl: origin ? `${origin}/book` : '' });
     for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
-      ins.run(a.id, a.client_id, channel, 'cancellation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
+      ins.run(a.id, a.client_id, channel, 'cancellation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', clientAfter);
     }
   }
 

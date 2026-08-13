@@ -1256,10 +1256,53 @@ route('POST', '/api/appointments', async ({ req }) => {
   ).run(a.clientId, a.staffId, a.serviceId, a.date, a.start, a.end, a.status, a.notes);
   const apptId = Number(info.lastInsertRowid);
   if (a.serviceIds.length) setApptServices(apptId, a.serviceIds);
+  carryNoteToClient(a.clientId, a.notes, a.date);
   queueAppointmentMessages(apptId);
   processQueue().catch(() => {});
   return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
 });
+
+/**
+ * Carry an appointment's note onto the client's own record.
+ *
+ * A note written on the booking ("wants to go shorter next time", "reacted to
+ * the toner") is about the person, not the hour — but it was only ever visible
+ * on that one appointment, so by the next visit it was effectively lost. This
+ * appends it to their profile, dated by the visit it came from, so it turns up
+ * on every future booking with them.
+ *
+ * Only ever adds. The same note re-sent by a drag, a resize or an edit is
+ * matched and skipped, so a note cannot accumulate copies of itself. The
+ * client's own notes field is never rewritten or reordered — anything the owner
+ * typed there by hand stays exactly where they put it.
+ */
+const CLIENT_NOTES_CAP = 2000;
+
+function carryNoteToClient(clientId, note, whenDate) {
+  const text = str(note, 500).trim();
+  if (!clientId || !text) return false;
+  const client = db.prepare('SELECT notes FROM clients WHERE id = ?').get(clientId);
+  if (!client) return false;
+  const existing = String(client.notes || '');
+  // Already carried across (or the owner typed the same thing themselves).
+  if (existing.includes(text)) return false;
+
+  const stamp = isDateStr(whenDate)
+    ? new Date(`${whenDate}T12:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
+  const line = stamp ? `${stamp} — ${text}` : text;
+  const merged = existing ? `${existing}\n${line}` : line;
+  if (merged.length > CLIENT_NOTES_CAP) {
+    // Keep the newest notes: drop whole lines off the front until it fits, so
+    // the field never silently truncates mid-sentence.
+    const lines = merged.split('\n');
+    while (lines.length > 1 && lines.join('\n').length > CLIENT_NOTES_CAP) lines.shift();
+    db.prepare('UPDATE clients SET notes = ? WHERE id = ?').run(lines.join('\n').slice(-CLIENT_NOTES_CAP), clientId);
+  } else {
+    db.prepare('UPDATE clients SET notes = ? WHERE id = ?').run(merged, clientId);
+  }
+  return true;
+}
 
 route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   const before = db.prepare('SELECT * FROM appointments WHERE id = ?').get(params.id);
@@ -1282,6 +1325,7 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
      WHERE id = ?`
   ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end, a.status, a.notes, params.id);
   if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
+  carryNoteToClient(a.clientId, a.notes, a.date);
   // Cancelling from the editor goes through the same path as the Cancel
   // button, so the client is told either way.
   if (a.status === 'cancelled' && before.status !== 'cancelled') {
@@ -1326,21 +1370,90 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
  *
  * Returns null if there was nothing to cancel, so callers can 404 honestly.
  */
+/**
+ * How long the client's cancellation message is held back when the OWNER
+ * cancels, so an undo can catch it before it goes.
+ *
+ * Cancelling is one tap next to a diary full of other taps, and the message it
+ * sends cannot be recalled once a client has read it. Holding it briefly costs
+ * the client nothing — they hear a minute later — and turns a misfire from an
+ * apologetic phone call into a button. A client who cancels themselves is never
+ * held: they asked for it and want the receipt now.
+ *
+ * Two minutes, not one, because the queue's send_after is stored to the minute:
+ * a 60-second hold applied at 10:30:59 lands on "10:31" and goes out a second
+ * later. At 120 the worst case is still just over a minute of cover, which is
+ * comfortably longer than the undo is offered for.
+ */
+const CANCEL_HOLD_SECONDS = 120;
+
 function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true } = {}) {
   const a = db.prepare('SELECT id, status FROM appointments WHERE id = ?').get(id);
   if (!a) return null;
   const already = a.status === 'cancelled';
+  const holdSeconds = by === 'client' ? 0 : CANCEL_HOLD_SECONDS;
   if (!already) {
     db.prepare(
-      "UPDATE appointments SET status = 'cancelled', cancelled_at = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?"
-    ).run(new Date().toISOString().slice(0, 19).replace('T', ' '), by === 'client' ? 'client' : 'owner', str(reason, 300), id);
+      `UPDATE appointments SET status = 'cancelled', prev_status = ?, cancelled_at = ?,
+         cancelled_by = ?, cancel_reason = ? WHERE id = ?`
+    ).run(a.status, new Date().toISOString().slice(0, 19).replace('T', ' '),
+      by === 'client' ? 'client' : 'owner', str(reason, 300), id);
     cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
-    queueCancellationMessages(id, { by, notifyClient });
+    queueCancellationMessages(id, { by, notifyClient, holdSeconds });
   }
   return {
     ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id),
     already_cancelled: already,
     client_notified: !already && notifyClient,
+    // How long the owner has to change their mind before the client is told.
+    undo_seconds: already ? 0 : holdSeconds,
+  };
+}
+
+/**
+ * Put a cancelled appointment back exactly as it was.
+ *
+ * Two things have to be true for this to be safe, and both are checked rather
+ * than assumed: the slot must still be free (the booking page reopened it the
+ * moment it was cancelled, so a customer may have taken it), and we must be
+ * honest about whether the client already heard. If the held message has gone
+ * out, restoring the appointment quietly would leave the owner believing the
+ * client still expects them.
+ */
+function undoCancellation(id) {
+  const a = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
+  if (!a) return null;
+  if (a.status !== 'cancelled') throw httpError(400, 'That appointment is not cancelled');
+
+  // Did anyone take the slot while it was free?
+  const clash = db.prepare(
+    `SELECT id FROM appointments WHERE staff_id = ? AND date = ? AND id != ?
+       AND status NOT IN ('cancelled', 'no_show') AND start_min < ? AND end_min > ?`
+  ).get(a.staff_id, a.date, a.id, a.end_min, a.start_min);
+  if (clash) {
+    throw httpError(409, 'That time has been booked by someone else since you cancelled — rebook it instead.');
+  }
+
+  // Held messages that haven't gone yet are dropped; anything already sent is
+  // reported back so the owner knows to make a phone call.
+  const pending = db.prepare(
+    "SELECT COUNT(*) AS n FROM messages WHERE appointment_id = ? AND kind = 'cancellation' AND status = 'queued'"
+  ).get(id).n;
+  const alreadySent = db.prepare(
+    "SELECT COUNT(*) AS n FROM messages WHERE appointment_id = ? AND kind = 'cancellation' AND status = 'sent'"
+  ).get(id).n;
+
+  db.prepare(
+    `UPDATE appointments SET status = ?, prev_status = '', cancelled_at = '', cancelled_by = '', cancel_reason = ''
+     WHERE id = ?`
+  ).run(APPT_STATUSES.has(a.prev_status) && a.prev_status !== 'cancelled' ? a.prev_status : 'booked', id);
+
+  requeueAppointmentMessages(id);      // the reminder comes back with it
+  return {
+    ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(id),
+    restored: true,
+    held_messages_stopped: pending,
+    client_already_told: alreadySent > 0,
   };
 }
 
@@ -1351,6 +1464,16 @@ route('DELETE', '/api/appointments/:id', async ({ params }) => {
   const out = cancelAppointment(params.id, { by: 'owner' });
   if (!out) throw httpError(404, 'Appointment not found');
   return { ok: true, cancelled: true, appointment: out };
+});
+
+// Undo an owner's cancellation. Deliberately a separate route rather than a
+// status PATCH: it has to check the slot is still free and report what the
+// client was already told, which a plain status change would skip.
+route('POST', '/api/appointments/:id/undo-cancel', async ({ params }) => {
+  const out = undoCancellation(params.id);
+  if (!out) throw httpError(404, 'Appointment not found');
+  processQueue().catch(() => {});
+  return out;
 });
 
 route('POST', '/api/appointments/:id/cancel', async ({ req, params }) => {
