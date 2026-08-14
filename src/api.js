@@ -5,7 +5,7 @@ import {
   dbFileBytes,
 } from './db.js';
 import {
-  readJson, sendJson, sendText, httpError, parseCookies, todayStr, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
+  readJson, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
   isValidTimeZone,
 } from './util.js';
 import {
@@ -38,6 +38,28 @@ import crypto from 'node:crypto';
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
 const INVOICE_STATUSES = new Set(['draft', 'sent', 'paid', 'void']);
 const PAY_METHODS = new Set(['card', 'square', 'cash', 'transfer', 'other']);
+
+/**
+ * "Now" where the business actually is — the only clock the owner's day should
+ * ever be measured against.
+ *
+ * The server's own clock is not that clock. On a hosted box it is UTC, so at
+ * 10am in Melbourne the machine believes it is 11pm *yesterday*. Anything that
+ * reaches for the raw server date lands on the wrong day for the entire morning:
+ * the dashboard opens on yesterday's run, and a payment taken at 9am is filed
+ * under yesterday's takings. The booking page has always used this zone; the
+ * owner's side must too, or the two disagree about what day it is.
+ */
+const bizNow = () => nowParts(getSetting('business_tz', ''));
+const bizToday = () => bizNow().date;
+
+/** 'YYYY-MM-DD HH:MM:SS' in the business's zone, for stamping records. */
+function bizStamp() {
+  const { date, min } = bizNow();
+  const p = (n) => String(n).padStart(2, '0');
+  // Seconds are the same in every zone, so the server's are fine here.
+  return `${date} ${p(Math.floor(min / 60))}:${p(min % 60)}:${p(new Date().getSeconds())}`;
+}
 
 // ---------------------------------------------------------------------------
 // Routing table
@@ -176,7 +198,7 @@ route('GET', '/api/account', async ({ user }) => {
   const row = db.prepare('SELECT id, name, email, role, created_at, email_verified FROM users WHERE id = ?').get(user.id);
   const one = (sql, ...args) => db.prepare(sql).get(...args)?.n ?? 0;
   const monthStart = `${new Date().toISOString().slice(0, 7)}-01`;
-  const since30 = addDaysStr(todayStr(), -30);
+  const since30 = addDaysStr(bizToday(), -30);
 
   return {
     user: {
@@ -1637,7 +1659,7 @@ function writeItems(invoiceId, items) {
 route('POST', '/api/invoices', async ({ req }) => {
   const b = checkBody(await readJson(req), INVOICE_SCHEMA);
   const clientId = Number(b.client_id) || null;
-  const issue = isDateStr(b.issue_date) ? b.issue_date : todayStr();
+  const issue = isDateStr(b.issue_date) ? b.issue_date : bizToday();
   const dueDays = clampInt(getSetting('invoice_due_days', '7'), 0, 365, 7);
   const due = isDateStr(b.due_date) ? b.due_date : addDays(issue, dueDays);
   const taxRate = Number.isFinite(Number(b.tax_rate)) ? Number(b.tax_rate) : Number(getSetting('tax_rate', '0'));
@@ -1656,7 +1678,7 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(Number(appointment_id));
   if (!appt) throw httpError(404, 'Appointment not found');
   if (appt.invoice_id) return getInvoice(appt.invoice_id);
-  const issue = todayStr();
+  const issue = bizToday();
   const dueDays = clampInt(getSetting('invoice_due_days', '7'), 0, 365, 7);
   const info = db.prepare(
     `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate)
@@ -1676,7 +1698,7 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   if (appt.deposit_status === 'paid' && appt.deposit_cents > 0) {
     db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").run(invId);
     db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
-      .run(invId, appt.deposit_cents, 'card', `${todayStr()} 00:00:00`, 'Online booking deposit (Stripe)');
+      .run(invId, appt.deposit_cents, 'card', `${bizToday()} 00:00:00`, 'Online booking deposit (Stripe)');
     refreshPaidStatus(invId);
   }
   return getInvoice(invId);
@@ -1729,7 +1751,7 @@ route('POST', '/api/invoices/:id/payments', async ({ req, params }) => {
   if (!Number.isFinite(amount) || amount <= 0) throw httpError(400, 'Payment amount must be positive');
   const method = PAY_METHODS.has(b.method) ? b.method : 'card';
   db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
-    .run(params.id, amount, method, `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, str(b.note, 500));
+    .run(params.id, amount, method, bizStamp(), str(b.note, 500));
   if (inv.status === 'draft') db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").run(params.id);
   refreshPaidStatus(params.id);
   const updated = getInvoice(params.id);
@@ -1876,7 +1898,7 @@ function recordPosStripePayment(invoiceId, amountCents, paymentIntent) {
     return false; // already recorded — a poll race or double status call
   }
   db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note, stripe_pi) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(invoiceId, amountCents, 'card', `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, 'POS — paid via Stripe', paymentIntent || '');
+    .run(invoiceId, amountCents, 'card', bizStamp(), 'POS — paid via Stripe', paymentIntent || '');
   return true;
 }
 
@@ -1894,7 +1916,7 @@ route('POST', '/api/pos/sale', async ({ req }) => {
   if (total <= 0) throw httpError(400, 'Sale total must be above zero');
   if (b.method === 'stripe' && total < 50) throw httpError(400, 'Card payments need a total of at least 50 cents');
 
-  const issue = todayStr();
+  const issue = bizToday();
   db.exec('BEGIN');
   let invId;
   try {
@@ -1916,7 +1938,7 @@ route('POST', '/api/pos/sale', async ({ req }) => {
     // own Square reader/terminal): record, fulfil stock, receipt — all now.
     const note = b.method === 'square' ? 'POS — card charged on Square' : 'POS sale';
     db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
-      .run(invId, total, b.method, `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`, note);
+      .run(invId, total, b.method, bizStamp(), note);
     refreshPaidStatus(invId);
     fulfillPosStock(invId);
     const updated = getInvoice(invId);
@@ -2002,7 +2024,7 @@ route('POST', '/api/invoices/:id/refund', async ({ req, params }) => {
   }
   db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note, stripe_pi) VALUES (?, ?, ?, ?, ?, ?)')
     .run(inv.id, -amount, stripePay ? 'card' : 'cash',
-         `${todayStr()} ${new Date().toTimeString().slice(0, 8)}`,
+         bizStamp(),
          str(b.note, 300) || (stripeRefundId ? `Refund (Stripe ${stripeRefundId})` : 'Refund'),
          stripeRefundId);
 
@@ -2045,7 +2067,7 @@ route('GET', '/api/reviews', async ({ query }) => {
   const where = minRating ? `WHERE r.rating <= ${minRating}` : '';
   const rows = db.prepare(`${REVIEW_SELECT} ${where} ORDER BY r.created_at DESC LIMIT 300`).all();
   const stats = db.prepare('SELECT COUNT(*) AS n, COALESCE(AVG(rating), 0) AS avg FROM reviews').get();
-  const monthAgo = addDays(todayStr(), -30);
+  const monthAgo = addDays(bizToday(), -30);
   const recent = db.prepare("SELECT COUNT(*) AS n FROM reviews WHERE created_at >= ?").get(`${monthAgo} 00:00:00`).n;
   return { reviews: rows, total: stats.n, average: Math.round(stats.avg * 10) / 10, last_30d: recent };
 });
@@ -2061,8 +2083,21 @@ route('PUT', '/api/reviews/:id/response', async ({ req, params }) => {
 // Dashboard
 // ---------------------------------------------------------------------------
 
-route('GET', '/api/dashboard', async () => {
-  const today = todayStr();
+route('GET', '/api/dashboard', async ({ query }) => {
+  // The day this panel is about, and the minute it is measured against.
+  //
+  // The business's own zone is the default. The owner's device can override it
+  // (?date=&now_min=), and normally does: the calendar has always drawn the
+  // day the phone is standing in, so the dashboard follows the same clock and
+  // the two can't tell the owner different things. A misconfigured zone then
+  // shows up as a warning on the panel instead of as yesterday's appointments.
+  const server = bizNow();
+  const asked = query.get('date');
+  const today = isDateStr(asked) ? asked : server.date;
+  // Out of range is a broken caller, not a preference — fall back to the
+  // business's own clock rather than pinning the day to 23:59.
+  const askedMin = Number.parseInt(query.get('now_min'), 10);
+  const nowMin = Number.isInteger(askedMin) && askedMin >= 0 && askedMin <= 1439 ? askedMin : server.min;
   const weekAgo = addDays(today, -6);
   const monthAgo = addDays(today, -29);
 
@@ -2101,7 +2136,6 @@ route('GET', '/api/dashboard', async () => {
     `${APPT_SELECT} WHERE a.date = ? ORDER BY a.start_min`
   ).all(today);
   const liveToday = todayAppts.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show');
-  const { min: nowMin } = nowParts(getSetting('business_tz', ''));
 
   const doneCount = liveToday.filter((a) => a.status === 'completed' || a.end_min <= nowMin).length;
   const next = liveToday.find((a) => a.start_min > nowMin && a.status !== 'completed') || null;
@@ -2216,6 +2250,12 @@ route('GET', '/api/dashboard', async () => {
       done_count: doneCount,
       remaining_count: Math.max(0, liveToday.length - doneCount),
       now_min: nowMin,
+      // What the business's configured zone believes, whether or not it was
+      // used. The panel compares this with the device to tell the owner their
+      // time zone is wrong — which still matters even when the panel itself
+      // reads correctly, because reminders and the booking page use the zone.
+      server_date: server.date,
+      server_now_min: server.min,
       is_open_day: isOpenDay(today),
       appointments: liveToday,
       cancelled_count: todayAppts.length - liveToday.length,
@@ -2260,7 +2300,7 @@ route('GET', '/api/public/info', async () => {
     // browser — a day that only runs on alternating weeks can't be derived
     // from the weekday alone. The full horizon is sent (not just the next
     // fortnight) so someone can book two or three months ahead.
-    open_dates: openDatesFrom(nowParts(getSetting('business_tz', '')).date, hourSettings(),
+    open_dates: openDatesFrom(bizToday(), hourSettings(),
       bookingHorizonDays(), bookingHorizonDays()),
     booking_horizon_days: bookingHorizonDays(),
     cancel_window_hours: getSetting('client_cancel_enabled', '1') === '1'
@@ -2329,7 +2369,7 @@ function freeSlotsFor(staffId, date, durationMin) {
   // today is never offered (the server may run in UTC while the salon is in
   // Australia). A minimum-notice buffer pushes the earliest bookable time
   // further out if the owner wants advance warning.
-  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  const { date: todayLocal, min: nowMin } = bizNow();
   const isToday = date === todayLocal;
   const leadMin = Math.max(0, Number(getSetting('booking_lead_min', '0')) || 0);
   const earliest = nowMin + leadMin; // slots must start strictly after this today
@@ -2345,7 +2385,7 @@ function freeSlotsFor(staffId, date, durationMin) {
 route('GET', '/api/public/availability', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const date = query.get('date');
-  const todayForSlots = nowParts(getSetting('business_tz', '')).date;
+  const todayForSlots = bizToday();
   if (!isDateStr(date) || date < todayForSlots) throw httpError(400, 'Choose an upcoming date');
   if (date > addDaysStr(todayForSlots, bookingHorizonDays())) throw httpError(400, 'That date is too far ahead');
   // Duration is the sum of every chosen service (service_ids CSV), or a single
@@ -2393,7 +2433,7 @@ route('POST', '/api/public/book', async ({ req }) => {
   const svc = resolveServices(b, { required: true });
   const service = svc.services[0];
   const duration = svc.totalDuration;
-  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  const { date: todayLocal, min: nowMin } = bizNow();
   if (!isDateStr(b.date) || b.date < todayLocal) throw httpError(400, 'Choose an upcoming date');
   // Far-future bookings are welcome, but not beyond the horizon the owner set —
   // otherwise a crafted request could sit in the diary years out.
@@ -2586,7 +2626,7 @@ function cancelLinkContext(token) {
   // Minutes from now until the appointment starts, in the business's own time
   // zone — the same clock the booking page uses, so "12 hours before" means
   // the same thing to the client and the salon.
-  const { date: todayLocal, min: nowMin } = nowParts(getSetting('business_tz', ''));
+  const { date: todayLocal, min: nowMin } = bizNow();
   const dayDiff = (Date.parse(`${a.date}T00:00:00Z`) - Date.parse(`${todayLocal}T00:00:00Z`)) / 86400000;
   const minutesUntil = dayDiff * 1440 + a.start_min - nowMin;
   const windowHrs = Math.max(0, Number(getSetting('cancel_window_hours', '12')) || 0);

@@ -246,15 +246,30 @@ npm run reset-demo   # same thing from the terminal
   So a client whose appointment finished at 10am is never still sitting there as
   "Next up" at 2pm. Coming back to the tab, crossing midnight, or waking a slept
   phone refetches rather than guessing.
-- **It catches a wrong time zone instead of quietly lying.** The clock normally
-  comes from the server, in the business's own zone. If that disagrees with the
-  owner's device by more than 10 minutes the zone is misconfigured — the classic
-  case being a hosted box falling back to UTC, which tells a salon at 1pm that
-  its 9:15 client is still next. The panel then uses the device's clock so it
-  reads correctly, and says plainly that the zone needs fixing **and that the
-  booking page and reminders are still using the wrong one**. A time zone the
-  server can't resolve is now rejected on save rather than stored, so the
-  "looks configured but silently falls back to UTC" state can't be created.
+- **The dashboard and the calendar are never a day apart.** Both draw the day the
+  owner's device is standing in, and the panel asks the server for that exact
+  date and minute — so "Today at a glance" is, by construction, the same day the
+  day book shows. (Fixed in v1.31.0: the dashboard used to take its *date* from
+  the server's own calendar while taking its *clock* from the business's zone.
+  On a hosted box running UTC that meant every morning until mid-morning it drew
+  **yesterday's** run against today's time — so "Next up" was a client who had
+  been in the day before. The same raw server date was stamping payments, which
+  filed a 9am sale under yesterday's takings.)
+- **It catches a wrong time zone instead of quietly lying.** The business's own
+  zone is checked against the device on every load. If they disagree by more than
+  10 minutes, or land on different dates, the zone is misconfigured — the classic
+  case being a hosted box falling back to UTC. The panel and the calendar still
+  read correctly because they follow the device, but the owner is told plainly
+  that the zone needs fixing **and that the booking page and reminders are still
+  using the wrong one** — because those genuinely are wrong until it's set. A
+  time zone the server can't resolve is rejected on save rather than stored, so
+  the "looks configured but silently falls back to UTC" state can't be created.
+- **📲 Pull down to refresh.** On a phone, pull down at the top of any page and it
+  reloads — settings, team, services, then the page itself. A home-screen app has
+  no address bar and so no reload button, which left "is this still right?" with
+  no answer short of closing the app. The gesture is ignored mid-page, inside a
+  dialog, and inside anything that scrolls on its own, so it only ever fires when
+  it's genuinely meant.
 - **Client growth & retention** — new vs returning visits over 30 days, a
   **rebooking rate** (how many clients come back within a month), and a
   **"worth a nudge"** list of lapsed regulars: 2+ past visits, nothing in 8 weeks

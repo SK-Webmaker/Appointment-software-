@@ -16,6 +16,7 @@ import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
 import { mountIntro, adoptBootSplash } from './intro.js';
 import { lockZoom } from './nozoom.js';
+import { enablePullToRefresh } from './pull-refresh.js';
 
 export const state = {
   user: null,
@@ -183,6 +184,31 @@ function renderShell() {
       location.hash = `#/clients?q=${encodeURIComponent(search.value.trim())}`;
     }
   });
+
+  // Pull down at the top of any page to reload it. On a home-screen app there
+  // is no address bar and so no reload button; this is the only way to ask for
+  // fresh figures without closing the app.
+  enablePullToRefresh(root.querySelector('.content'), () => refreshAll());
+}
+
+/**
+ * Everything a "give me the current state" gesture should bring back: the
+ * settings and lookups the shell is drawn from, then the page itself. Ordered
+ * so the page renders against fresh lookups rather than the old ones.
+ */
+async function refreshAll() {
+  try {
+    const me = await api.get('/api/auth/me');
+    state.user = me.user;
+    state.settings = me.settings;
+    state.version = me.version || '';
+    setCurrency(state.settings.currency);
+    await refreshLookups();
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) { renderLogin(); return; }
+    // Offline or a blip: the page reload below reports it in context.
+  }
+  await navigate();
 }
 
 async function navigate() {

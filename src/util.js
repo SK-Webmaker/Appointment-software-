@@ -146,8 +146,19 @@ export function dateStr(d) {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * A real calendar date in YYYY-MM-DD form.
+ *
+ * The shape alone isn't enough: "2026-13-45" and "2026-02-31" both look right
+ * and both mean nothing. Accepting them puts a date in the database that no
+ * date arithmetic can handle — new Date() either throws further downstream or
+ * quietly slides to March 3rd — so they're refused at the door instead.
+ */
 export function isDateStr(s) {
-  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
 }
 
 export function clampInt(v, min, max, fallback) {

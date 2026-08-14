@@ -114,9 +114,15 @@ function timelineRowHtml(item) {
 // must not leave the previous page's clock running.
 let liveTimer = null;
 
+// The minute the owner is actually standing in, straight off the device.
+const deviceMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
 export async function renderDashboard(container) {
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
-  const d = await api.get('/api/dashboard');
+  // Ask for the day the phone is in, not the day the server thinks it is. The
+  // calendar has always drawn the device's date; the dashboard now does too, so
+  // "Today at a glance" and the day book can never be a day apart.
+  const d = await api.get(`/api/dashboard?date=${todayStr()}&now_min=${deviceMin()}`);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const firstName = (state.user.name || '').split(' ')[0];
@@ -126,21 +132,20 @@ export async function renderDashboard(container) {
   const runOfDay = [...t.appointments.map((a) => ({ ...a, gap: false })), ...t.gaps.map((g) => ({ ...g, gap: true }))]
     .sort((a, b) => a.start_min - b.start_min);
 
-  // The clock this page runs on.
+  // The clock this page runs on is the device's — that is where the owner is
+  // standing, and it's what the calendar uses.
   //
-  // The server sends the minute in the business's configured time zone; the
-  // device knows the minute where the owner is actually standing. They should
-  // agree to within a rounding error. When they don't, the configured zone is
-  // wrong — most often never set at all, in which case the server falls back to
-  // its own clock, which on a hosted box is UTC. That is how a salon at 1pm gets
-  // told its 9:15 client is still "Next up": the server genuinely believes it is
-  // three in the morning. Advancing from that anchor keeps it wrong all day, so
-  // fall back to the device, which is right about where the owner is.
-  const deviceMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+  // The business's configured time zone is checked against it all the same. If
+  // the zone is wrong (most often never set, in which case the server falls
+  // back to its own clock, which on a hosted box is UTC) this panel still reads
+  // correctly, but the booking page and the reminders do not — so the owner is
+  // told, rather than left with a salon whose confirmation emails quote the
+  // wrong time.
+  const serverMin = t.server_now_min ?? t.now_min;
   // Signed difference, wrapped so 23:55 vs 00:05 reads as 10 minutes, not 1430.
-  const drift = ((deviceMin() - t.now_min + 2160) % 1440) - 720;
-  const clockOff = Math.abs(drift) > 10;
-  const baseMin = clockOff ? deviceMin() : t.now_min;
+  const drift = ((deviceMin() - serverMin + 2160) % 1440) - 720;
+  const clockOff = Math.abs(drift) > 10 || (t.server_date && t.server_date !== t.date);
+  const baseMin = deviceMin();
 
   const loadedAt = Date.now();
   const nowMin = () => baseMin + Math.floor((Date.now() - loadedAt) / 60000);
@@ -174,10 +179,11 @@ export async function renderDashboard(container) {
       ${clockOff ? `
       <div class="clock-warn">${icon('alert', 15)}
         <div><b>Your time zone needs fixing.</b> Kairo thinks it's
-          <b>${fmtTime(((t.now_min % 1440) + 1440) % 1440)}</b> right now, but your phone says
-          <b>${fmtTime(deviceMin())}</b>. Today's panel below is using your phone's time so it
-          reads correctly — but your <b>booking page and reminders are still using the wrong
-          one</b>, so set it in <a href="#/settings">Settings → Hours &amp; booking → Time zone</a>.</div>
+          <b>${fmtTime(((serverMin % 1440) + 1440) % 1440)}${t.server_date && t.server_date !== t.date ? ` on ${esc(fmtDate(t.server_date))}` : ''}</b>
+          right now, but your phone says <b>${fmtTime(deviceMin())}</b>. Today's panel and the
+          calendar are using your phone, so they read correctly — but your <b>booking page and
+          reminders are still using the wrong one</b>, so set it in
+          <a href="#/settings">Settings → Hours &amp; booking → Time zone</a>.</div>
       </div>` : ''}
 
       <div class="today-grid">
