@@ -10,7 +10,15 @@ export async function renderMessages(container) {
   const messages = await api.get(`/api/messages${filter ? `?status=${filter}` : ''}`);
   // Secret values never reach the browser; the API sends `<key>_set` flags instead.
   const configuredEmail = Boolean(state.settings.resend_api_key_set === '1' && state.settings.notif_from_email);
-  const configuredSms = Boolean(state.settings.twilio_sid && state.settings.twilio_token_set === '1' && state.settings.twilio_from);
+  // SMS is configured when the CHOSEN provider's own credentials are filled in.
+  // Checking Twilio alone told every salon on ClickSend — the default — that its
+  // texting wasn't set up, while the texts were going out perfectly well.
+  const s = state.settings;
+  const configuredSms = {
+    clicksend: Boolean(s.clicksend_username && s.clicksend_api_key_set === '1' && s.clicksend_from),
+    telnyx: Boolean(s.telnyx_api_key_set === '1' && s.telnyx_from),
+    twilio: Boolean(s.twilio_sid && s.twilio_token_set === '1' && s.twilio_from),
+  }[s.sms_provider || 'clicksend'] || false;
 
   const KIND = {
     confirmation: 'Confirmation', reminder: 'Reminder', receipt: 'Receipt',
@@ -39,7 +47,7 @@ export async function renderMessages(container) {
     ${!configuredEmail && !configuredSms ? `
       <div class="insight" style="text-align:left;margin:0 0 16px">
         <b>Setup needed:</b> messages are being logged but not delivered yet.
-        Add a free <b>Resend</b> key (email) and/or <b>Twilio</b> credentials (SMS) in
+        Add a free <b>Resend</b> key (email) and/or your <b>SMS provider</b> details in
         <a href="#/settings">Settings → Notifications</a> — everything queued here will show
         exactly what happened.
       </div>` : ''}

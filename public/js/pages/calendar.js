@@ -223,6 +223,11 @@ function apptHtml(a, showStaff = false) {
   const left = (a.lane || 0) * width;
   const color = a.staff_color || '#3987e5';
   const compact = height < 44;
+  // Under about two lines there is no room for both the time and the name, and
+  // half a name sheared off by the block's edge reads as breakage. The name is
+  // the part that identifies the booking, so on a very short one it is the part
+  // that stays; the time is already obvious from where the block sits.
+  const tiny = height < 30;
   // The client's standing notes (allergies, colour formula, preferences). A
   // marker always shows so nothing is missed on a short booking; the text
   // itself appears once the block is tall enough to hold it, and the full note
@@ -238,7 +243,7 @@ function apptHtml(a, showStaff = false) {
   return `
     <div class="appt s-${esc(a.status)}${notes ? ' has-note' : ''}" data-appt="${a.id}" tabindex="0" title="${esc(title)}"
       style="--c:${esc(color)};top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${width}% - 5px)">
-      <div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>
+      ${tiny ? '' : `<div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>`}
       <div class="a-client">${esc(a.client_name || 'Walk-in')}${notes ? `<span class="a-noteflag" aria-label="Has client notes">${icon('note', 12)}</span>` : ''}</div>
       ${compact ? '' : `<div class="a-service">${esc(a.services_summary || a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
       ${notes && roomy ? `<div class="a-note">${icon('note', 11)}<span>${esc(notes)}</span></div>` : ''}
@@ -400,7 +405,10 @@ function weekGridHtml() {
     return `
       <div class="cal-head-col day-head ${d === today ? 'today-col' : ''}" data-goto="${d}">
         <div class="ch-name">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()]} ${dt.getDate()}</div>
-        <div class="ch-sub">${weekAppts.filter((a) => a.date === d && a.status !== 'cancelled').length} appointments</div>
+        <div class="ch-sub">${(() => {
+          const n = weekAppts.filter((a) => a.date === d && a.status !== 'cancelled').length;
+          return `${n} appointment${n === 1 ? '' : 's'}`;
+        })()}</div>
       </div>`;
   }).join('');
 

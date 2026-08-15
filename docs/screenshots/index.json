@@ -1,0 +1,134 @@
+{
+  "business": "Luxe Hair Studio (fictional demo data)",
+  "day": "2026-08-20",
+  "taken_at": "2026-08-20T01:40:00.000Z",
+  "desktop": "1600x1000 @2x = 3200x2000",
+  "phone": "390x844 @2x = 780x1688",
+  "shots": [
+    {
+      "name": "01-dashboard",
+      "note": "Today at a glance: what is done, what is next, what has been taken",
+      "kb": 441
+    },
+    {
+      "name": "02-dashboard-insights",
+      "note": "Client growth, retention, and who is worth a nudge",
+      "kb": 413
+    },
+    {
+      "name": "03-dashboard-charts",
+      "note": "Booking rhythm by hour, revenue trend, top services",
+      "kb": 275
+    },
+    {
+      "name": "04-calendar-day",
+      "note": "The day book — a column per stylist, drag to reschedule",
+      "kb": 384
+    },
+    {
+      "name": "05-calendar-week",
+      "note": "A week per stylist, at a glance",
+      "kb": 378
+    },
+    {
+      "name": "06-appointment-editor",
+      "note": "The booking editor: client, services, team member, notes",
+      "kb": 424
+    },
+    {
+      "name": "07-notify-prompt",
+      "note": "Moving a booking asks who to tell — and whether by email or text",
+      "kb": 346
+    },
+    {
+      "name": "08-clients",
+      "note": "Every client, with import, duplicate-merge and spend history",
+      "kb": 506
+    },
+    {
+      "name": "09-client-profile",
+      "note": "One client: visits, spend, and notes that follow them to every booking",
+      "kb": 637
+    },
+    {
+      "name": "10-services",
+      "note": "The service menu — fixed, \"from\" and free pricing",
+      "kb": 240
+    },
+    {
+      "name": "11-pos",
+      "note": "Point of sale: the visit, retail add-ons, tax and a one-tap charge",
+      "kb": 200
+    },
+    {
+      "name": "12-invoices",
+      "note": "Billing: paid, sent and draft, with what is still owed",
+      "kb": 373
+    },
+    {
+      "name": "13-products",
+      "note": "Retail stock, margins and low-stock warnings",
+      "kb": 328
+    },
+    {
+      "name": "14-messages",
+      "note": "Every confirmation, reminder, receipt and reschedule, logged",
+      "kb": 534
+    },
+    {
+      "name": "15-reviews",
+      "note": "Reviews requested automatically after a visit",
+      "kb": 292
+    },
+    {
+      "name": "16-settings-hours",
+      "note": "Opening hours, booking window and cancellation notice",
+      "kb": 333
+    },
+    {
+      "name": "17-settings-notifications",
+      "note": "Notifications: email, SMS or both, per message type",
+      "kb": 395
+    },
+    {
+      "name": "18-team",
+      "note": "The team, their colours and their own hours",
+      "kb": 156
+    },
+    {
+      "name": "19-booking-services",
+      "note": "The public booking page: pick as many services as you like",
+      "kb": 246
+    },
+    {
+      "name": "20-booking-stylist",
+      "note": "Choose a stylist — or take the first one free",
+      "kb": 92
+    },
+    {
+      "name": "21-booking-time",
+      "note": "Only real openings are offered — double bookings are impossible",
+      "kb": 122
+    },
+    {
+      "name": "22-booking-details",
+      "note": "Name, number, email — and the cancellation terms in plain sight",
+      "kb": 144
+    },
+    {
+      "name": "23-phone-dashboard",
+      "note": "The whole workspace on a phone — no app store, no install",
+      "kb": 143
+    },
+    {
+      "name": "24-phone-calendar",
+      "note": "The day book in an apron pocket",
+      "kb": 112
+    },
+    {
+      "name": "25-phone-booking",
+      "note": "Where most customers actually book",
+      "kb": 129
+    }
+  ]
+}
