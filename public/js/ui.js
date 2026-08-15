@@ -200,14 +200,20 @@ export function openModal({ title, body, footer = '', wide = false, onClose = nu
  * choice that belongs with the confirmation rather than in Settings, like
  * whether to tell the client an appointment is off.
  *
+ * `choices: { name, value, options: [{ value, label, hint }] }` asks for one
+ * pick out of several instead — "email them / text them / don't". A radio list
+ * rather than a dropdown, because the whole point is that every option is
+ * visible without a tap.
+ *
  * Resolves `false` when dismissed, so `if (!ok) return` keeps working. With a
- * checkbox it resolves `{ checked }` on confirm, which is truthy, instead of
- * plain `true`.
+ * checkbox or choices it resolves `{ checked, choice }` on confirm, which is
+ * truthy, instead of plain `true`.
  */
 export function confirmDialog(title, message, {
-  danger = false, okText = 'Confirm', cancelText = 'Cancel', checkbox = null,
+  danger = false, okText = 'Confirm', cancelText = 'Cancel', checkbox = null, choices = null,
 } = {}) {
   return new Promise((resolve) => {
+    const name = `cd-${Math.random().toString(36).slice(2, 8)}`;
     const m = openModal({
       title,
       body: `<p style="color:var(--text-2);line-height:1.6">${message}</p>`
@@ -218,7 +224,16 @@ export function confirmDialog(title, message, {
             <b>${esc(checkbox.label)}</b>
             ${checkbox.hint ? `<span class="co-hint">${esc(checkbox.hint)}</span>` : ''}
           </span>
-        </label>` : ''),
+        </label>` : '')
+        + (choices ? `<div class="confirm-choices" role="radiogroup">${choices.options.map((o, i) => `
+          <label class="confirm-opt">
+            <input type="radio" name="${name}" class="chk" data-choice value="${esc(o.value)}"
+              ${(choices.value ? choices.value === o.value : i === 0) ? 'checked' : ''}>
+            <span>
+              <b>${esc(o.label)}</b>
+              ${o.hint ? `<span class="co-hint">${esc(o.hint)}</span>` : ''}
+            </span>
+          </label>`).join('')}</div>` : ''),
       footer: `<div class="spacer"></div>
         <button class="btn" data-cancel>${esc(cancelText)}</button>
         <button class="btn ${danger ? 'danger' : 'primary'}" data-ok>${esc(okText)}</button>`,
@@ -227,7 +242,12 @@ export function confirmDialog(title, message, {
     const opt = m.querySelector('[data-opt]');
     m.querySelector('[data-cancel]').onclick = () => { m.close(); };
     m.querySelector('[data-ok]').onclick = () => {
-      resolve(checkbox ? { checked: Boolean(opt?.checked) } : true);
+      resolve(checkbox || choices
+        ? {
+          checked: checkbox ? Boolean(opt?.checked) : true,
+          choice: m.querySelector('[data-choice]:checked')?.value || '',
+        }
+        : true);
       m.close();
     };
   });

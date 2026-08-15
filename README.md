@@ -69,6 +69,22 @@ npm run reset-demo   # same thing from the terminal
 - **Customizable calendar range**: set a preferred start/end time for the day book in
   Settings → Hours (e.g. always show 6 AM → 11 PM) so the owner can scroll to exactly the
   times they want; leave it on **Auto** to follow opening hours.
+- **📣 Every booking and every move asks who to tell, and how.** Booking someone
+  in, or dragging them to a new time, is a change to *their* day — so Kairo asks
+  once, at the moment of saving: **Email them · Text them · Email and text ·
+  Don't send anything**. Only the channels that client can actually receive are
+  offered (each showing the address or number it would use), it opens on
+  whatever *Settings → Notifications* says so the usual answer is one tap, and
+  the toast afterwards says what really happened — *"Moved — Amara Osei has been
+  told"* or *"Moved — no message sent"*. Backing out cancels the save, not just
+  the message. Edits that don't change what the client turns up for — a note, a
+  status, a longer slot — save without a dialog.
+- **A move sends a "your appointment has moved" message that leads with the old
+  time**, so a client skimming it can see something changed rather than reading
+  it as a duplicate confirmation. (Fixed in v1.32.0: moving an appointment used
+  to tell the client **nothing at all** — only the reminder was quietly
+  re-scheduled, so anyone moved without a phone call still had the old time in
+  writing.)
 - **❌ One way to cancel** — Cancel is the only way a booking comes off the day.
   It frees the slot immediately and keeps the booking on record marked Cancelled
   so the history survives. There is no separate "delete": the two did the same

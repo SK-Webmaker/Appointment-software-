@@ -15,7 +15,7 @@ import {
 } from './auth.js';
 import { checkPassword, checkBreached, MIN_LENGTH as PASSWORD_MIN } from './password.js';
 import {
-  queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages,
+  queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages, queueRescheduleMessage,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   queueCancellationMessages, cancelUrlFor,
   deliverMessage, processQueue,
@@ -486,10 +486,16 @@ const APPT_SCHEMA = {
   end_min: s.num({ min: 0, max: 1440 }),
   status: s.oneOf(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']),
   notes: s.str(2000), force: s.bool(),
-  // Only read when a save turns the status to Cancelled: whether the client is
-  // told. Absent means yes, so an older caller can't accidentally go silent.
+  // Whether the client hears about this save, and by what. Read when a booking
+  // is made, when its time moves, and when a save cancels it. Absent means yes,
+  // so an older caller can't accidentally go silent; an absent channel means
+  // whatever Settings → Notifications says.
   notify_client: s.bool(),
+  notify_channel: s.oneOf(['email', 'sms', 'both']),
 };
+
+/** The owner's per-appointment channel pick, or '' for the standing setting. */
+const chosenChannel = (b) => (['email', 'sms', 'both'].includes(b.notify_channel) ? b.notify_channel : '');
 
 route('GET', '/api/settings', async () => getSettings());
 
@@ -1282,10 +1288,25 @@ route('POST', '/api/appointments', async ({ req }) => {
   const apptId = Number(info.lastInsertRowid);
   if (a.serviceIds.length) setApptServices(apptId, a.serviceIds);
   carryNoteToClient(a.clientId, a.notes, a.date);
-  queueAppointmentMessages(apptId);
+  // The owner decides whether this booking is announced. Booking someone in
+  // while they're standing at the counter doesn't need an email a second later,
+  // and one made from a phone call might be better confirmed by text. The
+  // reminder is a standing setting and is scheduled either way.
+  const tell = a.b.notify_client !== false;
+  queueAppointmentMessages(apptId, { confirmation: tell, reminder: true, channels: chosenChannel(a.b) });
   processQueue().catch(() => {});
-  return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
+  return {
+    ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId),
+    client_notified: tell && countMessages(apptId, 'confirmation') > 0,
+  };
 });
+
+/** How many messages of a kind exist for an appointment — "was it really sent?" */
+function countMessages(apptId, kind, since = 0) {
+  return db.prepare(
+    'SELECT COUNT(*) AS n FROM messages WHERE appointment_id = ? AND kind = ? AND id > ?'
+  ).get(apptId, kind, since).n;
+}
 
 /**
  * Carry an appointment's note onto the client's own record.
@@ -1364,13 +1385,32 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   if (cancelling) {
     return cancelAppointment(params.id, { by: 'owner', notifyClient: a.b.notify_client !== false });
   }
+  // A move is the change a client most needs to hear about, and until now it
+  // was the one nobody told them about: the reminder was re-queued for the new
+  // time and that was all, so a client rung up and moved on the owner's say-so
+  // was fine, but one moved quietly still had the old time in writing.
+  const moved = before.date !== a.date || before.start_min !== a.start;
+  let rescheduleSent = 0;
   if (['cancelled', 'no_show', 'completed'].includes(a.status)) {
     cancelQueuedMessages(params.id);
     if (a.status === 'completed' && before.status !== 'completed') queueReviewRequest(params.id);
-  } else if (before.date !== a.date || before.start_min !== a.start) {
+  } else if (moved) {
     requeueAppointmentMessages(params.id); // rescheduled → fresh reminder
+    if (a.b.notify_client !== false) {
+      // After the requeue, which skips everything still pending — otherwise
+      // this notice is swept away along with the stale reminder.
+      rescheduleSent = queueRescheduleMessage(params.id, {
+        from: { date: before.date, start_min: before.start_min },
+        channels: chosenChannel(a.b),
+      });
+      processQueue().catch(() => {});
+    }
   }
-  return db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id);
+  return {
+    ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id),
+    moved,
+    client_notified: rescheduleSent > 0,
+  };
 });
 
 route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {

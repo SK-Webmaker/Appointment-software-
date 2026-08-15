@@ -292,6 +292,57 @@ function clientReach(a) {
   return out.join(' and ');
 }
 
+/** The ways this client can actually be reached, given what the salon has on. */
+function reachWays(c) {
+  return {
+    email: Boolean(c?.client_email),
+    sms: Boolean(c?.client_phone) && state.settings.sms_notifications_enabled === '1',
+  };
+}
+
+/**
+ * Ask whether the client should hear about this, and by what.
+ *
+ * Every booking the owner makes or moves is a change to somebody else's day,
+ * and only the owner knows whether that person is standing at the counter or
+ * expecting a text. So it is asked once, at the moment of saving, with the
+ * channels this particular client can actually receive — never a promise of a
+ * text to someone with no mobile, or of an email to someone who gave none.
+ *
+ * Returns null if the owner backed out of the save entirely, otherwise
+ * { notify, channel, reach }.
+ */
+async function askNotify(contact, { title, message, okText }) {
+  const ways = reachWays(contact);
+  // Nobody to tell: no email, and either no mobile or texting is switched off.
+  // Asking anyway would be a dialog whose only honest answer is "can't".
+  if (!ways.email && !ways.sms) return { notify: false, channel: '', reach: false };
+
+  const options = [];
+  if (ways.email) options.push({ value: 'email', label: 'Email them', hint: contact.client_email });
+  if (ways.sms) options.push({ value: 'sms', label: 'Text them', hint: contact.client_phone });
+  if (ways.email && ways.sms) options.push({ value: 'both', label: 'Email and text them' });
+  options.push({ value: 'none', label: 'Don\'t send anything', hint: 'You\'ll tell them yourself.' });
+
+  // Starts on whatever Settings → Notifications says, narrowed to what this
+  // client can receive, so the usual answer is one tap on Save.
+  const pref = state.settings.chan_confirmation;
+  const dflt = options.find((o) => o.value === pref)?.value || options[0].value;
+
+  const ok = await confirmDialog(title, message, {
+    okText, cancelText: 'Back', choices: { value: dflt, options },
+  });
+  if (!ok) return null;
+  return { notify: ok.choice !== 'none', channel: ok.choice === 'none' ? '' : ok.choice, reach: true };
+}
+
+/** Put the owner's answer onto an appointment payload. */
+function applyNotify(payload, choice) {
+  payload.notify_client = Boolean(choice?.notify);
+  if (choice?.channel) payload.notify_channel = choice.channel;
+  return payload;
+}
+
 /**
  * Why the salon is shut today. Without this an "off" week of an alternating
  * day is just a fully shaded column, which reads as a fault rather than a
@@ -462,16 +513,35 @@ function wireGrid(container, staffList) {
       end_min: d.mode === 'move' ? (d.newStart ?? d.origStart) + duration : (d.newEnd ?? d.origEnd),
       status: d.appt.status, notes: d.appt.notes,
     };
+
+    // Dragging a block to a new time is a reschedule, and the client is the
+    // one it happens to — so it asks before it saves, exactly as the editor
+    // does. A resize only changes how long it runs, so it goes straight in.
+    const movedTime = payload.date !== d.appt.date || payload.start_min !== d.appt.start_min;
+    if (movedTime) {
+      const choice = await askNotify(d.appt, {
+        title: 'Moving this appointment',
+        message: `<b>${esc(d.appt.client_name || 'This appointment')}</b> moves from `
+          + `<b>${esc(fmtDate(d.appt.date))} at ${esc(fmtTime(d.appt.start_min))}</b> to `
+          + `<b>${esc(fmtDate(payload.date))} at ${esc(fmtTime(payload.start_min))}</b>.`,
+        okText: 'Move it',
+      });
+      if (!choice) { redraw(); return; }   // backed out → the block snaps back
+      applyNotify(payload, choice);
+    }
+    const done = (out) => toast(!movedTime ? 'Appointment updated'
+      : out?.client_notified ? `Moved — ${d.appt.client_name || 'the client'} has been told`
+        : 'Moved — no message sent');
+
     try {
-      await api.put(`/api/appointments/${d.appt.id}`, payload);
-      toast('Appointment updated');
+      done(await api.put(`/api/appointments/${d.appt.id}`, payload));
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const blk = err.data?.block;
         const force = blk
           ? await confirmDialog('Blocked time', `That time is blocked out${blk.reason ? ` for <b>${esc(blk.reason)}</b>` : ''}. Book over it anyway?`, { okText: 'Book anyway' })
           : await confirmDialog('Double booking', `${esc(err.data?.conflict?.client_name || 'Another appointment')} is already booked then. Book anyway?`, { okText: 'Double-book' });
-        if (force) { await api.put(`/api/appointments/${d.appt.id}`, { ...payload, force: true }); toast('Appointment updated'); }
+        if (force) done(await api.put(`/api/appointments/${d.appt.id}`, { ...payload, force: true }));
       } else toast(err.message, 'err');
     }
     redraw();
@@ -761,7 +831,20 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
     );
   };
 
-  const save = async (force = false, cancelChoice = null) => {
+  // Who this booking is for, as the notify prompt needs to see them: either a
+  // client already on the books, or the one being typed in right now.
+  const contactInForm = () => {
+    const fd = new FormData(form);
+    const id = fd.get('client_id');
+    if (id === '__new__') {
+      const nm = `${fd.get('nc_first') || ''} ${fd.get('nc_last') || ''}`.trim();
+      return { client_id: -1, client_name: nm, client_email: fd.get('nc_email') || '', client_phone: fd.get('nc_phone') || '' };
+    }
+    const c = clients.find((x) => x.id === Number(id));
+    return c ? { client_id: c.id, client_name: nameOf(c), client_email: c.email, client_phone: c.phone } : null;
+  };
+
+  const save = async (force = false, cancelChoice = null, notifyChoice = null) => {
     const fd = new FormData(form);
     const start = Number(fd.get('start_min'));
     const payload = {
@@ -791,14 +874,44 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
       if (!cancelChoice) return;
       payload.notify_client = cancelChoice.notify;
     }
+
+    // Booking someone in, or moving them, is a change to their day — so ask
+    // once, here, whether they hear about it and how. Anything else (a note, a
+    // status, a longer service) doesn't change what they turn up for, so it
+    // saves without a dialog. A cancellation has already asked, just above.
+    const contact = contactInForm();
+    const movedTime = Boolean(a) && (payload.date !== a.date || payload.start_min !== a.start_min);
+    const isNew = !a && payload.status !== 'cancelled';
+    if (!cancelChoice && contact && (isNew || movedTime)) {
+      notifyChoice = notifyChoice || await askNotify(contact, movedTime
+        ? {
+          title: 'Moving this appointment',
+          message: `<b>${esc(contact.client_name || 'This appointment')}</b> moves from `
+            + `<b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b> to `
+            + `<b>${esc(fmtDate(payload.date))} at ${esc(fmtTime(payload.start_min))}</b>.`,
+          okText: 'Save the change',
+        }
+        : {
+          title: 'Booking them in',
+          message: `<b>${esc(contact.client_name || 'This client')}</b> for `
+            + `<b>${esc(fmtDate(payload.date))} at ${esc(fmtTime(payload.start_min))}</b>.`,
+          okText: 'Book it',
+        });
+      if (!notifyChoice) return;
+      applyNotify(payload, notifyChoice);
+    }
+
     try {
       let out;
       if (a) out = await api.put(`/api/appointments/${a.id}`, payload);
       else out = await api.post('/api/appointments', payload);
       m.close();
       onSaved?.();
+      const who = contact?.client_name || 'the client';
       if (cancelChoice) cancelledToast(out);
-      else toast(a ? 'Appointment updated' : 'Appointment booked');
+      else if (movedTime) toast(out?.client_notified ? `Moved — ${who} has been told` : 'Moved — no message sent');
+      else if (isNew) toast(out?.client_notified ? `Booked — ${who} has been sent a confirmation` : 'Booked — no message sent');
+      else toast('Appointment updated');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const blk = err.data?.block;
@@ -809,7 +922,7 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
           : await confirmDialog('Double booking',
               `That slot overlaps <b>${esc(err.data?.conflict?.client_name || 'another appointment')}</b> (${fmtTime(err.data?.conflict?.start_min || 0)}). Book anyway?`,
               { okText: 'Double-book' });
-        if (ok) save(true, cancelChoice);   // don't ask about the client twice
+        if (ok) save(true, cancelChoice, notifyChoice);   // don't ask about the client twice
       } else toast(err.message, 'err');
     }
   };

@@ -14,6 +14,8 @@ export async function renderMessages(container) {
 
   const KIND = {
     confirmation: 'Confirmation', reminder: 'Reminder', receipt: 'Receipt',
+    reschedule: 'Time changed', cancellation: 'Cancellation',
+    owner_cancellation: 'Cancellation alert',
     review_request: 'Review request', owner_new_booking: 'New booking alert', test: 'Test',
   };
   const STATUS_CHIP = {

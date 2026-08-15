@@ -72,9 +72,12 @@ function apptContext(apptId) {
  * is off), it falls back to whatever the client CAN receive so the message is
  * never silently dropped.
  */
-function channelsFor(kind, email, phone) {
-  const pref = ['email', 'sms', 'both'].includes(getSetting(`chan_${kind}`, 'email'))
-    ? getSetting(`chan_${kind}`, 'email') : 'email';
+function channelsFor(kind, email, phone, override = '') {
+  // `override` is the owner picking a channel for this one message — "text her,
+  // she never reads email" — which beats the standing setting for its kind.
+  const saved = getSetting(`chan_${kind}`, 'email');
+  const wanted = ['email', 'sms', 'both'].includes(override) ? override : saved;
+  const pref = ['email', 'sms', 'both'].includes(wanted) ? wanted : 'email';
   const smsReady = Boolean(phone) && getSetting('sms_notifications_enabled', '0') === '1';
   const out = [];
   if (pref !== 'sms' && email) out.push(['email', email]);
@@ -165,6 +168,29 @@ function buildCopy(kind, a, extra = {}) {
         details: visitDetails,
         ...(cancelUrl ? { cta: { label: "Can't make it? Cancel here", url: cancelUrl } } : {}),
         footNote: cancelUrl ? noticeText : (phone ? `Running late or need to reschedule? Call us on ${phone}.` : ''),
+      }),
+    };
+  }
+  if (kind === 'reschedule') {
+    // The old time is the whole point of this message: a client who only reads
+    // the new one can't tell whether anything actually moved, and will still
+    // turn up when they always did.
+    const wasWhen = extra.fromDate
+      ? `${fmtDate(extra.fromDate)} at ${fmtTime(extra.fromStart)}`
+      : 'its previous time';
+    return {
+      subject: `Moved: ${what} is now ${fmtDate(a.date)} at ${fmtTime(a.start_min)}`,
+      body: `Hi ${name},\n\nWe've moved your appointment.\n\nWas: ${wasWhen}\nNow: ${when}\n\n${what}${who}.`
+        + (cancelUrl ? `\n\nIf the new time doesn't suit, you can cancel here: ${cancelUrl}\n${noticeText}` : '')
+        + (phone ? `\n\nAny trouble, call us on ${phone}.` : '')
+        + `\n\n${biz}`,
+      html: renderEmail({
+        heading: 'Your appointment has moved',
+        greeting: `Hi ${name},`,
+        paragraphs: [`This was booked for <b>${wasWhen}</b>. It's now at the time below — everything else is the same.`],
+        details: visitDetails,
+        ...(cancelUrl ? { cta: { label: "New time doesn't suit? Cancel here", url: cancelUrl } } : {}),
+        footNote: phone ? `Need a different time instead? Call us on ${phone} and we'll sort it.` : noticeText,
       }),
     };
   }
@@ -284,7 +310,7 @@ const insMessage = () => db.prepare(
  * Queue confirmation (sent immediately) and reminder (sent N hours before
  * start) for an appointment, on every channel the client can receive.
  */
-export function queueAppointmentMessages(apptId, { confirmation = true, reminder = true } = {}) {
+export function queueAppointmentMessages(apptId, { confirmation = true, reminder = true, channels = '' } = {}) {
   const a = apptContext(apptId);
   if (!a || !a.client_id) return;
   if (!['booked', 'confirmed'].includes(a.status)) return;
@@ -297,7 +323,7 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
 
   if (confirmation && getSetting('confirm_enabled', '1') === '1') {
     const copy = buildCopy('confirmation', a, { cancelUrl });
-    for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone)) {
+    for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone, channels)) {
       ins.run(a.id, a.client_id, channel, 'confirmation', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
     }
   }
@@ -458,6 +484,37 @@ export function cancelQueuedMessages(apptId) {
 export function requeueAppointmentMessages(apptId) {
   cancelQueuedMessages(apptId);
   queueAppointmentMessages(apptId, { confirmation: false, reminder: true });
+}
+
+/**
+ * Tell the client their appointment has moved.
+ *
+ * Kept apart from the confirmation on purpose. Re-sending "you're booked for
+ * Tuesday" to someone who already had Monday reads as a duplicate, not a
+ * change — they skim it, see a booking they already knew about, and turn up on
+ * Monday. This message leads with what it used to be.
+ *
+ * Call it AFTER requeueAppointmentMessages, which skips everything still
+ * queued — otherwise this notice is swept away with the stale reminder.
+ */
+export function queueRescheduleMessage(apptId, { from = null, channels = '' } = {}) {
+  const a = apptContext(apptId);
+  if (!a || !a.client_id) return 0;
+  if (!['booked', 'confirmed'].includes(a.status)) return 0;
+  if (getSetting('confirm_enabled', '1') !== '1') return 0;
+
+  const cancelUrl = cancelUrlFor(a.id, a.cancel_token);
+  const copy = buildCopy('reschedule', a, {
+    cancelUrl, fromDate: from?.date || '', fromStart: from?.start_min ?? 0,
+  });
+  const ins = insMessage();
+  const now = localStamp();
+  let sent = 0;
+  for (const [channel, to] of channelsFor('confirmation', a.client_email, a.client_phone, channels)) {
+    ins.run(a.id, a.client_id, channel, 'reschedule', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
+    sent++;
+  }
+  return sent;
 }
 
 // ---------------------------------------------------------------------------
