@@ -16,7 +16,10 @@ services:
     runtime: node
     plan: starter          # a disk cannot be attached to the free plan
     region: oregon         # change to the region nearest the business
-    branch: main
+    # No branch pinned on purpose: Render falls back to the repository's own
+    # default branch. Naming one here means the Blueprint breaks the day the
+    # repo's default is renamed — and it silently did, because `main` has
+    # never existed in this repo.
     buildCommand: ""       # nothing to build: no dependencies, no bundler
     startCommand: npm start
     healthCheckPath: /api/version
