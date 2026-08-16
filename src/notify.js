@@ -14,7 +14,7 @@
 // `sms_notifications_enabled` (default off) in addition to having a provider
 // configured — a business opts in deliberately.
 import crypto from 'node:crypto';
-import { db, getSetting } from './db.js';
+import { db, getSetting, setSetting } from './db.js';
 import { renderEmail } from './email-html.js';
 
 function money(cents) {
@@ -584,9 +584,85 @@ async function sendClickSend(to, body) {
   const data = await res.json().catch(() => ({}));
   const msgStatus = data?.data?.messages?.[0]?.status;
   if (res.ok && data?.response_code === 'SUCCESS' && (!msgStatus || msgStatus === 'SUCCESS')) {
+    // What that text actually cost. Remembered so the credit left can be
+    // expressed as "about N messages" — a number an owner can act on, unlike
+    // a bare dollar figure whose per-message rate they'd have to look up.
+    const price = Number(data?.data?.total_price);
+    if (Number.isFinite(price) && price > 0) setSetting('sms_last_price', String(price));
     return { ok: true, detail: `Delivered via ClickSend${data?.data?.total_price != null ? ` (cost ${data.data.total_price})` : ''}` };
   }
   return { ok: false, detail: `ClickSend: ${data?.response_msg || msgStatus || `HTTP ${res.status}`}` };
+}
+
+/**
+ * How much sending credit is left with the SMS provider.
+ *
+ * Texts are prepaid: the balance runs down with every reminder and confirmation
+ * and then, one quiet morning, messages simply stop going out. Nothing in the
+ * salon says why. Showing the balance where the owner already works turns that
+ * into a number they can watch, and a top-up they make before it bites.
+ *
+ * Never throws — a provider being unreachable is a fact to report, not an error
+ * that should take a settings page down with it.
+ */
+export async function smsBalance({ fetchImpl = fetch } = {}) {
+  const provider = getSetting('sms_provider', 'clicksend');
+  const checked_at = new Date().toISOString();
+  if (provider !== 'clicksend') {
+    return { ok: false, provider, unsupported: true, checked_at,
+      detail: `Kairo can only read the credit balance from ClickSend. Check your ${provider} dashboard.` };
+  }
+
+  const username = getSetting('clicksend_username');
+  const apiKey = getSetting('clicksend_api_key');
+  if (!username || !apiKey) {
+    return { ok: false, provider, configured: false, checked_at,
+      detail: 'Add your ClickSend username and API key in Settings → Notifications.' };
+  }
+
+  let res;
+  try {
+    res = await fetchImpl('https://rest.clicksend.com/v3/account', {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${username}:${apiKey}`).toString('base64')}`,
+        Accept: 'application/json',
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch (err) {
+    return { ok: false, provider, configured: true, checked_at,
+      detail: `Couldn't reach ClickSend (${String(err?.message || err).slice(0, 120)}).` };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 || res.status === 403) {
+    return { ok: false, provider, configured: true, checked_at,
+      detail: 'ClickSend refused those credentials. Check the username and API key in Settings → Notifications.' };
+  }
+  const balance = Number(data?.data?.balance);
+  if (!res.ok || !Number.isFinite(balance)) {
+    return { ok: false, provider, configured: true, checked_at,
+      detail: `ClickSend: ${data?.response_msg || `HTTP ${res.status}`}` };
+  }
+
+  // Currency comes back as an object; fall back gracefully if the shape moves.
+  const cur = data?.data?.currency || {};
+  const lastPrice = Number(getSetting('sms_last_price', ''));
+  const perMessage = Number.isFinite(lastPrice) && lastPrice > 0 ? lastPrice : null;
+  return {
+    ok: true,
+    provider,
+    configured: true,
+    balance,
+    currency: cur.currency_name_short || '',
+    symbol: cur.currency_prefix_d || '$',
+    account: data?.data?.account_name || data?.data?.username || '',
+    per_message: perMessage,
+    // Deliberately rounded down: an owner should never be told they have more
+    // messages left than they do.
+    messages_left: perMessage ? Math.floor(balance / perMessage) : null,
+    checked_at,
+  };
 }
 
 async function sendTelnyx(to, body) {

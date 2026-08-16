@@ -1550,6 +1550,41 @@ table.data th.num { text-align: right; }
 /* Above 980px the sidebar is a real column rather than a drawer, so a bar
    pinned to left:0 lies across it and buries the user card in the corner. */
 @media (min-width: 981px) { .pos-paybar { left: 236px; } }
+
+/* ---------- SMS credit ---------- */
+/* Prepaid balance. Neutral while it is healthy, amber when it is worth acting
+   on, red once texts have stopped — the colour IS the message, so the owner
+   never has to work out whether a number is a good one. */
+.sms-credit {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  margin: 0 0 16px; padding: 13px 16px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--panel-2);
+}
+.sms-credit .sc-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 240px; }
+.sms-credit .sc-amount {
+  font-size: 21px; font-weight: 800; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.sms-credit .sc-sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.sms-credit .sc-sub b { color: var(--text-2); }
+.sms-credit .sc-sub svg { vertical-align: -2px; }
+.sms-credit .sc-warn { flex: 1 1 100%; font-size: 13px; font-weight: 600; order: 3; }
+.sms-credit .sc-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+.sms-credit .sc-btn {
+  display: inline-flex; align-items: center; min-height: 34px;
+  padding: 7px 13px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--panel-3); color: var(--text);
+  font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer; text-decoration: none;
+}
+.sms-credit .sc-btn:hover { border-color: var(--accent); }
+.sms-credit .sc-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sms-credit.is-loading .sc-amount { color: var(--muted); letter-spacing: 0.12em; }
+.sms-credit.is-low { border-color: rgba(245, 179, 66, 0.45); background: rgba(245, 179, 66, 0.09); }
+.sms-credit.is-low .sc-amount, .sms-credit.is-low .sc-warn { color: var(--amber); }
+.sms-credit.is-out { border-color: rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.09); }
+.sms-credit.is-out .sc-amount, .sms-credit.is-out .sc-warn { color: var(--red); }
+.sms-credit.is-muted .sc-sub { color: var(--text-2); }
 .pos-paychoice {
   display: flex; align-items: center; gap: 13px; text-align: left;
   width: 100%; padding: 14px 16px; border-radius: 12px;

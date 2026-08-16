@@ -18,7 +18,7 @@ import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages, queueRescheduleMessage,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   queueCancellationMessages, cancelUrlFor,
-  deliverMessage, processQueue,
+  deliverMessage, processQueue, smsBalance,
 } from './notify.js';
 import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
@@ -1594,6 +1594,31 @@ route('GET', '/api/messages', async ({ query }) => {
      LEFT JOIN appointments a ON a.id = m.appointment_id
      ${where} ORDER BY m.id DESC LIMIT 300`
   ).all(...args);
+});
+
+/**
+ * The SMS credit left with the provider.
+ *
+ * Cached for a couple of minutes: this is shown on a settings page and on the
+ * Messages page, both of which get opened repeatedly, and the number moves by
+ * cents. `?refresh=1` forces a fresh read for the button that says it will.
+ */
+let smsBalanceCache = { at: 0, key: '', data: null };
+const SMS_BALANCE_TTL_MS = 120_000;
+
+route('GET', '/api/sms/balance', async ({ query }) => {
+  // Changing the credentials or the provider must not serve the old account's
+  // balance back, so they are part of the cache key.
+  const key = [getSetting('sms_provider', 'clicksend'), getSetting('clicksend_username'),
+    getSetting('clicksend_api_key') ? 'set' : ''].join('|');
+  const fresh = query.get('refresh') === '1';
+  if (!fresh && smsBalanceCache.data && smsBalanceCache.key === key
+      && Date.now() - smsBalanceCache.at < SMS_BALANCE_TTL_MS) {
+    return { ...smsBalanceCache.data, cached: true };
+  }
+  const data = await smsBalance();
+  smsBalanceCache = { at: Date.now(), key, data };
+  return { ...data, cached: false };
 });
 
 route('POST', '/api/messages/:id/retry', async ({ params }) => {

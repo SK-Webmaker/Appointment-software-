@@ -5,6 +5,7 @@ import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, o
 import { state, refreshLookups } from '../app.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
+import { mountSmsCredit } from '../sms-credit.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
@@ -342,6 +343,12 @@ export async function renderSettings(container) {
 
       <div class="card">
         <div class="card-title">SMS (text messages)</div>
+        <!-- Credit is prepaid: when it runs out, texts simply stop. The number
+             lives here, next to the switch that spends it. -->
+        <div id="sms-credit" class="sms-credit is-loading">
+          <div class="sc-main"><span class="sc-amount">·····</span>
+            <span class="sc-sub">checking your ClickSend balance…</span></div>
+        </div>
         <div class="card-sub" style="margin-bottom:16px">This is the master switch for SMS. Turn it on and the types you set to
           <b>SMS</b> or <b>Email + SMS</b> above will text as well. SMS costs money per message (there's no free option), so
           it's <b>off by default</b>, so nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
@@ -655,17 +662,28 @@ export async function renderSettings(container) {
     });
     container.querySelector('#sms-provider-hint').textContent = SMS_HINTS[p] || '';
   };
-  smsProvider.addEventListener('change', syncSmsFields);
+  smsProvider.addEventListener('change', () => { syncSmsFields(); loadCredit(); });
   syncSmsFields();
 
-  container.querySelector('#set-sms').addEventListener('submit', (e) => {
+  // --- SMS credit ----------------------------------------------------------
+  // Prepaid credit is the one thing that stops texts without warning, so it is
+  // shown where the owner turns SMS on, and refreshed when they save new keys.
+  const creditEl = container.querySelector('#sms-credit');
+  const loadCredit = (refresh = false) => mountSmsCredit(creditEl, api, { refresh });
+  creditEl.addEventListener('click', (e) => {
+    if (e.target.closest('[data-credit-refresh]')) loadCredit(true);
+  });
+  loadCredit();
+
+  container.querySelector('#set-sms').addEventListener('submit', async (e) => {
     e.preventDefault();
-    saveSettings(e.target, [
+    await saveSettings(e.target, [
       'sms_notifications_enabled', 'sms_provider',
       'clicksend_username', 'clicksend_api_key', 'clicksend_from',
       'telnyx_api_key', 'telnyx_from', 'telnyx_profile_id',
       'twilio_sid', 'twilio_token', 'twilio_from',
     ]);
+    loadCredit(true);   // new keys → new account → re-read rather than show the old one
   });
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();

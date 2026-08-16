@@ -348,6 +348,18 @@ and SMS are priced very differently, so they're broken out separately:
 | One-time setup | none | ClickSend registers your sender with ACMA for you; Telnyx needs KYC; Twilio needs number + registration |
 | Recurring platform fee | $0 | $0 for ClickSend/Telnyx (pay-as-you-go); Twilio number rental |
 
+- **📶 Your SMS credit, live in the system.** Texting is prepaid: when the balance
+  runs out the reminders simply stop going out, and nothing in the salon says why.
+  Kairo reads the **live balance straight from ClickSend** and shows it on
+  *Settings → Notifications* and on the **Messages** page — as money *and* as
+  roughly how many texts that buys, worked out from what the salon's last text
+  actually cost. It goes **amber under ~50 texts** and **red at zero**, with a
+  **Top up** link straight to ClickSend. The estimate only appears once a text
+  has really been sent (that's when the true per-message rate for that account
+  and country is known) and is always rounded **down**, so it never promises more
+  than is there. Wrong keys, an unreachable provider or a different SMS provider
+  each say so in plain words rather than showing a blank or a stale number.
+
 There is **no genuinely free SMS** (Apple blocks the phone-gateway trick that works on
 Android, and every cloud SMS API charges per message) — so **SMS defaults OFF in Kairo**
 (`Settings → Notifications → SMS`) and a new deployment never risks a bill without the

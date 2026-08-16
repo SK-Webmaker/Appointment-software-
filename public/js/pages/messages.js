@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { esc, icon, fmtDate, fmtTime, openModal, toast } from '../ui.js';
 import { state } from '../app.js';
+import { mountSmsCredit } from '../sms-credit.js';
 
 let filter = '';
 
@@ -52,6 +53,9 @@ export async function renderMessages(container) {
         exactly what happened.
       </div>` : ''}
 
+    ${state.settings.sms_notifications_enabled === '1'
+      ? '<div id="sms-credit" class="sms-credit is-loading"></div>' : ''}
+
     <div class="toolbar">
       <div class="seg" id="msg-filter">
         ${['', 'queued', 'sent', 'failed', 'skipped'].map((s) =>
@@ -80,6 +84,16 @@ export async function renderMessages(container) {
         </tbody>
       </table>
     </div></div>`;
+
+  // Texting is prepaid, so the balance belongs on the page where the owner
+  // watches messages go out — not buried three taps deep in Settings.
+  const creditEl = container.querySelector('#sms-credit');
+  if (creditEl) {
+    mountSmsCredit(creditEl, api);
+    creditEl.addEventListener('click', (e) => {
+      if (e.target.closest('[data-credit-refresh]')) mountSmsCredit(creditEl, api, { refresh: true });
+    });
+  }
 
   container.querySelector('#msg-filter').addEventListener('click', (e) => {
     const b = e.target.closest('[data-status]');
