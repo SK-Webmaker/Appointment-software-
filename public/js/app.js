@@ -267,11 +267,45 @@ async function boot() {
     pendingIntro?.abort();
     pendingIntro = null;
     if (err instanceof ApiError && err.status === 401) renderLogin();
+    else if (err instanceof ApiError && err.status === 429) waitOutLimit(err);
     else {
-      root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert')}<div>Cannot reach the Kairo server: ${esc(err.message)}</div></div>`;
+      root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert')}
+        <div>Cannot reach the Kairo server: ${esc(err.message)}</div>
+        <button class="btn primary" id="boot-retry" style="margin-top:16px">Try again</button></div>`;
+      root.querySelector('#boot-retry').onclick = () => boot();
     }
     splash.done();
   }
+}
+
+/**
+ * Rate-limited on the way in.
+ *
+ * This should be rare — it means something asked for far too much, far too
+ * fast — but when it happens the owner is standing in their salon with a
+ * client in the chair, and a dead-end error screen is the worst possible
+ * answer. Count the wait down and let itself back in.
+ */
+const countdown = (n) => `${n} second${n === 1 ? '' : 's'}`;
+
+function waitOutLimit(err) {
+  let left = Math.max(1, Math.min(300, Number(err.data?.retry_after) || 60));
+  const paint = () => {
+    root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('clock')}
+      <div><b>Just a moment</b></div>
+      <div style="margin-top:6px;max-width:34ch">Kairo is catching its breath. This screen will
+        let you back in on its own in <b id="limit-left">${countdown(left)}</b>.</div>
+      <button class="btn" id="limit-now" style="margin-top:16px">Try now</button></div>`;
+    root.querySelector('#limit-now').onclick = () => { clearInterval(tick); boot(); };
+  };
+  paint();
+  const tick = setInterval(() => {
+    left -= 1;
+    if (left <= 0) { clearInterval(tick); boot(); return; }
+    const el = root.querySelector('#limit-left');
+    if (el) el.textContent = countdown(left);
+    else { clearInterval(tick); }   // something else took the screen — leave it alone
+  }, 1000);
 }
 
 window.addEventListener('hashchange', () => { if (state.user) navigate(); });

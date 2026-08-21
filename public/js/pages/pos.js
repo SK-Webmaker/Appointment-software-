@@ -188,10 +188,24 @@ function awaitHtml() {
     </div>`;
 }
 
+// A checkout nobody ever finishes must not poll for the rest of the day.
+const POLL_GIVE_UP_MS = 15 * 60 * 1000;
+
 function startPolling(container) {
   stopPolling();
+  const startedAt = Date.now();
   pollTimer = setInterval(async () => {
-    if (!document.body.contains(container)) { stopPolling(); return; }
+    // `body.contains(container)` cannot answer "is the till still open": the
+    // router reuses one #page element for every route, so it stays true after
+    // the owner walks away to the calendar — and this kept asking the server
+    // every 2.5 seconds for the rest of the session. Look for the POS page's
+    // own markup instead.
+    if (!container.isConnected || !container.querySelector('.pos')) { stopPolling(); return; }
+    if (Date.now() - startedAt > POLL_GIVE_UP_MS) {
+      stopPolling();
+      toast('Still waiting on that payment — reopen the sale to check again', 'err', { ms: 8000 });
+      return;
+    }
     try {
       const res = await api.get(`/api/pos/status/${pos.invoiceId}`);
       if (res.paid) {

@@ -113,12 +113,58 @@ function timelineRowHtml(item) {
 // Only ever one dashboard on screen; a re-render or a move to another page
 // must not leave the previous page's clock running.
 let liveTimer = null;
+let mounted = null;        // the container the dashboard is currently drawn in
+let loading = false;       // a refresh is already in flight
+let loadedAt = 0;          // when the data on screen was fetched
+
+/**
+ * Is the dashboard the page actually on screen right now?
+ *
+ * `container.isConnected` cannot answer this: the router reuses one #page
+ * element for every route, so it stays connected for the life of the session
+ * whichever page is showing. Looking for the dashboard's own card is the honest
+ * test, and it is what stops a timer or a wake-up from redrawing the dashboard
+ * over the top of the calendar.
+ */
+const isShowing = () => Boolean(mounted?.isConnected && mounted.querySelector('.today-card'));
+
+// A phone fires visibilitychange every time the screen comes on — and can fire
+// it several times in a second. Nothing on this page changes fast enough to
+// justify refetching that often.
+const MIN_REFRESH_MS = 10_000;
+
+async function refreshOnWake() {
+  if (document.visibilityState !== 'visible') return;
+  if (!isShowing() || loading) return;
+  if (Date.now() - loadedAt < MIN_REFRESH_MS) return;
+  try { await renderDashboard(mounted); } catch { /* a failed refresh must not break the page */ }
+}
+
+// Registered ONCE, when this module is first loaded — never per render.
+//
+// This listener used to be added inside renderDashboard, and it re-renders. So
+// every render left another copy behind, and each wake of the phone fired all
+// of them, each one adding another: 1, 2, 4, 8, 16… By the eleventh unlock a
+// single phone was firing over a thousand requests in one burst and the rate
+// limiter locked the owner out of their own salon with "Too many requests".
+document.addEventListener('visibilitychange', refreshOnWake);
 
 // The minute the owner is actually standing in, straight off the device.
 const deviceMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 
 export async function renderDashboard(container) {
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  mounted = container;
+  loading = true;
+  try {
+    await drawDashboard(container);
+  } finally {
+    loading = false;
+    loadedAt = Date.now();
+  }
+}
+
+async function drawDashboard(container) {
   // Ask for the day the phone is in, not the day the server thinks it is. The
   // calendar has always drawn the device's date; the dashboard now does too, so
   // "Today at a glance" and the day book can never be a day apart.
@@ -333,22 +379,13 @@ export async function renderDashboard(container) {
 
   liveTimer = setInterval(() => {
     // There is no page-teardown hook to unsubscribe from, so the timer stops
-    // itself once its container is no longer on the page.
-    if (!container.isConnected) { clearInterval(liveTimer); liveTimer = null; return; }
+    // itself once the dashboard is no longer the page on screen.
+    if (!isShowing()) { clearInterval(liveTimer); liveTimer = null; return; }
     // Past midnight the day itself is stale, not just the minute — and a phone
     // that slept for hours comes back to a page built for yesterday.
     if (nowMin() >= 24 * 60 || t.date !== todayStr()) { renderDashboard(container); return; }
     paintLive();
   }, 30000);
-
-  // Coming back to the tab is the moment stale data is most obvious, and
-  // anything booked or completed elsewhere since needs picking up.
-  const onVisible = () => {
-    if (document.visibilityState !== 'visible') return;
-    if (!container.isConnected) { document.removeEventListener('visibilitychange', onVisible); return; }
-    renderDashboard(container);
-  };
-  document.addEventListener('visibilitychange', onVisible);
 
   // --- Growth & retention --------------------------------------------------
   const c = d.clients;

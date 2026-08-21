@@ -206,7 +206,9 @@ npm run reset-demo   # same thing from the terminal
   card payments):
   - **Stripe**: Kairo generates a secure pay-link (salon phone or the customer's
     own phone — Apple Pay/Google Pay appear there); it flips to **Paid** the
-    moment Stripe confirms, no refresh
+    moment Stripe confirms, no refresh. The wait stops the instant the owner
+    leaves the till, and gives up after 15 minutes, so a sale nobody finishes
+    can't leave the phone quietly talking to the server all day (v1.33.1)
   - **Square**: the owner charges on their own Square reader/app the way they
     already do, then taps **Paid** — Kairo records it, no keys or Square login
   - Plus cash / other recorded instantly
@@ -261,7 +263,13 @@ npm run reset-demo   # same thing from the terminal
   happening now is marked, and a free window that's passed stops being offered.
   So a client whose appointment finished at 10am is never still sitting there as
   "Next up" at 2pm. Coming back to the tab, crossing midnight, or waking a slept
-  phone refetches rather than guessing.
+  phone refetches rather than guessing — **once**, and at most every ten seconds.
+  (Fixed in v1.33.1: that wake-up refresh registered a *new* listener on every
+  render, and the listener re-renders — so each unlock of the phone doubled the
+  listeners and the requests: 1, 2, 4, 8, 16… By the eleventh unlock a single
+  phone fired over a thousand requests in one burst and the rate limiter locked
+  the owner out of their own salon with "Too many requests". Measured, fixed,
+  and covered by a test that fails if it ever grows again.)
 - **The dashboard and the calendar are never a day apart.** Both draw the day the
   owner's device is standing in, and the panel asks the server for that exact
   date and minute — so "Today at a glance" is, by construction, the same day the
