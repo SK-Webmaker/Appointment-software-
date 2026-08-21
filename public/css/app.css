@@ -853,6 +853,14 @@ table.data th.num { text-align: right; }
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.02) 0 5px, transparent 5px 10px),
     rgba(0, 0, 0, 0.3);
 }
+/* Time the salon is open but this particular person is not rostered on. Read
+   differently from "we're shut": a lighter wash, so a column says "Maya starts
+   at 11" rather than looking like a closed day. */
+.off-hours.is-off-duty {
+  background:
+    repeating-linear-gradient(45deg, rgba(144, 133, 233, 0.07) 0 6px, transparent 6px 12px),
+    rgba(0, 0, 0, 0.18);
+}
 .hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border-soft); pointer-events: none; }
 .half-line { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(28, 38, 54, 0.55); pointer-events: none; }
 .now-line {
@@ -1550,6 +1558,57 @@ table.data th.num { text-align: right; }
 /* Above 980px the sidebar is a real column rather than a drawer, so a bar
    pinned to left:0 lies across it and buries the user card in the corner. */
 @media (min-width: 981px) { .pos-paybar { left: 236px; } }
+
+/* ---------- team & the roster ---------- */
+
+.team-tabs { margin-bottom: 18px; }
+
+/* The week grid scrolls sideways on a phone rather than squeezing seven days
+   into 390px, and the name column stays put so a row never loses its owner. */
+.roster-scroll { overflow-x: auto; margin: 4px -4px 0; padding: 0 4px 4px; }
+table.roster { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 720px; }
+table.roster th, table.roster td { padding: 8px 6px; vertical-align: middle; text-align: center; }
+table.roster th {
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  border-bottom: 1px solid var(--border); padding-bottom: 12px;
+}
+table.roster th.is-today .rs-day { color: var(--accent); }
+.roster .rs-day { font-weight: 700; color: var(--text); font-size: 13px; }
+.roster .rs-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.roster .rs-who {
+  position: sticky; left: 0; z-index: 1; text-align: left;
+  min-width: 220px; background: var(--panel);
+  border-right: 1px solid var(--border-soft);
+}
+.roster tbody tr + tr .rs-who, .roster tbody tr + tr td { border-top: 1px solid var(--border-soft); }
+.roster .rs-who .row-flex { gap: 10px; }
+
+.rs-cell {
+  width: 100%; min-height: 46px; padding: 9px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.rs-cell:hover:not(:disabled) { border-color: var(--accent); }
+.rs-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rs-cell.is-off { color: var(--muted); font-weight: 500; background: transparent; border-style: dashed; }
+/* A day given its own hours, rather than inherited from the usual week. */
+.rs-cell.is-custom { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+.rs-cell:disabled { opacity: 0.4; cursor: default; border-style: dashed; }
+
+/* One weekday in the "usual week" editor. */
+.shift-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 2px; border-bottom: 1px solid var(--border-soft);
+}
+.shift-row:last-child { border-bottom: 0; }
+.shift-on { display: flex; align-items: center; gap: 9px; cursor: pointer; min-width: 132px; font-size: 14px; }
+.shift-times { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; }
+.shift-times select { flex: 1 1 110px; min-width: 96px; }
+.shift-dash { color: var(--muted); }
+.shift-off { color: var(--muted); font-size: 13px; }
+.shift-choice { display: flex; flex-direction: column; gap: 8px; }
+.shift-choice .confirm-opt { margin-top: 0; }
 
 /* ---------- SMS credit ---------- */
 /* Prepaid balance. Neutral while it is healthy, amber when it is worth acting

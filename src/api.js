@@ -28,6 +28,7 @@ import { VERSION } from './version.js';
 // Shared with the calendar and the booking page (served from public/js), so all
 // three answer "is this date open, and between what times" identically.
 import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public/js/hours.js';
+import { buildRoster, bookableWindow, rosteredShift, NO_ROSTER } from '../public/js/roster.js';
 import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
 import { renderEmail } from './email-html.js';
@@ -66,10 +67,18 @@ function bizStamp() {
 // ---------------------------------------------------------------------------
 
 const routes = [];
+// A path parameter is a row id — digits — unless it is named `date`, in which
+// case it is a calendar date. Keeping the pattern strict per name means a
+// malformed URL never reaches a handler: it simply doesn't match a route.
+const PARAM_PATTERN = { date: '(\\d{4}-\\d{2}-\\d{2})' };
 function route(method, pattern, handler, { auth = true } = {}) {
   const names = [];
   const regex = new RegExp(
-    '^' + pattern.replace(/:[a-zA-Z_]+/g, (m) => { names.push(m.slice(1)); return '(\\d+)'; }) + '$'
+    '^' + pattern.replace(/:[a-zA-Z_]+/g, (m) => {
+      const name = m.slice(1);
+      names.push(name);
+      return PARAM_PATTERN[name] || '(\\d+)';
+    }) + '$'
   );
   routes.push({ method, regex, names, handler, auth });
 }
@@ -100,7 +109,10 @@ export async function handleApi(req, res, pathname, query) {
     const m = r.regex.exec(pathname);
     if (!m) continue;
     const params = {};
-    r.names.forEach((n, i) => { params[n] = Number(m[i + 1]); });
+    // Ids arrive as numbers because every handler treats them as one. A date
+    // must stay the string it is — Number('2026-11-17') is NaN, which would
+    // reach the handler as a date that fails every check.
+    r.names.forEach((n, i) => { params[n] = PARAM_PATTERN[n] ? m[i + 1] : Number(m[i + 1]); });
 
     let user = null;
     if (r.auth) {
@@ -649,6 +661,193 @@ route('PUT', '/api/staff/:id', async ({ req, params }) => {
     params.id
   );
   return db.prepare(`${STAFF_SELECT} WHERE s.id = ?`).get(params.id);
+});
+
+// ---------------------------------------------------------------------------
+// The roster — who is working, when
+// ---------------------------------------------------------------------------
+
+const SHIFT_SCHEMA = {
+  weekday: s.num({ min: 0, max: 6 }),
+  date: s.str(10),
+  start_min: s.num({ min: 0, max: 1440 }),
+  end_min: s.num({ min: 0, max: 1440 }),
+  working: s.bool(),
+  note: s.str(200),
+};
+
+/** Every shift row for a member, weekly pattern and one-offs together. */
+route('GET', '/api/staff/:id/shifts', async ({ params }) => {
+  if (!db.prepare('SELECT id FROM staff WHERE id = ?').get(params.id)) throw httpError(404, 'Team member not found');
+  const rows = db.prepare(
+    `SELECT id, weekday, date, start_min, end_min, working, note FROM staff_shifts
+     WHERE staff_id = ? ORDER BY date, weekday`
+  ).all(params.id);
+  return {
+    weekly: rows.filter((r) => !r.date),
+    overrides: rows.filter((r) => r.date),
+    // Nothing set means they simply follow the salon's opening hours, which is
+    // a different state from "rostered off every day" and reads differently.
+    follows_opening_hours: rows.filter((r) => !r.date).length === 0,
+  };
+});
+
+/**
+ * Replace a member's weekly pattern in one write.
+ *
+ * Sent whole rather than day by day: a roster is read as a week, and a
+ * half-applied one — Tuesday saved, Wednesday not — would quietly take a
+ * stylist off the booking page for a day nobody meant to change.
+ */
+route('PUT', '/api/staff/:id/shifts', async ({ req, params }) => {
+  if (!db.prepare('SELECT id FROM staff WHERE id = ?').get(params.id)) throw httpError(404, 'Team member not found');
+  const b = checkBody(await readJson(req), { days: s.arr(s.obj(SHIFT_SCHEMA), 7) });
+  const days = Array.isArray(b.days) ? b.days : [];
+
+  const clean = [];
+  for (const d of days) {
+    const dow = Number(d.weekday);
+    if (!Number.isInteger(dow) || dow < 0 || dow > 6) continue;
+    if (d.working === false) continue;                    // a blank day is simply not stored
+    const start = clampInt(d.start_min, 0, 1440, NaN);
+    const end = clampInt(d.end_min, 0, 1440, NaN);
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+      throw httpError(400, 'A shift has to finish after it starts');
+    }
+    clean.push({ weekday: dow, start, end });
+  }
+
+  const tx = db.prepare('SELECT 1');   // keep the two writes together
+  db.exec('BEGIN');
+  try {
+    db.prepare("DELETE FROM staff_shifts WHERE staff_id = ? AND date = ''").run(params.id);
+    const ins = db.prepare(
+      "INSERT INTO staff_shifts (staff_id, weekday, date, start_min, end_min, working) VALUES (?, ?, '', ?, ?, 1)"
+    );
+    for (const c of clean) ins.run(params.id, c.weekday, c.start, c.end);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  void tx;
+  return { ok: true, days: clean.length };
+});
+
+/**
+ * A single date for one member: a different shift, or a day off.
+ *
+ * `working: false` records the day off explicitly — which is not the same as
+ * deleting the row, because deleting would fall back to the weekly pattern and
+ * put them straight back on the booking page.
+ */
+route('PUT', '/api/staff/:id/shifts/:date', async ({ req, params }) => {
+  if (!db.prepare('SELECT id FROM staff WHERE id = ?').get(params.id)) throw httpError(404, 'Team member not found');
+  if (!isDateStr(params.date)) throw httpError(400, 'Date must be YYYY-MM-DD');
+  const b = checkBody(await readJson(req), SHIFT_SCHEMA);
+
+  const working = b.working !== false;
+  let start = 0, end = 0;
+  if (working) {
+    start = clampInt(b.start_min, 0, 1440, NaN);
+    end = clampInt(b.end_min, 0, 1440, NaN);
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
+      throw httpError(400, 'A shift has to finish after it starts');
+    }
+  }
+  db.prepare(
+    `INSERT INTO staff_shifts (staff_id, weekday, date, start_min, end_min, working, note)
+     VALUES (?, NULL, ?, ?, ?, ?, ?)
+     ON CONFLICT(staff_id, date) WHERE date != '' DO UPDATE SET
+       start_min = excluded.start_min, end_min = excluded.end_min,
+       working = excluded.working, note = excluded.note`
+  ).run(params.id, params.date, start, end, working ? 1 : 0, str(b.note, 200));
+
+  // Anyone already booked into a time the member no longer works is the
+  // owner's to sort out, so say so rather than silently stranding them.
+  const stranded = strandedBookings(params.id, params.date);
+  return { ok: true, working, stranded };
+});
+
+/** Back to the weekly pattern for that date. */
+route('DELETE', '/api/staff/:id/shifts/:date', async ({ params }) => {
+  if (!isDateStr(params.date)) throw httpError(400, 'Date must be YYYY-MM-DD');
+  db.prepare('DELETE FROM staff_shifts WHERE staff_id = ? AND date = ?').run(params.id, params.date);
+  return { ok: true, stranded: strandedBookings(params.id, params.date) };
+});
+
+/** Live bookings that now fall outside what this member is rostered for. */
+function strandedBookings(staffId, date) {
+  const window = staffWindow(staffId, date);
+  const appts = db.prepare(
+    `${APPT_SELECT} WHERE a.staff_id = ? AND a.date = ? AND a.status NOT IN ('cancelled', 'no_show')
+     ORDER BY a.start_min`
+  ).all(staffId, date);
+  return appts
+    .filter((a) => !window || a.start_min < window.open || a.end_min > window.close)
+    .map((a) => ({ id: a.id, client_name: a.client_name, start_min: a.start_min, end_min: a.end_min }));
+}
+
+/**
+ * Every member's raw shift rows in one call, for the calendar's shading.
+ *
+ * The grid route below answers "who works when" for a specific week; this
+ * answers "what is everyone's pattern", which is what a calendar needs to shade
+ * any date the owner scrolls to without asking again.
+ */
+route('GET', '/api/roster/patterns', async () => {
+  const rows = db.prepare(
+    'SELECT staff_id, weekday, date, start_min, end_min, working FROM staff_shifts'
+  ).all();
+  const rosters = {};
+  for (const r of rows) (rosters[r.staff_id] ||= []).push(r);
+  return { rosters };
+});
+
+/**
+ * The roster as a grid: every active member across a span of dates.
+ *
+ * One call for the whole week, because the Team screen draws it as a week and
+ * one request per member per day would be seven times the work for the same
+ * answer.
+ */
+route('GET', '/api/roster', async ({ query }) => {
+  const from = isDateStr(query.get('from')) ? query.get('from') : bizToday();
+  const to = isDateStr(query.get('to')) ? query.get('to') : addDaysStr(from, 6);
+  if (to < from) throw httpError(400, 'That date range runs backwards');
+  const dates = [];
+  for (let d = from; d <= to && dates.length < 31; d = addDaysStr(d, 1)) dates.push(d);
+
+  const staff = db.prepare(`${STAFF_SELECT} WHERE s.active = 1 ORDER BY s.id`).all();
+  const salon = Object.fromEntries(dates.map((d) => [d, hoursFor(d)]));
+
+  return {
+    from, to, dates,
+    salon_hours: salon,
+    members: staff.map((m) => {
+      const roster = rosterFor(m.id);
+      const days = dates.map((d) => {
+        const shift = rosteredShift(d, roster);
+        const window = bookableWindow(d, roster, salon[d]);
+        return {
+          date: d,
+          working: Boolean(window),
+          open_min: window?.open ?? null,
+          close_min: window?.close ?? null,
+          // Where the answer came from, so the grid can say "follows the salon"
+          // rather than pretending the owner set these hours by hand.
+          source: shift === NO_ROSTER ? 'salon' : (roster.overrides?.[d] ? 'date' : 'weekly'),
+          salon_closed: !salon[d],
+        };
+      });
+      return {
+        id: m.id, name: m.name, title: m.title, color: m.color,
+        follows_opening_hours: !roster.hasWeekly,
+        days,
+        minutes: days.reduce((n, x) => n + (x.working ? x.close_min - x.open_min : 0), 0),
+      };
+    }),
+  };
 });
 
 route('DELETE', '/api/staff/:id', async ({ params }) => {
@@ -2381,7 +2580,19 @@ route('GET', '/api/public/info', async () => {
       tagline: getSetting('brand_tagline', ''),
     },
     services: db.prepare('SELECT id, name, category, duration_min, price_cents, price_type, description FROM services WHERE active = 1 ORDER BY category, name').all(),
-    staff: db.prepare('SELECT id, name, title, location_id FROM staff WHERE active = 1 ORDER BY id').all(),
+    // Each member carries the dates they are actually rostered for, so the date
+    // strip can drop the days the chosen stylist doesn't work instead of
+    // offering a Tuesday that turns out to have no times on it.
+    staff: db.prepare('SELECT id, name, title, location_id FROM staff WHERE active = 1 ORDER BY id').all()
+      .map((m) => {
+        const roster = rosterFor(m.id);
+        return {
+          ...m,
+          open_dates: openDatesFrom(bizToday(), hourSettings(), bookingHorizonDays(), bookingHorizonDays())
+            .filter((d) => bookableWindow(d.date, roster, { open: d.open_min, close: d.close_min }))
+            .map((d) => d.date),
+        };
+      }),
     locations: db.prepare('SELECT id, name, address, phone FROM locations WHERE active = 1 ORDER BY id').all(),
     deposit: {
       enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
@@ -2418,9 +2629,32 @@ function isOpenDay(date) {
   return hoursFor(date) !== null;
 }
 
+/**
+ * One team member's roster, tidied for the resolver.
+ *
+ * Read per request rather than cached: a roster changes when the owner edits
+ * it, and a customer being offered a slot the stylist no longer works is worse
+ * than a query.
+ */
+function rosterFor(staffId) {
+  return buildRoster(db.prepare(
+    'SELECT weekday, date, start_min, end_min, working FROM staff_shifts WHERE staff_id = ?'
+  ).all(staffId));
+}
+
+/**
+ * The window a member can be booked in on a date — their shift clipped to the
+ * salon's hours, or the salon's hours alone if they have no roster yet.
+ */
+function staffWindow(staffId, date) {
+  return bookableWindow(date, rosterFor(staffId), hoursFor(date));
+}
+
 function freeSlotsFor(staffId, date, durationMin) {
-  const hours = hoursFor(date);
-  if (!hours) return []; // closed: weekday off, or an off week for this day
+  // Not "is the salon open" but "is this person there" — the two are different
+  // questions the moment a salon has more than one pair of hands.
+  const hours = staffWindow(staffId, date);
+  if (!hours) return []; // shut, or nobody rostered on
   const { open, close } = hours;
   const step = Math.max(5, Number(getSetting('slot_interval', '15')));
   const busy = db.prepare(

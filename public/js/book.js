@@ -262,6 +262,25 @@ async function renderTimeStep() {
   // fortnight at a time; the picker beside it reaches the whole horizon, so a
   // client wanting a slot two or three months out isn't stuck scrolling.
   let allDays = (state.info.open_dates || []).map((d) => d.date).filter((d) => d >= todayStr());
+
+  // Narrow that to the days the chosen stylist actually works. Offering a
+  // Tuesday that turns out to have no times on it wastes a tap and reads as a
+  // fault; "Any available" keeps every day at least one of them is rostered.
+  const staffList = state.info.staff || [];
+  // state.staff is the chosen member, or null for "any available".
+  const pool = state.staff ? [state.staff] : staffList.filter((m) => Array.isArray(m.open_dates));
+  const rostered = pool.length && pool.every((m) => Array.isArray(m.open_dates))
+    ? [...new Set(pool.flatMap((m) => m.open_dates))]
+    : null;
+  if (rostered) {
+    const allowed = new Set(rostered);
+    const narrowed = allDays.filter((d) => allowed.has(d));
+    // Only apply it when it leaves something — a roster that somehow rules out
+    // every day should fall back to the salon's dates and let the slot list say
+    // there is nothing free, rather than showing an empty calendar.
+    if (narrowed.length) allDays = narrowed;
+  }
+
   if (!allDays.length) {
     const openDays = Array.isArray(state.info.open_days) && state.info.open_days.length
       ? state.info.open_days : [0, 1, 2, 3, 4, 5, 6];

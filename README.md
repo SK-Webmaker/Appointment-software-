@@ -404,6 +404,38 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - All images are stored in the business's own database as size-capped data URIs;
   nothing is uploaded to a third party
 
+### 🗓 The team roster — who works when (v1.34.0)
+- ***Team → Scheduled shifts*** is a week grid: one row per person, one cell per
+  day, showing **"11 AM – 5 PM"** or **"Not working"**. Page through the weeks,
+  tap any cell to change that one day.
+- **A usual week per person** — tick the days they work and set the hours. That
+  pattern then applies to every week without being re-entered.
+- **One-off changes without touching the pattern** — a late start next Thursday,
+  or a day off, is set on the day itself. "Back to usual" removes it again.
+- **The booking page follows it, automatically.** A customer is only offered a
+  time when the person they picked is rostered on **and** the salon is open. Pick
+  a stylist who does Tuesdays and Wednesdays and the date strip shows only
+  Tuesdays and Wednesdays — no more tapping a day to find it empty.
+- **"Any available" pools only who is actually on**, so two stylists working
+  opposite days cover the whole week between them without either being offered
+  on a day they're off.
+- **Both have to hold.** A shift running to 7 can't take a 6pm booking in a salon
+  that shuts at 5, and a salon open at 9 won't offer 9am with someone who starts
+  at 11 — whichever is tighter wins.
+- **Nobody is constrained until you say so.** A team member with no week set
+  simply follows the salon's opening hours, and the grid says exactly that
+  ("follows salon hours"). A one-person salon that never opens this screen keeps
+  working precisely as before.
+- **The calendar shows it** — the hours a person isn't rostered are shaded in
+  their column, so "Maya isn't in until 11" reads at a glance. The owner can
+  still book into it; it's information, not a wall.
+- **It won't strand a client quietly.** Rostering away a time someone is already
+  booked into says so, by name, instead of leaving it to be discovered when they
+  turn up.
+- **Deliberately not included:** timesheets (clocking in to evidence hours) and
+  pay runs (wages, tips, commission). Both are payroll — neither changes what a
+  customer can book, and this is a booking system.
+
 ### 📆 Working days — including every-second-week days
 - *Settings → Hours & booking → **Your week*** gives each weekday its own line:
   **Closed**, **Every week**, or **every 2nd / 3rd / 4th week** — plus an

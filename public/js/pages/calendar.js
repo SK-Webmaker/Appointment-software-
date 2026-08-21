@@ -7,6 +7,7 @@ import {
 } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
 import { hoursForDate, describeRule, parseDayRules } from '../hours.js';
+import { bookableWindow, buildRoster } from '../roster.js';
 
 const PX_PER_MIN = 1.15;
 const SNAP = 15;
@@ -18,6 +19,7 @@ const cal = {
   locationFilter: 0,  // 0 = all locations
   appointments: [],
   blocks: [],         // owner-only blocked time (unbookable online)
+  rosters: {},        // staff id → their working pattern, for the shading
 };
 
 function visibleStaff() {
@@ -70,15 +72,23 @@ const minFor = (y) => Math.round((y / PX_PER_MIN + gridStart()) / SNAP) * SNAP;
 
 // Shaded off-hours bands for one day column. On a closed day the whole column
 // is off-hours; otherwise the areas before open and after close are shaded.
-function offHoursHtml(date) {
+//
+// With a staff id, the band is that person's own rostered window instead of the
+// salon's — so a column reads at a glance as "Maya isn't in until 11", which is
+// the whole point of having a roster. The owner can still book into the shade;
+// it is information, not a wall.
+function offHoursHtml(date, staffId = null) {
   const gs = gridStart(), ge = gridEnd();
-  const band = (from, to) => `<div class="off-hours" style="top:${(from - gs) * PX_PER_MIN}px;height:${(to - from) * PX_PER_MIN}px"></div>`;
-  const hours = hoursOn(date);
-  if (!hours) return band(gs, ge); // shut that day → whole column shaded
-  let html = '';
-  if (hours.open > gs) html += band(gs, hours.open);
-  if (hours.close < ge) html += band(hours.close, ge);
-  return html;
+  const band = (from, to, off = false) => (to > from
+    ? `<div class="off-hours${off ? ' is-off-duty' : ''}" style="top:${(from - gs) * PX_PER_MIN}px;height:${(to - from) * PX_PER_MIN}px"></div>`
+    : '');
+  const salon = hoursOn(date);
+  if (!salon) return band(gs, ge); // shut that day → whole column shaded
+
+  const window = staffId ? bookableWindow(date, cal.rosters?.[staffId], salon) : salon;
+  if (!window) return band(gs, ge, true); // rostered off → the whole column
+  const offDuty = staffId && (window.open !== salon.open || window.close !== salon.close);
+  return band(gs, window.open, offDuty) + band(window.close, ge, offDuty);
 }
 
 function weekStart(dateStr) {
@@ -96,10 +106,16 @@ async function loadAndDraw(container) {
   const from = cal.view === 'day' ? cal.date : weekStart(cal.date);
   const to = cal.view === 'day' ? cal.date : addDaysStr(weekStart(cal.date), 6);
   const staffQ = cal.staffFilter ? `&staff_id=${cal.staffFilter}` : '';
-  const [appts, blocks] = await Promise.all([
+  const [appts, blocks, rosters] = await Promise.all([
     api.get(`/api/appointments?from=${from}&to=${to}${staffQ}`),
     api.get(`/api/time-blocks?from=${from}&to=${to}`),
+    // Who is actually working, so a column can be shaded where its owner is not
+    // in. Cheap and cached by the browser between navigations.
+    api.get('/api/roster/patterns').catch(() => ({ rosters: {} })),
   ]);
+  cal.rosters = Object.fromEntries(
+    Object.entries(rosters.rosters || {}).map(([id, rows]) => [id, buildRoster(rows)])
+  );
   cal.appointments = appts;
   // Blocks are stored per staff member (or for everyone when staff_id is null),
   // so apply the staff filter here rather than in the query.
@@ -378,7 +394,7 @@ function dayGridHtml(staffList) {
     const appts = layoutLanes(cal.appointments.filter((a) => a.staff_id === s.id));
     return `
       <div class="cal-col" data-staff="${s.id}" data-date="${cal.date}" style="height:${height}px">
-        ${offHoursHtml(cal.date)}
+        ${offHoursHtml(cal.date, s.id)}
         ${gridLinesHtml(height)}
         ${blocksForCol(cal.date, s.id).map(blockHtml).join('')}
         ${isToday && nowMin >= gridStart() && nowMin <= gridEnd() ? `<div class="now-line" style="top:${yFor(nowMin)}px"></div>` : ''}

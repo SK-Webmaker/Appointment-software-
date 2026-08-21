@@ -234,6 +234,27 @@ export function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_time_blocks_date ON time_blocks(date);
+
+    -- When each team member works. Two kinds of row live here:
+    --   the weekly pattern  → weekday 0-6, date ''
+    --   a one-off for a day → weekday NULL, date 'YYYY-MM-DD'
+    -- A one-off with working = 0 is a day off. See public/js/roster.js for how
+    -- the two are resolved against each other and against opening hours.
+    CREATE TABLE IF NOT EXISTS staff_shifts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      staff_id   INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+      weekday    INTEGER,                       -- 0=Sun … 6=Sat, NULL for a one-off
+      date       TEXT NOT NULL DEFAULT '',      -- '' for the weekly pattern
+      start_min  INTEGER NOT NULL DEFAULT 0,
+      end_min    INTEGER NOT NULL DEFAULT 0,
+      working    INTEGER NOT NULL DEFAULT 1,    -- 0 = explicitly not working
+      note       TEXT NOT NULL DEFAULT '',      -- "Annual leave", owner-only
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    -- One row per member per weekday, and per member per date: writing a shift
+    -- replaces what was there rather than stacking a second one behind it.
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_weekly ON staff_shifts(staff_id, weekday) WHERE date = '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_date ON staff_shifts(staff_id, date) WHERE date != '';
   `);
   migrate();
 }
