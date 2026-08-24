@@ -661,6 +661,37 @@ Everything works with zero accounts. These unlock delivery/payments when you're 
 Use Stripe **test keys** (`sk_test_…`) to rehearse the deposit flow with the card
 number `4242 4242 4242 4242` before going live.
 
+### Optional: put the domain behind Cloudflare
+
+Only if the business has its own domain on a Cloudflare account. Everything in
+this step is optional and Kairo works exactly the same without it.
+
+```bash
+export CLOUDFLARE_API_TOKEN=...          # scoped to this one zone, with a TTL
+
+# Look first. This changes nothing.
+node scripts/cloudflare-setup.mjs --domain example.com
+
+# Then, with the secret from Settings → Cloudflare protection:
+node scripts/cloudflare-setup.mjs --domain example.com \
+  --origin-secret XXXX --turnstile --rate-limit --apply
+```
+
+It checks the three things that are easy to get wrong by hand — that the DNS
+record is actually **proxied** (unproxied means Cloudflare never sees the
+traffic and none of its filtering applies), that the encryption mode is **Full
+(strict)** rather than Flexible, and that a Transform Rule stamps the shared
+secret on every forwarded request — and reports each one before touching
+anything. `--turnstile` creates the widget and prints both keys; `--rate-limit`
+adds the single rule a Free plan allows, set as a volumetric ceiling well above
+anything a real person does.
+
+The token needs, limited to this one zone: **Zone → Zone → Read**, **DNS →
+Edit**, **Zone Settings → Edit**, **SSL and Certificates → Edit**, **Transform
+Rules → Edit**, **Firewall Services → Edit**; plus **Account → Rulesets → Read**
+(Transform Rules require it) and **Account → Turnstile → Edit** for
+`--turnstile`. Set a TTL when you create it, and revoke it when you're done.
+
 ## Updating a deployed instance
 
 Updates are quick and safe — see **[UPDATING.md](UPDATING.md)**. In short: on
