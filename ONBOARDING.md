@@ -135,7 +135,7 @@ Log in once as the admin account, go to **Settings**, and set:
 | Notifications | Resend API key | nothing sends without it |
 | Notifications | From email — `hello@send.hairbysha.kairobookings.com` | must match the verified domain |
 | Notifications | **Replies go to** — the owner's real inbox | mail is sent from a domain with no inbox; without this a client who hits Reply gets a bounce and nobody is told |
-| Notifications | Your website address — `https://hairbysha.kairobookings.com` | every cancel link, review link and QR code is built from it |
+| Notifications | Your website address — `https://hairbysha.kairobookings.com` | every cancel link, review link, QR code **and the booking link the owner copies** is built from it. Skip it and they hand out the raw hosting URL, which works — which is exactly why nobody notices |
 | SMS | ClickSend username + API key | |
 | SMS | Sender name or number | |
 | Business profile | Business email **and** phone | the owner's own booking alerts are email-only and silently off if the email is blank |
@@ -143,6 +143,19 @@ Log in once as the admin account, go to **Settings**, and set:
 
 Then hit the test buttons on the **Messages** page and watch both actually
 arrive. Then log out.
+
+**Better than setting the website address by hand:** put it on the Render
+service as an environment variable instead —
+
+```
+KAIRO_PUBLIC_URL = https://hairbysha.kairobookings.com
+```
+
+It's already in the blueprint, so a business created from `--render` has it
+from the first boot. Set that way it wins over the settings field, the field is
+shown disabled with an explanation, and there is nothing for anyone to forget
+after the fact. Changing it later is a Render → Environment edit, which
+restarts the service on its own.
 
 **If you lent them your number**, also set the starter sender so the app keeps
 asking them to replace it:
