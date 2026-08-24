@@ -100,11 +100,13 @@ if (args.get('render') === true) {
   const root = path.dirname(path.dirname(url.fileURLToPath(import.meta.url)));
   const yaml = fs.readFileSync(path.join(root, 'render.yaml'), 'utf8')
     .replace(/^    name: CHANGEME-booking$/m, `    name: ${svc.replace(/\.onrender\.com$/, '')}`)
-    .replace(/^    region: singapore$/m, `    region: ${region}`);
+    .replace(/^    region: singapore$/m, `    region: ${region}`)
+    .replace(/^        value: https:\/\/CHANGEME\.kairobookings\.com$/m, `        value: https://${HOST}`);
   console.log(yaml);
   console.error(`\n# Paste the above as render.yaml, or set these two on the service by hand:`);
   console.error(`#   name:   ${svc.replace(/\.onrender\.com$/, '')}`);
   console.error(`#   region: ${region}`);
+  console.error(`#   KAIRO_PUBLIC_URL: https://${HOST}`);
   console.error(`# Then add the custom domain ${HOST} on the service's Settings page.\n`);
   process.exit(0);
 }

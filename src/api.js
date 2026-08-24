@@ -2,7 +2,7 @@
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
-  dbFileBytes,
+  dbFileBytes, publicUrl, publicUrlFromEnv,
 } from './db.js';
 import {
   readJson, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
@@ -259,7 +259,7 @@ route('GET', '/api/account', async ({ user }) => {
     },
     instance: {
       version: VERSION,
-      booking_url: getSetting('public_url', '') ? `${getSetting('public_url').replace(/\/+$/, '')}/book` : '/book',
+      booking_url: publicUrl() ? `${publicUrl()}/book` : '/book',
       online_booking: getSetting('booking_enabled', '1') === '1',
       email_ready: Boolean(getSetting('resend_api_key') && getSetting('notif_from_email')),
       sms_ready: getSetting('sms_notifications_enabled', '1') === '1',
@@ -335,7 +335,7 @@ route('POST', '/api/auth/send-verification', async ({ req, user }) => {
   // Build the link from the live request host — always correct, even before
   // public_url has been configured.
   const proto = req.headers['x-forwarded-proto'] || 'http';
-  const origin = getSetting('public_url') || `${proto}://${req.headers.host}`;
+  const origin = publicUrl() || `${proto}://${req.headers.host}`;
   const url = `${origin}/api/auth/verify-email?token=${token}`;
 
   const html = renderEmail({
@@ -423,6 +423,11 @@ const settingCap = (k) => (k === 'brand_gallery' ? 3_500_000 : IMAGE_SETTINGS.ha
 function applySettings(body) {
   for (const [k, v] of Object.entries(body)) {
     if (!EDITABLE_SETTINGS.has(k)) continue;
+    // The site address is pinned by the environment on the platform. The field
+    // is shown disabled, and a disabled input submits as empty — so without
+    // this, saving the form would quietly wipe the stored fallback and only
+    // reveal it the day the variable is removed.
+    if (k === 'public_url' && publicUrlFromEnv()) continue;
     // Secrets are write-only: an empty value means "leave what's stored".
     // A real new value replaces it; the sentinel '__clear__' wipes it.
     if (SECRET_SETTINGS.has(k)) {

@@ -14,7 +14,7 @@
 // `sms_notifications_enabled` (default off) in addition to having a provider
 // configured — a business opts in deliberately.
 import crypto from 'node:crypto';
-import { db, getSetting, setSetting, replyToAddress } from './db.js';
+import { db, getSetting, setSetting, replyToAddress, publicUrl } from './db.js';
 import { renderEmail } from './email-html.js';
 
 function money(cents) {
@@ -108,7 +108,7 @@ export function cancelUrlFor(apptId, existingToken = '') {
     token = crypto.randomBytes(16).toString('hex');
     db.prepare('UPDATE appointments SET cancel_token = ? WHERE id = ?').run(token, apptId);
   }
-  const origin = getSetting('public_url') || '';
+  const origin = publicUrl();
   return origin ? `${origin}/cancel/${token}` : `/cancel/${token}`;
 }
 
@@ -428,7 +428,7 @@ export function queueReviewRequest(apptId) {
     token = crypto.randomBytes(16).toString('hex');
     db.prepare('UPDATE appointments SET review_token = ? WHERE id = ?').run(token, apptId);
   }
-  const origin = getSetting('public_url') || '';
+  const origin = publicUrl();
   const reviewUrl = origin ? `${origin}/review/${token}` : `/review/${token}`;
 
   const delayHours = Number(getSetting('review_delay_hours', '1')) || 0;
@@ -454,7 +454,7 @@ export function queueCancellationMessages(apptId, { by = 'owner', notifyClient =
   // The client's message can be held back for a moment so an undo can catch it.
   // The owner's own copy is never held — it is the record that it happened.
   const clientAfter = holdSeconds > 0 ? localStamp(new Date(Date.now() + holdSeconds * 1000)) : now;
-  const origin = getSetting('public_url') || '';
+  const origin = publicUrl();
 
   // → the client, unless the owner chose to tell them in person. A client who
   // cancelled themselves always gets the confirmation: they asked for it.

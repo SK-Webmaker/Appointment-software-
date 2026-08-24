@@ -100,7 +100,12 @@ function readWeekRules(container) {
 
 export async function renderSettings(container) {
   const s = state.settings;
-  const bookingUrl = `${location.origin}/book`;
+  // The link the owner copies into their Instagram bio. It has to be the
+  // business's real address, not whatever they happen to have typed into the
+  // address bar — an owner signed in at the raw hosting URL would otherwise
+  // copy that one out to every customer, and it would work, which is what
+  // makes it so easy to miss.
+  const bookingUrl = `${s.public_url_effective || location.origin}/book`;
 
   // Hour options for the calendar view window ('' = auto).
   const calHourOpts = (cur, autoLabel, isEnd = false) => {
@@ -331,8 +336,13 @@ export async function renderSettings(container) {
             <input name="google_review_url" value="${esc(s.google_review_url || '')}" placeholder="https://g.page/r/…/review">
             <div class="hint">Clients who rate you 4-5★ get a one-tap link to also post this on Google.</div></div>
           <div class="field"><label>Your website address</label>
-            <input name="public_url" value="${esc(s.public_url || '')}" placeholder="${esc(location.origin)}">
-            <div class="hint">Used to build review links in messages. Auto-filled during setup. Only change this if you move to a custom domain.</div></div>
+            <input name="public_url" value="${esc(s.public_url_from_env === '1' ? s.public_url_effective : (s.public_url || ''))}"
+              placeholder="${esc(location.origin)}" ${s.public_url_from_env === '1' ? 'disabled' : ''}>
+            <div class="hint">${s.public_url_from_env === '1'
+              ? `Set on the server, so it can't be changed here — that's deliberate, because every cancel link,
+                 review link and QR code is built from it. Ask whoever set your system up to change it.`
+              : `Every cancel link, review link and QR code in your messages is built from this.
+                 Auto-filled during setup — only change it if you move to a custom domain.`}</div></div>
           <div class="field"><label>Resend API key (email)${keySaved(s.resend_api_key_set)}</label>
             <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
           <div class="field"><label>From email (verified in Resend)</label>

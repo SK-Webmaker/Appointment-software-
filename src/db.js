@@ -334,6 +334,38 @@ export const SECRET_SETTINGS = new Set([
 ]);
 
 /**
+ * The address this business is reached at, used to build every link that
+ * leaves the building: cancel links, review links, the ICS file, the QR code.
+ *
+ * Settable from the environment, and when it is set there it wins. On the
+ * platform each business is deployed to its own service and given its own
+ * subdomain in the same breath, so the address is known at deploy time and
+ * should not depend on anyone remembering a settings field afterwards —
+ * forgetting it doesn't break anything visibly, it just quietly puts the wrong
+ * domain in every message the salon sends.
+ *
+ * A malformed value is ignored rather than obeyed. Half a URL in every
+ * confirmation email is worse than the stored setting it would have replaced.
+ */
+let warnedAboutPublicUrl = '';
+export function publicUrl() {
+  const fromEnv = String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '');
+  if (fromEnv && /^https?:\/\/[^\s/]+$/i.test(fromEnv)) return fromEnv;
+  // Said once per bad value, not once per link built — this runs on every
+  // message that goes out, and a warning repeated a thousand times stops being
+  // read at all.
+  if (fromEnv && warnedAboutPublicUrl !== fromEnv) {
+    warnedAboutPublicUrl = fromEnv;
+    console.error(`KAIRO_PUBLIC_URL is not a valid site address, ignoring it: "${fromEnv.slice(0, 60)}"`);
+  }
+  return String(getSetting('public_url', '') || '').trim().replace(/\/+$/, '');
+}
+
+/** True when the address comes from the environment, so the screen can say so. */
+export const publicUrlFromEnv = () => publicUrl() !== ''
+  && String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '').toLowerCase() === publicUrl().toLowerCase();
+
+/**
  * Where a client's reply actually goes.
  *
  * Mail leaves from the sending subdomain — hello@send.business.kairobookings.com
@@ -396,6 +428,8 @@ export function getSettings() {
   // Derived, so the screen can never disagree with what actually happens when a
   // message goes out. Read-only: writing either of these back is ignored,
   // because neither is in EDITABLE_SETTINGS.
+  out.public_url_effective = publicUrl();
+  out.public_url_from_env = publicUrlFromEnv() ? '1' : '0';
   out.reply_to_effective = replyToAddress();
   out.reply_to_invalid = replyToLooksWrong() ? '1' : '0';
   out.clicksend_starter_active = starterSenderActive() ? '1' : '0';

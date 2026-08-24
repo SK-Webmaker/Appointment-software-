@@ -4,7 +4,7 @@
 //
 // One layout serves every message kind: heading, greeting, body paragraphs, an
 // optional detail card (label/value rows), an optional big CTA button, footer.
-import { getSetting } from './db.js';
+import { getSetting, publicUrl } from './db.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -38,7 +38,7 @@ export function renderEmail(p) {
   // instance has a public address to serve it from, and the name stands in
   // otherwise. Sits on its own light strip so a logo with its own background
   // never clashes with the brand colour below it.
-  const origin = String(getSetting('public_url', '') || '').replace(/\/+$/, '');
+  const origin = publicUrl();
   const hasLogo = /^data:image\//i.test(getSetting('brand_logo', '') || '');
   const logoBand = (hasLogo && origin) ? `
     <tr><td align="center" style="background:#ffffff;border-radius:14px 14px 0 0;padding:22px 32px 18px;border-bottom:1px solid #e6eaf0;">

@@ -60,6 +60,11 @@ const timeOpts = (sel) => {
 
 export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) {
   const s = settings || {};
+  // The address customers should use. On the platform each business is deployed
+  // with its own domain already set, so prefer that over whatever the owner
+  // happens to have in their address bar — otherwise the very first link they
+  // are shown, and copy, is the raw hosting URL.
+  const siteUrl = (s.public_url_effective || location.origin).replace(/\/+$/, '');
   const data = {
     fresh: firstRun,
     type: '',
@@ -271,7 +276,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       <p class="wiz-lede">${esc(data.settings.business_name || 'Your business')} is ready. Share your booking link with
         customers, and take bookings from your calendar right away.</p>
       <div class="wiz-linkbox">
-        <span>${esc(location.origin)}/book</span>
+        <span>${esc(siteUrl)}/book</span>
         <button type="button" class="btn small" id="w-copy">${icon('link')} Copy</button>
       </div>
       <p class="wiz-sub">Put that link in your Instagram bio, Google profile and WhatsApp auto-reply.</p>`,
@@ -347,7 +352,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     overlay.querySelector('#w-next')?.addEventListener('click', onNext);
     overlay.querySelector('#w-finish')?.addEventListener('click', () => { close(); onDone?.(); });
     overlay.querySelector('#w-copy')?.addEventListener('click', () => {
-      copyText(`${location.origin}/book`).then((done) => {
+      copyText(`${siteUrl}/book`).then((done) => {
         toast(done ? 'Booking link copied' : 'Could not copy — open Settings to copy it there', done ? 'ok' : 'err');
       });
     });
@@ -470,8 +475,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         brand_logo: data.logo || '',
         brand_cover: data.cover || '',
         // The URL used to administer the app right now IS the URL customers
-        // should use for booking/review links — captured automatically.
-        public_url: location.origin,
+        // should use for booking/review links — captured automatically. Ignored
+        // by the server when the address is pinned by the environment.
+        public_url: siteUrl,
         // The owner's own time zone drives the booking page's "no past times"
         // filter — captured automatically from their browser.
         business_tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',

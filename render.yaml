@@ -65,6 +65,15 @@ services:
       - key: KAIRO_SECURE_COOKIES
         value: "1"
 
+      # ---- CHANGE ME: this business's address on the platform domain.
+      # Every cancel link, review link, ICS file and QR code is built from it.
+      # Set here rather than in Settings because the subdomain is known when the
+      # service is created, and forgetting it doesn't break anything visibly —
+      # it just quietly puts the wrong domain in every message the salon sends.
+      # Add the matching custom domain on the service's Settings page.
+      - key: KAIRO_PUBLIC_URL
+        value: https://CHANGEME.kairobookings.com
+
       # ---- fill these two in when you create the service -------------------
       # They are only read on the very first boot, when the owner's account is
       # created. Setting them later does nothing.
