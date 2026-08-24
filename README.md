@@ -483,6 +483,25 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### ✉️ Replies that reach a human (v1.36.0)
+Settings → Notifications → **Replies go to**. Messages are *sent* from a domain
+that exists only to send and has no inbox behind it. Without a reply-to, a client
+who hits Reply on their confirmation — and plenty do, "can I move to 3?" — gets a
+bounce, and the salon never learns the message existed. That's a lost client, and
+nothing anywhere reports it.
+
+Falls back to the business email if the field is left blank, and the hint under
+it always states the address replies will *actually* land on, so a typo shows as
+a typo instead of quietly sending them nowhere.
+
+### 📵 The starter-sender reminder (v1.36.0)
+When a business is set up with a lent SMS sender so its texts work on day one,
+Settings → SMS says so until they put their own in. Kairo has no access to their
+ClickSend account and can't make the swap for them — all it can do is keep
+asking. The reminder is derived by comparing the current sender against the
+lent one, so it retires itself the moment they change it: no flag to clear, and
+no way for it to claim it's resolved when it isn't.
+
 ### 💾 Backups that prove themselves (v1.35.0)
 Settings → **Backups**. The whole business — every client, appointment, invoice
 and payment — is one file. If the machine it sits on is ever lost, this is what
@@ -660,6 +679,34 @@ Everything works with zero accounts. These unlock delivery/payments when you're 
 
 Use Stripe **test keys** (`sk_test_…`) to rehearse the deposit flow with the card
 number `4242 4242 4242 4242` before going live.
+
+### Onboarding a business — the whole runbook
+
+**[ONBOARDING.md](ONBOARDING.md)** is the six-step process for putting a new
+business on the platform: their address on your domain, DNS, the Render service,
+Resend, ClickSend, and the one pass you make through the app before handover.
+
+Every business gets `<business>.kairobookings.com` — the booking page customers
+see and the domain its email is sent from — plus its own Render service, its own
+database, and its own provider accounts. Nothing is shared between businesses.
+
+```bash
+export CLOUDFLARE_API_TOKEN=...
+
+# Look first. This changes nothing.
+node scripts/onboard-business.mjs --business glowbar --service glowbar-booking
+
+# Then, with the DKIM value Resend gives you:
+node scripts/onboard-business.mjs --business glowbar --service glowbar-booking \
+  --dkim "p=MIGfMA0GCS..." --apply
+
+# And the blueprint for this one business, ready to paste:
+node scripts/onboard-business.mjs --business glowbar --render
+```
+
+It creates four records, skips any that already exist, refuses a truncated DKIM
+key, and **never adds a second `_dmarc`** — two DMARC records on one domain make
+mail receivers treat it as having none, for every business on it.
 
 ### Optional: put the domain behind Cloudflare
 

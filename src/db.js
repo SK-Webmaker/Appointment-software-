@@ -333,6 +333,54 @@ export const SECRET_SETTINGS = new Set([
   'cf_origin_secret', 'turnstile_secret_key',
 ]);
 
+/**
+ * Where a client's reply actually goes.
+ *
+ * Mail leaves from the sending subdomain — hello@send.business.kairobookings.com
+ * — which exists to send and has no inbox behind it. Without a reply-to, a
+ * client who hits Reply on their confirmation (and plenty do: "can I move to
+ * 3?") gets a bounce, and the salon never learns the message existed. A lost
+ * client, silently.
+ *
+ * Whatever the owner set, or failing that the business email they already gave
+ * during setup. Blank only when there is genuinely nowhere to send it.
+ */
+export function replyToAddress() {
+  // First candidate that is actually usable — not merely first non-empty. A
+  // typo in the reply-to box would otherwise take precedence over a perfectly
+  // good business email and send every reply to nowhere, which is the exact
+  // failure this exists to prevent, arrived at by a different route.
+  const looksLikeEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  return [getSetting('notif_reply_to', ''), getSetting('business_email', '')]
+    .map((v) => String(v || '').trim())
+    .find(looksLikeEmail) || '';
+}
+
+/** True when the owner typed something in the reply-to box that isn't an address. */
+export function replyToLooksWrong() {
+  const typed = String(getSetting('notif_reply_to', '') || '').trim();
+  return typed !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed);
+}
+
+/**
+ * Is this instance still texting from the sender we lent it?
+ *
+ * At handover the operator registers a placeholder sender so the keys work on
+ * day one, and records it here. Kairo has no access to the business's ClickSend
+ * account and cannot swap it for them — all it can do is keep saying so until
+ * the sender changes.
+ *
+ * Derived rather than stored, on purpose, and the same shape as
+ * `default_password_active`: the moment the owner puts their own sender in, the
+ * comparison stops matching and the nag disappears on its own. There is no flag
+ * left behind to go stale, and nothing to remember to clear.
+ */
+export function starterSenderActive() {
+  const starter = String(getSetting('clicksend_starter_from', '') || '').trim();
+  if (!starter) return false;
+  return String(getSetting('clicksend_from', '') || '').trim().toLowerCase() === starter.toLowerCase();
+}
+
 export function getSettings() {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const out = {};
@@ -345,6 +393,12 @@ export function getSettings() {
   }
   delete out.session_secret_set; // internal only — never referenced by the UI
   delete out.invoice_seq;
+  // Derived, so the screen can never disagree with what actually happens when a
+  // message goes out. Read-only: writing either of these back is ignored,
+  // because neither is in EDITABLE_SETTINGS.
+  out.reply_to_effective = replyToAddress();
+  out.reply_to_invalid = replyToLooksWrong() ? '1' : '0';
+  out.clicksend_starter_active = starterSenderActive() ? '1' : '0';
   return out;
 }
 
@@ -425,6 +479,13 @@ const DEFAULT_SETTINGS = {
   google_review_url: '',
   public_url: '',  // captured automatically by the setup wizard (location.origin)
   notif_from_email: '',
+  // Where a client's reply lands. Blank falls back to business_email, because
+  // the sending subdomain has no inbox and a reply there simply bounces.
+  notif_reply_to: '',
+  // The sender the operator registered during handover, so Kairo can tell a
+  // starter number from one the business chose. See starterSenderActive().
+  clicksend_starter_from: '',
+  clicksend_starter_dismissed: '0',
   resend_api_key: '',
   // SMS provider is selectable: clicksend (default, simplest AU setup) | telnyx
   // (cheapest, more setup) | twilio. Only the chosen provider's keys are used.

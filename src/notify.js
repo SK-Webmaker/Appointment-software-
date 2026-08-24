@@ -14,7 +14,7 @@
 // `sms_notifications_enabled` (default off) in addition to having a provider
 // configured — a business opts in deliberately.
 import crypto from 'node:crypto';
-import { db, getSetting, setSetting } from './db.js';
+import { db, getSetting, setSetting, replyToAddress } from './db.js';
 import { renderEmail } from './email-html.js';
 
 function money(cents) {
@@ -529,12 +529,14 @@ export async function sendEmail(to, subject, body, html = '', { attachments = []
   const key = getSetting('resend_api_key');
   const from = getSetting('notif_from_email');
   if (!key || !from) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
+  const replyTo = replyToAddress();
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: `${getSetting('business_name', 'Bookings')} <${from}>`,
       to: [to],
+      ...(replyTo ? { reply_to: replyTo } : {}),
       subject,
       text: body,               // plain-text fallback for clients that prefer it
       ...(html ? { html } : {}), // branded layout for everyone else

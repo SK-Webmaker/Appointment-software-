@@ -5,17 +5,38 @@
 # silently destroys the salon's data on the next deploy. Here it is declared,
 # so every business gets it.
 #
+# THIS IS A TEMPLATE. Two values below have to change for every business, and
+# Render blueprints have no variables, so they change by editing. `name` in
+# particular: Render will not create a second service with a name that is
+# already taken, so copying this unchanged fails on the second business.
+#
+#   node scripts/onboard-business.mjs --business glowbar --render
+#
+# prints this file already filled in for one business, ready to paste.
+#
 # To add a business, entirely in the browser:
-#   Render → New → Blueprint → pick this repo → give the service the business's
-#   name → fill in the two values marked below → Apply.
+#   Render → New → Blueprint → pick this repo → Apply, then add the custom
+#   domain <business>.kairobookings.com on the service's Settings page.
 #
 # Everything else — Node version, the disk, HTTPS, auto-deploy — comes from here.
 services:
   - type: web
-    name: kairo
+    # ---- CHANGE ME: one per business, and it must be unique in the account.
+    # The convention is "<business>-booking", matching the subdomain the
+    # onboarding script creates: hairbysha-booking ↔ hairbysha.kairobookings.com
+    name: CHANGEME-booking
     runtime: node
     plan: starter          # a disk cannot be attached to the free plan
-    region: oregon         # change to the region nearest the business
+
+    # ---- CHANGE ME: the region nearest the business's customers.
+    # Render has no Australian region; Singapore is the closest by a wide
+    # margin (roughly half the round trip of Oregon to Melbourne), and every
+    # page load pays that latency.
+    #   Australia / NZ / SE Asia → singapore
+    #   UK / Europe              → frankfurt
+    #   US west / default        → oregon
+    #   US east                  → virginia | ohio
+    region: singapore
     branch: main
     buildCommand: ""       # nothing to build: no dependencies, no bundler
     startCommand: npm start

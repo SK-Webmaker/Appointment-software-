@@ -337,6 +337,16 @@ export async function renderSettings(container) {
             <input name="resend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.resend_api_key_set, 're_…')}" autocomplete="off"></div>
           <div class="field"><label>From email (verified in Resend)</label>
             <input name="notif_from_email" value="${esc(s.notif_from_email || '')}" placeholder="bookings@yourdomain.com"></div>
+          <div class="field"><label>Replies go to</label>
+            <input name="notif_reply_to" value="${esc(s.notif_reply_to || '')}" placeholder="${esc(s.business_email || 'you@yourbusiness.com')}">
+            <div class="hint">Messages are <i>sent</i> from an address that can't receive mail, so without this a client
+              who hits Reply — "can I move to 3?" — just gets a bounce and you never hear about it.
+              ${s.reply_to_invalid === '1'
+                ? `<b style="color:var(--amber)">That doesn't look like an email address</b>, so it's being ignored.
+                   ${s.reply_to_effective ? `Replies are going to <b>${esc(s.reply_to_effective)}</b> instead.` : 'Replies bounce.'}`
+                : s.reply_to_effective
+                  ? `Right now replies go to <b>${esc(s.reply_to_effective)}</b>.`
+                  : '<b style="color:var(--amber)">Right now replies bounce.</b> Add an address here, or set your business email above.'}</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save notifications</button>
         </form>
       </div>
@@ -375,7 +385,22 @@ export async function renderSettings(container) {
             </div>
             <div class="field"><label>Sender name or number (optional)</label>
               <input name="clicksend_from" value="${esc(s.clicksend_from || '')}" placeholder="e.g. LuxeHair (business name) or +61…">
-              <div class="hint">A business-name sender needs one-off registration with ClickSend (they handle ACMA). Leave blank to use a shared number.</div></div>
+              <div class="hint">Two ways to do this. A <b>business-name sender</b> ("LuxeHair") looks best but needs a
+                one-off ACMA registration with your ABN — free, and ClickSend handles it. A <b>phone number</b> works
+                straight away but shows a number rather than your name. Leave blank for a shared number.</div></div>
+            ${s.clicksend_starter_active === '1' && s.clicksend_starter_dismissed !== '1' ? `
+            <div class="starter-nag" id="starter-nag">
+              ${icon('phone', 16)}
+              <div>
+                <b>You're texting from our starter number.</b>
+                It was set up so your messages worked from day one — but it isn't yours, and your clients can't reply to it
+                or save it as your number. Add your own sender in ClickSend, then put it in the box above.
+                <div class="starter-nag-actions">
+                  <a class="btn" href="https://dashboard.clicksend.com/account/senderIds" target="_blank" rel="noreferrer">${icon('external', 14)} Open ClickSend</a>
+                  <button class="btn ghost" type="button" id="starter-dismiss">Not now</button>
+                </div>
+              </div>
+            </div>` : ''}
           </div>
 
           <div class="sms-fields" data-provider="telnyx">
@@ -747,6 +772,17 @@ export async function renderSettings(container) {
   });
   loadCredit();
 
+  // The starter-sender nag. Dismissing hides it; changing the sender retires it
+  // for good, because the flag is derived from comparing the two — there is no
+  // stored "resolved" state to go stale.
+  const starterNag = container.querySelector('#starter-nag');
+  if (starterNag) {
+    container.querySelector('#starter-dismiss').onclick = async () => {
+      starterNag.remove();
+      try { await api.put('/api/settings', { clicksend_starter_dismissed: '1' }); } catch { /* cosmetic */ }
+    };
+  }
+
   container.querySelector('#set-sms').addEventListener('submit', async (e) => {
     e.preventDefault();
     await saveSettings(e.target, [
@@ -756,6 +792,10 @@ export async function renderSettings(container) {
       'twilio_sid', 'twilio_token', 'twilio_from',
     ]);
     loadCredit(true);   // new keys → new account → re-read rather than show the old one
+    // Putting their own sender in is what resolves the nag, so re-draw rather
+    // than leave a banner up that is no longer true. saveSettings has already
+    // refreshed state.settings, so the redraw reflects the server's answer.
+    if (starterNag && state.settings.clicksend_starter_active !== '1') renderSettings(container);
   });
   // --- Backups -------------------------------------------------------------
   // The status line is the whole point of the panel: a backup that quietly

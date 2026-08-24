@@ -396,6 +396,7 @@ const EDITABLE_SETTINGS = new Set([
   'owner_notify_enabled',
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
+  'notif_reply_to', 'clicksend_starter_from', 'clicksend_starter_dismissed',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
   // origin_lock_mode and cf_origin_secret are deliberately absent: they can

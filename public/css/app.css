@@ -1624,6 +1624,21 @@ table.roster th.is-today .rs-day { color: var(--accent); }
 .backup-status.is-warn svg { color: var(--amber); }
 .backup-status.is-loading { color: var(--muted); }
 
+/* ---------- starter-sender nag ---------- */
+/* Amber, not red: nothing is broken, it just isn't finished. It sits inside the
+   SMS card next to the field that resolves it, and disappears by itself the
+   moment the owner puts their own sender in. */
+.starter-nag {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 13px 15px; border-radius: 12px; font-size: 13.5px; line-height: 1.6;
+  border: 1px solid rgba(245, 179, 66, 0.45);
+  background: rgba(245, 179, 66, 0.08); color: var(--text-2);
+}
+.starter-nag b { color: var(--text); }
+.starter-nag > svg { flex: 0 0 auto; margin-top: 3px; color: var(--amber); }
+.starter-nag-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 11px; }
+.starter-nag-actions .btn { font-size: 12.5px; padding: 7px 12px; }
+
 /* ---------- Cloudflare panel ---------- */
 /* Two independent switches in one card, so each gets its own bordered block —
    without the separation it reads as one setting with a lot of controls. */
