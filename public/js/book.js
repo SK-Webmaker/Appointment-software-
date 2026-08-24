@@ -74,6 +74,89 @@ function poweredHtml() {
   return '<div class="powered">Powered by <b>◆ Kairo</b></div>';
 }
 
+// --- Turnstile -------------------------------------------------------------
+// Cloudflare's stand-in for a CAPTCHA. Most visitors see a box that ticks
+// itself and never has to be touched.
+//
+// The script is fetched only when the business has actually switched this on,
+// so a salon that hasn't gets no third-party request from its booking page at
+// all — which is also why there's no <script> tag in book.html.
+//
+// Everything here fails quietly. A blocked script, a widget that never solves,
+// a customer on a network that can't reach Cloudflare — all of them end with an
+// empty token and the booking still being attempted, because the server also
+// lets bookings through when it can't reach Cloudflare. A lost booking costs
+// the salon more than the spam it would have stopped.
+const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const ts = { script: null, widget: null, token: '', waiters: [] };
+
+function loadTurnstileScript() {
+  if (ts.script) return ts.script;
+  ts.script = new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = TURNSTILE_SRC;
+    el.async = true;
+    el.onload = () => resolve(window.turnstile || null);
+    el.onerror = () => reject(new Error('Turnstile script blocked'));
+    document.head.appendChild(el);
+  });
+  return ts.script;
+}
+
+/** Hand the token to anything already waiting on it, and remember it. */
+function settleTurnstile(token) {
+  ts.token = token || '';
+  ts.waiters.splice(0).forEach((w) => w(ts.token));
+}
+
+function mountTurnstile() {
+  const host = root.querySelector('#bk-turnstile');
+  if (!host || !state.info?.turnstile_site_key) return;
+  ts.widget = null;
+  settleTurnstile('');
+  loadTurnstileScript().then((api) => {
+    if (!api || !host.isConnected) return;
+    ts.widget = api.render(host, {
+      sitekey: state.info.turnstile_site_key,
+      theme: resolveScheme(state.info.brand).mode === 'light' ? 'light' : 'dark',
+      action: 'book',
+      callback: settleTurnstile,
+      // A token is good for five minutes. Someone who leaves the form open
+      // longer than that should get a fresh one rather than a refusal.
+      'expired-callback': () => { settleTurnstile(''); api.reset(ts.widget); },
+      'error-callback': () => { settleTurnstile(''); return true; },
+    });
+  }).catch(() => { settleTurnstile(''); });
+}
+
+/**
+ * The token, waiting a moment if the widget hasn't finished thinking.
+ *
+ * It normally solves within a second of appearing — long before anyone has
+ * typed their phone number — but a fast typist shouldn't be told to complete a
+ * check that is still running. Waiting beats refusing.
+ */
+function turnstileToken({ waitMs = 6000 } = {}) {
+  if (!ts.widget) return Promise.resolve('');
+  if (ts.token) return Promise.resolve(ts.token);
+  return new Promise((resolve) => {
+    const done = (token) => {
+      clearTimeout(timer);
+      ts.waiters = ts.waiters.filter((w) => w !== done);
+      resolve(token || '');
+    };
+    const timer = setTimeout(() => done(''), waitMs);
+    ts.waiters.push(done);
+  });
+}
+
+/** Tokens are single-use, so a failed submit needs a fresh one before retrying. */
+function resetTurnstile() {
+  if (!ts.widget || !window.turnstile) return;
+  settleTurnstile('');
+  try { window.turnstile.reset(ts.widget); } catch { /* widget already gone */ }
+}
+
 /**
  * A way back when the phone refused to hand this page to the browser.
  *
@@ -402,6 +485,7 @@ function renderDetailsStep() {
       <div class="field"><label>Phone *</label><input name="phone" required placeholder="So we can reach you"></div>
       <div class="field"><label>Email</label><input name="email" type="email"></div>
       <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?"></textarea></div>
+      ${state.info.turnstile_site_key ? '<div class="span2" id="bk-turnstile" style="display:flex;justify-content:center"></div>' : ''}
       <div class="span2" style="text-align:right">
         <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} ${depositCents() > 0 ? 'Continue to deposit' : 'Confirm booking'}</button>
       </div>
@@ -410,12 +494,14 @@ function renderDetailsStep() {
     ${poweredHtml()}`;
 
   root.querySelector('#back').onclick = renderTimeStep;
+  mountTurnstile();
   root.querySelector('#bk-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true;
     try {
+      const humanToken = await turnstileToken();
       const res = await getJson('/api/public/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -428,6 +514,7 @@ function renderDetailsStep() {
           start_min: state.slot.start_min,
           notes: fd.get('notes'),
           origin: location.origin,
+          turnstile_token: humanToken,
           client: {
             first_name: fd.get('first_name'), last_name: fd.get('last_name'),
             phone: fd.get('phone'), email: fd.get('email'),
@@ -439,6 +526,7 @@ function renderDetailsStep() {
     } catch (err) {
       root.querySelector('#bk-error').textContent = err.message;
       btn.disabled = false;
+      resetTurnstile(); // the token the server just saw is spent either way
       if (/just taken/i.test(err.message)) setTimeout(renderTimeStep, 1600);
     }
   });

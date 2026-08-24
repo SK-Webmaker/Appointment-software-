@@ -1610,6 +1610,55 @@ table.roster th.is-today .rs-day { color: var(--accent); }
 .shift-choice { display: flex; flex-direction: column; gap: 8px; }
 .shift-choice .confirm-opt { margin-top: 0; }
 
+/* ---------- backups ---------- */
+.backup-status {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 12px 14px; border-radius: 11px; font-size: 13.5px; line-height: 1.55;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text-2);
+}
+.backup-status b { color: var(--text); }
+.backup-status svg { flex: 0 0 auto; margin-top: 2px; }
+.backup-status.is-ok { border-color: rgba(25, 158, 112, 0.4); background: rgba(25, 158, 112, 0.08); }
+.backup-status.is-ok svg { color: var(--green); }
+.backup-status.is-warn { border-color: rgba(245, 179, 66, 0.45); background: rgba(245, 179, 66, 0.09); }
+.backup-status.is-warn svg { color: var(--amber); }
+.backup-status.is-loading { color: var(--muted); }
+
+/* ---------- Cloudflare panel ---------- */
+/* Two independent switches in one card, so each gets its own bordered block —
+   without the separation it reads as one setting with a lot of controls. */
+.edge-block {
+  border: 1px solid var(--border-soft); border-radius: 13px;
+  padding: 15px 16px; background: var(--panel-2);
+}
+.edge-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.edge-head b { font-size: 13.5px; }
+.edge-head .pill {
+  margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); background: var(--panel);
+}
+.edge-head .pill.warn { border-color: rgba(245, 179, 66, 0.5); color: var(--amber); }
+.edge-head .pill.ok { border-color: rgba(25, 158, 112, 0.5); color: var(--green); }
+/* Shown once and never again, so it has to be unmistakably copyable — the
+   value wraps rather than scrolls, because a half-copied secret fails silently. */
+.edge-secret {
+  margin-top: 13px; padding: 13px 15px; border-radius: 11px;
+  border: 1px solid rgba(56, 189, 248, 0.4); background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.edge-secret .kv { display: flex; gap: 10px; align-items: baseline; margin-top: 7px; font-size: 13px; }
+.edge-secret .kv span { flex: 0 0 96px; color: var(--muted); font-size: 12px; }
+.edge-secret code {
+  flex: 1; min-width: 0; word-break: break-all; user-select: all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 8px; color: var(--text);
+}
+.backup-status code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--text); word-break: break-all;
+}
+
 /* ---------- SMS credit ---------- */
 /* Prepaid balance. Neutral while it is healthy, amber when it is worth acting
    on, red once texts have stopped — the colour IS the message, so the owner

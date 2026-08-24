@@ -521,7 +521,11 @@ export function queueRescheduleMessage(apptId, { from = null, channels = '' } = 
 // Delivery
 // ---------------------------------------------------------------------------
 
-export async function sendEmail(to, subject, body, html = '') {
+/**
+ * @param {Array} attachments  [{ filename, content: Buffer }] — used by the
+ *   backup, which posts the salon's own database to the owner's inbox.
+ */
+export async function sendEmail(to, subject, body, html = '', { attachments = [] } = {}) {
   const key = getSetting('resend_api_key');
   const from = getSetting('notif_from_email');
   if (!key || !from) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
@@ -534,6 +538,12 @@ export async function sendEmail(to, subject, body, html = '') {
       subject,
       text: body,               // plain-text fallback for clients that prefer it
       ...(html ? { html } : {}), // branded layout for everyone else
+      ...(attachments.length ? {
+        attachments: attachments.map((a) => ({
+          filename: a.filename,
+          content: Buffer.isBuffer(a.content) ? a.content.toString('base64') : String(a.content),
+        })),
+      } : {}),
     }),
   });
   if (res.ok) return { ok: true, detail: 'Delivered via Resend' };
@@ -719,10 +729,21 @@ export async function processQueue() {
 }
 
 let timer = null;
-export function startScheduler() {
+let onTick = null;
+
+/**
+ * @param {() => Promise<any>} tick  extra work to run each minute — the backup
+ *   check. Injected rather than imported so notify.js does not depend on
+ *   backup.js, which already depends on it.
+ */
+export function startScheduler({ tick = null } = {}) {
+  onTick = tick;
   if (timer) return;
   timer = setInterval(() => {
     processQueue().catch((err) => console.error('notify scheduler:', err.message));
+    // Piggy-backed on the same minute tick rather than a second timer. It costs
+    // one date comparison a minute and does nothing until a backup is due.
+    onTick?.().catch?.((err) => console.error('backup scheduler:', err.message));
   }, 60 * 1000);
   timer.unref?.();
   // deliver anything due at boot too

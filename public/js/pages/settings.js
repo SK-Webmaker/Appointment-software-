@@ -449,6 +449,78 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">Backups</div>
+        <div class="card-sub" style="margin-bottom:16px">Your whole business — every client, appointment,
+          invoice and payment — lives in one file. If the machine it sits on is ever lost, this is what
+          gets it back. A copy is emailed to you so it isn't stored next to the original.</div>
+        <div id="backup-status" class="backup-status is-loading">Checking…</div>
+        <form id="set-backup" style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="backup_email_enabled" ${s.backup_email_enabled !== '0' ? 'checked' : ''} class="chk">
+            <span><b>Email me a backup automatically</b><span class="co-hint">Sent to your business email as a small compressed file.</span></span>
+          </label>
+          <div class="form-grid">
+            <div class="field"><label>How often</label>
+              <select name="backup_frequency" class="nice-select">
+                ${[['daily', 'Every day'], ['weekly', 'Every week'], ['fortnightly', 'Every fortnight']]
+                  .map(([v, l]) => `<option value="${v}" ${(s.backup_frequency || 'weekly') === v ? 'selected' : ''}>${l}</option>`).join('')}
+              </select></div>
+            <div class="field"><label>Send to</label>
+              <input name="backup_email_to" value="${esc(s.backup_email_to || '')}" placeholder="${esc(s.business_email || 'your business email')}"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn primary" type="submit">${icon('check')} Save</button>
+            <button class="btn" type="button" id="backup-now">${icon('send')} Send one now</button>
+            <button class="btn" type="button" id="backup-download">${icon('download')} Download a copy</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cloudflare protection</div>
+        <div class="card-sub" style="margin-bottom:16px">Optional. If your booking link runs through Cloudflare,
+          these two settings make that protection actually count. Leave them alone and nothing changes —
+          Kairo's own limits and checks are on either way.</div>
+
+        <div class="edge-block">
+          <div class="edge-head">
+            <b>Only accept traffic through Cloudflare</b>
+            <span id="edge-mode-pill" class="pill">…</span>
+          </div>
+          <div class="card-sub" style="margin:6px 0 12px">Cloudflare filters bad traffic, but the address underneath
+            stays reachable — anyone who finds it walks straight past the filtering. This makes Kairo refuse
+            anything that didn't come through Cloudflare.</div>
+          <div id="edge-status" class="backup-status is-loading">Checking…</div>
+          <div id="edge-secret-out"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:13px">
+            <button class="btn" type="button" id="edge-secret">${icon('shield')} <span>Generate the secret</span></button>
+            <button class="btn" type="button" id="edge-monitor">${icon('eye')} Watch only</button>
+            <button class="btn" type="button" id="edge-enforce">${icon('lock')} Turn the lock on</button>
+            <button class="btn" type="button" id="edge-off">Turn it off</button>
+          </div>
+        </div>
+
+        <form id="set-turnstile" class="edge-block" style="display:flex;flex-direction:column;gap:13px;margin-top:16px">
+          <div class="edge-head"><b>"I'm not a robot" check on the booking page</b></div>
+          <div class="card-sub" style="margin:-4px 0 2px">Your booking page has no login by design, so anything that
+            finds it can create appointments. This puts Cloudflare's Turnstile check on the form — most customers
+            never have to touch it. Create a free widget at Cloudflare → Turnstile and paste both keys here.</div>
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="turnstile_enabled" ${s.turnstile_enabled === '1' ? 'checked' : ''} class="chk">
+            <span><b>Check visitors before taking a booking</b><span class="co-hint">Only takes effect once both keys below are saved.</span></span>
+          </label>
+          <div class="field"><label>Site key</label>
+            <input name="turnstile_site_key" value="${esc(s.turnstile_site_key || '')}" placeholder="0x4AAAAAAA…">
+            <div class="hint">The public half. Safe to be seen.</div></div>
+          <div class="field"><label>Secret key</label>
+            <input name="turnstile_secret_key" type="password" autocomplete="new-password"
+              placeholder="${s.turnstile_secret_key_set ? 'Saved — leave blank to keep it' : '0x4AAAAAAA…'}">
+            <div class="hint">Stored write-only. Type <b>__clear__</b> to remove it.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save check</button>
+        </form>
+      </div>
+
+      <div class="card">
         <div class="card-title">Locations</div>
         <div class="card-sub" style="margin-bottom:16px">Running more than one branch? Each team member belongs to a location;
           the calendar and booking page get a location picker automatically.</div>
@@ -685,6 +757,156 @@ export async function renderSettings(container) {
     ]);
     loadCredit(true);   // new keys → new account → re-read rather than show the old one
   });
+  // --- Backups -------------------------------------------------------------
+  // The status line is the whole point of the panel: a backup that quietly
+  // stopped working months ago is worse than none, because it is believed.
+  const backupEl = container.querySelector('#backup-status');
+  const paintBackup = (st) => {
+    if (!st) { backupEl.className = 'backup-status is-loading'; backupEl.textContent = 'Checking…'; return; }
+    const when = st.last_at
+      ? new Date(st.last_at).toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+      : null;
+    const size = st.last_bytes ? ` · ${(st.last_bytes / 1024).toFixed(0)} KB` : '';
+    if (!when) {
+      backupEl.className = 'backup-status is-warn';
+      backupEl.innerHTML = `${icon('alert', 15)} <span><b>No backup has been sent yet.</b>
+        Send one now to prove the whole path works before you rely on it.</span>`;
+      return;
+    }
+    backupEl.className = `backup-status ${st.last_ok ? 'is-ok' : 'is-warn'}`;
+    backupEl.innerHTML = st.last_ok
+      ? `${icon('check', 15)} <span><b>Last backup ${esc(when)}</b>${esc(size)} — ${esc(st.last_detail || '')}</span>`
+      : `${icon('alert', 15)} <span><b>Last attempt failed (${esc(when)})</b> — ${esc(st.last_detail || '')}</span>`;
+  };
+  const loadBackup = async () => { try { paintBackup(await api.get('/api/backup/status')); } catch { paintBackup(null); } };
+  loadBackup();
+
+  container.querySelector('#set-backup').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings(e.target, ['backup_email_enabled', 'backup_frequency', 'backup_email_to']);
+    loadBackup();
+  });
+  container.querySelector('#backup-now').onclick = async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const was = btn.innerHTML;
+    btn.innerHTML = 'Sending…';
+    try {
+      const res = await api.post('/api/backup/email', {});
+      toast(res.ok ? res.detail : res.detail, res.ok ? 'ok' : 'err', { ms: res.ok ? 5000 : 9000 });
+      paintBackup(res.status);
+    } catch (err) { toast(err.message, 'err'); }
+    btn.disabled = false; btn.innerHTML = was;
+  };
+  container.querySelector('#backup-download').onclick = () => {
+    // A plain navigation, so the browser's own download handles it — this is a
+    // multi-megabyte file and should never be held in memory to be re-emitted.
+    window.location.href = '/api/backup/download';
+  };
+
+  // --- Cloudflare ----------------------------------------------------------
+  // The whole panel is written around one hazard: turning the lock on while
+  // Cloudflare isn't forwarding the header shuts the owner out of this screen.
+  // So the state is always shown, the counter is the evidence, and the server
+  // refuses Enforce unless the request asking for it already came through.
+  const edgeEl = container.querySelector('#edge-status');
+  const edgePill = container.querySelector('#edge-mode-pill');
+  const edgeOut = container.querySelector('#edge-secret-out');
+  const MODE_LABEL = { off: 'Off', monitor: 'Watching', enforce: 'On' };
+
+  const paintEdge = (st) => {
+    if (!st) {
+      edgePill.textContent = '—';
+      edgeEl.className = 'backup-status is-warn';
+      edgeEl.textContent = "Couldn't read the current state.";
+      return;
+    }
+    const o = st.origin;
+    edgePill.textContent = MODE_LABEL[o.mode] || o.mode;
+    edgePill.className = `pill ${o.mode === 'enforce' ? 'ok' : o.mode === 'monitor' ? 'warn' : ''}`;
+    container.querySelector('#edge-secret').querySelector('span').textContent =
+      o.secret_set ? 'Generate a new secret' : 'Generate the secret';
+
+    const seen = o.direct_count
+      ? `<b>${o.direct_count} request${o.direct_count === 1 ? '' : 's'}</b> reached Kairo without going through Cloudflare`
+        + (o.direct_last_path ? ` (last: <code>${esc(o.direct_last_path)}</code>)` : '')
+      : 'Nothing has reached Kairo directly since the count started';
+
+    if (o.forced_by_env) {
+      edgeEl.className = 'backup-status is-warn';
+      edgeEl.innerHTML = `${icon('alert', 15)} <span><b>Overridden on the server.</b>
+        KAIRO_ORIGIN_LOCK is set in this service's environment, so it wins over anything chosen here.</span>`;
+      return;
+    }
+    if (!o.secret_set) {
+      edgeEl.className = 'backup-status is-loading';
+      edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Not set up.</b> Generate the secret below, put it into
+        Cloudflare as a request header, then come back and switch this to <b>Watch only</b>.</span>`;
+      return;
+    }
+    if (o.mode === 'off') {
+      edgeEl.className = 'backup-status is-loading';
+      edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Secret ready, lock off.</b> ${seen}. Switch to
+        <b>Watch only</b> to start checking without blocking anything.</span>`;
+      return;
+    }
+    if (o.mode === 'monitor') {
+      edgeEl.className = `backup-status ${o.direct_count ? 'is-warn' : 'is-ok'}`;
+      edgeEl.innerHTML = `${icon(o.direct_count ? 'alert' : 'check', 15)} <span><b>Watching, not blocking.</b> ${seen}.
+        ${o.direct_count
+          ? 'Fix the Cloudflare rule first — turning the lock on now would block that traffic too.'
+          : 'That is what you want to see before turning the lock on.'}</span>`;
+      return;
+    }
+    edgeEl.className = 'backup-status is-ok';
+    edgeEl.innerHTML = `${icon('lock', 15)} <span><b>Lock on.</b> Anything that doesn't come through Cloudflare
+      is refused. ${seen} — those were turned away.</span>`;
+  };
+
+  const loadEdge = async () => { try { paintEdge(await api.get('/api/edge/status')); } catch { paintEdge(null); } };
+  loadEdge();
+
+  const setLock = async (mode) => {
+    try {
+      paintEdge({ origin: await api.post('/api/edge/lock-mode', { mode }), turnstile: {} });
+      toast(mode === 'off' ? 'Lock turned off' : mode === 'monitor' ? 'Watching — nothing is being blocked' : 'Lock on', 'ok');
+      loadEdge();
+    } catch (err) { toast(err.message, 'err', { ms: 11000 }); }
+  };
+  container.querySelector('#edge-off').onclick = () => setLock('off');
+  container.querySelector('#edge-monitor').onclick = () => setLock('monitor');
+  container.querySelector('#edge-enforce').onclick = () => setLock('enforce');
+
+  container.querySelector('#edge-secret').onclick = async () => {
+    const ok = await confirmDialog('Generate a new secret?',
+      'The old one stops working straight away. Cloudflare has to be updated with the new value, '
+      + 'or its traffic will start arriving unrecognised.',
+      { okText: 'Generate' });
+    if (!ok) return;
+    try {
+      const res = await api.post('/api/edge/origin-secret', {});
+      // Shown once, in full, because it has to be pasted into Cloudflare — and
+      // never readable again afterwards.
+      edgeOut.innerHTML = `
+        <div class="edge-secret">
+          <div class="card-sub" style="margin-bottom:8px"><b>Copy this now — it isn't shown again.</b>
+            In Cloudflare: <b>Rules → Transform Rules → Modify Request Header → Create rule</b>,
+            apply to all incoming requests, and set a static header:</div>
+          <div class="kv"><span>Header name</span><code>${esc(res.header)}</code></div>
+          <div class="kv"><span>Value</span><code>${esc(res.secret)}</code></div>
+          ${res.stepped_down ? `<div class="hint" style="margin-top:8px">The lock was moved back to
+            <b>Watch only</b> so the old value can't shut you out while you update Cloudflare.</div>` : ''}
+        </div>`;
+      loadEdge();
+    } catch (err) { toast(err.message, 'err'); }
+  };
+
+  container.querySelector('#set-turnstile').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings(e.target, ['turnstile_enabled', 'turnstile_site_key', 'turnstile_secret_key']);
+    loadEdge();
+  });
+
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['stripe_secret_key', 'deposit_type', 'deposit_value', 'currency_code']);

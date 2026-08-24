@@ -188,12 +188,81 @@ Every write endpoint validates its JSON body against an explicit schema
   connections to the app's **own origin** (`script-src 'self'`, `connect-src
   'self'`, `object-src 'none'`) — so even if an XSS payload slipped past output
   escaping, the browser refuses to run injected `<script>` or exfiltrate data to
-  another host. Framing is blocked (`frame-ancestors 'none'`).
+  another host. Framing is blocked (`frame-ancestors 'none'`). The single
+  exception is Turnstile, described in §6b: one named host, on the booking page
+  only, only while that feature is on.
 - **Headers:** every response sets `Content-Security-Policy`,
   `Strict-Transport-Security` (force HTTPS for 2 years),
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: same-origin`, and a `Permissions-Policy` that disables
   camera, microphone, geolocation and payment APIs the app never uses.
+
+## 6b. The Cloudflare layer — optional, off by default (v1.35)
+
+Everything above runs inside Kairo. If the business's booking link also goes
+through Cloudflare, two settings make that outer layer actually count. Both are
+**off on every install** and stay off until an owner deliberately turns them on;
+nothing here changes how an existing deployment behaves.
+
+**Origin lock** (`src/origin.js`). Cloudflare's WAF, bot filtering and DDoS
+absorption only apply to traffic that goes *through* Cloudflare. The host
+underneath stays publicly reachable — and on Render its `*.onrender.com`
+address **cannot be turned off** — so anyone who finds it walks past all of it.
+A security layer that can be stepped around is decoration. So Cloudflare
+attaches a shared secret to every request it forwards (a Transform Rule adding
+an `x-kairo-origin` header) and Kairo refuses requests that arrive without it,
+in `server.js`, before routing and before a single query runs.
+
+Three modes, because switching this on carelessly locks an owner out of their
+own salon:
+
+| Mode | Behaviour |
+|---|---|
+| `off` | Default. Nothing is checked. |
+| `monitor` | Nothing is blocked; requests arriving without the header are **counted**, with the last path and time. This is how you find out whether enforcing is safe *before* it bites. |
+| `enforce` | Anything without the header gets a bare `403`. |
+
+Four things stop this becoming a foot-gun:
+
+- **Enforce is only reachable from a request that already carries the header** —
+  proof that Cloudflare is forwarding correctly for the browser asking, and
+  therefore that Settings will still be reachable afterwards.
+- **Regenerating the secret steps `enforce` back to `monitor`** automatically,
+  since Cloudflare is still sending the old value.
+- **The health-check path (`/api/version`) is never blocked**, or Render would
+  believe the service is down and restart it in a loop.
+- **`KAIRO_ORIGIN_LOCK=off` in the host's environment overrides the database**
+  on the next restart — the way back in that doesn't go through the app. On
+  Render: Environment → add the variable → the service restarts itself.
+
+The secret is 24 random bytes (base64url), compared with
+`crypto.timingSafeEqual`, shown in full exactly once when minted, and
+write-only from then on like every other secret in Settings. Direct hits are
+counted rather than logged line by line — a scan would otherwise fill the log
+with thousands of identical lines.
+
+**Turnstile on the public booking form** (`src/turnstile.js`). The booking page
+is the one door deliberately left unlocked: no login, and by design it creates
+real appointments in a real diary. The rate limiter caps it at 12 bookings per
+5 minutes from one address, which stops one machine and does nothing against a
+hundred. Turnstile is Cloudflare's CAPTCHA replacement — free, unlimited, works
+on any site whether or not the domain is proxied through Cloudflare, and
+usually invisible to the visitor. `POST /api/public/book` verifies the token
+server-side against `siteverify` before anything else happens.
+
+It **deliberately fails open**. If Cloudflare is unreachable, a real customer
+trying to book at 9pm matters more than the spam that might slip through in the
+same window — the rate limiter is still there, and a lost booking is a lost
+client. The decision is logged, so it is never silent.
+
+The widget is Cloudflare-hosted, so the booking page needs to name that one
+origin in its CSP. That exception is as narrow as the policy can express: one
+named host, added to `script-src`/`frame-src` on the **booking document only**,
+and only while the feature is switched on. The admin app is never affected, and
+turning Turnstile off returns the booking page to same-origin-only on the next
+request. `connect-src` stays `'self'` throughout. When the feature is off the
+page makes **no third-party request at all** — the script tag is added by
+`book.js` only once a site key arrives, so it isn't in `book.html`.
 
 ## 7. What the deployer must still do
 
@@ -204,7 +273,10 @@ Software can't do these for you:
   automatically.)
 - **Change the default admin password** on first sign-in (or set
   `KAIRO_ADMIN_PASSWORD` at first boot).
-- **Back up `data/kairo.db`** nightly — it is the entire business.
+- **Back up `data/kairo.db`** — Settings → Backups will email a compressed
+  snapshot daily, weekly or fortnightly, and the status line says when the last
+  one actually arrived. A backup that quietly stopped working months ago is
+  worse than none, because it is believed.
 - **Open Stripe/Twilio/Resend accounts in the business's own name** so money and
   messages flow through their accounts, not yours.
 
@@ -267,6 +339,39 @@ dedicated 27-check security suite) and the load test include, specifically:
   ever incurred without the owner explicitly opting in.
 - A contended booking slot is won by exactly one request (39 of 40 concurrent
   duplicate bookings correctly rejected) — no overbooking under load.
+
+**The Cloudflare layer** (129 checks, v1.35 — 89 on the server, 40 in a real
+browser). Turnstile is exercised against Cloudflare's live `siteverify` using
+its published always-pass / always-fail / already-spent test keys, so the
+network path and the credentials are under test, not just a reading of the
+docs:
+
+- A fresh install has both features **off**, with no site key reaching the
+  booking page and no outside request made by it at all.
+- The lock **refuses to move to `monitor` with no secret** and **refuses
+  `enforce` from a request that didn't come through Cloudflare**, saying why;
+  the mode is unchanged after each refusal. `origin_lock_mode` and
+  `cf_origin_secret` are rejected by the general settings endpoint entirely.
+- In `monitor`, a header-less request goes through and is **counted with its
+  path**; one carrying the header is not. In `enforce`, a header-less request
+  gets a bare `403` (API *and* booking page) while `/api/version` still answers
+  — and one carrying the header still works.
+- Minting a new secret **steps `enforce` down to `monitor`**, the old secret
+  stops working, and nobody is shut out while Cloudflare is updated.
+- With the lock on, a restart carrying `KAIRO_ORIGIN_LOCK=off` **restores
+  access** and says on screen that the server is overriding the setting.
+- Ticking the Turnstile box with **no keys does not switch it on**; the secret
+  key is never returned to the browser.
+- A booking with no token is refused with wording a customer can act on; a
+  token Cloudflare accepts books through; one it rejects doesn't, **without the
+  message mentioning Cloudflare, tokens or Turnstile**; an already-spent one is
+  reported as expired. With Cloudflare unreachable the booking is **allowed**
+  and recorded as skipped.
+- In the browser: the widget loads and renders **under the shipped CSP**, is
+  handed the business's own site key and brand theme, its token reaches the
+  booking request, and a failed booking asks for a fresh one. A script from any
+  **other** host is still refused. The relaxed policy appears on the booking
+  page only — never the admin app.
 - 0 HTTP errors across ~30,000 requests at 800–2,300 req/s per endpoint.
 - **Malformed input can't crash the server**: a request with a broken
   `Cookie` header (a classic denial-of-service vector) is handled gracefully

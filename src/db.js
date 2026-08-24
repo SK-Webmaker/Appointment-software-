@@ -10,7 +10,7 @@ import { dateStr } from './util.js';
 import { VERSION } from './version.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const DATA_DIR = process.env.KAIRO_DATA_DIR || path.join(ROOT, 'data');
+export const DATA_DIR = process.env.KAIRO_DATA_DIR || path.join(ROOT, 'data');
 const DB_PATH = process.env.KAIRO_DB_PATH || path.join(DATA_DIR, 'kairo.db');
 
 /**
@@ -329,6 +329,8 @@ export function setSetting(key, value) {
 export const SECRET_SETTINGS = new Set([
   'session_secret', 'resend_api_key', 'stripe_secret_key',
   'twilio_token', 'clicksend_api_key', 'telnyx_api_key',
+  // Shared with Cloudflare, never with the browser.
+  'cf_origin_secret', 'turnstile_secret_key',
 ]);
 
 export function getSettings() {
@@ -439,6 +441,23 @@ const DEFAULT_SETTINGS = {
   // SMS costs money per message — off by default so a new deployment never
   // sends a paid text without the owner opting in.
   sms_notifications_enabled: '0',
+  // A copy of the whole business, emailed off the machine it lives on. On by
+  // default and weekly: losing the disk is the one failure a salon cannot
+  // recover from, and a backup nobody switched on is no backup at all. Costs
+  // one email a week and sends nothing until an email provider is configured.
+  backup_email_enabled: '1',
+  backup_frequency: 'weekly',      // off | daily | weekly | fortnightly
+  backup_email_to: '',             // blank = the business email
+  // The edge. Both off until deliberately configured — a half-set-up origin
+  // lock that started enforcing would shut the owner out of their own salon.
+  origin_lock_mode: 'off',         // off | monitor | enforce
+  cf_origin_secret: '',
+  origin_direct_count: '0',
+  origin_direct_last_at: '',
+  origin_direct_last_path: '',
+  turnstile_enabled: '0',
+  turnstile_site_key: '',
+  turnstile_secret_key: '',
   // Online deposits via Stripe Checkout
   stripe_secret_key: '',
   currency_code: 'usd',

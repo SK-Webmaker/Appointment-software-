@@ -25,6 +25,11 @@ import {
   createPosCheckout, verifyPosSession, createStripeRefund,
 } from './stripe.js';
 import { VERSION } from './version.js';
+import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
+import {
+  originStatus, resetOriginCounter, newOriginSecret, requestCameViaEdge, ORIGIN_HEADER, MODES,
+} from './origin.js';
+import { snapshot, emailBackup, backupStatus } from './backup.js';
 // Shared with the calendar and the booking page (served from public/js), so all
 // three answer "is this date open, and between what times" identically.
 import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public/js/hours.js';
@@ -392,6 +397,11 @@ const EDITABLE_SETTINGS = new Set([
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'sms_notifications_enabled', 'public_url',
+  'backup_email_enabled', 'backup_frequency', 'backup_email_to',
+  // origin_lock_mode and cf_origin_secret are deliberately absent: they can
+  // lock the owner out of this very screen, so they move only through the
+  // guarded /api/edge routes below.
+  'turnstile_enabled', 'turnstile_site_key', 'turnstile_secret_key',
   'resend_api_key',
   'sms_provider',
   'clicksend_username', 'clicksend_api_key', 'clicksend_from',
@@ -1820,6 +1830,90 @@ route('GET', '/api/sms/balance', async ({ query }) => {
   return { ...data, cached: false };
 });
 
+// ---------------------------------------------------------------------------
+// Backups — getting a copy off this machine
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/backup/status', async () => backupStatus());
+
+// ---------------------------------------------------------------------------
+// The edge — making a Cloudflare layer actually apply, and keeping bots off
+// the one form that is deliberately open
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/edge/status', async ({ req }) => ({
+  origin: originStatus(req),
+  turnstile: { enabled: turnstileEnabled(), site_key: turnstileSiteKey() },
+}));
+
+/**
+ * Move the lock, with the one check that stops it being a foot-gun.
+ *
+ * Enforce is only allowed if the request asking for it arrived carrying the
+ * header — proof that Cloudflare is already forwarding correctly for this
+ * browser, and therefore that the owner will still be able to reach Settings
+ * afterwards to turn it back off. Without that check the switch is a coin flip
+ * with the business's own admin access on it.
+ */
+route('POST', '/api/edge/lock-mode', async ({ req }) => {
+  const wanted = String((await readJson(req))?.mode || '').trim();
+  if (!MODES.includes(wanted)) throw httpError(400, 'Choose Off, Monitor or Enforce.');
+  if (wanted !== 'off' && !getSetting('cf_origin_secret', '')) {
+    throw httpError(400, 'Generate the Cloudflare secret first — there is nothing to check against yet.');
+  }
+  if (wanted === 'enforce' && !requestCameViaEdge(req)) {
+    throw httpError(400,
+      'This request did not come through Cloudflare, so enforcing would lock you out of Settings. '
+      + 'Add the header rule in Cloudflare, reload this page through your own domain, and try again.');
+  }
+  setSetting('origin_lock_mode', wanted);
+  return originStatus(req);
+});
+
+/**
+ * Mint the shared secret here rather than asking the owner to invent one.
+ * Returned in full exactly once — it has to be pasted into Cloudflare — and
+ * write-only from then on, like every other secret in Settings.
+ */
+route('POST', '/api/edge/origin-secret', async ({ req }) => {
+  const secret = newOriginSecret();
+  setSetting('cf_origin_secret', secret);
+  resetOriginCounter();
+  // Cloudflare is still sending the old value, so enforcing against the new one
+  // would shut the door on everybody including the owner. Step back to monitor
+  // and let them enforce again once the rule is updated.
+  const steppedDown = getSetting('origin_lock_mode', 'off') === 'enforce';
+  if (steppedDown) setSetting('origin_lock_mode', 'monitor');
+  return {
+    secret, header: ORIGIN_HEADER, stepped_down: steppedDown,
+    status: originStatus(req),
+    instructions: `In Cloudflare → Rules → Transform Rules → Modify Request Header, add a static header `
+      + `"${ORIGIN_HEADER}" with this value to every request. Then set the lock to Monitor here, watch `
+      + `for a day, and only switch to Enforce once nothing is arriving directly.`,
+  };
+});
+
+/** Start the count again — after fixing the Cloudflare rule, before enforcing. */
+route('POST', '/api/edge/reset-counter', async ({ req }) => { resetOriginCounter(); return originStatus(req); });
+
+/** Download a snapshot right now. Nothing to configure, nothing to remember. */
+route('GET', '/api/backup/download', async ({ res }) => {
+  const snap = snapshot();
+  res.writeHead(200, {
+    'Content-Type': 'application/gzip',
+    'Content-Disposition': `attachment; filename="${snap.filename}"`,
+    'Content-Length': snap.buffer.length,
+    'Cache-Control': 'no-store',
+  });
+  res.end(snap.buffer);
+});
+
+/** Send one now, so the owner can see the whole path works before trusting it. */
+route('POST', '/api/backup/email', async () => {
+  const out = await emailBackup({ manual: true });
+  return { ...out, status: backupStatus() };
+});
+
 route('POST', '/api/messages/:id/retry', async ({ params }) => {
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(params.id);
   if (!msg) throw httpError(404, 'Message not found');
@@ -2594,6 +2688,9 @@ route('GET', '/api/public/info', async () => {
         };
       }),
     locations: db.prepare('SELECT id, name, address, phone FROM locations WHERE active = 1 ORDER BY id').all(),
+    // The public half of the Turnstile pair — meant for the browser. Empty
+    // when it is off, which is how the page knows not to render the widget.
+    turnstile_site_key: turnstileSiteKey(),
     deposit: {
       enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
       type: getSetting('deposit_type', 'none'),
@@ -2725,9 +2822,13 @@ route('POST', '/api/public/book', async ({ req }) => {
   const b = checkBody(await readJson(req), {
     service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
-    notes: s.str(1000), origin: s.str(300),
+    notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
+  // Before anything is written: is there a person on the other end? Checked
+  // here rather than in the browser, because a bot never runs the browser half.
+  const human = await verifyTurnstile(b.turnstile_token, clientIp(req));
+  if (!human.ok) throw httpError(400, human.detail);
   // One or more services; the first is the appointment's primary service.
   const svc = resolveServices(b, { required: true });
   const service = svc.services[0];

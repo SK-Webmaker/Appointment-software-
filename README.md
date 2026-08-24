@@ -483,6 +483,42 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### 💾 Backups that prove themselves (v1.35.0)
+Settings → **Backups**. The whole business — every client, appointment, invoice
+and payment — is one file. If the machine it sits on is ever lost, this is what
+gets it back, which is why the copy is **emailed off the machine** rather than
+kept next to the original.
+
+- A consistent snapshot (`VACUUM INTO`, safe to take while people are booking),
+  gzipped — a 6.4 MB database goes out as about 190 KB.
+- Daily, weekly or fortnightly, or **Send one now** to watch the whole path work
+  before trusting it. **Download a copy** saves it straight to the owner's
+  machine.
+- A status line saying when the last one actually arrived and how big it was —
+  the point of the panel, because a backup that quietly stopped working months
+  ago is worse than none, since it is believed.
+
+### 🛡 Cloudflare protection — optional, off by default (v1.35.0)
+Settings → **Cloudflare protection**. For businesses whose booking link runs
+through Cloudflare. Both switches ship off and nothing changes until an owner
+turns them on. Full detail in [SECURITY.md §6b](SECURITY.md).
+
+- **Only accept traffic through Cloudflare.** Cloudflare filters bad traffic,
+  but the host underneath stays reachable — on Render its `*.onrender.com`
+  address can't even be turned off — so anyone who finds it walks past all of
+  it. Kairo can refuse anything that didn't arrive through Cloudflare.
+  **Watch-only** mode counts what's arriving directly so the owner can see it's
+  safe *before* enforcing, and the app **won't let them enforce** from a
+  browser that isn't already coming through — the mistake that would otherwise
+  lock them out of their own Settings. `KAIRO_ORIGIN_LOCK=off` in the host's
+  environment is the way back in regardless.
+- **"I'm not a robot" check on the booking page.** The booking page has no login
+  by design, so anything that finds it can create appointments. Cloudflare
+  Turnstile (free, unlimited) verifies visitors server-side before a booking is
+  taken; most customers never touch it. Paste the two keys and tick the box. If
+  Cloudflare is ever unreachable it **lets the booking through** — a lost client
+  costs more than the spam.
+
 ### 🗓 Extra touches
 - "Add to calendar" (.ics) button on the customer confirmation screen
 - Online bookings marked ⚡ on the calendar

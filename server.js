@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { bootstrap, getSetting, storageWarning } from './src/db.js';
 import { handleApi } from './src/api.js';
 import { startScheduler } from './src/notify.js';
+import { runScheduledBackup } from './src/backup.js';
+import { checkOrigin } from './src/origin.js';
+import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -15,7 +18,9 @@ const PORT = Number(process.env.PORT || 4820);
 const HOST = process.env.HOST || '0.0.0.0';
 
 bootstrap();
-startScheduler(); // delivers queued confirmations & reminders every minute
+// Delivers queued confirmations & reminders every minute, and posts a backup
+// off the machine when one is due.
+startScheduler({ tick: runScheduledBackup });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -78,16 +83,49 @@ const CSP = [
   "form-action 'self'",
 ].join('; ');
 
+/**
+ * Turnstile is the one thing that needs an outside origin, so it gets the
+ * narrowest exception this policy can express: one named host, on the booking
+ * document alone, and only while the business has the feature switched on. Turn
+ * it off and the header goes back to same-origin-only on the next request.
+ */
+const TURNSTILE_CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com",
+  "connect-src 'self'",
+  "form-action 'self'",
+].join('; ');
+
+const BOOKING_DOCS = new Set(['/book', '/book.html']);
+const cspFor = (pathname) =>
+  (BOOKING_DOCS.has(pathname) && turnstileEnabled() ? TURNSTILE_CSP : CSP);
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Content-Security-Policy', CSP);
+  res.setHeader('Content-Security-Policy', cspFor(url.pathname));
   // Tell browsers to stick to HTTPS for two years (ignored on plain HTTP).
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
   // The app needs none of these device features — deny them outright.
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+
+  // Did this come through Cloudflare? In enforce mode, anything that reached
+  // the origin directly is refused here — before routing, before the session is
+  // read, before a single query runs.
+  const origin = checkOrigin(req, url.pathname);
+  if (origin.block) {
+    res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Forbidden' }));
+    return;
+  }
 
   if (url.pathname.startsWith('/api/')) {
     await handleApi(req, res, url.pathname, url.searchParams);
