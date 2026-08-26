@@ -39,6 +39,7 @@ import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
 import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
+import { opportunities } from './opportunities.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -2644,6 +2645,21 @@ route('GET', '/api/dashboard', async ({ query }) => {
     bookings_by_hour: bookingsByHour,
     top_services: topServices,
   };
+});
+
+/**
+ * What the diary is quietly costing the business — empty time, regulars who
+ * have drifted, cancellations nobody backfilled, the weekly dead spot, and the
+ * few clients behind most of the no-shows.
+ *
+ * Read-only by design. This route computes and returns; it never sends a
+ * message, changes an appointment or spends a cent, which is what makes it
+ * safe to show a live salon before any of the automation exists.
+ */
+route('GET', '/api/opportunities', async ({ query }) => {
+  const asked = query.get('date');
+  const today = isDateStr(asked) ? asked : bizToday();
+  return opportunities({ today, hoursFor, staffWindow, blocksFor });
 });
 
 // ---------------------------------------------------------------------------

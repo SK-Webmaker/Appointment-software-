@@ -321,7 +321,13 @@ async function drawDashboard(container) {
       <div class="card-title">Top services</div>
       <div class="card-sub">Most booked over the last 30 days</div>
       <div class="mt" id="top-services"></div>
-    </div>`;
+    </div>
+
+    <!-- Deliberately last: the day's work comes first, and this is the part
+         you scroll to when you have a minute to think rather than a client
+         waiting. Loaded separately so a slow analysis never holds up the
+         panel the owner actually opens the app for. -->
+    <div id="opps-slot"></div>`;
 
   // --- Quick actions -------------------------------------------------------
   container.querySelector('#qa-new').onclick = async () => {
@@ -489,4 +495,90 @@ async function drawDashboard(container) {
         </div>
       </div>`).join('');
   }
+
+  drawOpportunities(container.querySelector('#opps-slot'));
+}
+
+// --- Opportunities ---------------------------------------------------------
+// The money the diary is quietly leaving on the table. Read-only for now: every
+// action here navigates to the screen where the owner can decide, rather than
+// doing something on their behalf. Sending comes later, behind their own hand.
+
+const OPP_TINT = {
+  empty_time: 'tint-cyan',
+  unfilled_cancellations: 'tint-amber',
+  overdue_regulars: 'tint-violet',
+  weakest_period: 'tint-green',
+  repeat_no_shows: 'tint-amber',
+};
+const OPP_ICON = {
+  empty_time: 'clock',
+  unfilled_cancellations: 'alert',
+  overdue_regulars: 'reply',
+  weakest_period: 'bar',
+  repeat_no_shows: 'card',
+};
+
+/**
+ * Fetched after the panel is already on screen, and failing silently.
+ *
+ * This is the "when you have a minute" section — if the analysis is slow or
+ * errors, the owner should still get the day's run instantly and simply not
+ * see this, rather than watch the whole dashboard wait on it.
+ */
+async function drawOpportunities(slot) {
+  if (!slot) return;
+  let data;
+  try { data = await api.get('/api/opportunities'); } catch { return; }
+  if (!data?.findings?.length) return;
+
+  slot.innerHTML = `
+    <div class="opps">
+      <div class="opps-head">
+        <span class="oh-icon">${icon('zap', 19)}</span>
+        <div style="min-width:0">
+          <h2>Opportunities</h2>
+          <div class="oh-sub">${data.findings.length} thing${data.findings.length === 1 ? '' : 's'} worth
+            a look. Worked out from your own diary — nothing has been sent.</div>
+        </div>
+        ${data.total_worth_cents > 0 ? `
+        <div class="oh-money">
+          <div class="v">${money(data.total_worth_cents)}</div>
+          <div class="l">recoverable, on these findings</div>
+        </div>` : ''}
+      </div>
+      <div class="opp-list">
+        ${data.findings.map((f) => `
+          <div class="opp">
+            <span class="op-icon ${OPP_TINT[f.kind] || 'tint-cyan'}">${icon(OPP_ICON[f.kind] || 'zap', 17)}</span>
+            <div class="op-body">
+              <div class="op-kicker">${esc(f.kicker)}</div>
+              <div class="op-title">${esc(f.title)}</div>
+              <div class="op-why">${f.detail}</div>
+              ${f.evidence.length ? `
+                <div class="op-ev">
+                  ${f.evidence.map((e) => `
+                    <span class="ev">
+                      <b>${esc(e.label)}</b>
+                      <span>${esc(e.sub || '')}</span>
+                    </span>`).join('')}
+                </div>` : ''}
+              <div class="op-actions">
+                ${f.actions.map((a) => `
+                  <a class="btn" href="${esc(a.href)}">${icon(a.icon || 'chevR', 14)} ${esc(a.label)}</a>`).join('')}
+              </div>
+            </div>
+            ${f.worth_cents > 0 ? `
+              <div class="op-worth">
+                <div class="v">${money(f.worth_cents)}</div>
+                <div class="l">${esc(f.worth_label)}</div>
+              </div>` : ''}
+          </div>`).join('')}
+      </div>
+      <div class="opps-foot">${icon('alert', 14)}
+        <span>These are worked out from bookings that already exist, and valued at the
+        <b>cheapest</b> service that fits — so the real number is usually higher, never lower.
+        Nothing here messages anyone.</span>
+      </div>
+    </div>`;
 }

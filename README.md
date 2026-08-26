@@ -483,6 +483,38 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### ⚡ Opportunities — what the diary is quietly costing (v1.37.0)
+At the bottom of the dashboard, below the day's work, because it's what you read
+when you have a minute rather than a client waiting. A revenue figure is a
+report — it tells an owner what already happened. This looks for the money that
+*didn't*, and could still be recovered:
+
+- **Empty time** — gaps between existing bookings in the next few days, valued
+  at what could fill them
+- **Cancelled slots nobody took** — already-earned money handed back, and the
+  most recoverable thing on the list
+- **Regulars who are late coming back** — judged against **their own** rhythm,
+  not one number for everybody: someone who genuinely comes quarterly isn't
+  chased at 8 weeks, and someone who came fortnightly and vanished is caught
+- **The weekly dead spot** — the weekday-and-hours block that's consistently
+  emptiest
+- **The few clients behind most no-shows** — so the owner can deal with three
+  people instead of putting a deposit on everyone
+
+Three rules keep it trustworthy, because a panel like this is believed or
+ignored and there's no middle:
+
+1. **It never guesses.** Not enough history means the finding is withheld, not
+   softened. A three-week-old salon is told nothing about its Tuesdays.
+2. **It values low.** A gap is worth the *cheapest* service that fits, and only
+   between real bookings — a nine-hour hole is a rostering question, not lost
+   revenue. Money already lost (no-shows) is shown but deliberately **excluded**
+   from the headline, because it isn't on the table this week.
+3. **It shows the working.** Every finding carries the rows that produced it.
+
+**Read-only.** Nothing on this panel sends a message, changes an appointment or
+spends a cent — every button just opens the screen where the owner decides.
+
 ### ✉️ Replies that reach a human (v1.36.0)
 Settings → Notifications → **Replies go to**. Messages are *sent* from a domain
 that exists only to send and has no inbox behind it. Without a reply-to, a client

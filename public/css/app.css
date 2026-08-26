@@ -1624,6 +1624,80 @@ table.roster th.is-today .rs-day { color: var(--accent); }
 .backup-status.is-warn svg { color: var(--amber); }
 .backup-status.is-loading { color: var(--muted); }
 
+/* ---------- Opportunities ---------- */
+/* Sits at the very bottom of the dashboard on purpose. The day's work is what
+   the owner opens the app for; this is what they read when they have a minute,
+   so it must be findable without competing with the timeline above it. */
+.opps { margin-top: 30px; }
+.opps-head {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 18px 20px; border-radius: 15px; margin-bottom: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 62%);
+}
+.opps-head .oh-icon {
+  width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent);
+}
+.opps-head h2 { font-size: 17px; letter-spacing: -0.02em; }
+.opps-head .oh-sub { color: var(--text-2); font-size: 13px; margin-top: 3px; }
+.opps-head .oh-money { margin-left: auto; text-align: right; }
+.opps-head .oh-money .v {
+  font-size: 27px; font-weight: 800; letter-spacing: -0.03em; color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.opps-head .oh-money .l { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+
+.opp-list { display: flex; flex-direction: column; gap: 11px; }
+.opp {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.opp > .op-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+.opp .op-body { flex: 1; min-width: 0; }
+.opp .op-kicker {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 5px;
+}
+.opp .op-title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
+.opp .op-why { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-top: 5px; }
+.opp .op-why b { color: var(--text); }
+/* The working, shown rather than claimed — an owner who can check the numbers
+   is one who keeps reading them. */
+.opp .op-ev { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.opp .op-ev .ev {
+  display: inline-flex; flex-direction: column; gap: 1px;
+  padding: 6px 11px; border-radius: 9px; font-size: 11.5px; line-height: 1.35;
+  background: var(--panel-2); border: 1px solid var(--border-soft);
+}
+.opp .op-ev .ev b { font-size: 12px; color: var(--text); font-weight: 600; }
+.opp .op-ev .ev span { color: var(--muted); }
+.opp .op-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.opp .op-actions .btn { font-size: 12.5px; padding: 7px 13px; }
+.opp .op-worth { flex: none; text-align: right; padding-left: 6px; }
+.opp .op-worth .v {
+  font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--green);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.opp .op-worth .l { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+.opps-foot {
+  display: flex; gap: 9px; align-items: flex-start; margin-top: 13px;
+  font-size: 12px; color: var(--muted); line-height: 1.6; padding: 0 4px;
+}
+.opps-foot b { color: var(--text-2); }
+.opps-foot svg { flex: 0 0 auto; margin-top: 2px; }
+
+@media (max-width: 720px) {
+  .opps-head .oh-money { margin-left: 0; text-align: left; width: 100%; }
+  /* The value moves up beside the icon so the card still leads with what it is
+     worth, without squeezing the sentence into a column two words wide. */
+  .opp { flex-wrap: wrap; }
+  .opp .op-worth { order: -1; margin-left: auto; text-align: right; padding-left: 0; }
+  .opp .op-body { flex-basis: 100%; }
+}
+
 /* ---------- starter-sender nag ---------- */
 /* Amber, not red: nothing is broken, it just isn't finished. It sits inside the
    SMS card next to the field that resolves it, and disappears by itself the
