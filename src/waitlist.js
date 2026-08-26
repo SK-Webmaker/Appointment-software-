@@ -49,6 +49,12 @@ const parseDays = (csv) => new Set(
  * person, the day of the week, and whether the date is inside the window they
  * asked about. A waitlist that offers a Tuesday 9am to somebody who only ever
  * wanted Saturdays is worse than no waitlist, because they learn to ignore it.
+ *
+ * A client who has opted out of offers is excluded even though being on the
+ * waitlist is a request to be told. One switch that means "stop messaging me
+ * about openings" is easier for an owner to reason about than two rules with an
+ * exception between them — and if that is wrong for a particular person, taking
+ * them off the waitlist says so plainly.
  */
 export function matchesFor({ date, staffId, serviceId, limit = 5 }) {
   const dow = weekdayOf(date);
@@ -57,7 +63,7 @@ export function matchesFor({ date, staffId, serviceId, limit = 5 }) {
      FROM waitlist w
      JOIN clients c ON c.id = w.client_id
      LEFT JOIN services sv ON sv.id = w.service_id
-     WHERE w.status = 'waiting'
+     WHERE w.status = 'waiting' AND c.marketing_opt_out = 0
      ORDER BY w.created_at`
   ).all();
 

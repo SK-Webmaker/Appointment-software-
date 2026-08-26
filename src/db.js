@@ -319,6 +319,14 @@ function migrate() {
   // back exactly as it stood rather than guessing at 'booked'.
   addColumn('appointments', 'prev_status', "prev_status TEXT NOT NULL DEFAULT ''");
 
+  // "Don't send me offers." Separate from having no email address, and separate
+  // from the cooldown, because it is the client's decision rather than a timing
+  // rule — it never expires and no campaign may override it. Confirmations,
+  // reminders and receipts still go: those are the appointment they booked, not
+  // marketing, and a client who opted out of offers still needs to know what
+  // time to turn up.
+  addColumn('clients', 'marketing_opt_out', 'marketing_opt_out INTEGER NOT NULL DEFAULT 0');
+
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
   // guarded by "no rows yet" and only touches appointments that have a service.

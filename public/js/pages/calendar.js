@@ -116,7 +116,24 @@ async function loadAndDraw(container) {
   cal.rosters = Object.fromEntries(
     Object.entries(rosters.rosters || {}).map(([id, rows]) => [id, buildRoster(rows)])
   );
-  cal.appointments = appts;
+  // A cancelled booking is not a booking, so it comes off the diary entirely.
+  //
+  // Everything else already treats it that way — the booking page offers the
+  // slot again the moment it's cancelled, and every availability query excludes
+  // it. Leaving a faded ghost on the calendar was worse than useless: it sat on
+  // top of the freed time and swallowed the click the owner would use to put
+  // somebody else in it, it kept stealing a lane so the replacement booking
+  // rendered half-width, and a cancelled late booking held the whole day's grid
+  // stretched down to 8pm.
+  //
+  // Nothing is lost. The appointment stays on the client's own page under past
+  // visits, in Messages, and in the Opportunities panel's count of
+  // cancellations nobody filled. Undo still restores it, because that puts the
+  // status back and this reads the status.
+  //
+  // No-shows deliberately stay: the client didn't turn up, but the time was
+  // still spent, and the owner needs to see that it was.
+  cal.appointments = appts.filter((a) => a.status !== 'cancelled');
   // Blocks are stored per staff member (or for everyone when staff_id is null),
   // so apply the staff filter here rather than in the query.
   cal.blocks = cal.staffFilter ? blocks.filter((b) => !b.staff_id || b.staff_id === cal.staffFilter) : blocks;

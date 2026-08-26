@@ -329,7 +329,17 @@ async function openClientDetail(id, onChanged) {
               <span class="cell-sub" style="margin-left:8px">${fmtDate(i.issue_date)}</span></div>
             ${statusChip(i.status)}
             <div class="money" style="width:90px;text-align:right;font-weight:600">${money(Math.round((i.subtotal_cents - i.discount_cents) * (1 + i.tax_rate / 100)))}</div>
-          </a>`).join('')}` : ''}`,
+          </a>`).join('')}` : ''}
+      <div class="mini-label" style="margin:18px 0 6px">Marketing</div>
+      <label class="opt-out">
+        <input type="checkbox" class="chk" id="cd-optout" ${c.marketing_opt_out ? 'checked' : ''}>
+        <span>
+          <b>Don't send them offers</b>
+          <span>Keeps them out of every campaign and off waitlist offers, permanently.
+            Their confirmations, reminders and receipts still go — those are the appointment
+            they booked, not marketing.</span>
+        </span>
+      </label>`,
     footer: `
       <div class="spacer"></div>
       <button class="btn" id="cd-edit">${icon('edit')} Edit</button>
@@ -337,6 +347,20 @@ async function openClientDetail(id, onChanged) {
   });
 
   m.querySelectorAll('[data-nav-away]').forEach((el) => el.addEventListener('click', () => m.close()));
+  // Saved on the spot rather than behind an Edit → Save round trip. Somebody
+  // has just said "stop sending me those" — honouring it should take one tap,
+  // and it should not be possible to tick this and then forget to save.
+  m.querySelector('#cd-optout').onchange = async (e) => {
+    const box = e.currentTarget;
+    try {
+      await api.put(`/api/clients/${c.id}/marketing`, { opt_out: box.checked });
+      toast(box.checked ? `${c.first_name} won't be sent offers` : `${c.first_name} can be sent offers again`);
+      onChanged?.();
+    } catch (err) {
+      box.checked = !box.checked;   // it didn't happen, so don't show that it did
+      toast(err.message, 'err');
+    }
+  };
   m.querySelector('#cd-edit').onclick = () => { m.close(); openClientModal({ client: c, onSaved: onChanged }); };
   m.querySelector('#cd-book').onclick = async () => {
     m.close();

@@ -2,7 +2,7 @@
 // are, what's been taken), client growth & retention, then the longer-range
 // trends. Built to answer "what do I need to know right now?" first.
 import { api } from '../api.js';
-import { esc, icon, money, fmtTime, fmtTimeShort, fmtDate, statusChip, initials, avatarColor, todayStr, openModal, toast } from '../ui.js';
+import { esc, icon, money, fmtTime, fmtTimeShort, fmtDate, statusChip, initials, avatarColor, todayStr, openModal, toast, confirmDialog } from '../ui.js';
 import { barChart } from '../charts.js';
 import { state } from '../app.js';
 
@@ -605,7 +605,11 @@ async function drawOpportunities(slot) {
 const CH_LABEL = { email: 'Email', sms: 'SMS', both: 'Email + SMS' };
 
 async function openCampaign(campaign) {
-  let state_ = { channel: 'email', data: null, chosen: new Set() };
+  // `audience` is the new axis: the same freed slot can go to the handful of
+  // people it actually suits, or to the whole list as a long shot. They are not
+  // the same message and they are not the same decision, so the switch is the
+  // first thing in the dialog rather than a checkbox buried under the draft.
+  let state_ = { channel: 'email', audience: 'matched', data: null, chosen: new Set() };
 
   const m = openModal({
     title: 'Draft a message',
@@ -618,7 +622,9 @@ async function openCampaign(campaign) {
   m.querySelector('[data-cancel]').onclick = () => m.close();
 
   const load = async () => {
-    const q = new URLSearchParams({ kind: campaign.kind, channel: state_.channel });
+    const q = new URLSearchParams({
+      kind: campaign.kind, channel: state_.channel, audience: state_.audience,
+    });
     if (campaign.weekday !== undefined) q.set('weekday', campaign.weekday);
     if (campaign.when) q.set('when', campaign.when);
     if (campaign.times) q.set('times', campaign.times);
@@ -630,6 +636,9 @@ async function openCampaign(campaign) {
       el.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
       return;
     }
+    // The server decides the channel for a broadcast — it forces email — so
+    // take its answer rather than keeping a stale SMS selection on screen.
+    state_.channel = state_.data.channel;
     // Everyone reachable starts ticked; anyone inside the cooldown cannot be.
     state_.chosen = new Set(state_.data.recipients.filter((r) => !r.cooling_off).map((r) => r.id));
     paint();
@@ -644,15 +653,32 @@ async function openCampaign(campaign) {
     const live = d.recipients.filter((r) => !r.cooling_off);
     const cooling = d.recipients.filter((r) => r.cooling_off);
     const picked = live.filter((r) => state_.chosen.has(r.id));
+    const broadcast = d.audience === 'everyone';
+    const sizes = d.audience_sizes || {};
 
     body.innerHTML = `
       <div class="cmp-grid">
         <div class="cmp-left">
-          <div class="cmp-label">Send by</div>
+          <div class="cmp-label">Send to</div>
+          <div class="seg" id="cmp-aud">
+            <button type="button" data-aud="matched" class="${broadcast ? '' : 'sel'}">
+              Best matches${sizes.matched !== undefined ? ` · ${sizes.matched}` : ''}</button>
+            <button type="button" data-aud="everyone" class="${broadcast ? 'sel' : ''}">
+              Everyone${sizes.everyone !== undefined ? ` · ${sizes.everyone}` : ''}</button>
+          </div>
+          <div class="cmp-aud-note">${broadcast
+            ? `Your whole client list. Nobody has been picked out, so the message says
+               <b>first come, first served</b> — and it goes by email, because two hundred
+               texts is real money for a long shot and this one is free.`
+            : `The people this actually suits: due for a visit, and they've booked this day
+               of the week before. Fewer names, far more replies.`}</div>
+
+          ${broadcast ? '' : `
+          <div class="cmp-label" style="margin-top:16px">Send by</div>
           <div class="seg" id="cmp-seg">
             ${['email', 'sms', 'both'].map((c) => `
               <button type="button" data-ch="${c}" class="${state_.channel === c ? 'sel' : ''}">${CH_LABEL[c]}</button>`).join('')}
-          </div>
+          </div>`}
           <div class="cmp-cost ${state_.channel === 'email' ? 'free' : 'paid'}" id="cmp-cost"></div>
 
           <div class="cmp-label" style="margin-top:16px">Message</div>
@@ -710,7 +736,17 @@ async function openCampaign(campaign) {
     };
     recost();
 
-    m.querySelector('#cmp-seg').onclick = (e) => {
+    m.querySelector('#cmp-aud').onclick = (e) => {
+      const b = e.target.closest('[data-aud]');
+      if (!b || b.dataset.aud === state_.audience) return;
+      state_.audience = b.dataset.aud;
+      // The draft is rewritten for the new audience, so any edits the owner
+      // made are about to be replaced. Only worth asking if they made some.
+      load();
+    };
+    // Absent on a broadcast — that one is email or nothing.
+    const seg = m.querySelector('#cmp-seg');
+    if (seg) seg.onclick = (e) => {
       const b = e.target.closest('[data-ch]');
       if (!b) return;
       state_.channel = b.dataset.ch;
@@ -736,6 +772,19 @@ async function openCampaign(campaign) {
 
   m.querySelector('#cmp-send').onclick = async (e) => {
     const btn = e.currentTarget;
+    // A speed bump proportionate to the size of the thing. Twelve messages is a
+    // normal afternoon; a hundred and ninety is a decision, and it cannot be
+    // taken back once the queue starts.
+    const n = state_.chosen.size;
+    if (n >= 30) {
+      const okBig = await confirmDialog(
+        `Email ${n} clients?`,
+        `This goes out to <b>${n} people</b> at once, and there's no unsending it.`
+        + ` Emails cost you nothing, but your inbox may get busy — that's the point.`,
+        { okText: `Send to ${n}` },
+      );
+      if (!okBig) return;
+    }
     btn.disabled = true;
     const was = btn.innerHTML;
     btn.innerHTML = 'Sending…';

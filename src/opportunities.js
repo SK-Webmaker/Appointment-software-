@@ -46,6 +46,17 @@ function clock(min) {
 }
 
 /**
+ * The one or two times to name in a message.
+ *
+ * De-duplicated before it is trimmed to two, because two stylists free at nine
+ * o'clock is one time as far as a customer reading it is concerned, and a
+ * salon sending out "we've had 8am or 8am come free" looks broken in a way that
+ * costs it the booking. Trimming first would give "8am or 8am"; deduping first
+ * gives "8am or 10am", which is the useful answer.
+ */
+const namedTimes = (rows) => [...new Set(rows.map((r) => clock(r.start_min)))].slice(0, 2).join(' or ');
+
+/**
  * Every finding has the same shape, so the dashboard can render a list it does
  * not have to understand and new kinds can be added without touching the UI.
  *
@@ -166,7 +177,7 @@ function emptyTime({ today, horizonDays = 3, hoursFor, staffWindow, blocksFor })
       kind: 'gap_offer',
       weekday: weekdayOf(real[0].date),
       when: real[0].date === addDays(today, 1) ? 'tomorrow' : `on ${DAY_NAMES[weekdayOf(real[0].date)]}`,
-      times: soonest.slice(0, 2).map((g) => clock(g.start_min)).join(' or '),
+      times: namedTimes(soonest),
     },
   });
 }
@@ -334,7 +345,7 @@ function unfilledCancellations({ today, staffWindow }) {
       kind: 'gap_offer',
       weekday: weekdayOf(stillOpen[0].date),
       when: stillOpen[0].date === addDays(today, 1) ? 'tomorrow' : `on ${DAY_NAMES[weekdayOf(stillOpen[0].date)]}`,
-      times: stillOpen.slice(0, 2).map((c) => clock(c.start_min)).join(' or '),
+      times: namedTimes(stillOpen),
     },
   });
 }

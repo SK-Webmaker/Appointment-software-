@@ -40,7 +40,7 @@ import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
-import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, lastSent, recentlyMessagedSet } from './campaigns.js';
+import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent, recentlyMessagedSet, setMarketingOptOut } from './campaigns.js';
 import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
   waitlistEnabled, autofillEnabled,
@@ -2706,18 +2706,33 @@ route('GET', '/api/campaigns/preview', async ({ query }) => {
     times: str(query.get('times') || '', 60),
   };
 
-  const recipients = recipientsFor(kind, { today, channel, context });
-  const draft = draftFor(kind, context);
+  // Who it goes to. A broadcast is always email — two hundred texts is real
+  // money for a long shot, and the whole reason this option is safe to offer is
+  // that it costs nothing.
+  const audience = AUDIENCES.has(query.get('audience')) ? query.get('audience') : 'matched';
+  const chan = audience === 'everyone' ? 'email' : channel;
+
+  const recipients = recipientsFor(kind, { today, channel: chan, context, audience });
+  const draft = draftFor(kind, context, audience);
   const selectable = recipients.filter((r) => !r.cooling_off);
   return {
     kind,
-    channel,
+    channel: chan,
+    audience,
     draft,
     recipients,
-    cost: messageCost(draft.body, channel, selectable),
+    cost: messageCost(draft.body, chan, selectable),
     cooldown_days: Number(getSetting('marketing_cooldown_days', '14')) || 0,
     booking_url: publicUrl() ? `${publicUrl()}/book` : '',
     last_sent: lastSent(kind),
+    // So the switch between the two can show what each would reach without the
+    // owner having to click it to find out.
+    audience_sizes: {
+      matched: recipientsFor(kind, { today, channel, context, audience: 'matched' })
+        .filter((r) => !r.cooling_off).length,
+      everyone: recipientsFor(kind, { today, channel: 'email', context, audience: 'everyone' })
+        .filter((r) => !r.cooling_off).length,
+    },
   };
 });
 
@@ -2786,13 +2801,30 @@ route('POST', '/api/campaigns/send', async ({ req }) => {
     subject: b.subject || '', body: b.body, renderEmail,
   });
   processQueue().catch(() => {});
+  const aside = [
+    out.skipped ? `${out.skipped} skipped (messaged recently)` : '',
+    out.refused ? `${out.refused} opted out` : '',
+  ].filter(Boolean).join(', ');
   return {
     ...out,
     detail: out.queued
-      ? `${out.queued} message${out.queued === 1 ? '' : 's'} queued`
-        + (out.skipped ? `, ${out.skipped} skipped (messaged recently)` : '')
-      : 'Nobody was messaged — everyone selected has heard from you recently.',
+      ? `${out.queued} message${out.queued === 1 ? '' : 's'} queued${aside ? `, ${aside}` : ''}`
+      : 'Nobody was messaged — everyone selected has heard from you recently or opted out.',
   };
+});
+
+/**
+ * "Don't send me offers."
+ *
+ * Its own route rather than a field on the client form, because it is the one
+ * thing on a client record that is the client's decision rather than the
+ * owner's note-keeping, and it should be as easy to honour as it was to ask.
+ */
+route('PUT', '/api/clients/:id/marketing', async ({ params, req }) => {
+  const b = checkBody(await readJson(req), { opt_out: s.bool() });
+  const optOut = Boolean(b.opt_out);
+  if (!setMarketingOptOut(params.id, optOut)) throw httpError(404, 'No such client');
+  return { ok: true, opt_out: optOut };
 });
 
 // ---------------------------------------------------------------------------

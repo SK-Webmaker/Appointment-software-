@@ -27,6 +27,25 @@ import { db, getSetting, publicUrl } from './db.js';
  *  these are not — only these are rate-limited by the cooldown. */
 export const CAMPAIGN_KINDS = new Set(['gap_offer', 'rebook_nudge']);
 
+/**
+ * Who a campaign goes to.
+ *
+ *   matched  — the people the finding was actually about: due for a visit, and
+ *              proven to book that day of the week. A handful of names, high
+ *              hit rate, worth a text.
+ *   everyone — the whole client list. A long shot rather than a targeted
+ *              offer, and the right tool for exactly one job: a slot came free
+ *              at short notice and filling it with anybody beats an empty
+ *              chair. Two hundred emails cost nothing and one reply pays for
+ *              the afternoon.
+ *
+ * They are separate because the message has to be written differently. "It's
+ * yours if you want it" is true when twelve people get it and a lie when two
+ * hundred do — the broadcast has to say first come, first served or the owner
+ * spends the evening apologising to whoever replied second.
+ */
+export const AUDIENCES = new Set(['matched', 'everyone']);
+
 /** Everything that counts as "we contacted this client for marketing", for the
  *  cooldown. Waitlist offers are included even though they are not a campaign
  *  the owner sends — one client with one phone does not care which feature
@@ -71,6 +90,19 @@ function recentlyMessaged() {
        AND substr(created_at, 1, 10) >= ?`
   ).all(...COOLED_KINDS, cutoff);
   return new Set(rows.map((r) => r.client_id));
+}
+
+/**
+ * Clients who have asked not to be sent offers.
+ *
+ * Checked everywhere a campaign is built AND again when it is sent, for the
+ * same reason the cooldown is: the list on screen may be an hour old, and
+ * "sorry, that was a stale tab" is not an answer anybody accepts about a
+ * message they explicitly asked not to receive.
+ */
+function optedOut() {
+  const rows = db.prepare('SELECT id FROM clients WHERE marketing_opt_out = 1').all();
+  return new Set(rows.map((r) => r.id));
 }
 
 /** Contactable on the chosen channel — an address we could actually reach. */
@@ -119,10 +151,34 @@ const bookingLink = () => (publicUrl() ? `${publicUrl()}/book` : '');
  * exclamation marks, no "Dear valued customer". {first_name} is substituted
  * per recipient at send time so the owner can see the shape while editing.
  */
-export function draftFor(kind, context = {}) {
+export function draftFor(kind, context = {}, audience = 'matched') {
   const biz = getSetting('business_name', 'us');
   const link = bookingLink();
   const linkLine = link ? `\n\nBook here: ${link}` : '';
+
+  // Going to the whole list, so the words change: nobody has been singled out,
+  // it cannot be promised to any one of them, and the people receiving it did
+  // not ask to hear about open slots — so it says how to stop.
+  if (audience === 'everyone') {
+    const when = context.when || 'this week';
+    const times = context.times || '';
+    if (kind === 'gap_offer') {
+      return {
+        subject: `${times ? `${times} ` : 'A time '}just came free ${when}`,
+        body: `Hi {first_name}, quick one — we've had ${times ? `${times} ` : 'a time '}come free ${when}`
+          + ` and thought we'd put it out to everyone rather than let it sit empty.`
+          + `\n\nFirst to book gets it.${linkLine}`
+          + `\n\n${biz}`
+          + `\n\nDon't want these? Reply and we'll take you off the list.`,
+      };
+    }
+    return {
+      subject: `A few spaces left at ${biz}`,
+      body: `Hi {first_name}, we've got room in the diary ${when} if you've been meaning to get in.${linkLine}`
+        + `\n\n${biz}`
+        + `\n\nDon't want these? Reply and we'll take you off the list.`,
+    };
+  }
 
   if (kind === 'gap_offer') {
     const when = context.when || 'tomorrow';
@@ -242,13 +298,48 @@ function cadence(dates) {
  * which is the difference between a tool they trust with their client list and
  * one they use once.
  */
-export function recipientsFor(kind, { today, channel = 'both', context = {} } = {}) {
+export function recipientsFor(kind, { today, channel = 'both', context = {}, audience = 'matched' } = {}) {
   const history = visitHistory(today);
   const skip = recentlyMessaged();
+  const off = optedOut();
   const booked = new Set(db.prepare(
     `SELECT DISTINCT client_id FROM appointments
      WHERE date > ? AND status IN ('booked','confirmed') AND client_id IS NOT NULL`
   ).all(today).map((r) => r.client_id));
+
+  // The whole list, rather than the people the finding was about.
+  //
+  // Deliberately not filtered on cadence or weekday: the entire point is that
+  // an empty chair this afternoon is worth offering to somebody who has been in
+  // once, or who is in the book and has never booked at all. The two exclusions
+  // that remain are the ones that would be wrong to ignore — a client already
+  // coming in doesn't need telling a slot is free, and a client who opted out
+  // asked not to hear from us.
+  if (audience === 'everyone') {
+    const rows = db.prepare(
+      `SELECT id, first_name, last_name, email, phone FROM clients
+       ORDER BY first_name COLLATE NOCASE, last_name COLLATE NOCASE`
+    ).all();
+    const out = [];
+    for (const c of rows) {
+      if (off.has(c.id)) continue;
+      if (booked.has(c.id)) continue;
+      if (!reachable(c, channel)) continue;
+      const dates = history.get(c.id) || [];
+      const why = dates.length
+        ? `${dates.length} visit${dates.length === 1 ? '' : 's'} · last in `
+          + `${Math.max(1, Math.round(daysBetween(dates[dates.length - 1], today) / 7))} wks ago`
+        : 'On your list · no visits yet';
+      out.push({ ...c, why, cooling_off: skip.has(c.id) });
+    }
+    // Best customers first, so if the owner does trim the list by hand they are
+    // trimming from the bottom.
+    out.sort((a, b) => {
+      if (a.cooling_off !== b.cooling_off) return a.cooling_off ? 1 : -1;
+      return (history.get(b.id)?.length || 0) - (history.get(a.id)?.length || 0);
+    });
+    return out;
+  }
 
   const out = [];
   for (const [clientId, dates] of history) {
@@ -279,6 +370,7 @@ export function recipientsFor(kind, { today, channel = 'both', context = {} } = 
       continue;
     }
 
+    if (off.has(clientId)) continue;
     if (!reachable(c, channel)) continue;
     if (skip.has(clientId)) {
       out.push({ ...c, why, cooling_off: true });   // shown, but not selectable
@@ -322,12 +414,16 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
   if (!body.trim()) throw new Error('The message is empty');
 
   const skip = recentlyMessaged();
+  const off = optedOut();
   const ins = insMessage();
   const now = localStamp();
   const biz = getSetting('business_name', '');
-  let queued = 0, skipped = 0;
+  let queued = 0, skipped = 0, refused = 0;
 
   for (const id of clientIds) {
+    // Counted apart from `skipped`, because the two mean different things to
+    // the owner: skipped is "not yet", refused is "never, they asked".
+    if (off.has(id)) { refused++; continue; }
     if (skip.has(id)) { skipped++; continue; }
     const c = db.prepare('SELECT id, first_name, last_name, email, phone FROM clients WHERE id = ?').get(id);
     if (!c) { skipped++; continue; }
@@ -351,7 +447,13 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
     // the caller sent their id twice.
     skip.add(id);
   }
-  return { queued, skipped };
+  return { queued, skipped, refused };
+}
+
+/** Flip one client's "don't send me offers" switch. */
+export function setMarketingOptOut(clientId, optOut) {
+  return db.prepare('UPDATE clients SET marketing_opt_out = ? WHERE id = ?')
+    .run(optOut ? 1 : 0, clientId).changes > 0;
 }
 
 /** When this kind of campaign last went out, so the panel can say so. */
