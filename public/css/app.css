@@ -1770,6 +1770,52 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   .cmp-people { max-height: 240px; }
 }
 
+/* ---------- the walkthrough ---------- */
+/* A dimmed page with one thing cut out of it. The cut-out is a giant box-shadow
+   rather than an overlay with a hole, so it follows the target exactly and
+   costs nothing to move. */
+.tour-layer { position: fixed; inset: 0; z-index: 300; pointer-events: none; }
+.tour-hole {
+  position: fixed; border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(4, 8, 15, 0.74);
+  border: 2px solid var(--accent);
+  transition: top .22s, left .22s, width .22s, height .22s;
+}
+.tour-pop {
+  position: fixed; pointer-events: auto;
+  background: var(--bg-raise); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px; box-shadow: 0 18px 44px rgba(0,0,0,.5);
+  transition: top .22s, left .22s;
+}
+.tour-pop .tp-step {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+}
+.tour-pop .tp-title { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; }
+.tour-pop .tp-body { font-size: 13px; line-height: 1.6; color: var(--text-2); margin-top: 6px; }
+.tour-pop .tp-foot { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+.tour-pop .tp-foot .btn { font-size: 12.5px; padding: 7px 13px; }
+.tour-pop .tp-foot [data-next] { margin-left: auto; }
+
+/* ---------- "put it on your phone" ---------- */
+.wiz-install { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0 4px; text-align: left; }
+.wiz-install .wi-col {
+  border: 1px solid var(--border); border-radius: 13px; padding: 14px 16px; background: var(--panel);
+}
+.wiz-install .wi-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 700; color: var(--text); margin-bottom: 10px;
+}
+.wiz-install .wi-head svg { color: var(--accent); }
+.wiz-install ol { margin: 0; padding-left: 19px; }
+.wiz-install li { font-size: 12.5px; line-height: 1.55; color: var(--text-2); margin-bottom: 8px; }
+.wiz-install li b { color: var(--text); }
+.wiz-install li svg { vertical-align: -2px; margin: 0 1px; }
+.wiz-install li span { display: block; color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+@media (max-width: 640px) {
+  .wiz-install { grid-template-columns: 1fr; }
+}
+
 /* ---------- starter-sender nag ---------- */
 /* Amber, not red: nothing is broken, it just isn't finished. It sits inside the
    SMS card next to the field that resolves it, and disappears by itself the

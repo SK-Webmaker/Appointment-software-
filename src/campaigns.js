@@ -27,6 +27,12 @@ import { db, getSetting, publicUrl } from './db.js';
  *  these are not — only these are rate-limited by the cooldown. */
 export const CAMPAIGN_KINDS = new Set(['gap_offer', 'rebook_nudge']);
 
+/** Everything that counts as "we contacted this client for marketing", for the
+ *  cooldown. Waitlist offers are included even though they are not a campaign
+ *  the owner sends — one client with one phone does not care which feature
+ *  messaged them. */
+const COOLED_KINDS = [...CAMPAIGN_KINDS, 'waitlist_offer'];
+
 const COOLDOWN_DEFAULT = 14;
 const cooldownDays = () => {
   const n = Number(getSetting('marketing_cooldown_days', String(COOLDOWN_DEFAULT)));
@@ -53,15 +59,17 @@ function clock(min) {
  * and two "just for you" messages in a morning is how a salon's regulars start
  * ignoring them.
  */
+export function recentlyMessagedSet() { return recentlyMessaged(); }
+
 function recentlyMessaged() {
   const days = cooldownDays();
   if (!days) return new Set();
   const cutoff = addDays(new Date().toISOString().slice(0, 10), -days);
   const rows = db.prepare(
     `SELECT DISTINCT client_id FROM messages
-     WHERE client_id IS NOT NULL AND kind IN (${[...CAMPAIGN_KINDS].map(() => '?').join(',')})
+     WHERE client_id IS NOT NULL AND kind IN (${COOLED_KINDS.map(() => '?').join(',')})
        AND substr(created_at, 1, 10) >= ?`
-  ).all(...CAMPAIGN_KINDS, cutoff);
+  ).all(...COOLED_KINDS, cutoff);
   return new Set(rows.map((r) => r.client_id));
 }
 

@@ -484,6 +484,40 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">Waitlist &amp; automatic filling</div>
+        <div class="card-sub" style="margin-bottom:16px">A cancellation is money you already earned and
+          handed back — and the client who cancelled wanted that time, so somebody else probably does too.
+          Let customers put their name down, and Kairo can offer a freed slot the moment it happens.</div>
+        <div id="wl-status" class="backup-status is-loading">Checking…</div>
+        <form id="set-waitlist" style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="waitlist_enabled" ${s.waitlist_enabled === '1' ? 'checked' : ''} class="chk">
+            <span><b>Let customers join a waitlist</b><span class="co-hint">Adds "put me on the waitlist" to your
+              booking page when their time isn't free. Nothing is sent — the list just builds up.</span></span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="waitlist_autofill" ${s.waitlist_autofill === '1' ? 'checked' : ''} class="chk">
+            <span><b>Offer a cancelled slot automatically</b><span class="co-hint">The one thing Kairo does without
+              asking you first — because a Saturday that frees up at 8pm on Thursday is worth far more than the same
+              slot offered on Friday lunchtime, and you'll be cutting hair. Off unless you turn it on.</span></span>
+          </label>
+          <div class="form-grid">
+            <div class="field"><label>Send offers by</label>
+              <select name="waitlist_channel" class="nice-select">
+                ${[['email', 'Email — free'], ['sms', 'SMS — costs credit, but gets read'], ['both', 'Email + SMS']]
+                  .map(([v, l]) => `<option value="${v}" ${(s.waitlist_channel || 'email') === v ? 'selected' : ''}>${l}</option>`).join('')}
+              </select></div>
+            <div class="field"><label>How many people per slot</label>
+              <select name="waitlist_max_offers" class="nice-select">
+                ${[1, 3, 5, 10].map((n) => `<option value="${n}" ${String(s.waitlist_max_offers || '5') === String(n) ? 'selected' : ''}>${n === 1 ? 'Just the first' : `First ${n}`}</option>`).join('')}
+              </select>
+              <div class="hint">First to book gets it. Nobody else is told it's gone.</div></div>
+          </div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save waitlist</button>
+        </form>
+      </div>
+
+      <div class="card">
         <div class="card-title">Backups</div>
         <div class="card-sub" style="margin-bottom:16px">Your whole business — every client, appointment,
           invoice and payment — lives in one file. If the machine it sits on is ever lost, this is what
@@ -511,6 +545,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
+      ${s.operator_mode !== '1' ? '' : `
       <div class="card">
         <div class="card-title">Cloudflare protection</div>
         <div class="card-sub" style="margin-bottom:16px">Optional. If your booking link runs through Cloudflare,
@@ -553,7 +588,7 @@ export async function renderSettings(container) {
             <div class="hint">Stored write-only. Type <b>__clear__</b> to remove it.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save check</button>
         </form>
-      </div>
+      </div>`}
 
       <div class="card">
         <div class="card-title">Locations</div>
@@ -582,6 +617,7 @@ export async function renderSettings(container) {
           <div class="card-title" style="font-size:13.5px">Guided setup</div>
           <div class="card-sub" style="margin-bottom:12px">Re-run the step-by-step setup wizard to adjust your details, hours and branding.</div>
           <button class="btn" id="rerun-setup">${icon('zap')} Re-run setup wizard</button>
+          <button class="btn" id="rerun-tour">${icon('grid')} Show me around again</button>
         </div>
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Demo data</div>
@@ -807,6 +843,53 @@ export async function renderSettings(container) {
     // refreshed state.settings, so the redraw reflects the server's answer.
     if (starterNag && state.settings.clicksend_starter_active !== '1') renderSettings(container);
   });
+  // The tour can always be taken again — an owner who skipped it on day one
+  // often wants it in week two, and hunting for a hidden setting is not how
+  // they will find it.
+  const tourBtn = container.querySelector('#rerun-tour');
+  if (tourBtn) {
+    tourBtn.onclick = async () => {
+      const { runTour } = await import('../tour.js');
+      location.hash = '#/dashboard';
+      setTimeout(() => runTour({ force: true }), 600);
+    };
+  }
+
+  // --- Waitlist ------------------------------------------------------------
+  // The status line matters more than the switches: an owner who turned
+  // auto-fill on months ago should be able to see at a glance whether it has
+  // ever actually done anything.
+  const wlEl = container.querySelector('#wl-status');
+  const paintWaitlist = (d) => {
+    if (!d) { wlEl.className = 'backup-status is-warn'; wlEl.textContent = "Couldn't read the waitlist."; return; }
+    const { waiting, offered, offers_sent_30d: sent } = d.stats;
+    if (!d.enabled) {
+      wlEl.className = 'backup-status is-loading';
+      wlEl.innerHTML = `${icon('clock', 15)} <span><b>Off.</b> Customers can't join a waitlist yet, so there
+        is nobody to offer a cancelled slot to.</span>`;
+      return;
+    }
+    if (!waiting && !offered) {
+      wlEl.className = 'backup-status is-loading';
+      wlEl.innerHTML = `${icon('users', 15)} <span><b>On, and nobody has joined yet.</b> The option shows on
+        your booking page when the time someone wants isn't free.</span>`;
+      return;
+    }
+    wlEl.className = 'backup-status is-ok';
+    wlEl.innerHTML = `${icon('check', 15)} <span><b>${waiting} waiting</b>${offered ? `, ${offered} already offered something` : ''}.
+      ${d.autofill
+        ? `${sent} offer${sent === 1 ? '' : 's'} sent in the last 30 days.`
+        : '<b>Automatic offers are off</b> — the list is building, but nothing goes out.'}</span>`;
+  };
+  const loadWaitlist = async () => { try { paintWaitlist(await api.get('/api/waitlist')); } catch { paintWaitlist(null); } };
+  loadWaitlist();
+
+  container.querySelector('#set-waitlist').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings(e.target, ['waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers']);
+    loadWaitlist();
+  });
+
   // --- Backups -------------------------------------------------------------
   // The status line is the whole point of the panel: a backup that quietly
   // stopped working months ago is worse than none, because it is believed.
@@ -859,103 +942,109 @@ export async function renderSettings(container) {
   // Cloudflare isn't forwarding the header shuts the owner out of this screen.
   // So the state is always shown, the counter is the evidence, and the server
   // refuses Enforce unless the request asking for it already came through.
-  const edgeEl = container.querySelector('#edge-status');
-  const edgePill = container.querySelector('#edge-mode-pill');
-  const edgeOut = container.querySelector('#edge-secret-out');
-  const MODE_LABEL = { off: 'Off', monitor: 'Watching', enforce: 'On' };
+  // Operator-only. The card is not rendered for a business owner, so none of
+  // this may assume its elements exist — reaching for them unguarded threw and
+  // took the whole Settings page down with it.
+  if (container.querySelector('#edge-status')) {
+    const edgeEl = container.querySelector('#edge-status');
+    const edgePill = container.querySelector('#edge-mode-pill');
+    const edgeOut = container.querySelector('#edge-secret-out');
+    const MODE_LABEL = { off: 'Off', monitor: 'Watching', enforce: 'On' };
 
-  const paintEdge = (st) => {
-    if (!st) {
-      edgePill.textContent = '—';
-      edgeEl.className = 'backup-status is-warn';
-      edgeEl.textContent = "Couldn't read the current state.";
-      return;
-    }
-    const o = st.origin;
-    edgePill.textContent = MODE_LABEL[o.mode] || o.mode;
-    edgePill.className = `pill ${o.mode === 'enforce' ? 'ok' : o.mode === 'monitor' ? 'warn' : ''}`;
-    container.querySelector('#edge-secret').querySelector('span').textContent =
-      o.secret_set ? 'Generate a new secret' : 'Generate the secret';
+    const paintEdge = (st) => {
+      if (!st) {
+        edgePill.textContent = '—';
+        edgeEl.className = 'backup-status is-warn';
+        edgeEl.textContent = "Couldn't read the current state.";
+        return;
+      }
+      const o = st.origin;
+      edgePill.textContent = MODE_LABEL[o.mode] || o.mode;
+      edgePill.className = `pill ${o.mode === 'enforce' ? 'ok' : o.mode === 'monitor' ? 'warn' : ''}`;
+      container.querySelector('#edge-secret').querySelector('span').textContent =
+        o.secret_set ? 'Generate a new secret' : 'Generate the secret';
 
-    const seen = o.direct_count
-      ? `<b>${o.direct_count} request${o.direct_count === 1 ? '' : 's'}</b> reached Kairo without going through Cloudflare`
-        + (o.direct_last_path ? ` (last: <code>${esc(o.direct_last_path)}</code>)` : '')
-      : 'Nothing has reached Kairo directly since the count started';
+      const seen = o.direct_count
+        ? `<b>${o.direct_count} request${o.direct_count === 1 ? '' : 's'}</b> reached Kairo without going through Cloudflare`
+          + (o.direct_last_path ? ` (last: <code>${esc(o.direct_last_path)}</code>)` : '')
+        : 'Nothing has reached Kairo directly since the count started';
 
-    if (o.forced_by_env) {
-      edgeEl.className = 'backup-status is-warn';
-      edgeEl.innerHTML = `${icon('alert', 15)} <span><b>Overridden on the server.</b>
-        KAIRO_ORIGIN_LOCK is set in this service's environment, so it wins over anything chosen here.</span>`;
-      return;
-    }
-    if (!o.secret_set) {
-      edgeEl.className = 'backup-status is-loading';
-      edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Not set up.</b> Generate the secret below, put it into
-        Cloudflare as a request header, then come back and switch this to <b>Watch only</b>.</span>`;
-      return;
-    }
-    if (o.mode === 'off') {
-      edgeEl.className = 'backup-status is-loading';
-      edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Secret ready, lock off.</b> ${seen}. Switch to
-        <b>Watch only</b> to start checking without blocking anything.</span>`;
-      return;
-    }
-    if (o.mode === 'monitor') {
-      edgeEl.className = `backup-status ${o.direct_count ? 'is-warn' : 'is-ok'}`;
-      edgeEl.innerHTML = `${icon(o.direct_count ? 'alert' : 'check', 15)} <span><b>Watching, not blocking.</b> ${seen}.
-        ${o.direct_count
-          ? 'Fix the Cloudflare rule first — turning the lock on now would block that traffic too.'
-          : 'That is what you want to see before turning the lock on.'}</span>`;
-      return;
-    }
-    edgeEl.className = 'backup-status is-ok';
-    edgeEl.innerHTML = `${icon('lock', 15)} <span><b>Lock on.</b> Anything that doesn't come through Cloudflare
-      is refused. ${seen} — those were turned away.</span>`;
-  };
+      if (o.forced_by_env) {
+        edgeEl.className = 'backup-status is-warn';
+        edgeEl.innerHTML = `${icon('alert', 15)} <span><b>Overridden on the server.</b>
+          KAIRO_ORIGIN_LOCK is set in this service's environment, so it wins over anything chosen here.</span>`;
+        return;
+      }
+      if (!o.secret_set) {
+        edgeEl.className = 'backup-status is-loading';
+        edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Not set up.</b> Generate the secret below, put it into
+          Cloudflare as a request header, then come back and switch this to <b>Watch only</b>.</span>`;
+        return;
+      }
+      if (o.mode === 'off') {
+        edgeEl.className = 'backup-status is-loading';
+        edgeEl.innerHTML = `${icon('shield', 15)} <span><b>Secret ready, lock off.</b> ${seen}. Switch to
+          <b>Watch only</b> to start checking without blocking anything.</span>`;
+        return;
+      }
+      if (o.mode === 'monitor') {
+        edgeEl.className = `backup-status ${o.direct_count ? 'is-warn' : 'is-ok'}`;
+        edgeEl.innerHTML = `${icon(o.direct_count ? 'alert' : 'check', 15)} <span><b>Watching, not blocking.</b> ${seen}.
+          ${o.direct_count
+            ? 'Fix the Cloudflare rule first — turning the lock on now would block that traffic too.'
+            : 'That is what you want to see before turning the lock on.'}</span>`;
+        return;
+      }
+      edgeEl.className = 'backup-status is-ok';
+      edgeEl.innerHTML = `${icon('lock', 15)} <span><b>Lock on.</b> Anything that doesn't come through Cloudflare
+        is refused. ${seen} — those were turned away.</span>`;
+    };
 
-  const loadEdge = async () => { try { paintEdge(await api.get('/api/edge/status')); } catch { paintEdge(null); } };
-  loadEdge();
-
-  const setLock = async (mode) => {
-    try {
-      paintEdge({ origin: await api.post('/api/edge/lock-mode', { mode }), turnstile: {} });
-      toast(mode === 'off' ? 'Lock turned off' : mode === 'monitor' ? 'Watching — nothing is being blocked' : 'Lock on', 'ok');
-      loadEdge();
-    } catch (err) { toast(err.message, 'err', { ms: 11000 }); }
-  };
-  container.querySelector('#edge-off').onclick = () => setLock('off');
-  container.querySelector('#edge-monitor').onclick = () => setLock('monitor');
-  container.querySelector('#edge-enforce').onclick = () => setLock('enforce');
-
-  container.querySelector('#edge-secret').onclick = async () => {
-    const ok = await confirmDialog('Generate a new secret?',
-      'The old one stops working straight away. Cloudflare has to be updated with the new value, '
-      + 'or its traffic will start arriving unrecognised.',
-      { okText: 'Generate' });
-    if (!ok) return;
-    try {
-      const res = await api.post('/api/edge/origin-secret', {});
-      // Shown once, in full, because it has to be pasted into Cloudflare — and
-      // never readable again afterwards.
-      edgeOut.innerHTML = `
-        <div class="edge-secret">
-          <div class="card-sub" style="margin-bottom:8px"><b>Copy this now — it isn't shown again.</b>
-            In Cloudflare: <b>Rules → Transform Rules → Modify Request Header → Create rule</b>,
-            apply to all incoming requests, and set a static header:</div>
-          <div class="kv"><span>Header name</span><code>${esc(res.header)}</code></div>
-          <div class="kv"><span>Value</span><code>${esc(res.secret)}</code></div>
-          ${res.stepped_down ? `<div class="hint" style="margin-top:8px">The lock was moved back to
-            <b>Watch only</b> so the old value can't shut you out while you update Cloudflare.</div>` : ''}
-        </div>`;
-      loadEdge();
-    } catch (err) { toast(err.message, 'err'); }
-  };
-
-  container.querySelector('#set-turnstile').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await saveSettings(e.target, ['turnstile_enabled', 'turnstile_site_key', 'turnstile_secret_key']);
+    const loadEdge = async () => { try { paintEdge(await api.get('/api/edge/status')); } catch { paintEdge(null); } };
     loadEdge();
-  });
+
+    const setLock = async (mode) => {
+      try {
+        paintEdge({ origin: await api.post('/api/edge/lock-mode', { mode }), turnstile: {} });
+        toast(mode === 'off' ? 'Lock turned off' : mode === 'monitor' ? 'Watching — nothing is being blocked' : 'Lock on', 'ok');
+        loadEdge();
+      } catch (err) { toast(err.message, 'err', { ms: 11000 }); }
+    };
+    container.querySelector('#edge-off').onclick = () => setLock('off');
+    container.querySelector('#edge-monitor').onclick = () => setLock('monitor');
+    container.querySelector('#edge-enforce').onclick = () => setLock('enforce');
+
+    container.querySelector('#edge-secret').onclick = async () => {
+      const ok = await confirmDialog('Generate a new secret?',
+        'The old one stops working straight away. Cloudflare has to be updated with the new value, '
+        + 'or its traffic will start arriving unrecognised.',
+        { okText: 'Generate' });
+      if (!ok) return;
+      try {
+        const res = await api.post('/api/edge/origin-secret', {});
+        // Shown once, in full, because it has to be pasted into Cloudflare — and
+        // never readable again afterwards.
+        edgeOut.innerHTML = `
+          <div class="edge-secret">
+            <div class="card-sub" style="margin-bottom:8px"><b>Copy this now — it isn't shown again.</b>
+              In Cloudflare: <b>Rules → Transform Rules → Modify Request Header → Create rule</b>,
+              apply to all incoming requests, and set a static header:</div>
+            <div class="kv"><span>Header name</span><code>${esc(res.header)}</code></div>
+            <div class="kv"><span>Value</span><code>${esc(res.secret)}</code></div>
+            ${res.stepped_down ? `<div class="hint" style="margin-top:8px">The lock was moved back to
+              <b>Watch only</b> so the old value can't shut you out while you update Cloudflare.</div>` : ''}
+          </div>`;
+        loadEdge();
+      } catch (err) { toast(err.message, 'err'); }
+    };
+
+    container.querySelector('#set-turnstile').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await saveSettings(e.target, ['turnstile_enabled', 'turnstile_site_key', 'turnstile_secret_key']);
+      loadEdge();
+    });
+
+  }
 
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();

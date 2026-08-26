@@ -40,7 +40,11 @@ import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
-import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, lastSent } from './campaigns.js';
+import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, lastSent, recentlyMessagedSet } from './campaigns.js';
+import {
+  offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
+  waitlistEnabled, autofillEnabled,
+} from './waitlist.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -400,6 +404,7 @@ const EDITABLE_SETTINGS = new Set([
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'notif_reply_to', 'clicksend_starter_from', 'clicksend_starter_dismissed',
   'marketing_cooldown_days', 'sms_cost_cents',
+  'waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
   // origin_lock_mode and cf_origin_secret are deliberately absent: they can
@@ -1696,6 +1701,25 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
       by === 'client' ? 'client' : 'owner', str(reason, 300), id);
     cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
     queueCancellationMessages(id, { by, notifyClient, holdSeconds });
+    // The slot is free again — tell anyone waiting for it. Deliberately after
+    // the cancellation is committed and wrapped so it can never be the reason
+    // an appointment fails to cancel: a broken waitlist must cost the owner an
+    // offer, not the ability to cancel a booking.
+    try {
+      const full = db.prepare(
+        `SELECT a.date, a.start_min, a.staff_id, a.service_id, sv.name AS service_name
+         FROM appointments a LEFT JOIN services sv ON sv.id = a.service_id WHERE a.id = ?`
+      ).get(id);
+      if (full && full.date >= bizToday()) {
+        offerFreedSlot({
+          date: full.date, startMin: full.start_min, staffId: full.staff_id,
+          serviceId: full.service_id, serviceName: full.service_name,
+          skipClients: recentlyMessagedSet(),
+        });
+      }
+    } catch (err) {
+      console.error('waitlist offer failed (cancellation still went through):', err.message);
+    }
   }
   // Whether the client was actually told — counted, not assumed. Asking for a
   // message doesn't create a way to send one: a walk-in with no email or phone
@@ -2704,6 +2728,44 @@ route('GET', '/api/campaigns/preview', async ({ query }) => {
  * here — a preview left open while another campaign went out would otherwise
  * message somebody twice.
  */
+// ---------------------------------------------------------------------------
+// Waitlist — the one automation that acts without the owner in the loop, and
+// therefore the one that is off until they switch it on.
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/waitlist', async () => ({
+  enabled: waitlistEnabled(),
+  autofill: autofillEnabled(),
+  entries: listWaitlist(),
+  stats: waitlistStats(),
+}));
+
+route('POST', '/api/waitlist', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    client_id: s.num({ min: 1, required: true }),
+    service_id: s.num({ min: 1 }),
+    staff_id: s.num({ min: 1 }),
+    weekdays: s.str(20),
+    from_date: s.str(10),
+    until_date: s.str(10),
+    note: s.str(300),
+  });
+  if (!db.prepare('SELECT id FROM clients WHERE id = ?').get(b.client_id)) {
+    throw httpError(400, 'That client does not exist');
+  }
+  const id = addToWaitlist({
+    clientId: b.client_id, serviceId: b.service_id, staffId: b.staff_id,
+    weekdays: b.weekdays || '', fromDate: b.from_date || '',
+    untilDate: b.until_date || '', note: b.note || '',
+  });
+  return { id, entries: listWaitlist() };
+});
+
+route('DELETE', '/api/waitlist/:id', async ({ params }) => {
+  if (!removeFromWaitlist(params.id)) throw httpError(404, 'Not on the waitlist');
+  return { ok: true, entries: listWaitlist() };
+});
+
 route('POST', '/api/campaigns/send', async ({ req }) => {
   const b = checkBody(await readJson(req), {
     kind: s.str(40, { required: true }),
@@ -2784,6 +2846,7 @@ route('GET', '/api/public/info', async () => {
     // The public half of the Turnstile pair — meant for the browser. Empty
     // when it is off, which is how the page knows not to render the widget.
     turnstile_site_key: turnstileSiteKey(),
+    waitlist_enabled: waitlistEnabled(),
     deposit: {
       enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
       type: getSetting('deposit_type', 'none'),
@@ -2908,6 +2971,50 @@ route('GET', '/api/public/availability', async ({ query }) => {
     duration_min: totalDuration,
     slots: [...slotMap.entries()].sort((a, b) => a[0] - b[0]).map(([start_min, staff_id]) => ({ start_min, staff_id })),
   };
+}, { auth: false });
+
+/**
+ * A customer putting their name down for a time that isn't free.
+ *
+ * Rate-limited like every other public write, and it creates a client record if
+ * they are new — somebody who wants a Saturday badly enough to ask is worth
+ * having in the book whether or not a slot ever opens.
+ */
+route('POST', '/api/public/waitlist', async ({ req }) => {
+  if (!waitlistEnabled()) throw httpError(404, 'The waitlist is not open');
+  const b = checkBody(await readJson(req), {
+    first_name: s.str(80, { required: true }),
+    last_name: s.str(80),
+    email: s.str(160),
+    phone: s.str(40),
+    service_id: s.num({ min: 1 }),
+    staff_id: s.num({ min: 1 }),
+    weekdays: s.str(20),
+    from_date: s.str(10),
+    until_date: s.str(10),
+    note: s.str(300),
+  });
+  // Without one of these there is no way to tell them a slot opened, which
+  // makes the whole entry pointless — say so rather than storing a dead row.
+  if (!String(b.email || '').trim() && !String(b.phone || '').trim()) {
+    throw httpError(400, 'Please leave an email or a phone number so we can let you know.');
+  }
+
+  const email = str(b.email || '').trim().toLowerCase();
+  const phone = str(b.phone || '').trim();
+  const existing = email
+    ? db.prepare('SELECT id FROM clients WHERE lower(email) = ?').get(email)
+    : (phone ? db.prepare('SELECT id FROM clients WHERE phone = ?').get(phone) : null);
+  const clientId = existing ? existing.id : Number(db.prepare(
+    'INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)'
+  ).run(str(b.first_name, 80), str(b.last_name || '', 80), email, phone).lastInsertRowid);
+
+  addToWaitlist({
+    clientId, serviceId: b.service_id, staffId: b.staff_id,
+    weekdays: b.weekdays || '', fromDate: b.from_date || '',
+    untilDate: b.until_date || '', note: b.note || '',
+  });
+  return { ok: true, detail: "You're on the list. We'll message you the moment something opens up." };
 }, { auth: false });
 
 route('POST', '/api/public/book', async ({ req }) => {

@@ -444,7 +444,17 @@ async function renderTimeStep() {
       const locQ = state.location ? `&location_id=${state.location.id}` : '';
       const res = await getJson(`/api/public/availability?service_ids=${cartIds().join(',')}&staff_id=${staffQ}&date=${state.date}${locQ}`);
       if (!res.slots.length) {
-        slotsEl.innerHTML = `<div class="empty">${icon('clock', 22)}<div>No free times that day. Try another date.</div></div>`;
+        // A full day is the moment a waitlist is worth offering — they wanted
+        // this day, and telling them "try another" is how you lose them to the
+        // salon down the road that asked.
+        slotsEl.innerHTML = `
+          <div class="empty">${icon('clock', 22)}<div>No free times that day. Try another date${state.info.waitlist_enabled ? ', or put your name down' : ''}.</div></div>
+          ${state.info.waitlist_enabled ? `
+            <button class="btn primary" id="join-wl" style="display:block;margin:0 auto">
+              ${icon('users')} Let me know if this day frees up</button>` : ''}`;
+        if (state.info.waitlist_enabled) {
+          slotsEl.querySelector('#join-wl').onclick = renderWaitlistStep;
+        }
         return;
       }
       slotsEl.innerHTML = `<div class="slot-grid">${res.slots.map((s) =>
@@ -460,6 +470,70 @@ async function renderTimeStep() {
       slotsEl.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
     }
   }
+}
+
+/**
+ * Joining the waitlist — the same short form as booking, because somebody who
+ * has just been told "no times that day" has already spent their patience.
+ */
+function renderWaitlistStep() {
+  root.innerHTML = `
+    ${headHtml()}${stepsHtml()}
+    <button class="bk-back" id="back">${icon('chevL', 14)} Back to times</button>
+    <div class="bk-summary">
+      <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('users')}</span>
+      <div><b>${esc(fmtDate(state.date))} is full</b><br>
+        <span style="color:var(--text-2)">Leave your details and we'll message you the moment
+        ${esc(cartLabel())} frees up${state.staff ? ` with ${esc(state.staff.name)}` : ''}. No obligation.</span></div>
+    </div>
+    <form id="wl-form" class="form-grid">
+      <div class="field"><label>First name *</label><input name="first_name" required></div>
+      <div class="field"><label>Last name</label><input name="last_name"></div>
+      <div class="field"><label>Phone</label><input name="phone" placeholder="So we can text you"></div>
+      <div class="field"><label>Email</label><input name="email" type="email"></div>
+      <div class="field span2"><label>Anything else?</label>
+        <textarea name="note" placeholder="e.g. mornings are best, or any day that week"></textarea></div>
+      <div class="span2" style="text-align:right">
+        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">
+          ${icon('check')} Put me on the list</button>
+      </div>
+      <div class="span2" id="wl-error" style="color:var(--red);font-size:13px;text-align:center"></div>
+    </form>
+    ${poweredHtml()}`;
+
+  root.querySelector('#back').onclick = renderTimeStep;
+  root.querySelector('#wl-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true;
+    try {
+      const res = await getJson('/api/public/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: fd.get('first_name'), last_name: fd.get('last_name'),
+          phone: fd.get('phone'), email: fd.get('email'), note: fd.get('note'),
+          service_id: state.services[0]?.id,
+          staff_id: state.staff ? state.staff.id : undefined,
+          weekdays: String(parseDate(state.date).getDay()),
+          from_date: state.date,
+        }),
+      });
+      root.innerHTML = `
+        ${headHtml()}
+        <div class="card confirm-card">
+          <div class="confirm-icon">${icon('check', 28)}</div>
+          <h2 style="font-size:20px;margin-bottom:6px">You're on the list</h2>
+          <div style="color:var(--text-2);max-width:34ch;margin:0 auto 20px">${esc(res.detail)}</div>
+          <button class="btn" data-book-again>Look at other days</button>
+        </div>
+        ${poweredHtml()}`;
+    } catch (err) {
+      root.querySelector('#wl-error').textContent = err.message;
+      btn.disabled = false;
+    }
+  });
 }
 
 function renderDetailsStep() {

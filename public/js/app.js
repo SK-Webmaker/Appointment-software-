@@ -242,7 +242,19 @@ async function boot() {
     // First login on a fresh deployment → guided setup wizard before the app.
     if (state.settings.setup_complete !== '1') {
       root.innerHTML = '';
-      runSetupWizard({ firstRun: true, settings: state.settings, onDone: () => boot() });
+      runSetupWizard({
+        firstRun: true,
+        settings: state.settings,
+        // The tour runs after the app has drawn itself, because it points at
+        // real elements on the real page — there is nothing to highlight until
+        // the dashboard exists.
+        onDone: async ({ tour = false } = {}) => {
+          await boot();
+          if (!tour) return;
+          const { runTour } = await import('./tour.js');
+          setTimeout(() => runTour({ force: true }), 400);
+        },
+      });
       pendingIntro?.reveal();
       pendingIntro = null;
       splash.done();

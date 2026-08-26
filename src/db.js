@@ -240,6 +240,27 @@ export function initSchema() {
     --   a one-off for a day → weekday NULL, date 'YYYY-MM-DD'
     -- A one-off with working = 0 is a day off. See public/js/roster.js for how
     -- the two are resolved against each other and against opening hours.
+    -- Clients waiting for a time that isn't free yet. The whole point of a
+    -- waitlist is the moment a cancellation happens: that slot is money already
+    -- earned and handed back, and somebody here has said in advance they want it.
+    CREATE TABLE IF NOT EXISTS waitlist (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id  INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+      service_id INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      staff_id   INTEGER REFERENCES staff(id) ON DELETE SET NULL,  -- NULL = anyone
+      -- Which weekdays suit them, as a CSV of 0-6. Empty means any day.
+      weekdays   TEXT NOT NULL DEFAULT '',
+      -- The window they are interested in, so a waitlist entry from March isn't
+      -- still being offered slots in August.
+      from_date  TEXT NOT NULL DEFAULT '',
+      until_date TEXT NOT NULL DEFAULT '',
+      note       TEXT NOT NULL DEFAULT '',
+      status     TEXT NOT NULL DEFAULT 'waiting',  -- waiting|offered|booked|removed
+      offered_at TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_waitlist_status ON waitlist(status);
+
     CREATE TABLE IF NOT EXISTS staff_shifts (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       staff_id   INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
@@ -361,6 +382,18 @@ export function publicUrl() {
   return String(getSetting('public_url', '') || '').trim().replace(/\/+$/, '');
 }
 
+/**
+ * Is this instance being looked at by whoever runs the platform, rather than by
+ * the business owner?
+ *
+ * A handful of controls exist for the operator and would only confuse an owner
+ * — Cloudflare's origin lock and bot check are infrastructure, not salon
+ * settings, and a hairdresser being asked to reason about a Transform Rule is a
+ * support call waiting to happen. Set KAIRO_OPERATOR=1 on the service and they
+ * appear; leave it off, which is every business, and they do not exist.
+ */
+export const operatorMode = () => String(process.env.KAIRO_OPERATOR || '').trim() === '1';
+
 /** True when the address comes from the environment, so the screen can say so. */
 export const publicUrlFromEnv = () => publicUrl() !== ''
   && String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '').toLowerCase() === publicUrl().toLowerCase();
@@ -428,6 +461,7 @@ export function getSettings() {
   // Derived, so the screen can never disagree with what actually happens when a
   // message goes out. Read-only: writing either of these back is ignored,
   // because neither is in EDITABLE_SETTINGS.
+  out.operator_mode = operatorMode() ? '1' : '0';
   out.public_url_effective = publicUrl();
   out.public_url_from_env = publicUrlFromEnv() ? '1' : '0';
   out.reply_to_effective = replyToAddress();
@@ -520,6 +554,12 @@ const DEFAULT_SETTINGS = {
   // across every campaign kind, not per kind. A fortnight is the difference
   // between a useful nudge and a salon's regulars muting them.
   marketing_cooldown_days: '14',
+  // Phase 3 automation. OFF on every install: it messages customers without the
+  // owner in the loop, so it is opted into deliberately or not at all.
+  waitlist_enabled: '0',           // show "join the waitlist" on the booking page
+  waitlist_autofill: '0',          // offer a cancelled slot to the waitlist automatically
+  waitlist_channel: 'email',       // email | sms | both
+  waitlist_max_offers: '5',        // how many people one freed slot goes to
   // Roughly what one SMS segment costs, so the preview can price a send
   // honestly before the owner commits. Providers differ; the owner can correct it.
   sms_cost_cents: '8',

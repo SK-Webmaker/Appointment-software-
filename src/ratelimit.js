@@ -22,6 +22,9 @@ const POLICIES = {
   password:       { limit: 10,  windowMs: 15 * 60 * 1000 },
   public_book:    { limit: 12,  windowMs: 5 * 60 * 1000 },  // booking spam guard
   public_review:  { limit: 10,  windowMs: 10 * 60 * 1000 },
+  // Joining a waitlist creates a client record, so it gets the same guard as
+  // booking — tighter, in fact, since nobody legitimately joins twelve times.
+  public_waitlist: { limit: 6, windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
   // principle — kept tight for the same reason login is, even though a 128-bit
   // token makes brute force hopeless. Generous enough for a client who opens
@@ -66,6 +69,7 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/auth/password') return 'password';
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
+  if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
   if (pathname === '/api/public/cancel') return 'public_cancel'; // GET too — the lookup is the guessable part
   if (pathname === '/api/public/confirm-deposit') return 'public_deposit';
   if (pathname.startsWith('/api/public/') || pathname.startsWith('/api/auth/verify-email')) return 'public_read';

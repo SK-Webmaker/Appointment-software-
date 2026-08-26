@@ -483,6 +483,39 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### 📋 Waitlist & automatic filling (v1.39.0 — off by default)
+Settings → **Waitlist & automatic filling**. Two switches, both off on every
+install:
+
+- **Let customers join a waitlist** — when the day they wanted is full, the
+  booking page offers *"Let me know if this day frees up"* instead of "try
+  another date". The list just builds; nothing is sent.
+- **Offer a cancelled slot automatically** — the one thing Kairo does without
+  asking first, because a Saturday that frees up at 8pm on Thursday is worth far
+  more than the same slot offered on Friday lunchtime, and the owner will be
+  cutting hair. Matched on the service, the stylist and the days that client
+  actually said suited them, capped at however many people you choose, first to
+  book gets it.
+
+It obeys the same fortnight cooldown as every other message, so somebody who
+got a rebooking nudge this morning is not also texted tonight. And it can never
+be the reason a cancellation fails — if the waitlist errors, the appointment
+still cancels and the error is logged.
+
+### 🧭 A walk round the place (v1.39.0)
+After setup, Kairo offers a short guided tour of the screens that matter —
+pointing at the real thing on the real page. **Skip is on every step**, it runs
+once, and Settings can bring it back for an owner who skipped it on day one and
+wants it in week two. A step whose target isn't on screen is dropped rather than
+highlighting empty space, so it shortens itself on a phone instead of breaking.
+
+### 📱 Getting Kairo onto a phone (v1.39.0)
+The last step of setup explains it, per platform, because Kairo is a website
+rather than an App Store app — which is a feature (nothing to update, nothing to
+approve) but means nobody finds it on their home screen unless they're told how.
+An owner who runs their salon from an icon opens it twenty times a day; one who
+has to remember a URL opens it twice.
+
 ### ⚡ Opportunities — what the diary is quietly costing (v1.37.0)
 At the bottom of the dashboard, below the day's work, because it's what you read
 when you have a minute rather than a client waiting. A revenue figure is a

@@ -98,7 +98,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     team: firstRun ? [{ name: '', title: '' }] : [],
   };
 
-  const steps = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'comms', 'done'];
+  const steps = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'comms', 'done', 'install'];
   let idx = 0;
 
   const overlay = document.createElement('div');
@@ -280,6 +280,37 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         <button type="button" class="btn small" id="w-copy">${icon('link')} Copy</button>
       </div>
       <p class="wiz-sub">Put that link in your Instagram bio, Google profile and WhatsApp auto-reply.</p>`,
+
+    // Kairo is a website, not an App Store app — which is a feature (nothing to
+    // update, nothing to approve) but it means nobody finds it on their phone
+    // unless they are told how. An owner who runs their salon from an icon
+    // opens it twenty times a day; one who has to remember a URL opens it twice.
+    install: () => `
+      <div class="wiz-hero">${icon('phone', 32)}</div>
+      <h1>Put Kairo on your phone</h1>
+      <p class="wiz-lede">It works like a normal app — your own icon on the home screen, full screen,
+        no address bar. Takes about fifteen seconds.</p>
+      <div class="wiz-install">
+        <div class="wi-col">
+          <div class="wi-head">${icon('phone', 15)} iPhone &amp; iPad</div>
+          <ol>
+            <li>Open <b>${esc(siteUrl)}</b> in <b>Safari</b><span>It has to be Safari — Chrome on iPhone can't do this</span></li>
+            <li>Tap the <b>Share</b> button${icon('share', 13)}<span>The square with an arrow, at the bottom</span></li>
+            <li>Scroll down and tap <b>Add to Home Screen</b></li>
+            <li>Tap <b>Add</b> — done</li>
+          </ol>
+        </div>
+        <div class="wi-col">
+          <div class="wi-head">${icon('grid', 15)} Android</div>
+          <ol>
+            <li>Open <b>${esc(siteUrl)}</b> in <b>Chrome</b></li>
+            <li>Tap the <b>⋮</b> menu, top right</li>
+            <li>Tap <b>Install app</b> or <b>Add to Home screen</b></li>
+            <li>Tap <b>Install</b> — done</li>
+          </ol>
+        </div>
+      </div>
+      <p class="wiz-sub">You can do this later from <b>Settings</b> if you're on a computer right now.</p>`,
   };
 
   // ---- persistence of the current step's inputs into `data` ---------------
@@ -324,19 +355,20 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
 
   function render() {
     const id = steps[idx];
-    const isLast = id === 'done';
+    const isLast = id === 'install';
     const canSkip = firstRun && idx === 0;
     overlay.innerHTML = `
       <div class="wiz-card">
-        ${idx > 0 && !isLast ? `<div class="wiz-progress"><div class="wiz-bar" style="width:${(idx / (steps.length - 2)) * 100}%"></div></div>` : ''}
+        ${idx > 0 && !isLast ? `<div class="wiz-progress"><div class="wiz-bar" style="width:${Math.min(100, (idx / (steps.length - 3)) * 100)}%"></div></div>` : ''}
         <div class="wiz-body">${views[id]()}</div>
         <div class="wiz-foot">
           ${idx > 0 && !isLast ? `<button type="button" class="btn" id="w-back">Back</button>` : '<span></span>'}
           <div class="wiz-foot-right">
             ${canSkip ? `<button type="button" class="btn ghost" id="w-skip">Skip for now</button>` : ''}
             ${isLast
-              ? `<button type="button" class="btn primary" id="w-finish">${icon('check')} Go to dashboard</button>`
-              : `<button type="button" class="btn primary" id="w-next">${idx === steps.length - 2 ? 'Finish setup' : 'Continue'} ${icon('chevR')}</button>`}
+              ? `<button type="button" class="btn ghost" id="w-skip-tour">Skip the tour</button>
+                 <button type="button" class="btn primary" id="w-finish">${icon('zap')} Show me around</button>`
+              : `<button type="button" class="btn primary" id="w-next">${idx === steps.length - 3 ? 'Finish setup' : 'Continue'} ${icon('chevR')}</button>`}
           </div>
         </div>
       </div>`;
@@ -350,7 +382,10 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       close(); onDone?.();
     });
     overlay.querySelector('#w-next')?.addEventListener('click', onNext);
-    overlay.querySelector('#w-finish')?.addEventListener('click', () => { close(); onDone?.(); });
+    // Two ways out of the last step: take the walkthrough, or go straight in.
+    // Both finish setup identically — the tour is an offer, never a gate.
+    overlay.querySelector('#w-finish')?.addEventListener('click', () => { close(); onDone?.({ tour: true }); });
+    overlay.querySelector('#w-skip-tour')?.addEventListener('click', () => { close(); onDone?.({ tour: false }); });
     overlay.querySelector('#w-copy')?.addEventListener('click', () => {
       copyText(`${siteUrl}/book`).then((done) => {
         toast(done ? 'Booking link copied' : 'Could not copy — open Settings to copy it there', done ? 'ok' : 'err');
@@ -454,7 +489,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       toast('Please enter your business name', 'err');
       return;
     }
-    if (idx === steps.length - 2) { await apply(); return; } // step before 'done'
+    if (idx === steps.length - 3) { await apply(); return; } // step before 'done'
     idx++;
     render();
   }
