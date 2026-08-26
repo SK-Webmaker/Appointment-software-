@@ -40,6 +40,7 @@ import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
+import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, lastSent } from './campaigns.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -398,6 +399,7 @@ const EDITABLE_SETTINGS = new Set([
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'notif_reply_to', 'clicksend_starter_from', 'clicksend_starter_dismissed',
+  'marketing_cooldown_days', 'sms_cost_cents',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
   // origin_lock_mode and cf_origin_secret are deliberately absent: they can
@@ -2660,6 +2662,75 @@ route('GET', '/api/opportunities', async ({ query }) => {
   const asked = query.get('date');
   const today = isDateStr(asked) ? asked : bizToday();
   return opportunities({ today, hoursFor, staffWindow, blocksFor });
+});
+
+/**
+ * Everything the owner needs to decide on one campaign, before anything is
+ * sent: who it would go to and why, the words, and what it will actually cost.
+ *
+ * Still read-only. This is the screen that makes the send safe, so it has to
+ * be reachable without committing to anything.
+ */
+route('GET', '/api/campaigns/preview', async ({ query }) => {
+  const kind = String(query.get('kind') || '');
+  if (!CAMPAIGN_KINDS.has(kind)) throw httpError(400, 'Unknown campaign');
+  const channel = ['email', 'sms', 'both'].includes(query.get('channel')) ? query.get('channel') : 'email';
+  const today = isDateStr(query.get('date')) ? query.get('date') : bizToday();
+  const context = {
+    weekday: query.get('weekday') === null ? undefined : Number(query.get('weekday')),
+    when: str(query.get('when') || '', 60),
+    times: str(query.get('times') || '', 60),
+  };
+
+  const recipients = recipientsFor(kind, { today, channel, context });
+  const draft = draftFor(kind, context);
+  const selectable = recipients.filter((r) => !r.cooling_off);
+  return {
+    kind,
+    channel,
+    draft,
+    recipients,
+    cost: messageCost(draft.body, channel, selectable),
+    cooldown_days: Number(getSetting('marketing_cooldown_days', '14')) || 0,
+    booking_url: publicUrl() ? `${publicUrl()}/book` : '',
+    last_sent: lastSent(kind),
+  };
+});
+
+/**
+ * Send it. One person, one button, having seen the list.
+ *
+ * The cooldown is re-checked inside sendCampaign rather than trusted from
+ * here — a preview left open while another campaign went out would otherwise
+ * message somebody twice.
+ */
+route('POST', '/api/campaigns/send', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    kind: s.str(40, { required: true }),
+    channel: s.oneOf(['email', 'sms', 'both'], { required: true }),
+    subject: s.str(200),
+    body: s.str(1600, { required: true }),
+    client_ids: s.arr(s.num({ min: 1 }), 500, { required: true }),
+  });
+  if (!CAMPAIGN_KINDS.has(b.kind)) throw httpError(400, 'Unknown campaign');
+  if (!b.client_ids.length) throw httpError(400, 'Nobody is selected');
+  // A blank message is the owner's slip, not a server fault — say so plainly
+  // rather than letting campaigns.js throw and turn it into a 500 with a stack
+  // trace in the log. (The guard stays there too, for any other caller.)
+  if (!String(b.body || '').trim()) throw httpError(400, 'The message is empty — write something first.');
+
+  const out = sendCampaign(b.kind, {
+    clientIds: b.client_ids, channel: b.channel,
+    subject: b.subject || '', body: b.body, renderEmail,
+  });
+  processQueue().catch(() => {});
+  return {
+    ...out,
+    detail: out.queued
+      ? `${out.queued} message${out.queued === 1 ? '' : 's'} queued`
+        + (out.skipped ? `, ${out.skipped} skipped (messaged recently)` : '')
+      : 'Nobody was messaged — everyone selected has heard from you recently.',
+  };
 });
 
 // ---------------------------------------------------------------------------

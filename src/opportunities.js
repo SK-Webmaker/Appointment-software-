@@ -24,6 +24,7 @@
 // appointment or spends a cent — that is deliberate, and it is what makes this
 // safe to put in front of a live salon.
 import { db, getSetting } from './db.js';
+import { suggestionFor } from './campaigns.js';
 
 /** Minutes → "1h 30m" / "45m", for evidence lines. */
 const dur = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);
@@ -59,9 +60,11 @@ const finding = (o) => ({
   worth_cents: o.worth_cents ?? 0,
   worth_label: o.worth_label || '',
   evidence: o.evidence || [],
-  // Phase 1 is read-only: actions navigate, they never send. The dashboard
-  // turns these into links.
   actions: o.actions || [],
+  // What to actually do about it, and — where a message is the answer — the
+  // context the campaign builder needs to pick the right people.
+  suggestion: suggestionFor(o.kind, o.context || {}),
+  campaign: o.campaign || null,
 });
 
 // ---------------------------------------------------------------------------
@@ -159,6 +162,12 @@ function emptyTime({ today, horizonDays = 3, hoursFor, staffWindow, blocksFor })
       date: g.date,
     })),
     actions: [{ label: 'Open the calendar', href: `#/calendar?date=${real[0].date}`, icon: 'calendar' }],
+    campaign: {
+      kind: 'gap_offer',
+      weekday: weekdayOf(real[0].date),
+      when: real[0].date === addDays(today, 1) ? 'tomorrow' : `on ${DAY_NAMES[weekdayOf(real[0].date)]}`,
+      times: soonest.slice(0, 2).map((g) => clock(g.start_min)).join(' or '),
+    },
   });
 }
 
@@ -252,6 +261,7 @@ function overdueRegulars({ today }) {
       client_id: c.id,
     })),
     actions: [{ label: 'Review the list', href: '#/clients', icon: 'users' }],
+    campaign: { kind: 'rebook_nudge' },
   });
 }
 
@@ -320,6 +330,12 @@ function unfilledCancellations({ today, staffWindow }) {
       date: c.date,
     })),
     actions: [{ label: 'Open the calendar', href: `#/calendar?date=${stillOpen[0].date}`, icon: 'calendar' }],
+    campaign: {
+      kind: 'gap_offer',
+      weekday: weekdayOf(stillOpen[0].date),
+      when: stillOpen[0].date === addDays(today, 1) ? 'tomorrow' : `on ${DAY_NAMES[weekdayOf(stillOpen[0].date)]}`,
+      times: stillOpen.slice(0, 2).map((c) => clock(c.start_min)).join(' or '),
+    },
   });
 }
 
@@ -399,6 +415,7 @@ function weakestPeriod({ today, hoursFor }) {
       + 'standing empty every week.',
     worth_cents: worthPerWeek,
     worth_label: 'a week if half of it filled',
+    context: { label: `${DAY_NAMES[worst.dow]} ${clock(worst.band * 180)}–${clock((worst.band + 1) * 180)}` },
     evidence: rates.slice(0, 3).map((c) => ({
       label: `${DAY_NAMES[c.dow]} ${clock(c.band * 180)}–${clock((c.band + 1) * 180)}`,
       sub: `${Math.round(c.rate * 100)}% booked`,

@@ -2,7 +2,7 @@
 // are, what's been taken), client growth & retention, then the longer-range
 // trends. Built to answer "what do I need to know right now?" first.
 import { api } from '../api.js';
-import { esc, icon, money, fmtTime, fmtTimeShort, fmtDate, statusChip, initials, avatarColor, todayStr } from '../ui.js';
+import { esc, icon, money, fmtTime, fmtTimeShort, fmtDate, statusChip, initials, avatarColor, todayStr, openModal, toast } from '../ui.js';
 import { barChart } from '../charts.js';
 import { state } from '../app.js';
 
@@ -563,7 +563,18 @@ async function drawOpportunities(slot) {
                       <span>${esc(e.sub || '')}</span>
                     </span>`).join('')}
                 </div>` : ''}
+              ${f.suggestion ? `
+                <div class="op-sug">
+                  <div class="sg-head">${icon('zap', 13)} ${esc(f.suggestion.headline)}</div>
+                  <div class="sg-body">${esc(f.suggestion.body)}</div>
+                  ${f.suggestion.tip ? `<div class="sg-tip"><b>Tip</b> ${esc(f.suggestion.tip)}</div>` : ''}
+                </div>` : ''}
               <div class="op-actions">
+                ${f.campaign ? `
+                  <button class="btn primary" data-draft="${esc(JSON.stringify(f.campaign))}">
+                    ${icon('send', 14)} Draft a message</button>` : ''}
+                ${f.suggestion?.action ? `
+                  <a class="btn" href="${esc(f.suggestion.action.href)}">${icon('tag', 14)} ${esc(f.suggestion.action.label)}</a>` : ''}
                 ${f.actions.map((a) => `
                   <a class="btn" href="${esc(a.href)}">${icon(a.icon || 'chevR', 14)} ${esc(a.label)}</a>`).join('')}
               </div>
@@ -576,9 +587,174 @@ async function drawOpportunities(slot) {
           </div>`).join('')}
       </div>
       <div class="opps-foot">${icon('alert', 14)}
-        <span>These are worked out from bookings that already exist, and valued at the
-        <b>cheapest</b> service that fits — so the real number is usually higher, never lower.
-        Nothing here messages anyone.</span>
+        <span>Worked out from bookings that already exist, and valued at the <b>cheapest</b> service
+        that fits — so the real number is usually higher, never lower. Nothing is sent until you
+        press send, and you see the exact list first.</span>
       </div>
     </div>`;
+
+  slot.querySelectorAll('[data-draft]').forEach((b) => {
+    b.onclick = () => openCampaign(JSON.parse(b.dataset.draft));
+  });
+}
+
+// --- The campaign preview --------------------------------------------------
+// The screen that makes sending safe. Nothing goes anywhere until the owner has
+// seen the exact list, the exact words and the exact cost, and pressed send.
+
+const CH_LABEL = { email: 'Email', sms: 'SMS', both: 'Email + SMS' };
+
+async function openCampaign(campaign) {
+  let state_ = { channel: 'email', data: null, chosen: new Set() };
+
+  const m = openModal({
+    title: 'Draft a message',
+    wide: true,
+    body: '<div id="cmp-body" class="cmp-loading">Working out who this should go to…</div>',
+    footer: `<div class="spacer"></div>
+      <button class="btn" data-cancel>Cancel</button>
+      <button class="btn primary" id="cmp-send" disabled>Send</button>`,
+  });
+  m.querySelector('[data-cancel]').onclick = () => m.close();
+
+  const load = async () => {
+    const q = new URLSearchParams({ kind: campaign.kind, channel: state_.channel });
+    if (campaign.weekday !== undefined) q.set('weekday', campaign.weekday);
+    if (campaign.when) q.set('when', campaign.when);
+    if (campaign.times) q.set('times', campaign.times);
+    try {
+      state_.data = await api.get(`/api/campaigns/preview?${q}`);
+    } catch (err) {
+      const el = m.querySelector('#cmp-body');
+      el.className = '';
+      el.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+      return;
+    }
+    // Everyone reachable starts ticked; anyone inside the cooldown cannot be.
+    state_.chosen = new Set(state_.data.recipients.filter((r) => !r.cooling_off).map((r) => r.id));
+    paint();
+  };
+
+  const paint = () => {
+    const d = state_.data;
+    const body = m.querySelector('#cmp-body');
+    // The loading state centres its text; leaving that class on once the real
+    // content is in centres the whole recipient list with it.
+    body.className = '';
+    const live = d.recipients.filter((r) => !r.cooling_off);
+    const cooling = d.recipients.filter((r) => r.cooling_off);
+    const picked = live.filter((r) => state_.chosen.has(r.id));
+
+    body.innerHTML = `
+      <div class="cmp-grid">
+        <div class="cmp-left">
+          <div class="cmp-label">Send by</div>
+          <div class="seg" id="cmp-seg">
+            ${['email', 'sms', 'both'].map((c) => `
+              <button type="button" data-ch="${c}" class="${state_.channel === c ? 'sel' : ''}">${CH_LABEL[c]}</button>`).join('')}
+          </div>
+          <div class="cmp-cost ${state_.channel === 'email' ? 'free' : 'paid'}" id="cmp-cost"></div>
+
+          <div class="cmp-label" style="margin-top:16px">Message</div>
+          ${state_.channel !== 'sms' ? `
+            <input id="cmp-subject" class="cmp-subject" value="${esc(d.draft.subject)}" placeholder="Subject">` : ''}
+          <textarea id="cmp-body-text" class="cmp-text" rows="7">${esc(d.draft.body)}</textarea>
+          <div class="cmp-hint">
+            <b>{first_name}</b> becomes each person's name.
+            ${d.booking_url ? 'Your booking link is already in there.'
+              : '<b style="color:var(--amber)">No booking link yet</b> — set your website address in Settings and it will be included.'}
+          </div>
+        </div>
+
+        <div class="cmp-right">
+          <div class="cmp-label">
+            Going to <b id="cmp-count">${picked.length}</b> of ${live.length}
+            ${live.length ? '<button type="button" class="cmp-all" id="cmp-all">Select all</button>' : ''}
+          </div>
+          <div class="cmp-people" id="cmp-people">
+            ${live.length ? live.map((r) => `
+              <label class="cmp-person">
+                <input type="checkbox" class="chk" data-id="${r.id}" ${state_.chosen.has(r.id) ? 'checked' : ''}>
+                <span class="cp-main">
+                  <b>${esc(`${r.first_name} ${r.last_name}`.trim())}</b>
+                  <span>${esc(r.why)}</span>
+                </span>
+              </label>`).join('')
+              : `<div class="empty" style="padding:22px 10px">Nobody fits this right now.
+                   ${cooling.length ? 'Everyone who does has heard from you in the last fortnight.' : ''}</div>`}
+          </div>
+          ${cooling.length ? `
+            <div class="cmp-cooling">${icon('clock', 13)}
+              <span><b>${cooling.length} left out</b> — messaged in the last ${d.cooldown_days} days.
+              Kairo won't contact the same client twice inside that window, whichever campaign it is.</span>
+            </div>` : ''}
+        </div>
+      </div>`;
+
+    const recost = () => {
+      const n = live.filter((r) => state_.chosen.has(r.id));
+      const text = m.querySelector('#cmp-body-text').value;
+      const len = text.length;
+      const seg = len <= 160 ? 1 : Math.ceil(len / 153);
+      const smsTo = state_.channel === 'email' ? 0 : n.filter((r) => r.phone).length;
+      const cents = smsTo * seg * 8;
+      const el = m.querySelector('#cmp-cost');
+      el.className = `cmp-cost ${state_.channel === 'email' ? 'free' : 'paid'}`;
+      el.innerHTML = state_.channel === 'email'
+        ? `<b>Free</b> — ${n.filter((r) => r.email).length} of ${n.length} have an email address`
+        : `About <b>${money(cents)}</b> in SMS credit · ${smsTo} text${smsTo === 1 ? '' : 's'}`
+          + `${seg > 1 ? ` × ${seg} segments (${len} characters)` : ''}`;
+      m.querySelector('#cmp-count').textContent = n.length;
+      m.querySelector('#cmp-send').disabled = n.length === 0;
+      m.querySelector('#cmp-send').innerHTML = `${icon('send', 14)} Send to ${n.length}`;
+    };
+    recost();
+
+    m.querySelector('#cmp-seg').onclick = (e) => {
+      const b = e.target.closest('[data-ch]');
+      if (!b) return;
+      state_.channel = b.dataset.ch;
+      load();
+    };
+    m.querySelector('#cmp-body-text').oninput = recost;
+    m.querySelector('#cmp-people').onchange = (e) => {
+      const c = e.target.closest('[data-id]');
+      if (!c) return;
+      const id = Number(c.dataset.id);
+      if (c.checked) state_.chosen.add(id); else state_.chosen.delete(id);
+      recost();
+    };
+    const all = m.querySelector('#cmp-all');
+    if (all) all.onclick = () => {
+      const everyone = state_.chosen.size === live.length;
+      state_.chosen = everyone ? new Set() : new Set(live.map((r) => r.id));
+      m.querySelectorAll('#cmp-people [data-id]').forEach((c) => { c.checked = !everyone; });
+      all.textContent = everyone ? 'Select all' : 'Select none';
+      recost();
+    };
+  };
+
+  m.querySelector('#cmp-send').onclick = async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const was = btn.innerHTML;
+    btn.innerHTML = 'Sending…';
+    try {
+      const res = await api.post('/api/campaigns/send', {
+        kind: campaign.kind,
+        channel: state_.channel,
+        subject: m.querySelector('#cmp-subject')?.value || '',
+        body: m.querySelector('#cmp-body-text').value,
+        client_ids: [...state_.chosen],
+      });
+      toast(res.detail, res.queued ? 'ok' : 'err', { ms: 6000 });
+      m.close();
+      if (isShowing()) renderDashboard(mounted);
+    } catch (err) {
+      toast(err.message, 'err', { ms: 7000 });
+      btn.disabled = false; btn.innerHTML = was;
+    }
+  };
+
+  load();
 }

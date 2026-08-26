@@ -516,6 +516,13 @@ const DEFAULT_SETTINGS = {
   // Where a client's reply lands. Blank falls back to business_email, because
   // the sending subdomain has no inbox and a reply there simply bounces.
   notif_reply_to: '',
+  // How long before the same client can be sent another campaign message —
+  // across every campaign kind, not per kind. A fortnight is the difference
+  // between a useful nudge and a salon's regulars muting them.
+  marketing_cooldown_days: '14',
+  // Roughly what one SMS segment costs, so the preview can price a send
+  // honestly before the owner commits. Providers differ; the owner can correct it.
+  sms_cost_cents: '8',
   // The sender the operator registered during handover, so Kairo can tell a
   // starter number from one the business chose. See starterSenderActive().
   clicksend_starter_from: '',

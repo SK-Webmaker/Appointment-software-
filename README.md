@@ -512,8 +512,32 @@ ignored and there's no middle:
    from the headline, because it isn't on the table this week.
 3. **It shows the working.** Every finding carries the rows that produced it.
 
-**Read-only.** Nothing on this panel sends a message, changes an appointment or
-spends a cent — every button just opens the screen where the owner decides.
+Each finding also says **what to do about it** — and where a message is the
+answer, drafts it.
+
+### 📣 Acting on it — one button, one preview (v1.38.0)
+**Draft a message** on a finding opens a preview that has to be got past before
+anything leaves:
+
+- **Who it goes to, and why each of them.** "5 visits · usually every 4 wks ·
+  last in 10 wks ago" beside every name, so the one that looks wrong can be
+  unticked. An owner who can't see the reasoning won't trust the software with
+  their client list, and they'd be right not to.
+- **Email, SMS or both** — and what it costs *before* sending. SMS is priced by
+  real 160-character segments, so a long message is shown as two texts rather
+  than one, and email says **Free** in green.
+- **The words, editable.** Kairo drafts them; the owner has the last say.
+  `{first_name}` becomes each person's name. **Kairo never invents a discount** —
+  software that quietly cuts a business's margins isn't on their side.
+
+**The cooldown.** No client is sent a campaign message twice within 14 days
+(configurable) — **across all campaign kinds**, not per kind. Somebody who is
+both overdue *and* free at tomorrow's gap is one person with one phone. It's
+re-checked on the server at the moment of sending, so a preview left open while
+another campaign went out can't message anyone twice.
+
+Nothing sends by itself. Every send is one person pressing one button having
+seen the list.
 
 ### ✉️ Replies that reach a human (v1.36.0)
 Settings → Notifications → **Replies go to**. Messages are *sent* from a domain
