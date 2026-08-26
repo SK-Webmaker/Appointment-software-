@@ -394,6 +394,34 @@ export function publicUrl() {
  */
 export const operatorMode = () => String(process.env.KAIRO_OPERATOR || '').trim() === '1';
 
+/**
+ * Hosting addresses a business should never be handing to its customers.
+ *
+ * Every platform gives a service a free default hostname, and it works — which
+ * is exactly the problem. A salon whose booking link says
+ * "hairbysha-booking.onrender.com" has a link that functions perfectly, so
+ * nobody notices for months, and by then it is in their Instagram bio and on
+ * their business cards.
+ */
+/* Anchored at both ends of a label, so a business that genuinely owns
+   "onrender.com.au" or "notonrender.com" is left alone. */
+const RAW_HOSTS = /\.(onrender\.com|railway\.app|fly\.dev|herokuapp\.com|vercel\.app|netlify\.app|ondigitalocean\.app)$/i;
+
+/**
+ * Is the address customers see still the raw hosting one — or missing?
+ *
+ * Localhost is excluded: that is somebody running Kairo on their own machine,
+ * which is not a business handing out a link.
+ */
+export function publicUrlIsRaw() {
+  const url = publicUrl();
+  if (!url) return true;
+  let host = '';
+  try { host = new URL(url).hostname; } catch { return true; }
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(host)) return false;
+  return RAW_HOSTS.test(host);
+}
+
 /** True when the address comes from the environment, so the screen can say so. */
 export const publicUrlFromEnv = () => publicUrl() !== ''
   && String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '').toLowerCase() === publicUrl().toLowerCase();
@@ -464,6 +492,7 @@ export function getSettings() {
   out.operator_mode = operatorMode() ? '1' : '0';
   out.public_url_effective = publicUrl();
   out.public_url_from_env = publicUrlFromEnv() ? '1' : '0';
+  out.public_url_is_raw = publicUrlIsRaw() ? '1' : '0';
   out.reply_to_effective = replyToAddress();
   out.reply_to_invalid = replyToLooksWrong() ? '1' : '0';
   out.clicksend_starter_active = starterSenderActive() ? '1' : '0';

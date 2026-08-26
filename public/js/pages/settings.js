@@ -107,6 +107,17 @@ export async function renderSettings(container) {
   // makes it so easy to miss.
   const bookingUrl = `${s.public_url_effective || location.origin}/book`;
 
+  // Is that link still the free hosting address the service was born with?
+  //
+  // This is the one setting that gets copied out of Kairo and into places
+  // nobody can edit later — an Instagram bio, a shopfront QR code, 400 printed
+  // cards. And because the raw link *works perfectly*, nothing ever complains.
+  // The server decides (it knows the hosting hostnames); the only judgement
+  // made here is to stay quiet on a developer's machine with nothing set up
+  // yet, which is not a business handing anybody a link.
+  const onLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
+  const rawLink = s.public_url_is_raw === '1' && !(onLocalhost && !s.public_url_effective);
+
   // Hour options for the calendar view window ('' = auto).
   const calHourOpts = (cur, autoLabel, isEnd = false) => {
     const fmt = (min) => {
@@ -223,9 +234,27 @@ export async function renderSettings(container) {
               <button type="button" class="btn small" id="open-url">${icon('external')} Open in browser</button>
               <button type="button" class="btn small" id="share-url" hidden>${icon('share')} Share</button>
             </div>
+            ${rawLink ? `
+            <div class="starter-nag" id="raw-link-nag">
+              ${icon('link', 16)}
+              <div>
+                <b>This isn't your proper web address yet.</b>
+                ${s.public_url_effective
+                  ? `It's the temporary one your system was built on. It works — which is exactly why it's easy to
+                     miss — but it isn't your business's name, and once it's in your Instagram bio and on your
+                     cards it's very hard to take back.`
+                  : `No address has been set, so Kairo is showing whatever you happen to be signed in at. That can
+                     change, and any link you hand out now may stop working.`}
+                <div class="starter-nag-actions">
+                  ${s.public_url_from_env === '1'
+                    ? '<span class="hint" style="margin:0">Ask whoever set your system up to point it at your own domain.</span>'
+                    : '<button class="btn" type="button" id="fix-raw-link">Set your web address</button>'}
+                </div>
+              </div>
+            </div>` : `
             <div class="live-note">${icon('check', 15)}
               <div><b>This link never changes.</b> Add a service, change a price or close a day and the same link
-                shows it the moment you save. You never have to re-post it or send anyone a new one.</div></div>
+                shows it the moment you save. You never have to re-post it or send anyone a new one.</div></div>`}
             <div class="hint">Put it in your Instagram bio, Google profile and WhatsApp auto-reply. It opens in Safari
               or Chrome, so you keep your place in Kairo.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save hours</button>
@@ -1116,6 +1145,20 @@ export async function renderSettings(container) {
       else if (how === 'failed') toast('Could not share that link', 'err');
     };
   }
+  // The nag only appears when the address is wrong, and only carries a button
+  // when the owner is actually allowed to change it — so both of these are
+  // conditional, and neither may be assumed present.
+  const fixRaw = container.querySelector('#fix-raw-link');
+  if (fixRaw) fixRaw.onclick = () => {
+    // Take them to the field rather than explaining where it is. It lives in a
+    // different card further down the page, which is precisely why nobody
+    // finds it on their own.
+    const field = container.querySelector('[name="public_url"]');
+    if (!field) return;
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field.focus();
+    field.select?.();
+  };
   // Guided-setup + demo-reset controls only exist before the owner verifies
   // their email (a real, verified business has no need to wipe & reseed).
   const rerunBtn = container.querySelector('#rerun-setup');

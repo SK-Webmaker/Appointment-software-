@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bootstrap, getSetting, storageWarning } from './src/db.js';
+import { bootstrap, getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
 import { handleApi } from './src/api.js';
 import { startScheduler } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
@@ -181,6 +181,27 @@ server.listen(PORT, HOST, () => {
     console.log('  ##################################################################');
     console.log(`    ${risk.message}`);
     console.log(`    Writing to: ${risk.dir}`);
+  }
+  // Second-loudest, and for the same reason: it stays silent until it isn't.
+  // A booking link on the free hosting hostname works perfectly, so nobody
+  // ever reports it — the business just quietly hands out the wrong address
+  // for months, and by then it is printed on things.
+  //
+  // Two cases worth saying out loud, and one worth staying quiet about. An
+  // address that has been *chosen* and is still the hosting one is always
+  // wrong, wherever it runs. Nothing set at all is only alarming on a real
+  // deployment — on somebody's laptop that is just how you start it — so that
+  // half is gated on the marker variables the hosts set for us.
+  const looksHosted = ['RENDER', 'RAILWAY_ENVIRONMENT', 'FLY_APP_NAME', 'DYNO', 'VERCEL', 'K_SERVICE']
+    .some((k) => String(process.env[k] || '').trim() !== '');
+  if (publicUrlIsRaw() && (publicUrl() || looksHosted)) {
+    console.log('');
+    console.log('  ------------------------------------------------------------------');
+    console.log('  !  The booking link is not this business\'s own web address');
+    console.log('  ------------------------------------------------------------------');
+    console.log(`    Customers are being given: ${publicUrl() || '(nothing set — falls back to whatever host they arrive on)'}`);
+    console.log('    Set KAIRO_PUBLIC_URL on the service to https://<business>.kairobookings.com');
+    console.log('    and add the matching custom domain. See ONBOARDING.md.');
   }
   console.log('');
   console.log(`  ◆ Kairo v${VERSION} is running`);

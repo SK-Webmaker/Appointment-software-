@@ -157,6 +157,26 @@ shown disabled with an explanation, and there is nothing for anyone to forget
 after the fact. Changing it later is a Render → Environment edit, which
 restarts the service on its own.
 
+**And if it does get forgotten, it no longer stays quiet.** This is the one
+setting that gets copied out of Kairo into places nobody can edit later — an
+Instagram bio, a shopfront QR code, a print run of cards — and because the raw
+hosting address *works*, nothing ever complains about it. So two things now say
+so, without waiting for anyone to look:
+
+- **In the deploy log**, on every boot, if the address customers are being given
+  is still a hosting hostname (`.onrender.com`, `.up.railway.app`, `.fly.dev`,
+  `.herokuapp.com`, `.vercel.app`, `.netlify.app`, `.ondigitalocean.app`) — or
+  if nothing has been set at all on a hosted service.
+- **In Settings**, directly beneath the booking link the owner copies, in place
+  of the usual "this link never changes" note. If the address came from the
+  wizard they get a button that takes them to the field; if it's pinned by
+  `KAIRO_PUBLIC_URL` they're told to ask whoever set the system up, because the
+  field is theirs to read and yours to change.
+
+Neither fires on `localhost` with nothing configured — that is just how you run
+it on your own machine, and a warning that cries wolf on every dev boot is a
+warning nobody reads.
+
 **If you lent them your number**, also set the starter sender so the app keeps
 asking them to replace it:
 
