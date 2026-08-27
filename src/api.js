@@ -5,7 +5,7 @@ import {
   dbFileBytes, publicUrl, publicUrlFromEnv,
 } from './db.js';
 import {
-  readJson, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
+  readJson, readBody, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
   isValidTimeZone,
 } from './util.js';
 import {
@@ -40,7 +40,10 @@ import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
-import { recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent, recentlyMessagedSet, setMarketingOptOut } from './campaigns.js';
+import {
+  recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent,
+  recentlyMessagedSet, setMarketingOptOut, clientByUnsubToken,
+} from './campaigns.js';
 import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
   waitlistEnabled, autofillEnabled,
@@ -3323,6 +3326,106 @@ route('GET', '/api/public/logo', async ({ res }) => {
     'Content-Security-Policy': "default-src 'none'; sandbox", // it is an image, never a document
   });
   res.end(bytes);
+}, { auth: false });
+
+/**
+ * The unsubscribe link at the foot of every campaign email.
+ *
+ * Two steps rather than one, deliberately. A GET that changes something is
+ * followed by corporate link-scanners and mail-security products, and a client
+ * quietly dropped off a salon's list by their own IT department is a failure
+ * nobody would ever see. So the link opens a page with a button, and the button
+ * is what does it.
+ *
+ * Plain HTML with no scripts: this has to work in a stripped-down in-app
+ * browser, on a slow phone, with JavaScript off. It is the one page where
+ * "didn't load" is not an acceptable outcome.
+ */
+/* The only HTML this module builds by hand, so the escaper lives with it. */
+const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+const unsubPage = (title, body, buttonToken) => `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtml(title)}</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:#f4f5f7; color:#16202c; padding:24px;
+    font:16px/1.65 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  @media (prefers-color-scheme: dark) { body { background:#10151b; color:#e7ecf2; } .card { background:#19202a !important; border-color:#2a3441 !important; } }
+  .card { background:#fff; border:1px solid #dfe4ea; border-radius:14px; padding:30px 28px;
+    max-width:30rem; width:100%; box-shadow:0 10px 30px -22px rgba(0,0,0,.5); }
+  h1 { font-size:20px; margin:0 0 12px; line-height:1.3; }
+  p { margin:0 0 14px; }
+  p:last-child { margin-bottom:0; }
+  .muted { color:#68727f; font-size:14px; }
+  button { font:inherit; font-weight:600; cursor:pointer; margin-top:6px;
+    background:#16202c; color:#fff; border:none; border-radius:9px; padding:11px 18px; }
+  button:hover { background:#2a3745; }
+</style>
+</head><body><div class="card">
+<h1>${escHtml(title)}</h1>
+${body}
+${buttonToken ? `<form method="POST" action="/api/public/unsubscribe">
+  <input type="hidden" name="t" value="${escHtml(buttonToken)}">
+  <button type="submit">Yes, stop sending me offers</button>
+</form>` : ''}
+</div></body></html>`;
+
+const sendUnsubPage = (res, status, html) => {
+  res.writeHead(status, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
+  });
+  res.end(html);
+};
+
+route('GET', '/api/public/unsubscribe', async ({ res, query }) => {
+  const biz = getSetting('business_name', 'this business');
+  const c = clientByUnsubToken(str(query.get('t'), 64));
+  if (!c) {
+    sendUnsubPage(res, 404, unsubPage('That link has expired',
+      '<p class="muted">We couldn\'t match this link to anyone. If you\'re still getting messages '
+      + 'you don\'t want, just reply to one of them and we\'ll sort it out.</p>', ''));
+    return;
+  }
+  if (c.marketing_opt_out) {
+    sendUnsubPage(res, 200, unsubPage('You\'re already unsubscribed',
+      `<p>You won't be sent offers from ${escHtml(biz)}.</p>`
+      + '<p class="muted">You\'ll still get confirmations and reminders for appointments you book — '
+      + 'those aren\'t marketing, and you\'d want to know what time to turn up.</p>', ''));
+    return;
+  }
+  sendUnsubPage(res, 200, unsubPage('Stop receiving offers?',
+    `<p>Hi ${escHtml(c.first_name || 'there')} — confirm and ${escHtml(biz)} won't send you offers again.</p>`
+    + '<p class="muted">You\'ll still get confirmations and reminders for appointments you book. '
+    + 'Those aren\'t marketing, and you\'d want to know what time to turn up.</p>',
+  str(query.get('t'), 64)));
+}, { auth: false });
+
+route('POST', '/api/public/unsubscribe', async ({ req, res }) => {
+  // Sent as a plain form post, because the page it comes from has no scripts.
+  const raw = await readBody(req);
+  const token = str(new URLSearchParams(raw).get('t') || '', 64);
+  const biz = getSetting('business_name', 'this business');
+  const c = clientByUnsubToken(token);
+  if (!c) {
+    sendUnsubPage(res, 404, unsubPage('That link has expired',
+      '<p class="muted">We couldn\'t match this link to anyone. Reply to any message from us and '
+      + 'we\'ll take you off by hand.</p>', ''));
+    return;
+  }
+  setMarketingOptOut(c.id, true);
+  sendUnsubPage(res, 200, unsubPage('Done — no more offers',
+    `<p>${escHtml(biz)} won't send you offers again.</p>`
+    + '<p class="muted">You\'ll still get confirmations and reminders for appointments you book. '
+    + 'Changed your mind? Just let us know next time you\'re in.</p>', ''));
 }, { auth: false });
 
 route('GET', '/api/public/cancel', async ({ query }) => {

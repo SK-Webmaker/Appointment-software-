@@ -30,6 +30,11 @@ const POLICIES = {
   // token makes brute force hopeless. Generous enough for a client who opens
   // their link, thinks about it, and comes back.
   public_cancel:  { limit: 30,  windowMs: 10 * 60 * 1000 },
+  // Same reasoning as the cancel link, and it changes something: an unsubscribe
+  // token is a credential that opts somebody out permanently. Brute force is
+  // hopeless against 144 bits, but this costs nothing and keeps the two links
+  // that carry a token treated alike.
+  public_unsub:   { limit: 30,  windowMs: 10 * 60 * 1000 },
   public_deposit: { limit: 20,  windowMs: 10 * 60 * 1000 },
   public_read:    { limit: 240, windowMs: 60 * 1000 },      // info/availability/ics/review-form
   authed:         { limit: 600, windowMs: 60 * 1000 },      // per user+IP, anti-runaway
@@ -71,6 +76,7 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
   if (pathname === '/api/public/cancel') return 'public_cancel'; // GET too — the lookup is the guessable part
+  if (pathname === '/api/public/unsubscribe') return 'public_unsub'; // GET too, same reason
   if (pathname === '/api/public/confirm-deposit') return 'public_deposit';
   if (pathname.startsWith('/api/public/') || pathname.startsWith('/api/auth/verify-email')) return 'public_read';
   return 'authed';

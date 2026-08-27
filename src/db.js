@@ -326,6 +326,14 @@ function migrate() {
   // marketing, and a client who opted out of offers still needs to know what
   // time to turn up.
   addColumn('clients', 'marketing_opt_out', 'marketing_opt_out INTEGER NOT NULL DEFAULT 0');
+  // The client's own way out, without having to ask the salon.
+  //
+  // Generated lazily, the first time a marketing message actually goes to them,
+  // so a client who is never sent an offer never has a token to leak. Kept per
+  // client rather than per message: somebody who unsubscribes from one offer
+  // means all of them, and a token that only worked for the email it came in
+  // would be a worse promise than none.
+  addColumn('clients', 'unsub_token', "unsub_token TEXT NOT NULL DEFAULT ''");
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:

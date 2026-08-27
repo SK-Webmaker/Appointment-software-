@@ -453,12 +453,25 @@ async function renderTimeStep() {
             <button class="btn primary" id="join-wl" style="display:block;margin:0 auto">
               ${icon('users')} Let me know if this day frees up</button>` : ''}`;
         if (state.info.waitlist_enabled) {
-          slotsEl.querySelector('#join-wl').onclick = renderWaitlistStep;
+          slotsEl.querySelector('#join-wl').onclick = () => renderWaitlistStep({ dayFull: true });
         }
         return;
       }
+      // Times exist — but not necessarily the one they came for. A day showing
+      // 8am and 4pm is "available" to the software and useless to somebody who
+      // finishes work at five, and they leave without ever saying so. The offer
+      // sits under the grid, quiet, so it never competes with a time they could
+      // actually take.
       slotsEl.innerHTML = `<div class="slot-grid">${res.slots.map((s) =>
-        `<button class="slot" data-slot="${s.start_min}" data-sid="${s.staff_id}">${fmtTime(s.start_min)}</button>`).join('')}</div>`;
+        `<button class="slot" data-slot="${s.start_min}" data-sid="${s.staff_id}">${fmtTime(s.start_min)}</button>`).join('')}</div>`
+        + (state.info.waitlist_enabled ? `
+          <div class="wl-foot">
+            <span>Nothing here that suits?</span>
+            <button type="button" id="join-wl-foot">Tell us when you'd like, and we'll message you if it frees up</button>
+          </div>` : '');
+      if (state.info.waitlist_enabled) {
+        slotsEl.querySelector('#join-wl-foot').onclick = () => renderWaitlistStep({ dayFull: false });
+      }
       slotsEl.querySelectorAll('.slot').forEach((b) => {
         b.onclick = () => {
           state.slot = { start_min: Number(b.dataset.slot), staff_id: Number(b.dataset.sid) };
@@ -476,23 +489,33 @@ async function renderTimeStep() {
  * Joining the waitlist — the same short form as booking, because somebody who
  * has just been told "no times that day" has already spent their patience.
  */
-function renderWaitlistStep() {
+function renderWaitlistStep({ dayFull = true } = {}) {
+  // Two ways in, and they must not say the same thing. Telling somebody the day
+  // is full when they can plainly see three times on the previous screen is the
+  // kind of small lie that makes a customer distrust everything else on it.
+  const heading = dayFull
+    ? `${esc(fmtDate(state.date))} is full`
+    : `Tell us when suits on ${esc(fmtDate(state.date))}`;
+  const blurb = dayFull
+    ? `Leave your details and we'll message you the moment ${esc(cartLabel())} frees up${state.staff ? ` with ${esc(state.staff.name)}` : ''}. No obligation.`
+    : `Say what time you were after and we'll message you if it comes free. You can still book one of the times we do have — this is only in case none of them work.`;
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
     <button class="bk-back" id="back">${icon('chevL', 14)} Back to times</button>
     <div class="bk-summary">
       <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('users')}</span>
-      <div><b>${esc(fmtDate(state.date))} is full</b><br>
-        <span style="color:var(--text-2)">Leave your details and we'll message you the moment
-        ${esc(cartLabel())} frees up${state.staff ? ` with ${esc(state.staff.name)}` : ''}. No obligation.</span></div>
+      <div><b>${heading}</b><br>
+        <span style="color:var(--text-2)">${blurb}</span></div>
     </div>
     <form id="wl-form" class="form-grid">
       <div class="field"><label>First name *</label><input name="first_name" required></div>
       <div class="field"><label>Last name</label><input name="last_name"></div>
       <div class="field"><label>Phone</label><input name="phone" placeholder="So we can text you"></div>
       <div class="field"><label>Email</label><input name="email" type="email"></div>
-      <div class="field span2"><label>Anything else?</label>
-        <textarea name="note" placeholder="e.g. mornings are best, or any day that week"></textarea></div>
+      <div class="field span2"><label>${dayFull ? 'Anything else?' : 'What time were you after?'}</label>
+        <textarea name="note" placeholder="${dayFull
+          ? 'e.g. mornings are best, or any day that week'
+          : 'e.g. after 5pm, or Saturday morning'}"></textarea></div>
       <div class="span2" style="text-align:right">
         <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">
           ${icon('check')} Put me on the list</button>

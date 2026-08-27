@@ -90,7 +90,8 @@ export function renderEmail(p) {
     <tr><td style="padding:18px 12px;text-align:center;">
       <div style="font-size:12px;color:#8a94a4;line-height:1.7;">
         ${esc(biz)}${address ? ` · ${esc(address)}` : ''}${phone ? ` · ${esc(phone)}` : ''}<br>
-        Powered by Kairo
+        Powered by Kairo${p.unsubscribeUrl ? `<br>
+        <a href="${esc(p.unsubscribeUrl)}" style="color:#8a94a4;text-decoration:underline;">Stop receiving offers like this</a>` : ''}
       </div>
     </td></tr>
   </table>

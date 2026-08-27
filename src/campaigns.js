@@ -20,6 +20,7 @@
 //   3. KAIRO NEVER INVENTS A DISCOUNT. If an offer is going in the message the
 //      owner types it. Software that quietly cuts a business's margins to hit
 //      its own numbers is not on their side.
+import crypto from 'node:crypto';
 import { db, getSetting, publicUrl } from './db.js';
 
 /** Message kinds this module can queue. Kept apart from the transactional
@@ -436,9 +437,15 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
     if (!wants.length) { skipped++; continue; }
 
     for (const [ch, to] of wants) {
+      // Only the email carries an unsubscribe link. A text has no room for one,
+      // and the SMS way out is replying STOP — which the copy says.
       const html = ch === 'email' && renderEmail
-        ? renderEmail({ heading: subj || biz, greeting: `Hi ${c.first_name || 'there'},`,
-          paragraphs: text.split('\n\n').slice(1).filter(Boolean) })
+        ? renderEmail({
+          heading: subj || biz,
+          greeting: `Hi ${c.first_name || 'there'},`,
+          paragraphs: text.split('\n\n').slice(1).filter(Boolean),
+          unsubscribeUrl: publicUrl() ? `${publicUrl()}/api/public/unsubscribe?t=${unsubTokenFor(c.id)}` : '',
+        })
         : '';
       ins.run(c.id, ch, kind, to, subj, text, html, now);
     }
@@ -454,6 +461,31 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
 export function setMarketingOptOut(clientId, optOut) {
   return db.prepare('UPDATE clients SET marketing_opt_out = ? WHERE id = ?')
     .run(optOut ? 1 : 0, clientId).changes > 0;
+}
+
+/**
+ * The client's own unsubscribe link, minted the first time they need one.
+ *
+ * A commercial message has to carry a way out that works without the recipient
+ * having to ask a human — so this is not a nicety, it is the thing that makes
+ * sending to two hundred people at once legitimate.
+ */
+export function unsubTokenFor(clientId) {
+  const row = db.prepare('SELECT unsub_token FROM clients WHERE id = ?').get(clientId);
+  if (!row) return '';
+  if (row.unsub_token) return row.unsub_token;
+  const token = crypto.randomBytes(18).toString('hex');
+  db.prepare('UPDATE clients SET unsub_token = ? WHERE id = ?').run(token, clientId);
+  return token;
+}
+
+/** Who a token belongs to, or null. */
+export function clientByUnsubToken(token) {
+  const t = String(token || '').trim();
+  if (t.length < 20) return null;   // never let a stray short string match
+  return db.prepare(
+    'SELECT id, first_name, marketing_opt_out FROM clients WHERE unsub_token = ? AND unsub_token != \'\''
+  ).get(t) || null;
 }
 
 /** When this kind of campaign last went out, so the panel can say so. */
