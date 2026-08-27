@@ -156,6 +156,11 @@ export async function renderAccount(container) {
         ${a.user.default_password ? `
         <div class="acct-warn">${icon('alert', 15)}
           <div><b>You're still on the default password.</b> Anyone who knows it can open your business. Change it below.</div>
+        </div>` : a.user.handover_password ? `
+        <div class="acct-warn">${icon('alert', 15)}
+          <div><b>You're still using the password you were sent.</b> It was emailed to you when your system was set
+            up, so it's sitting in at least two inboxes. Pick your own below and it becomes yours alone —
+            everything else keeps working exactly as it is.</div>
         </div>` : ''}
 
         <div class="field" style="margin-bottom:16px"><label>Email verification</label>

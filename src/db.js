@@ -702,13 +702,28 @@ export function bootstrap() {
   }
   const hasUser = db.prepare('SELECT COUNT(*) AS n FROM users').get().n > 0;
   if (!hasUser) {
-    const { salt, hash } = hashPassword(process.env.KAIRO_ADMIN_PASSWORD || 'admin123');
+    const handover = String(process.env.KAIRO_ADMIN_PASSWORD || '').trim();
+    const { salt, hash } = hashPassword(handover || 'admin123');
     db.prepare('INSERT INTO users (name, email, pass_hash, salt) VALUES (?, ?, ?, ?)').run(
       'Admin',
       process.env.KAIRO_ADMIN_EMAIL || 'admin@kairo.local',
       hash,
       salt
     );
+    // A password somebody else chose and sent them.
+    //
+    // When Kairo is handed over remotely there is no moment where the owner
+    // types their own password with the operator looking away — they are sent
+    // one in an email, and that email sits in two inboxes forever. The default
+    // -password flag below cannot catch this: the password is a good one, it
+    // is just not theirs and not private.
+    //
+    // Set once, here, and only ever cleared — by changing the password. It
+    // cannot be recomputed on later boots (that would mean storing the
+    // password), so it is deliberately one-way: the failure mode is nagging an
+    // owner who has already changed it, which cannot happen, rather than
+    // staying silent for one who hasn't, which is the one that matters.
+    if (handover) setSetting('handover_password_active', '1');
   }
   // Flag whether the built-in default password ('admin123') is still in use, so
   // the app can nag the owner to change it — a live instance on its default

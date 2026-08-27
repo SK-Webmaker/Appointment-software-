@@ -154,6 +154,12 @@ function renderShell() {
         <div class="security-banner">
           ${icon('alert', 16)}
           <span><b>Change your password.</b> You're signed in with the default password — anyone who knows it can access your business. Set a new one in <a href="#/settings">Settings → Security</a>.</span>
+        </div>` : state.settings.handover_password_active === '1' ? `
+        <div class="security-banner">
+          ${icon('alert', 16)}
+          <span><b>Pick your own password.</b> You're still using the one you were sent when your system was set up —
+            it's in an email, so it isn't private to you yet. Set your own in
+            <a href="#/account">Account → Security</a>. Takes ten seconds.</span>
         </div>` : ''}
         <main class="content"><div class="page" id="page"></div></main>
       </div>

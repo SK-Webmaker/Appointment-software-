@@ -230,6 +230,8 @@ route('GET', '/api/account', async ({ user }) => {
       // Flagged so the Account page can nag about it in the one place the
       // owner goes to look at their account.
       default_password: getSetting('default_password_active') === '1',
+      // Signed in with a password the operator generated and emailed them.
+      handover_password: getSetting('handover_password_active') === '1',
     },
     business: {
       name: getSetting('business_name', ''),
@@ -321,6 +323,8 @@ route('PUT', '/api/auth/password', async ({ req, res, user }) => {
   const newVersion = (row.token_version || 0) + 1;
   db.prepare('UPDATE users SET pass_hash = ?, salt = ?, token_version = ? WHERE id = ?').run(hash, salt, newVersion, user.id);
   if (getSetting('default_password_active') === '1') setSetting('default_password_active', '0');
+  // Whatever they were handed at setup is now gone, whichever kind it was.
+  if (getSetting('handover_password_active') === '1') setSetting('handover_password_active', '0');
   res.setHeader('Set-Cookie', sessionCookie(createSession(user.id, getSetting('session_secret'), newVersion), secureForRequest(req)));
   return { ok: true };
 });
