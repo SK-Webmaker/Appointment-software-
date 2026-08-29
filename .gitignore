@@ -1,4 +1,9 @@
 node_modules/
+# Kairo has no dependencies, so a lockfile is never meaningful here — it only
+# appears when someone runs an install by hand or when Render's build command
+# does. Committing one gives yarn something to "resolve" on every deploy.
+package-lock.json
+yarn.lock
 data/*.db
 data/*.db-journal
 data/*.db-wal

@@ -5,6 +5,7 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+    "prestart": "node --disable-warning=ExperimentalWarning scripts/check-node.mjs",
     "start": "node --disable-warning=ExperimentalWarning server.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch server.js",
     "reset-demo": "node --disable-warning=ExperimentalWarning scripts/reset-demo.js",
