@@ -133,7 +133,7 @@ Log in once as the admin account, go to **Settings**, and set:
 | Where | What | Why it matters |
 |---|---|---|
 | Notifications | Resend API key | nothing sends without it |
-| Notifications | From email — `hello@send.hairbysha.kairobookings.com` | must match the verified domain |
+| Notifications | From email — `hello@hairbysha.kairobookings.com` | must be on the **exact** domain added to Resend. **No `send.`** — that subdomain only carries the MX and SPF (bounce) records and was never added as a domain, so Resend refuses to send from it |
 | Notifications | **Replies go to** — the owner's real inbox | mail is sent from a domain with no inbox; without this a client who hits Reply gets a bounce and nobody is told |
 | Notifications | Your website address — `https://hairbysha.kairobookings.com` | every cancel link, review link, QR code **and the booking link the owner copies** is built from it. Skip it and they hand out the raw hosting URL, which works — which is exactly why nobody notices |
 | SMS | ClickSend username + API key | |

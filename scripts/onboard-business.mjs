@@ -254,5 +254,9 @@ console.log(c.dim('  2. Wait for its green tick (the certificate).'));
 console.log(c.dim(`  3. Turn the Cloudflare proxy on for ${HOST}.`));
 console.log(c.dim('  4. In Resend, hit Verify on the domain.'));
 console.log(c.dim(`  5. In Kairo → Settings: set the website address to https://${HOST},`));
-console.log(c.dim(`     the from address to hello@${SEND}, and who replies go to.`));
+// The From address goes on HOST, not SEND. SEND carries the MX and SPF records
+// — Resend's bounce path — and was never added to Resend as a domain, so a From
+// address there is refused and the business cannot send at all.
+console.log(c.dim(`     the from address to hello@${HOST}, and who replies go to.`));
+console.log(c.dim(`     (not hello@${SEND} — that subdomain only carries the bounce records)`));
 console.log('');

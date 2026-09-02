@@ -445,7 +445,7 @@ export const publicUrlFromEnv = () => publicUrl() !== ''
 /**
  * Where a client's reply actually goes.
  *
- * Mail leaves from the sending subdomain — hello@send.business.kairobookings.com
+ * Mail leaves from the business's own domain — hello@business.kairobookings.com
  * — which exists to send and has no inbox behind it. Without a reply-to, a
  * client who hits Reply on their confirmation (and plenty do: "can I move to
  * 3?") gets a bounce, and the salon never learns the message existed. A lost

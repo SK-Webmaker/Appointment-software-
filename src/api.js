@@ -449,7 +449,7 @@ function applySettings(body) {
     if (k === 'notif_from_email') {
       const val = str(v, 320).trim();
       if (val !== '' && !looksLikeEmail(val)) {
-        throw httpError(400, `"${val}" is not a valid email address. Use the full address, e.g. hello@send.yourbusiness.kairobookings.com`);
+        throw httpError(400, `"${val}" is not a valid email address. Use the full address on the domain you verified in Resend, e.g. hello@yourbusiness.kairobookings.com`);
       }
       setSetting(k, val);
       continue;
