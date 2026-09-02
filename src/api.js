@@ -2855,6 +2855,13 @@ route('GET', '/api/public/info', async () => {
     business_name: getSetting('business_name'),
     business_phone: getSetting('business_phone'),
     business_address: getSetting('business_address'),
+    // The DOMAIN mail leaves from — never the mailbox. It is already on every
+    // message this business sends, so it discloses nothing new, and it lets
+    // scripts/verify-business.mjs check DKIM and SPF on the domain actually in
+    // use instead of guessing the platform one. Guessing produced a confident
+    // "records missing" against a salon whose email was working perfectly,
+    // because that salon sends from its own domain.
+    mail_domain: String(getSetting('notif_from_email', '')).split('@')[1] || '',
     currency: getSetting('currency', '$'),
     open_min: Number(getSetting('open_min', '480')),
     close_min: Number(getSetting('close_min', '1200')),
