@@ -59,12 +59,47 @@ function sweep() {
 // set KAIRO_TRUST_PROXY=0 so clients can't spoof their IP past the limiter.
 const TRUST_PROXY = process.env.KAIRO_TRUST_PROXY !== '0';
 
-/** Client IP, honouring the proxy header set by Render/Caddy/nginx. */
+// Cloudflare sets CF-Connecting-IP on every request it forwards and discards
+// any value the caller supplied, so it is the one client-IP header that cannot
+// be forged from outside. Every business on the platform is behind Cloudflare
+// by construction, so this is trusted by default; set 0 for a deployment that
+// is not, or the header becomes spoofable in exactly the way this guards.
+const TRUST_CF = process.env.KAIRO_BEHIND_CLOUDFLARE !== '0';
+
+// How many proxies sit in front of this process. Render's own balancer is one.
+const PROXY_HOPS = Math.max(1, Number(process.env.KAIRO_PROXY_HOPS) || 1);
+
+/**
+ * The client's IP, as trustworthily as the deployment allows.
+ *
+ * NEVER the first value of X-Forwarded-For. Every hop APPENDS to that header,
+ * and the chain starts with whatever the caller wrote — Cloudflare adds to it
+ * rather than replacing it. Keying the limiter on the leftmost entry made every
+ * limit in this file optional: send a fresh value per request and the login
+ * brute-force guard, the booking-spam guard and the global ceiling all reset.
+ *
+ * In preference order:
+ *   1. CF-Connecting-IP — set by Cloudflare, unforgeable through Cloudflare.
+ *   2. X-Forwarded-For counted from the RIGHT, past the proxies we trust, so
+ *      the entries the caller controls are never the ones we read.
+ *   3. The socket address.
+ *
+ * One residual gap this cannot close on its own: a service's raw
+ * *.onrender.com address bypasses Cloudflare, and nothing on that path sets
+ * CF-Connecting-IP. Closing it is what the origin lock in origin.js is for.
+ */
 export function clientIp(req) {
-  if (TRUST_PROXY) {
-    const fwd = req.headers['x-forwarded-for'];
-    if (fwd) return String(fwd).split(',')[0].trim();
+  if (!TRUST_PROXY) return req.socket.remoteAddress || 'unknown';
+
+  if (TRUST_CF) {
+    const cf = String(req.headers['cf-connecting-ip'] || '').trim();
+    if (cf) return cf;
   }
+
+  const chain = String(req.headers['x-forwarded-for'] || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  if (chain.length) return chain[Math.max(0, chain.length - PROXY_HOPS)];
+
   return req.socket.remoteAddress || 'unknown';
 }
 

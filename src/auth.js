@@ -98,16 +98,9 @@ export function secureForRequest(req) {
   return String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 }
 
-// --- tiny in-memory rate limiter for login attempts ---
-const attempts = new Map(); // ip -> {count, resetAt}
-
-export function loginRateLimited(ip) {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-  if (!entry || entry.resetAt < now) {
-    attempts.set(ip, { count: 1, resetAt: now + 10 * 60 * 1000 });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > 20; // 20 attempts / 10 minutes
-}
+// Login rate limiting lives in ratelimit.js, in the 'login' bucket, applied to
+// every request before any handler runs. A second limiter used to sit here,
+// exported and never called — dead, but dangerous to leave: it reads as the
+// real one, so anyone tidying up could disable the limiter that actually works
+// believing this was the duplicate. Deleted rather than wired up, because one
+// place deciding who is over the limit is the point.

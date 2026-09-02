@@ -41,7 +41,13 @@ function serveStatic(res, urlPath) {
   if (rel.startsWith('/review/')) rel = '/review.html'; // client reads the token from the URL itself
   if (rel.startsWith('/cancel/')) rel = '/cancel.html'; // same pattern for the cancel link
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  // Compare against the directory WITH its separator. A bare prefix test lets
+  // "/app/public-anything" through, because it starts with "/app/public" —
+  // so the guard would stop protecting the day a sibling directory is added
+  // whose name happens to share the prefix. The URL parser strips dot segments
+  // before this runs, which is what actually blocks traversal today; this is
+  // the layer underneath, and it should hold on its own.
+  if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
   fs.readFile(filePath, (err, data) => {
