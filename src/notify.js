@@ -525,16 +525,47 @@ export function queueRescheduleMessage(apptId, { from = null, channels = '' } = 
  * @param {Array} attachments  [{ filename, content: Buffer }] — used by the
  *   backup, which posts the salon's own database to the owner's inbox.
  */
+/**
+ * Is this a usable sending address?
+ *
+ * Deliberately strict rather than clever: the characters excluded here are the
+ * ones that break the From header itself, and a trailing space is the single
+ * most common way this gets saved wrong.
+ */
+export function looksLikeEmail(v) {
+  return /^[^\s@<>",;]+@[^\s@<>",;]+\.[a-z]{2,}$/i.test(String(v || '').trim());
+}
+
+/**
+ * Build the From header.
+ *
+ * The display name has to be quoted. "Cut & Colour (Kew)" and "Hair by Sha,
+ * Camberwell" are ordinary salon names and both produce an invalid header
+ * unquoted — the comma reads as an address separator, the parentheses as a
+ * comment — and then every single email that business sends is rejected.
+ */
+export function fromHeader(name, address) {
+  const addr = String(address || '').trim();
+  const display = String(name || '').trim();
+  if (!display) return addr;
+  return `"${display.replace(/[\\"]/g, (ch) => `\\${ch}`)}" <${addr}>`;
+}
+
 export async function sendEmail(to, subject, body, html = '', { attachments = [] } = {}) {
   const key = getSetting('resend_api_key');
-  const from = getSetting('notif_from_email');
+  const from = String(getSetting('notif_from_email') || '').trim();
   if (!key || !from) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
+  // Catch a malformed address here rather than letting Resend answer with a
+  // 422 that names no setting and tells the owner nothing they can act on.
+  if (!looksLikeEmail(from)) {
+    return { ok: false, detail: `The From address in Settings → Notifications is not a valid email address: "${from}"` };
+  }
   const replyTo = replyToAddress();
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: `${getSetting('business_name', 'Bookings')} <${from}>`,
+      from: fromHeader(getSetting('business_name', 'Bookings'), from),
       to: [to],
       ...(replyTo ? { reply_to: replyTo } : {}),
       subject,

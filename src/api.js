@@ -18,7 +18,7 @@ import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages, queueRescheduleMessage,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   queueCancellationMessages, cancelUrlFor,
-  deliverMessage, processQueue, smsBalance,
+  deliverMessage, processQueue, smsBalance, looksLikeEmail,
 } from './notify.js';
 import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
@@ -443,6 +443,17 @@ function applySettings(body) {
     // this, saving the form would quietly wipe the stored fallback and only
     // reveal it the day the variable is removed.
     if (k === 'public_url' && publicUrlFromEnv()) continue;
+    // A From address Resend will reject is worth refusing at the point it is
+    // typed. Saved silently, it looks fine in Settings and only surfaces when a
+    // real customer's confirmation fails — with a raw 422 that names no field.
+    if (k === 'notif_from_email') {
+      const val = str(v, 320).trim();
+      if (val !== '' && !looksLikeEmail(val)) {
+        throw httpError(400, `"${val}" is not a valid email address. Use the full address, e.g. hello@send.yourbusiness.kairobookings.com`);
+      }
+      setSetting(k, val);
+      continue;
+    }
     // Secrets are write-only: an empty value means "leave what's stored".
     // A real new value replaces it; the sentinel '__clear__' wipes it.
     if (SECRET_SETTINGS.has(k)) {
