@@ -190,8 +190,19 @@ async function boot() {
     applyBrand(state.info.brand);
     document.title = `Book with ${state.info.business_name}`;
 
-    // Returning from Stripe after a deposit?
     const params = new URLSearchParams(location.search);
+
+    // Arrived from a message we sent? Remember which one, so the booking can be
+    // credited to it. Held in sessionStorage rather than the URL because the
+    // customer may take three days and several visits to decide, and the link
+    // they came back on the second time is usually just the plain one.
+    const cameFrom = params.get('m');
+    if (cameFrom) {
+      try { sessionStorage.setItem('kairo_from_message', cameFrom); } catch { /* private mode */ }
+      history.replaceState(null, '', location.pathname);
+    }
+
+    // Returning from Stripe after a deposit?
     if (params.get('deposit') && params.get('appt')) {
       history.replaceState(null, '', '/book');
       await handleDepositReturn(params);
@@ -612,6 +623,9 @@ function renderDetailsStep() {
           notes: fd.get('notes'),
           origin: location.origin,
           turnstile_token: humanToken,
+          from_message: (() => {
+            try { return sessionStorage.getItem('kairo_from_message') || ''; } catch { return ''; }
+          })(),
           client: {
             first_name: fd.get('first_name'), last_name: fd.get('last_name'),
             phone: fd.get('phone'), email: fd.get('email'),

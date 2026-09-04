@@ -1,7 +1,7 @@
 // Messages: every confirmation & reminder Kairo queued, sent, skipped or
 // failed — with retry. The truth log that makes notifications trustworthy.
 import { api } from '../api.js';
-import { esc, icon, fmtDate, fmtTime, openModal, toast } from '../ui.js';
+import { esc, icon, fmtDate, fmtTime, money, openModal, toast } from '../ui.js';
 import { state } from '../app.js';
 import { mountSmsCredit } from '../sms-credit.js';
 
@@ -66,7 +66,7 @@ export async function renderMessages(container) {
     <div class="card" style="padding:0"><div class="table-wrap">
       <table class="data reflow msg-table">
         <thead><tr>
-          <th>To</th><th>Type</th><th>Channel</th><th>Appointment</th><th>Send at</th><th>Status</th><th></th>
+          <th>To</th><th>Type</th><th>Channel</th><th>Appointment</th><th>Led to</th><th>Send at</th><th>Status</th><th></th>
         </tr></thead>
         <tbody id="msg-rows">
           ${messages.length ? messages.map((m) => `
@@ -76,11 +76,15 @@ export async function renderMessages(container) {
               <td data-th="Type">${esc(KIND[m.kind] || m.kind)}</td>
               <td data-th="Channel">${m.channel === 'sms' ? '💬 SMS' : '✉️ Email'}</td>
               <td data-th="Appointment">${m.appt_date ? `${fmtDate(m.appt_date)} · ${fmtTime(m.appt_start)}` : '—'}</td>
+              <td data-th="Led to">${m.led_to_bookings
+                ? `<span class="led-to">${m.led_to_bookings === 1 ? 'booked' : `${m.led_to_bookings} booked`}${
+                    m.led_to_cents ? ` · ${money(m.led_to_cents)}` : ''}</span>`
+                : '<span class="cell-sub">—</span>'}</td>
               <td data-th="Send at" class="cell-sub">${esc(m.send_after || 'immediately')}</td>
               <td data-th="Status">${STATUS_CHIP[m.status] || esc(m.status)}</td>
               <td class="num rf-action">${m.status === 'failed' || m.status === 'skipped' ? `<button class="btn small" data-retry="${m.id}">Retry</button>` : ''}</td>
             </tr>`).join('') : `
-            <tr><td colspan="7"><div class="empty">${icon('send')}<div>No messages yet — they appear here when appointments are booked.</div></div></td></tr>`}
+            <tr><td colspan="8"><div class="empty">${icon('send')}<div>No messages yet — they appear here when appointments are booked.</div></div></td></tr>`}
         </tbody>
       </table>
     </div></div>`;

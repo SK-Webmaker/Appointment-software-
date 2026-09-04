@@ -687,7 +687,9 @@ async function openCampaign(campaign) {
           <textarea id="cmp-body-text" class="cmp-text" rows="7">${esc(d.draft.body)}</textarea>
           <div class="cmp-hint">
             <b>{first_name}</b> becomes each person's name.
-            ${d.booking_url ? 'Your booking link is already in there.'
+            ${d.booking_url
+              ? `<b>{booking_link}</b> becomes your booking page — a different link for each
+                 person, so you can see who booked because of this message.`
               : '<b style="color:var(--amber)">No booking link yet</b> — set your website address in Settings and it will be included.'}
           </div>
         </div>

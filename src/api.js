@@ -43,6 +43,7 @@ import { opportunities } from './opportunities.js';
 import {
   recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent,
   recentlyMessagedSet, setMarketingOptOut, clientByUnsubToken,
+  attributionFor, attributionSummary, bookingsFromMessage, fillTokens, bookingLinkFor, mintToken,
 } from './campaigns.js';
 import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
@@ -1846,14 +1847,45 @@ route('GET', '/api/messages', async ({ query }) => {
     conds.push('m.status = ?'); args.push(status);
   }
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+  // led_to_cents / led_to_bookings: what this exact message produced. A left
+  // join rather than a lookup per row, so the log stays one query however long
+  // it gets. Cancelled bookings are excluded — a booking that was cancelled
+  // recovered nothing, and counting it would flatter every campaign.
   return db.prepare(
     `SELECT m.*, c.first_name || CASE WHEN c.last_name != '' THEN ' ' || c.last_name ELSE '' END AS client_name,
-            a.date AS appt_date, a.start_min AS appt_start
+            a.date AS appt_date, a.start_min AS appt_start,
+            COALESCE(led.n, 0)     AS led_to_bookings,
+            COALESCE(led.cents, 0) AS led_to_cents
      FROM messages m
      LEFT JOIN clients c ON c.id = m.client_id
      LEFT JOIN appointments a ON a.id = m.appointment_id
+     LEFT JOIN (
+       SELECT b.source_message_id AS mid, COUNT(*) AS n, COALESCE(SUM(sv.price_cents), 0) AS cents
+         FROM appointments b
+         LEFT JOIN services sv ON sv.id = b.service_id
+        WHERE b.source_message_id IS NOT NULL AND b.status != 'cancelled'
+        GROUP BY b.source_message_id
+     ) led ON led.mid = m.id
      ${where} ORDER BY m.id DESC LIMIT 300`
   ).all(...args);
+});
+
+/**
+ * What the messages actually earned, by kind.
+ *
+ * Only bookings traced to a message by its own token — never "they booked
+ * sometime after we texted", which is the number every marketing tool quotes
+ * and none of them can defend.
+ */
+route('GET', '/api/attribution', async ({ query }) => {
+  const since = isDateStr(query.get('since')) ? query.get('since') : '';
+  const rows = attributionSummary({ since, kind: query.get('kind') || '' });
+  return {
+    since,
+    by_kind: rows,
+    bookings: rows.reduce((n, r) => n + r.bookings, 0),
+    revenue_cents: rows.reduce((n, r) => n + r.revenue_cents, 0),
+  };
 });
 
 /**
@@ -3080,6 +3112,7 @@ route('POST', '/api/public/book', async ({ req }) => {
     service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
     notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
+    from_message: s.str(64),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
   // Before anything is written: is there a person on the other end? Checked
@@ -3137,10 +3170,16 @@ route('POST', '/api/public/book', async ({ req }) => {
     client = { id: Number(info.lastInsertRowid) };
   }
 
+  // Which message brought them, if any. Looked up rather than trusted: the
+  // token has to name a real message we sent to this same client, so a token
+  // shared between friends credits nobody rather than crediting the wrong
+  // person and inflating what the campaign appears to have earned.
+  const credited = attributionFor(str(b.from_message, 64), client.id);
+
   const info = db.prepare(
-    `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
-     VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online')`
-  ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000));
+    `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source, source_message_id)
+     VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online', ?)`
+  ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000), credited);
   const apptId = Number(info.lastInsertRowid);
   setApptServices(apptId, svc.ids);
 

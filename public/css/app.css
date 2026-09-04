@@ -764,6 +764,17 @@ table.data th.num { text-align: right; }
 }
 .cell-main { font-weight: 600; }
 .cell-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+/* A message that actually produced a booking. Deliberately quiet — most rows
+   are transactional confirmations that were never trying to win anything, and
+   a loud badge on the handful that did would make the log harder to scan, not
+   easier. */
+.led-to {
+  display: inline-block; font-size: 12px; font-weight: 600;
+  color: var(--green); background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 999px; padding: 1px 8px; white-space: nowrap;
+}
 .avatar-sm {
   width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto;
   display: inline-grid; place-items: center;

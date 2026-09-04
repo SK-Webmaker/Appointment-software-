@@ -146,6 +146,38 @@ export function messageCost(body, channel, recipients) {
 const bookingLink = () => (publicUrl() ? `${publicUrl()}/book` : '');
 
 /**
+ * A booking link that knows which message it came from.
+ *
+ * 12 characters of base64url — 72 bits, so unguessable, and short enough that
+ * it doesn't push an SMS into a second segment. Every character in a text
+ * costs the salon money, which is why this isn't a UUID.
+ */
+export function mintToken() {
+  return crypto.randomBytes(9).toString('base64url');
+}
+
+/** The link a specific message hands out, or the plain one if nothing is set. */
+export function bookingLinkFor(token) {
+  const base = bookingLink();
+  if (!base) return '';
+  return token ? `${base}?m=${token}` : base;
+}
+
+/**
+ * Substitute the merge tokens a message body may carry.
+ *
+ * {booking_link} is resolved per message rather than baked into the draft,
+ * because the whole point is that each recipient's link is different — that is
+ * what makes "this text brought back a $85 client" a fact rather than a hope.
+ */
+export function fillTokens(text, { firstName = 'there', token = '', businessName = '' } = {}) {
+  return String(text ?? '')
+    .replaceAll('{first_name}', firstName || 'there')
+    .replaceAll('{business_name}', businessName)
+    .replaceAll('{booking_link}', bookingLinkFor(token));
+}
+
+/**
  * The words, as a starting point rather than a finished thing.
  *
  * Written to sound like the salon rather than like software: short, no
@@ -154,8 +186,11 @@ const bookingLink = () => (publicUrl() ? `${publicUrl()}/book` : '');
  */
 export function draftFor(kind, context = {}, audience = 'matched') {
   const biz = getSetting('business_name', 'us');
-  const link = bookingLink();
-  const linkLine = link ? `\n\nBook here: ${link}` : '';
+  // A merge token, not a finished URL: the link has to differ per recipient so
+  // a booking can be traced back to the message that caused it. The owner sees
+  // {booking_link} while editing, the same way they see {first_name}, and the
+  // preview shows them what a real one looks like.
+  const linkLine = bookingLink() ? '\n\nBook here: {booking_link}' : '';
 
   // Going to the whole list, so the words change: nobody has been singled out,
   // it cannot be promised to any one of them, and the people receiving it did
@@ -393,8 +428,8 @@ export function recipientsFor(kind, { today, channel = 'both', context = {}, aud
 // ---------------------------------------------------------------------------
 
 const insMessage = () => db.prepare(
-  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after)
-   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?)`
+  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after, token)
+   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`
 );
 
 function localStamp(d = new Date()) {
@@ -429,8 +464,14 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
     const c = db.prepare('SELECT id, first_name, last_name, email, phone FROM clients WHERE id = ?').get(id);
     if (!c) { skipped++; continue; }
 
-    const text = body.replaceAll('{first_name}', c.first_name || 'there');
-    const subj = subject.replaceAll('{first_name}', c.first_name || 'there');
+    // One token per client, shared across their email and their text: the two
+    // are the same approach to the same person, so a booking that follows is
+    // attributed to the approach rather than to whichever one they happened to
+    // open.
+    const token = mintToken();
+    const fill = { firstName: c.first_name, token, businessName: biz };
+    const text = fillTokens(body, fill);
+    const subj = fillTokens(subject, fill);
     const wants = [];
     if (channel !== 'sms' && (c.email || '').trim()) wants.push(['email', c.email.trim()]);
     if (channel !== 'email' && (c.phone || '').trim()) wants.push(['sms', c.phone.trim()]);
@@ -447,7 +488,7 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
           unsubscribeUrl: publicUrl() ? `${publicUrl()}/api/public/unsubscribe?t=${unsubTokenFor(c.id)}` : '',
         })
         : '';
-      ins.run(c.id, ch, kind, to, subj, text, html, now);
+      ins.run(c.id, ch, kind, to, subj, text, html, now, token);
     }
     queued++;
     // Within one campaign too — the same client cannot appear twice because
@@ -455,6 +496,76 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
     skip.add(id);
   }
   return { queued, skipped, refused };
+}
+
+/**
+ * Which message, if any, should be credited for a booking.
+ *
+ * Deliberately strict, because the whole value of this number is that an owner
+ * can believe it:
+ *
+ *   - the token must name a real message;
+ *   - that message must have been sent to THIS client, so a link forwarded to
+ *     a friend credits nothing rather than crediting the wrong campaign;
+ *   - and it must be recent. A win-back text in March did not cause a booking
+ *     in September; counting it would quietly make every campaign look better
+ *     the longer it sat there.
+ *
+ * Returns the message id, or null. Never throws — a booking must never fail
+ * because the bookkeeping was uncertain.
+ */
+const ATTRIBUTION_WINDOW_DAYS = 30;
+
+export function attributionFor(token, clientId) {
+  const t = String(token || '').trim();
+  if (!t || !clientId) return null;
+  try {
+    const cutoff = addDays(new Date().toISOString().slice(0, 10), -ATTRIBUTION_WINDOW_DAYS);
+    const row = db.prepare(
+      `SELECT id FROM messages
+        WHERE token = ? AND client_id = ? AND substr(created_at, 1, 10) >= ?
+        ORDER BY id DESC LIMIT 1`
+    ).get(t, clientId, cutoff);
+    return row ? row.id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What a campaign actually earned.
+ *
+ * Counts only bookings that were traced to a message — never an estimate, and
+ * never a booking that merely happened to follow one. Cancelled appointments
+ * are excluded, because a booking that was cancelled recovered nothing.
+ */
+export function attributionSummary({ since = '', kind = '' } = {}) {
+  const args = [];
+  let where = 'WHERE a.source_message_id IS NOT NULL AND a.status != \'cancelled\'';
+  if (since) { where += ' AND a.date >= ?'; args.push(since); }
+  if (kind) { where += ' AND m.kind = ?'; args.push(kind); }
+  return db.prepare(
+    `SELECT m.kind,
+            COUNT(DISTINCT a.id)            AS bookings,
+            COALESCE(SUM(sv.price_cents), 0) AS revenue_cents
+       FROM appointments a
+       JOIN messages m ON m.id = a.source_message_id
+       LEFT JOIN services sv ON sv.id = a.service_id
+       ${where}
+      GROUP BY m.kind
+      ORDER BY revenue_cents DESC`
+  ).all(...args);
+}
+
+/** The bookings one specific message produced, for the message log. */
+export function bookingsFromMessage(messageId) {
+  return db.prepare(
+    `SELECT a.id, a.date, a.start_min, a.status, sv.name AS service_name, sv.price_cents
+       FROM appointments a
+       LEFT JOIN services sv ON sv.id = a.service_id
+      WHERE a.source_message_id = ?
+      ORDER BY a.date`
+  ).all(messageId);
 }
 
 /** Flip one client's "don't send me offers" switch. */

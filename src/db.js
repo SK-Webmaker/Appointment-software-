@@ -325,6 +325,24 @@ function migrate() {
   // reminders and receipts still go: those are the appointment they booked, not
   // marketing, and a client who opted out of offers still needs to know what
   // time to turn up.
+  // ── Attribution ───────────────────────────────────────────────────────────
+  // Which message led to which booking. Without this every "recovered revenue"
+  // figure is an estimate wearing the clothes of a fact, and an owner who
+  // catches one of those stops believing the rest of the screen.
+  //
+  // Deliberately NOT done by widening appointments.source. That column means
+  // "how it was entered" — staff or online — and two things already depend on
+  // it reading exactly that: the dashboard's online-bookings count and the
+  // calendar's ⚡ online badge. Somebody who books through a win-back text did
+  // book online; they should keep counting as one. So attribution is its own
+  // dimension beside it, not a replacement for it.
+  addColumn('messages', 'token', "token TEXT NOT NULL DEFAULT ''");
+  db.exec('CREATE INDEX IF NOT EXISTS idx_messages_token ON messages(token)');
+  addColumn('appointments', 'source_message_id',
+    'source_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL');
+  addColumn('appointments', 'referrer_client_id',
+    'referrer_client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL');
+
   addColumn('clients', 'marketing_opt_out', 'marketing_opt_out INTEGER NOT NULL DEFAULT 0');
   // The client's own way out, without having to ask the salon.
   //
