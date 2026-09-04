@@ -12,6 +12,8 @@ const state = {
   // is actually free. Cleared the moment the times step has dealt with it, so
   // changing date doesn't keep re-announcing an offer they have moved on from.
   pending: null,
+  // True when they arrived from "change the time" on an existing booking.
+  moving: false,
 };
 
 // --- multi-service cart helpers -------------------------------------------
@@ -31,8 +33,21 @@ function cartLabel() {
 
 async function getJson(url, opts) {
   const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
+  // Read as text, then parse. Going straight to res.json() and falling back to
+  // {} turns a 200 whose body was cut off — a dropped connection, a proxy
+  // giving up mid-stream — into an empty object, which then travels into the
+  // page and surfaces as "cannot read properties of undefined" on some
+  // unrelated line. A customer sees a blank screen and blames the salon. A
+  // reply that arrived and would not parse is a failure, and saying so here is
+  // the difference between "try again" and nothing at all.
+  const text = await res.text().catch(() => '');
+  let data = {};
+  let unreadable = false;
+  if (text) {
+    try { data = JSON.parse(text); } catch { unreadable = true; }
+  }
   if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  if (unreadable) throw new Error('The reply was cut short — please try again.');
   return data;
 }
 
@@ -207,6 +222,15 @@ async function boot() {
       try { sessionStorage.setItem('kairo_from_message', cameFrom); } catch { /* private mode */ }
     }
 
+    // Moving an existing appointment rather than making a new one. Held for the
+    // whole session, because they may take three screens to settle on a time
+    // and the old booking must still be released when they finally do.
+    const moving = params.get('r');
+    if (moving) {
+      try { sessionStorage.setItem('kairo_reschedule', moving); } catch { /* private mode */ }
+      state.moving = true;
+    }
+
     // Returning from Stripe after a deposit?
     if (params.get('deposit') && params.get('appt')) {
       history.replaceState(null, '', '/book');
@@ -252,10 +276,26 @@ async function resolveOffer(params, token) {
   const picked = wantIds.map(byId).filter(Boolean);
   const date = params.get('d') || '';
   const startMin = Number(params.get('t'));
-  if (picked.length && picked.length === wantIds.length
-      && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isInteger(startMin)) {
+  // A date or a time that is PRESENT but unreadable means the link is malformed,
+  // and the whole thing is discarded rather than half-honoured. Quietly dropping
+  // the broken half would land somebody on a service they didn't pick on a day
+  // they didn't ask for, and they would never know the link was wrong.
+  const asked = params.has('d') || params.has('t');
+  const exact = /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isInteger(startMin);
+  if (asked && !exact) return null;
+
+  if (picked.length && picked.length === wantIds.length) {
     const staff = (state.info.staff || []).find((m) => m.id === Number(params.get('st'))) || null;
-    return { services: picked, staff, date, start_min: startMin, checked: false };
+    // Services and a stylist with NO date or time asked for at all is the
+    // "change the time" case: they already know what they're having and with
+    // whom, they just want a different slot. Skipping them past two screens
+    // they would answer identically is the whole point of that link.
+    return {
+      services: picked, staff,
+      date: exact ? date : '',
+      start_min: exact ? startMin : null,
+      checked: false,
+    };
   }
 
   if (!token) return null;
@@ -296,11 +336,15 @@ async function resolveOffer(params, token) {
 async function openOnOffer(offer) {
   state.services = offer.services;
   state.staff = offer.staff;
-  state.date = offer.date;
+  if (offer.date) state.date = offer.date;
   state.location = offer.staff && offer.staff.location_id
     ? (state.info.locations || []).find((l) => l.id === offer.staff.location_id) || null
     : null;
-  state.pending = { date: offer.date, start_min: offer.start_min };
+  // Only when a particular slot was named. A "change the time" link has none —
+  // they are here to pick one, and pre-selecting anything would be putting
+  // words in their mouth.
+  state.pending = offer.start_min !== null && offer.date
+    ? { date: offer.date, start_min: offer.start_min } : null;
   await renderTimeStep();
 }
 
@@ -513,6 +557,17 @@ async function renderTimeStep() {
       <button class="btn primary" id="next" disabled>Continue ${icon('chevR', 14)}</button>
     </div>
     ${poweredHtml()}`;
+
+  // A client who came from "change the time" needs to know the old booking is
+  // still theirs until they pick something. Otherwise the safe thing — closing
+  // the tab — feels like the risky thing.
+  if (state.moving) {
+    root.querySelector('#slots').insertAdjacentHTML('beforebegin', `
+      <div class="bk-held moving">${icon('calendar', 15)}
+        <span>Pick a new time and we'll move you. <b>Your current appointment stays
+        as it is</b> until you do.</span>
+      </div>`);
+  }
 
   root.querySelector('#back').onclick = renderStaffStep;
   root.querySelector('#dates').addEventListener('click', (e) => {
@@ -789,6 +844,11 @@ function renderDetailsStep() {
           from_message: (() => {
             try { return sessionStorage.getItem('kairo_from_message') || ''; } catch { return ''; }
           })(),
+          // Releases the appointment they are moving — but only once this one
+          // exists. The server checks the token names a live booking of theirs.
+          reschedule_token: (() => {
+            try { return sessionStorage.getItem('kairo_reschedule') || ''; } catch { return ''; }
+          })(),
           client: {
             first_name: fd.get('first_name'), last_name: fd.get('last_name'),
             phone: fd.get('phone'), email: fd.get('email'),
@@ -854,8 +914,12 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
     ${headHtml()}
     <div class="card confirm-card">
       <div class="confirm-icon">${icon('check', 28)}</div>
-      <h2 style="font-size:20px;margin-bottom:6px">You're booked!</h2>
+      <h2 style="font-size:20px;margin-bottom:6px">${res.moved_from ? 'Your appointment has moved' : "You're booked!"}</h2>
       <div style="color:var(--text-2);margin-bottom:20px">Reference <b style="color:var(--accent)">${esc(res.reference)}</b></div>
+      ${res.moved_from ? `
+        <div class="bk-moved">Your old time on
+          <b>${fmtDate(res.moved_from.from_date)} at ${fmtTime(res.moved_from.from_start_min)}</b>
+          has been released — you only have the one below.</div>` : ''}
       <div class="bk-summary" style="justify-content:center">
         <div style="text-align:center">
           <b>${esc(res.service)}</b> with ${esc(res.staff)}<br>

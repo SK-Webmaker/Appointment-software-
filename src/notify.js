@@ -156,6 +156,31 @@ function buildCopy(kind, a, extra = {}) {
     };
   }
   if (kind === 'reminder') {
+    // The reminder is the one message worth turning into a question.
+    //
+    // "Here is your appointment" gets read and forgotten. "Are you still
+    // coming?" gets answered, and an answer either way is worth money: a yes
+    // makes the no-show less likely, and a no arrives while the slot can still
+    // be sold. So when confirmations are on, the ask is the headline and the
+    // cancel link stops being the only thing to click.
+    const asking = extra.confirmRequested && cancelUrl;
+    if (asking) {
+      return {
+        subject: `Still on for ${fmtDate(a.date)}? — ${what}`,
+        body: `Hi ${name},\n\nYou're booked for ${what}${who} on ${when}.`
+          + `\n\nJust tap to let us know either way: ${cancelUrl}`
+          + `\n\nIf you can't make it, the same link cancels it and frees the time for somebody else.`
+          + `\n\n${biz}${phoneLine}`,
+        html: renderEmail({
+          heading: 'Are we still seeing you?',
+          greeting: `Hi ${name},`,
+          paragraphs: ['One tap either way, and we\'ll know where we stand:'],
+          details: visitDetails,
+          cta: { label: "Yes, I'll be there", url: cancelUrl },
+          footNote: `Can't make it? The same link cancels it. ${noticeText}`,
+        }),
+      };
+    }
     return {
       subject: `Reminder: ${what} on ${fmtDate(a.date)}`,
       body: `Hi ${name},\n\nA friendly reminder about ${what}${who} on ${when}.`
@@ -334,7 +359,13 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
     start.setMinutes(a.start_min - hours * 60);
     const sendAfter = localStamp(start);
     if (sendAfter > now) { // don't remind about appointments that are (nearly) now
-      const copy = buildCopy('reminder', a, { cancelUrl });
+      // Off by default. Asking a question changes what the salon is saying to
+      // its clients, and that is the owner's decision, not a default somebody
+      // discovers after it has gone out to two hundred people.
+      const copy = buildCopy('reminder', a, {
+        cancelUrl,
+        confirmRequested: getSetting('confirm_requests_enabled', '0') === '1',
+      });
       for (const [channel, to] of channelsFor('reminder', a.client_email, a.client_phone)) {
         ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
       }

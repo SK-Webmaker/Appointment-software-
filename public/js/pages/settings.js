@@ -548,6 +548,45 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">No-shows</div>
+        <div class="card-sub" style="margin-bottom:16px">A no-show is the one loss you can't recover —
+          the slot is gone and there's nothing to sell in its place. <b>Everything here is off until you
+          set a number</b>, and you can always overrule it for any one client on their own record.</div>
+        <form id="set-noshow" style="display:flex;flex-direction:column;gap:13px">
+          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
+            <input type="checkbox" name="confirm_requests_enabled" ${s.confirm_requests_enabled === '1' ? 'checked' : ''} class="chk">
+            <span><b>Ask clients to confirm</b><span class="co-hint">Turns the reminder into a question with
+              one tap either way. A yes makes them far more likely to turn up; a no arrives while you can
+              still sell the slot. Costs nothing — it's the same message.</span></span>
+          </label>
+          <div class="form-grid">
+            <div class="field"><label>Ask for a deposit after</label>
+              <select name="noshow_deposit_after" class="nice-select">
+                ${[0, 1, 2, 3, 4].map((n) => `<option value="${n}" ${String(s.noshow_deposit_after || '0') === String(n) ? 'selected' : ''}>${n === 0 ? 'Never' : `${n} no-show${n === 1 ? '' : 's'}`}</option>`).join('')}
+              </select>
+              <div class="hint">Counted over the last 90 days. Needs Stripe set up in Payments.</div></div>
+            <div class="field"><label>Stop online booking after</label>
+              <select name="noshow_block_after" class="nice-select">
+                ${[0, 2, 3, 4, 5].map((n) => `<option value="${n}" ${String(s.noshow_block_after || '0') === String(n) ? 'selected' : ''}>${n === 0 ? 'Never' : `${n} no-shows`}</option>`).join('')}
+              </select>
+              <div class="hint">Counted over the last 180 days. They're asked to call you instead —
+                never told a number.</div></div>
+            <div class="field span2"><label>Always take a deposit on bookings over</label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:var(--muted)">${esc(s.currency || '$')}</span>
+                <input name="deposit_over_dollars" type="number" min="0" step="1" style="max-width:120px"
+                  value="${s.deposit_over_cents ? Math.round(Number(s.deposit_over_cents) / 100) : ''}"
+                  placeholder="0 = off">
+              </div>
+              <div class="hint">Nothing to do with no-shows — this one protects a four-hour appointment
+                whoever books it.</div></div>
+          </div>
+          <button class="btn primary" type="submit" style="align-self:flex-start">${icon('check')} Save no-show rules</button>
+        </form>
+        <div id="flagged" class="flagged is-loading" style="margin-top:18px">Checking…</div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Marketing automations</div>
         <div class="card-sub" style="margin-bottom:16px">Kairo can message clients on its own, based on
           their own visit rhythm rather than a blanket rule. <b>Everything here is off until you turn it
@@ -930,6 +969,59 @@ export async function renderSettings(container) {
     e.preventDefault();
     await saveSettings(e.target, ['waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers']);
     loadWaitlist();
+  });
+
+  // --- No-shows ------------------------------------------------------------
+  // The list of who is currently flagged is the important half of this panel.
+  // A rule nobody can see the effect of is a rule nobody trusts, and an owner
+  // who cannot answer "why is Kairo asking Sarah for a deposit" turns the whole
+  // thing off rather than find out.
+  const flaggedEl = container.querySelector('#flagged');
+  const paintFlagged = (data) => {
+    if (!data) { flaggedEl.className = 'flagged is-loading'; flaggedEl.textContent = 'Checking…'; return; }
+    flaggedEl.className = 'flagged';
+    const on = data.settings.deposit_after || data.settings.block_after || data.settings.deposit_over_cents;
+    if (!data.clients.length) {
+      flaggedEl.innerHTML = `<div class="fl-empty">${icon('check', 14)}
+        <span>${on
+          ? 'Nobody is affected by these rules at the moment.'
+          : 'No rules are switched on, so nobody is affected.'}</span></div>`;
+      return;
+    }
+    flaggedEl.innerHTML = `
+      <div class="fl-head">${data.clients.length} client${data.clients.length === 1 ? '' : 's'} affected right now</div>
+      ${data.clients.map((c) => `
+        <div class="fl-row">
+          <span class="fl-who">
+            <b>${esc(`${c.first_name} ${c.last_name || ''}`.trim())}</b>
+            <span>${esc(c.state.reason || 'Set by you')}</span>
+          </span>
+          <span class="chip ${c.state.blocked ? 's-no_show' : 'chip-warn'}">
+            ${c.state.blocked ? 'Phone only' : 'Deposit'}</span>
+          <a class="btn small" href="#/clients?id=${c.id}">Open</a>
+        </div>`).join('')}
+      <div class="fl-note">Overrule any of these on the client's own record — you can mark somebody
+        trusted so they're never asked, whatever the count says.</div>`;
+  };
+  const loadFlagged = () => api.get('/api/booking-rules').then(paintFlagged).catch(() => {
+    flaggedEl.className = 'flagged';
+    flaggedEl.innerHTML = '<div class="fl-empty">Couldn\'t load this just now.</div>';
+  });
+  loadFlagged();
+
+  container.querySelector('#set-noshow').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // Entered in dollars because that is how an owner thinks about a deposit
+    // threshold; stored in cents because that is how everything else here is.
+    const dollars = Number(e.target.querySelector('[name=deposit_over_dollars]').value) || 0;
+    await api.put('/api/settings', {
+      confirm_requests_enabled: e.target.querySelector('[name=confirm_requests_enabled]').checked ? '1' : '0',
+      noshow_deposit_after: e.target.querySelector('[name=noshow_deposit_after]').value,
+      noshow_block_after: e.target.querySelector('[name=noshow_block_after]').value,
+      deposit_over_cents: String(Math.max(0, Math.round(dollars * 100))),
+    });
+    toast('Saved', 'ok');
+    loadFlagged();
   });
 
   // --- Backups -------------------------------------------------------------

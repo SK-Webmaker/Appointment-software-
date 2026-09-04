@@ -419,6 +419,25 @@ function migrate() {
   // Query parameters are still accepted by the booking page, because an owner
   // pasting a link into Instagram has no message to hang anything off. They
   // just are not what the salon's own texts use.
+  // ── "Yes, I'll be there" ──────────────────────────────────────────────────
+  //
+  // A no-show costs a whole slot and there is nothing to sell in its place, so
+  // the cheapest thing a salon can do about it is ask. The status column
+  // already has 'confirmed' in it; this records WHEN, and by whom, which is
+  // what separates a client who actively said yes from an owner who ticked the
+  // box for them. The difference matters: only the first one is evidence the
+  // client is actually coming.
+  addColumn('appointments', 'confirmed_at', "confirmed_at TEXT NOT NULL DEFAULT ''");
+
+  // ── The one client the usual rules should not apply to ────────────────────
+  //
+  // Blank means "whatever the salon's rule says", and almost everybody stays
+  // blank. The two overrides exist because an automatic rule that cannot be
+  // overruled is a rule that eventually insults somebody's best client:
+  //   trusted — never ask this person for a deposit, whatever the count says.
+  //   blocked — this person books by phone only.
+  addColumn('clients', 'booking_rule', "booking_rule TEXT NOT NULL DEFAULT ''");
+
   addColumn('messages', 'offer_service_ids', "offer_service_ids TEXT NOT NULL DEFAULT ''");
   addColumn('messages', 'offer_staff_id', 'offer_staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL');
   addColumn('messages', 'offer_date', "offer_date TEXT NOT NULL DEFAULT ''");

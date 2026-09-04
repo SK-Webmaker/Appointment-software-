@@ -41,6 +41,9 @@ import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
 import {
+  bookingRuleFor, ruleSettings, noShowsFor, DEPOSIT_WINDOW_DAYS, BLOCK_WINDOW_DAYS,
+} from './booking-rules.js';
+import {
   listAutomations, getAutomation, saveAutomation, candidatesFor, runAutomation,
 } from './automations.js';
 import {
@@ -421,6 +424,8 @@ const EDITABLE_SETTINGS = new Set([
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'notif_reply_to', 'clicksend_starter_from', 'clicksend_starter_dismissed',
   'marketing_cooldown_days', 'sms_cost_cents', 'gap_offer_cap',
+  'noshow_deposit_after', 'noshow_block_after', 'deposit_over_cents',
+  'confirm_requests_enabled',
   'waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
@@ -995,7 +1000,64 @@ route('GET', '/api/clients/:id', async ({ params }) => {
        COALESCE((SELECT SUM(amount_cents) FROM payments WHERE invoice_id = i.id), 0) AS paid_cents
      FROM invoices i WHERE i.client_id = ? ORDER BY i.issue_date DESC LIMIT 50`
   ).all(params.id);
+  // What the salon's own rules say about this person right now, and why. The
+  // same function the booking route enforces with, so the record can never
+  // reassure an owner that somebody is fine while the booking page turns them
+  // away — the two would drift apart within a release if they were separate.
+  client.booking_rule_state = bookingRuleFor(client.id);
   return client;
+});
+
+/**
+ * The owner's override on one client: trusted, blocked, or back to the rules.
+ *
+ * Its own route rather than a field on the client form for the same reason
+ * marketing opt-out is: it is a judgement about a person rather than a detail
+ * about them, and it should be as easy to take back as it was to apply.
+ */
+route('PUT', '/api/clients/:id/booking-rule', async ({ params, req }) => {
+  const b = checkBody(await readJson(req), { rule: s.oneOf(['', 'trusted', 'blocked']) });
+  if (!db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id)) {
+    throw httpError(404, 'No such client');
+  }
+  db.prepare('UPDATE clients SET booking_rule = ? WHERE id = ?').run(b.rule || '', params.id);
+  return { ok: true, rule: b.rule || '', state: bookingRuleFor(Number(params.id)) };
+});
+
+/**
+ * Everybody the salon's rules are currently doing something about.
+ *
+ * An automatic rule nobody can see is an automatic rule nobody trusts. This is
+ * the answer to "who is Kairo asking for a deposit, and why" — asked once, not
+ * client by client.
+ */
+route('GET', '/api/booking-rules', async () => {
+  const cfg = ruleSettings();
+  const rows = db.prepare(
+    `SELECT c.id, c.first_name, c.last_name, c.phone, c.booking_rule,
+            SUM(CASE WHEN a.date >= date('now', ?) THEN 1 ELSE 0 END) AS n90,
+            SUM(CASE WHEN a.date >= date('now', ?) THEN 1 ELSE 0 END) AS n180,
+            MAX(a.date) AS last_no_show
+       FROM clients c JOIN appointments a ON a.client_id = c.id AND a.status = 'no_show'
+      GROUP BY c.id ORDER BY n180 DESC, n90 DESC`
+  ).all(`-${DEPOSIT_WINDOW_DAYS} days`, `-${BLOCK_WINDOW_DAYS} days`);
+
+  const flagged = rows
+    .map((r) => ({ ...r, state: bookingRuleFor(r.id) }))
+    .filter((r) => r.state.blocked || r.state.deposit_required || r.booking_rule);
+
+  // Somebody the owner has marked trusted or blocked with no no-shows at all
+  // will not be in the rows above, and still belongs on this list.
+  const byHand = db.prepare(
+    "SELECT id, first_name, last_name, phone, booking_rule FROM clients WHERE booking_rule != ''"
+  ).all().filter((c) => !flagged.some((f) => f.id === c.id))
+    .map((c) => ({ ...c, n90: 0, n180: 0, last_no_show: '', state: bookingRuleFor(c.id) }));
+
+  return {
+    settings: cfg,
+    windows: { deposit_days: DEPOSIT_WINDOW_DAYS, block_days: BLOCK_WINDOW_DAYS },
+    clients: [...flagged, ...byHand],
+  };
 });
 
 function clientBody(b) {
@@ -3156,6 +3218,20 @@ function gapOfferCap() {
   return clampInt(getSetting('gap_offer_cap', '5'), 1, 50, 5);
 }
 
+/**
+ * The deposit asked of a client who has tripped a no-show rule.
+ *
+ * Falls back to the salon's own percentage or fixed amount where one is set, so
+ * an owner who has already decided what a deposit looks like does not have to
+ * decide again. Where nothing is set, a quarter of the booking — enough to be
+ * worth turning up for, not so much that it reads as a fine.
+ */
+function ruleDepositCents(priceCents) {
+  const configured = depositCentsFor({ price_cents: priceCents });
+  if (configured > 0) return configured;
+  return Math.max(500, Math.round((priceCents || 0) * 0.25));
+}
+
 /** The hour settings the shared rules engine needs. */
 function hourSettings() {
   return {
@@ -3388,7 +3464,7 @@ route('POST', '/api/public/book', async ({ req }) => {
     service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
     notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
-    from_message: s.str(64),
+    from_message: s.str(64), reschedule_token: s.str(64),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
   // Before anything is written: is there a person on the other end? Checked
@@ -3446,6 +3522,21 @@ route('POST', '/api/public/book', async ({ req }) => {
     client = { id: Number(info.lastInsertRowid) };
   }
 
+  // A client the salon has closed online booking to. Checked HERE, after the
+  // client is resolved and before anything is written, so a repeat no-show
+  // cannot slip through by booking under a new spelling of their own name — and
+  // so the slot is not taken and then handed back.
+  //
+  // The reason given is the client-facing one. The owner's version ("4
+  // no-shows in the last 180 days") is true and is exactly the sentence that
+  // loses a customer who is about to explain that their mother was in hospital.
+  const totalCents = svc.services.reduce((sum, x) => sum + (x.price_cents || 0), 0);
+  const rule = bookingRuleFor(client.id, { priceCents: totalCents });
+  if (rule.blocked) {
+    throw httpError(403, rule.client_note
+      + (getSetting('business_phone', '') ? ` ${getSetting('business_phone')}` : ''));
+  }
+
   // Which message brought them, if any. Looked up rather than trusted: the
   // token has to name a real message we sent to this same client, so a token
   // shared between friends credits nobody rather than crediting the wrong
@@ -3470,9 +3561,15 @@ route('POST', '/api/public/book', async ({ req }) => {
   // booking — it proceeds without a deposit and the workspace still sees it.
   // A percentage deposit is taken on the combined price of all services.
   let checkoutUrl = null;
-  const totalPriceCents = svc.services.reduce((sum, x) => sum + (x.price_cents || 0), 0);
+  const totalPriceCents = totalCents;
   const serviceLabel = svc.services.map((x) => x.name).join(' + ');
-  const depositCents = depositCentsFor({ price_cents: totalPriceCents });
+  // The salon's standing deposit, or — when this particular client has tripped
+  // a rule — one asked for on this booking specifically. Whichever is set; the
+  // per-client rule never makes a deposit smaller than the standing one.
+  const standing = depositCentsFor({ price_cents: totalPriceCents });
+  const depositCents = rule.deposit_required
+    ? Math.max(standing, ruleDepositCents(totalPriceCents))
+    : standing;
   if (depositCents > 0 && stripeConfigured()) {
     try {
       const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
@@ -3484,6 +3581,33 @@ route('POST', '/api/public/book', async ({ req }) => {
       checkoutUrl = session.url;
     } catch (err) {
       console.error('Stripe checkout failed, booking continues without deposit:', err.message);
+    }
+  }
+
+  // Moving an existing appointment rather than making a new one. The old slot
+  // is released HERE — after the new booking exists, never before — so a client
+  // who gets halfway through changing their mind and closes the tab still has
+  // the appointment they started with.
+  //
+  // Strict about whose it is: the token must name a live booking belonging to
+  // this same client. A token that has leaked cannot be used to cancel a
+  // stranger's appointment by booking one of your own.
+  let moved = null;
+  const rToken = str(b.reschedule_token, 64);
+  if (rToken) {
+    const old = db.prepare(
+      `SELECT id, client_id, status, date, start_min FROM appointments
+        WHERE cancel_token = ? AND cancel_token != ''`
+    ).get(rToken);
+    if (old && old.client_id === client.id && old.id !== apptId
+        && !['cancelled', 'completed', 'no_show'].includes(old.status)) {
+      // No cancellation message: they are getting a confirmation for the new
+      // time in the same breath, and "your appointment is cancelled" arriving
+      // alongside it reads as something having gone wrong. The waitlist offer
+      // still fires, because the old slot genuinely is free again and somebody
+      // may want it.
+      cancelAppointment(old.id, { by: 'client', reason: 'Moved to a new time', notifyClient: false });
+      moved = { from_date: old.date, from_start_min: old.start_min };
     }
   }
 
@@ -3503,6 +3627,12 @@ route('POST', '/api/public/book', async ({ req }) => {
     business_name: getSetting('business_name'),
     checkout_url: checkoutUrl,
     deposit_cents: checkoutUrl ? depositCents : 0,
+    // So the confirmation screen can say "moved from Tuesday 2pm" rather than
+    // leaving somebody wondering whether they now have two appointments.
+    moved_from: moved,
+    // Why a deposit is being asked of THIS booking when the salon does not ask
+    // for one as a rule. Said in the client's terms, never as a count.
+    deposit_note: checkoutUrl && rule.deposit_required ? rule.client_note : '',
   };
 }, { auth: false });
 
@@ -3583,10 +3713,11 @@ route('GET', '/api/public/ics/:id', async ({ res, params, query }) => {
 // Client self-cancellation (no auth — the token in the link IS the credential)
 // ---------------------------------------------------------------------------
 
-/** Everything the cancel page and the cancel action both need to decide. */
+/** Everything the appointment page and its three actions need to decide. */
 function cancelLinkContext(token) {
   const a = db.prepare(
     `SELECT a.id, a.status, a.date, a.start_min, a.end_min, a.cancelled_by,
+            a.confirmed_at, a.client_id, a.staff_id,
             c.first_name, s.name AS staff_name
      FROM appointments a
      LEFT JOIN clients c ON c.id = a.client_id
@@ -3620,6 +3751,34 @@ function cancelLinkContext(token) {
   };
 }
 
+/**
+ * Where "change the time" sends them.
+ *
+ * The ordinary booking page, pre-filled with the same services and stylist —
+ * the machinery built for gap offers, reused, because "land the client on the
+ * right screen already filled in" is the same problem both times.
+ *
+ * `r` carries this appointment's own token. Nothing is released when they
+ * arrive; the old slot is given up only if and when a new booking is actually
+ * made. Somebody who changes their mind halfway still has their appointment.
+ */
+function rescheduleUrlFor(appt) {
+  const ids = db.prepare(
+    `SELECT service_id FROM appointment_services WHERE appointment_id = ? ORDER BY sort_order, id`
+  ).all(appt.id).map((r) => r.service_id);
+  const list = ids.length ? ids : [db.prepare('SELECT service_id FROM appointments WHERE id = ?').get(appt.id)?.service_id];
+  const live = list.filter(Boolean).filter((id) =>
+    db.prepare('SELECT id FROM services WHERE id = ? AND active = 1').get(id));
+  if (!live.length) return '';
+  const token = db.prepare('SELECT cancel_token FROM appointments WHERE id = ?').get(appt.id)?.cancel_token || '';
+  const staffLive = appt.staff_id
+    && db.prepare('SELECT id FROM staff WHERE id = ? AND active = 1').get(appt.staff_id);
+  const q = new URLSearchParams({ s: live.join(','), r: token });
+  if (staffLive) q.set('st', String(appt.staff_id));
+  const origin = publicUrl();
+  return `${origin || ''}/book?${q.toString()}`;
+}
+
 const cancelPayload = (ctx) => ({
   business_name: getSetting('business_name'),
   business_phone: getSetting('business_phone', ''),
@@ -3636,6 +3795,24 @@ const cancelPayload = (ctx) => ({
   too_late: ctx.tooLate,
   past: ctx.past,
   disabled: !ctx.enabled,
+  // Confirming has no notice period. There is no version of "yes, I'm coming"
+  // that is too late to be useful — an hour's warning is still an hour the
+  // salon did not have — so the only thing that closes it is the appointment
+  // starting, or it already being cancelled.
+  confirmed: Boolean(ctx.appt.confirmed_at),
+  can_confirm: !ctx.past && ctx.appt.status !== 'cancelled' && ctx.appt.status !== 'completed'
+    && !ctx.appt.confirmed_at,
+  // Moving it is cancelling it with a replacement lined up, so it lives behind
+  // the same notice period. The old slot is held until the new one is booked —
+  // a client who releases their time and then finds nothing better has been
+  // made worse off by a feature meant to help them.
+  can_reschedule: ctx.enabled && !ctx.past && !ctx.tooLate
+    && ctx.appt.status !== 'cancelled' && ctx.appt.status !== 'completed'
+    && getSetting('booking_enabled', '1') === '1',
+  // Where "change the time" goes: the ordinary booking page, pre-filled with
+  // what they already have, carrying this token so the old booking is released
+  // only once the new one exists.
+  reschedule_url: rescheduleUrlFor(ctx.appt),
   brand: {
     accent: getSetting('brand_accent', '#38bdf8'),
     theme: getSetting('brand_theme', 'dark'),
@@ -3788,6 +3965,37 @@ route('POST', '/api/public/cancel', async ({ req }) => {
   cancelAppointment(ctx.appt.id, { by: 'client', reason: b.reason || '' });
   const after = cancelLinkContext(str(b.token, 64));
   return { ...cancelPayload(after), ok: true };
+}, { auth: false });
+
+/**
+ * "Yes, I'll be there."
+ *
+ * The cheapest no-show prevention there is: ask, and give them one tap to
+ * answer. Deliberately has no notice period — an hour's warning is still an
+ * hour the salon did not have — and deliberately cannot be undone into
+ * "actually, no". Somebody who confirms and then can't come needs the cancel
+ * button, which is on the same page, and which frees the slot for somebody
+ * else. A confirm that could be toggled off would leave a slot in limbo.
+ */
+route('POST', '/api/public/confirm', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(64, { required: true }) });
+  const ctx = cancelLinkContext(str(b.token, 64));
+  if (!ctx) throw httpError(404, 'This link is no longer valid');
+  if (ctx.appt.status === 'cancelled') throw httpError(409, 'That appointment was cancelled');
+  if (ctx.appt.status === 'completed') throw httpError(409, 'That visit has already happened');
+  if (ctx.past) throw httpError(409, 'That appointment has already started');
+  if (!ctx.appt.confirmed_at) {
+    // Both, and only for a booking still waiting. 'confirmed' is the status the
+    // calendar already knows how to draw; confirmed_at is what says a PERSON
+    // said so rather than the owner ticking a box on their behalf.
+    db.prepare(
+      `UPDATE appointments
+          SET confirmed_at = datetime('now'),
+              status = CASE WHEN status = 'booked' THEN 'confirmed' ELSE status END
+        WHERE id = ?`
+    ).run(ctx.appt.id);
+  }
+  return { ...cancelPayload(cancelLinkContext(str(b.token, 64))), ok: true };
 }, { auth: false });
 
 route('GET', '/api/public/review', async ({ query }) => {

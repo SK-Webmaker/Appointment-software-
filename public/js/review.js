@@ -10,8 +10,21 @@ const token = decodeURIComponent(location.pathname.replace(/^\/review\/?/, ''));
 
 async function getJson(url, opts) {
   const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
+  // Read as text, then parse. Going straight to res.json() and falling back to
+  // {} turns a 200 whose body was cut off — a dropped connection, a proxy
+  // giving up mid-stream — into an empty object, which then travels into the
+  // page and surfaces as "cannot read properties of undefined" on some
+  // unrelated line. A customer sees a blank screen and blames the salon. A
+  // reply that arrived and would not parse is a failure, and saying so here is
+  // the difference between "try again" and nothing at all.
+  const text = await res.text().catch(() => '');
+  let data = {};
+  let unreadable = false;
+  if (text) {
+    try { data = JSON.parse(text); } catch { unreadable = true; }
+  }
   if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  if (unreadable) throw new Error('The reply was cut short — please try again.');
   return data;
 }
 

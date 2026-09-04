@@ -52,6 +52,10 @@
     .cx-btn.danger:hover { filter: brightness(1.07); }
     .cx-btn.danger:disabled { opacity: 0.6; cursor: default; filter: none; }
     .cx-btn.quiet { background: var(--panel-2); border-color: var(--border); color: var(--text); text-decoration: none; }
+    /* Cancel, before it is armed. Red enough to be found by somebody looking
+       for it, quiet enough not to be the thing the eye lands on first — the
+       page wants the confirm tapped, not this one. */
+    .cx-btn.quiet.danger-text { color: var(--red, #f87171); }
     .cx-btn.quiet:hover { border-color: var(--muted); }
     .cx-btn.brand { background: var(--accent-fill); color: var(--accent-ink, #051422); text-decoration: none; }
     .cx-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

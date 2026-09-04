@@ -87,7 +87,12 @@ async function drawList(container, q = '') {
   let debounce;
   search.addEventListener('input', () => {
     clearTimeout(debounce);
-    debounce = setTimeout(() => drawList(container, search.value.trim()), 250);
+    // Caught rather than left to become an unhandled rejection: this fires
+    // 250ms after the last keystroke, which is often after the owner has
+    // already navigated somewhere else and the request has been abandoned.
+    debounce = setTimeout(() => {
+      drawList(container, search.value.trim()).catch(() => { /* they've moved on */ });
+    }, 250);
   });
   search.focus();
   if (q) search.setSelectionRange(q.length, q.length);
@@ -121,6 +126,30 @@ async function drawList(container, q = '') {
     }
     openClientDetail(Number(row.dataset.id), () => drawList(container, q));
   });
+}
+
+/**
+ * Where one client stands with online booking.
+ *
+ * Its own function because it is rendered twice: once when the record opens and
+ * again the moment the owner overrules it. Sharing the markup is what stops the
+ * screen saying "books by phone only" a second after the owner marked somebody
+ * trusted — which is exactly the drift this whole feature is supposed to avoid.
+ */
+function ruleStateHtml(st) {
+  if (!st) return '';
+  const headline = st.blocked ? 'Books by phone only'
+    : st.deposit_required ? 'Asked for a deposit'
+    : st.override === 'trusted' ? 'Trusted — never asked for a deposit'
+    : 'Books normally';
+  const why = st.reason || (st.no_shows_180
+    ? `${st.no_shows_180} no-show${st.no_shows_180 === 1 ? '' : 's'} in the last 180 days, under your limits`
+    : 'Nothing on record');
+  return `
+    <div class="br-state ${st.blocked ? 'is-blocked' : st.deposit_required ? 'is-deposit' : ''}">
+      <b>${esc(headline)}</b>
+      <span>${esc(why)}</span>
+    </div>`;
 }
 
 function rowHtml(c) {
@@ -334,6 +363,17 @@ async function openClientDetail(id, onChanged) {
             ${statusChip(i.status)}
             <div class="money" style="width:90px;text-align:right;font-weight:600">${money(Math.round((i.subtotal_cents - i.discount_cents) * (1 + i.tax_rate / 100)))}</div>
           </a>`).join('')}` : ''}
+      ${c.booking_rule_state && (c.booking_rule_state.blocked || c.booking_rule_state.deposit_required
+        || c.booking_rule_state.override || c.booking_rule_state.no_shows_180) ? `
+        <div class="mini-label" style="margin:18px 0 6px">Online booking</div>
+        <div id="cd-rule-state">${ruleStateHtml(c.booking_rule_state)}</div>
+        <div class="seg br-seg" id="cd-rule">
+          ${[['', 'Your rules'], ['trusted', 'Always trusted'], ['blocked', 'Phone only']]
+            .map(([v, l]) => `<button type="button" data-rule="${v}" class="${(c.booking_rule_state.override || '') === v ? 'sel' : ''}">${l}</button>`).join('')}
+        </div>
+        <div class="co-hint" style="display:block;margin-top:6px">Your word beats the count, both ways.
+          Marking somebody trusted means they're never asked for a deposit however many they've missed.</div>` : ''}
+
       <div class="mini-label" style="margin:18px 0 6px">Marketing</div>
       <label class="opt-out">
         <input type="checkbox" class="chk" id="cd-optout" ${c.marketing_opt_out ? 'checked' : ''}>
@@ -365,6 +405,27 @@ async function openClientDetail(id, onChanged) {
       toast(err.message, 'err');
     }
   };
+  // Same reasoning as the opt-out above: this is a judgement about a person,
+  // made in the moment, and it should be as easy to take back as to apply.
+  m.querySelector('#cd-rule')?.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rule]');
+    if (!b) return;
+    const rule = b.dataset.rule;
+    try {
+      const res = await api.put(`/api/clients/${c.id}/booking-rule`, { rule });
+      c.booking_rule_state = res.state;
+      m.querySelectorAll('#cd-rule [data-rule]').forEach((x) => x.classList.toggle('sel', x.dataset.rule === rule));
+      // Repainted from the server's answer, not from what was clicked: the
+      // rules may say something the button does not, and the record has to show
+      // what online booking will actually do.
+      m.querySelector('#cd-rule-state').innerHTML = ruleStateHtml(res.state);
+      toast(rule === 'trusted' ? `${c.first_name} is always trusted`
+        : rule === 'blocked' ? `${c.first_name} books by phone only`
+        : `${c.first_name} follows your usual rules`);
+      onChanged?.();
+    } catch (err) { toast(err.message, 'err'); }
+  });
+
   m.querySelector('#cd-edit').onclick = () => { m.close(); openClientModal({ client: c, onSaved: onChanged }); };
   m.querySelector('#cd-book').onclick = async () => {
     m.close();

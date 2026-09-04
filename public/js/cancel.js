@@ -1,7 +1,15 @@
-// Public cancellation page: a client taps the link in their confirmation or
-// reminder message and lands here (token in the URL path). One decision to
-// make, stated plainly, with the notice period shown before they commit — and
-// a phone number instead of a dead end when they've left it too late.
+// The client's own page for one appointment. They tap the link in their
+// confirmation or reminder and land here, with the token in the URL path.
+//
+// Three things they might want, in the order that helps the salon most:
+// confirm they're coming, move it, or cancel. Confirming is loudest because it
+// is the free answer that prevents the expensive outcome. Cancelling is quiet
+// but genuinely present — a cancel button that is hard to find does not stop
+// the cancellation, it turns it into a no-show, which costs the salon the slot
+// AND the chance to sell it.
+//
+// The notice period is shown before they commit, and there is a phone number
+// instead of a dead end when they've left it too late.
 import { esc, icon, fmtDate, fmtTime } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 import { lockZoom } from './nozoom.js';
@@ -11,8 +19,21 @@ const token = decodeURIComponent(location.pathname.replace(/^\/cancel\/?/, ''));
 
 async function getJson(url, opts) {
   const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
+  // Read as text, then parse. Going straight to res.json() and falling back to
+  // {} turns a 200 whose body was cut off — a dropped connection, a proxy
+  // giving up mid-stream — into an empty object, which then travels into the
+  // page and surfaces as "cannot read properties of undefined" on some
+  // unrelated line. A customer sees a blank screen and blames the salon. A
+  // reply that arrived and would not parse is a failure, and saying so here is
+  // the difference between "try again" and nothing at all.
+  const text = await res.text().catch(() => '');
+  let data = {};
+  let unreadable = false;
+  if (text) {
+    try { data = JSON.parse(text); } catch { unreadable = true; }
+  }
   if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  if (unreadable) throw new Error('The reply was cut short — please try again.');
   return data;
 }
 
@@ -117,23 +138,89 @@ function renderDisabled(info) {
     ${callHtml(info, 'To cancel or move this appointment:')}`);
 }
 
-function renderConfirm(info) {
+/** Confirmed and nothing left to do — the happy end of the page. */
+function renderConfirmed(info, justNow) {
   shell(info, `
-    <h2>Cancel this appointment?</h2>
-    <div class="lede">${info.first_name ? `Hi ${esc(info.first_name)}. ` : ''}Here's the booking you're about to cancel.
-      You won't be charged anything.</div>
+    <div class="cx-mark done">${icon('check', 28)}</div>
+    <h2>${justNow ? 'Lovely — see you then' : 'You\'re confirmed for this one'}</h2>
+    <div class="lede">${justNow
+      ? 'Thanks for letting us know. We\'ve got you down.'
+      : 'You\'ve already told us you\'re coming, so there\'s nothing else to do.'}</div>
+    ${detailsHtml(info)}
+    ${info.can_cancel ? `
+      <div class="cx-actions">
+        ${info.reschedule_url ? `<a class="cx-btn quiet" href="${esc(info.reschedule_url)}">${icon('calendar', 16)} Change the time</a>` : ''}
+        <button class="cx-btn quiet" id="cx-cancel">Something's come up — cancel it</button>
+      </div>` : ''}
+    ${info.business_phone ? `<div class="cx-note">Running late? Call us on <span class="cx-phone">${esc(info.business_phone)}</span>.</div>` : ''}`);
+  wireCancel(info);
+}
+
+/**
+ * The main page: one appointment, and everything they might want to do with it.
+ *
+ * The order is the order of usefulness to the salon. Confirming is first and
+ * loudest because it is the answer that costs nothing and prevents the
+ * expensive outcome. Moving it is second, because a client who is offered a
+ * different time often takes one instead of cancelling. Cancelling is last and
+ * quiet — but it is genuinely there, because a cancel button that is hard to
+ * find does not stop the cancellation, it just turns it into a no-show.
+ */
+function renderChoices(info) {
+  shell(info, `
+    <h2>${info.first_name ? `Hi ${esc(info.first_name)}` : 'Your appointment'}</h2>
+    <div class="lede">Here's what you've got booked. Let us know how you're placed.</div>
     ${detailsHtml(info)}
     <div class="cx-actions">
-      <button class="cx-btn danger" id="cx-go">${icon('x', 16)} Yes, cancel it</button>
-      <a class="cx-btn quiet" href="/book">Keep it, I'll be there</a>
+      ${info.can_confirm ? `<button class="cx-btn brand" id="cx-yes">${icon('check', 16)} Yes, I'll be there</button>` : ''}
+      ${info.can_reschedule && info.reschedule_url
+        ? `<a class="cx-btn quiet" href="${esc(info.reschedule_url)}">${icon('calendar', 16)} Change the time</a>` : ''}
+      ${info.can_cancel ? `<button class="cx-btn quiet danger-text" id="cx-cancel">Cancel this appointment</button>` : ''}
     </div>
     <div class="cx-note">${info.cancel_window_hours > 0
-      ? `Cancelling online is open until ${esc(hoursLabel(info.cancel_window_hours))} before your appointment.`
-      : 'You can cancel online any time before your appointment.'}
+      ? `Changing or cancelling online is open until ${esc(hoursLabel(info.cancel_window_hours))} before your appointment.`
+      : 'You can change or cancel online any time before your appointment.'}
       ${info.business_phone ? `After that, call us on <span class="cx-phone">${esc(info.business_phone)}</span>.` : ''}</div>`);
 
-  const btn = root.querySelector('#cx-go');
+  const yes = root.querySelector('#cx-yes');
+  if (yes) yes.onclick = async () => {
+    yes.disabled = true;
+    yes.innerHTML = 'Just a moment…';
+    try {
+      const out = await getJson('/api/public/confirm', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      renderConfirmed({ ...info, ...out }, true);
+    } catch (err) {
+      yes.disabled = false;
+      yes.innerHTML = `${icon('check', 16)} Yes, I'll be there`;
+      showProblem(err.message);
+    }
+  };
+  wireCancel(info);
+}
+
+/**
+ * Cancelling, behind a second tap.
+ *
+ * Not a browser confirm() — that dialog is untranslated, unstyled and reads
+ * like an error. The second tap is the same button asking again, in the salon's
+ * own words, and it is the only place on this page that is red.
+ */
+function wireCancel(info) {
+  const btn = root.querySelector('#cx-cancel');
+  if (!btn) return;
+  let armed = false;
   btn.onclick = async () => {
+    if (!armed) {
+      armed = true;
+      btn.classList.add('danger');
+      btn.classList.remove('quiet', 'danger-text');
+      btn.innerHTML = `${icon('x', 16)} Tap again to cancel`;
+      return;
+    }
     btn.disabled = true;
     btn.innerHTML = 'Cancelling…';
     try {
@@ -144,16 +231,22 @@ function renderConfirm(info) {
       });
       renderCancelled({ ...info, ...out }, !out.already);
     } catch (err) {
-      // Most likely the window closed while the page sat open — re-read the
-      // booking so they see the real state rather than a stale form.
+      // Most likely the window closed while the page sat open — say so rather
+      // than leaving a stale form that looks like it should still work.
       btn.disabled = false;
-      btn.innerHTML = `${icon('x', 16)} Yes, cancel it`;
-      const note = document.createElement('div');
-      note.className = 'cx-callout';
-      note.innerHTML = `<b>${esc(err.message)}</b>`;
-      root.querySelector('.cx-card').appendChild(note);
+      btn.innerHTML = `${icon('x', 16)} Tap again to cancel`;
+      showProblem(err.message);
     }
   };
+}
+
+function showProblem(message) {
+  const card = root.querySelector('.cx-card');
+  card.querySelector('.cx-problem')?.remove();
+  const note = document.createElement('div');
+  note.className = 'cx-callout cx-problem';
+  note.innerHTML = `<b>${esc(message)}</b>`;
+  card.appendChild(note);
 }
 
 async function boot() {
@@ -166,13 +259,18 @@ async function boot() {
     return;
   }
   applyBrand(info.brand);
-  document.title = `Cancel your appointment · ${info.business_name || 'Booking'}`;
+  document.title = `Your appointment · ${info.business_name || 'Booking'}`;
 
   if (info.status === 'cancelled') renderCancelled(info, false);
   else if (info.past) renderPast(info);
-  else if (info.disabled) renderDisabled(info);
-  else if (info.too_late) renderTooLate(info);
-  else renderConfirm(info);
+  else if (info.confirmed) renderConfirmed(info, false);
+  // "Too late to change it online" is not too late to say you're coming, so a
+  // client inside the notice window still gets the one button that helps.
+  else if (info.disabled || info.too_late) {
+    if (info.can_confirm) renderChoices(info);
+    else if (info.disabled) renderDisabled(info);
+    else renderTooLate(info);
+  } else renderChoices(info);
 }
 
 lockZoom(); // fixed scale, same as the booking page and the workspace
