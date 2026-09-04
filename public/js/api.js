@@ -25,13 +25,18 @@ async function request(method, path, body) {
   // should say so here, once, where the cause is still visible.
   const text = await res.text().catch(() => '');
   let data = null;
-  let unreadable = false;
+  let unreadable = !text; // an empty body is a cut-off transfer, never an answer
   if (text) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }
 
   if (!res.ok) throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data);
-  if (unreadable) throw new ApiError(res.status, 'The server\'s reply was cut short — please try again.', null);
+  // Every reply this API sends carries a JSON body — sendJson() writes one on
+  // every path — so nothing arriving is the same failure as something arriving
+  // half-written, and both have to fail HERE. Letting an empty body through as
+  // null is what put "cannot read properties of null" in front of owners on
+  // pages that had done nothing wrong.
+  if (unreadable) throw new ApiError(res.status, 'The reply was cut short — please try again.', null);
   return data;
 }
 

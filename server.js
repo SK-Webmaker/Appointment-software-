@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrap, getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
 import { handleApi } from './src/api.js';
-import { startScheduler } from './src/notify.js';
+import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
 import { checkOrigin } from './src/origin.js';
@@ -35,6 +35,15 @@ startScheduler({
       runDailyPass();
     } catch (err) {
       console.error('automations:', err.message);
+    }
+    // The one review follow-up. Its own guard rather than the daily pass's,
+    // because it is keyed on each appointment's own review_chased_at — running
+    // it more often than once a day costs a query and sends nobody anything
+    // extra, and it should not stop working because the marketing pass errored.
+    try {
+      chaseReviews();
+    } catch (err) {
+      console.error('review chase:', err.message);
     }
   },
 });

@@ -28,7 +28,10 @@ async function getJson(url, opts) {
   // the difference between "try again" and nothing at all.
   const text = await res.text().catch(() => '');
   let data = {};
-  let unreadable = false;
+  // Nothing arriving is the same failure as something arriving half-written:
+  // every reply this API sends has a JSON body, so an empty one means the
+  // transfer was cut off.
+  let unreadable = !text;
   if (text) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }

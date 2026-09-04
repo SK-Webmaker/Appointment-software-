@@ -2,7 +2,7 @@
 import { api } from '../api.js';
 import {
   esc, icon, money, fmtDate, fmtTime, openModal, confirmDialog, toast,
-  initials, avatarColor, statusChip, downloadText,
+  initials, avatarColor, statusChip, downloadText, copyText,
 } from '../ui.js';
 import { runImportWizard } from '../import.js';
 
@@ -374,6 +374,15 @@ async function openClientDetail(id, onChanged) {
         <div class="co-hint" style="display:block;margin-top:6px">Your word beats the count, both ways.
           Marking somebody trusted means they're never asked for a deposit however many they've missed.</div>` : ''}
 
+      <div class="mini-label" style="margin:18px 0 6px">Their referral link</div>
+      <div class="ref-row">
+        <input id="cd-ref" readonly value="Loading…">
+        <button class="btn small" id="cd-ref-copy">${icon('link', 13)} Copy</button>
+      </div>
+      <div class="co-hint" style="display:block;margin-top:6px">Theirs for good. Anyone new who books
+        through it is credited to ${esc(c.first_name)} — and the best moment to hand it over is at the
+        counter, while they're pleased with you.</div>
+
       <div class="mini-label" style="margin:18px 0 6px">Marketing</div>
       <label class="opt-out">
         <input type="checkbox" class="chk" id="cd-optout" ${c.marketing_opt_out ? 'checked' : ''}>
@@ -425,6 +434,20 @@ async function openClientDetail(id, onChanged) {
       onChanged?.();
     } catch (err) { toast(err.message, 'err'); }
   });
+
+  // Fetched rather than rendered from the client record, because asking is what
+  // mints the token — a client who is never given a link never has one to leak.
+  const refBox = m.querySelector('#cd-ref');
+  api.get(`/api/clients/${c.id}/referral`).then((r) => {
+    refBox.value = r.link || 'Set your website address in Settings to get links';
+    refBox.dataset.link = r.link || '';
+  }).catch(() => { refBox.value = 'Could not load this just now'; });
+  m.querySelector('#cd-ref-copy').onclick = async () => {
+    const link = refBox.dataset.link;
+    if (!link) { toast('Set your website address in Settings first', 'err'); return; }
+    const done = await copyText(link);
+    toast(done ? 'Link copied' : 'Copy it from the box above', done ? 'ok' : 'err');
+  };
 
   m.querySelector('#cd-edit').onclick = () => { m.close(); openClientModal({ client: c, onSaved: onChanged }); };
   m.querySelector('#cd-book').onclick = async () => {

@@ -19,7 +19,10 @@ async function getJson(url, opts) {
   // the difference between "try again" and nothing at all.
   const text = await res.text().catch(() => '');
   let data = {};
-  let unreadable = false;
+  // Nothing arriving is the same failure as something arriving half-written:
+  // every reply this API sends has a JSON body, so an empty one means the
+  // transfer was cut off.
+  let unreadable = !text;
   if (text) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }
@@ -137,10 +140,27 @@ function renderThankYou(info, { rating, googleUrl, alreadyDone } = {}) {
       ${!alreadyDone && rating >= 4 && googleUrl ? `
         <div style="margin-top:6px">
           <div class="visit-sub" style="margin-bottom:12px">Loved it? Sharing on Google helps others find us too.</div>
-          <a class="rv-google" href="${esc(googleUrl)}" target="_blank" rel="noopener noreferrer">${icon('link', 15)} Leave a Google review</a>
+          <a class="rv-google" id="rv-google" href="${esc(googleUrl)}" target="_blank" rel="noopener noreferrer">${icon('link', 15)} Leave a Google review</a>
         </div>` : ''}
     </div>
     <div class="powered">Powered by <b>◆ Kairo</b></div>`;
+
+  // Tell Kairo they went through, but never stand in the way of it. The link
+  // opens Google directly — routing it through a redirect would put this app in
+  // the path of the one thing that has to work, and an outage here would
+  // silently stop every Google review the salon was about to get. If this
+  // request never lands, the review still happens and only the count is short.
+  const g = root.querySelector('#rv-google');
+  if (g) {
+    g.addEventListener('click', () => {
+      fetch('/api/public/review-clicked', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token }),
+        keepalive: true,
+      }).catch(() => { /* the review matters, the count does not */ });
+    });
+  }
 }
 
 boot();

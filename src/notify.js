@@ -312,6 +312,23 @@ function buildCopy(kind, a, extra = {}) {
     };
   }
   if (kind === 'review_request') {
+    // The second ask, two days on, for somebody who never opened the first.
+    // Shorter and apologetic rather than louder — the first one worked or it
+    // did not, and repeating it at volume is how a salon gets muted. There is
+    // never a third.
+    if (extra.chase) {
+      return {
+        subject: `One quick thing — how was ${what}?`,
+        body: `Hi ${name},\n\nSorry to ask twice. If you have half a minute, we'd really value a rating:\n${extra.reviewUrl}`
+          + `\n\nAnd if not, no bother at all — thanks for coming in.\n\n${biz}`,
+        html: renderEmail({
+          heading: 'Half a minute?',
+          greeting: `Hi ${name},`,
+          paragraphs: [`Sorry to ask twice. If you have a moment we'd really value a rating on ${what} — and if not, no bother at all.`],
+          cta: { label: 'Rate your visit', url: extra.reviewUrl },
+        }),
+      };
+    }
     return {
       subject: `How was your visit to ${biz}?`,
       body: `Hi ${name},\n\nThanks for visiting ${biz} for ${what}${who}. We'd love to hear how it went. It takes 30 seconds:\n${extra.reviewUrl}\n\n${biz}`,
@@ -470,6 +487,62 @@ export function queueReviewRequest(apptId) {
   for (const [channel, to] of channels) {
     ins.run(a.id, a.client_id, channel, 'review_request', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', sendAfter);
   }
+}
+
+/**
+ * The one follow-up, two days later, for people who never opened the first.
+ *
+ * One, and only for the ones who did not look. Asking again at volume is how a
+ * salon gets muted, and asking somebody who already left a review is how it
+ * gets a bad one. There is deliberately no third message and no setting to add
+ * one — the answer to "the reminders aren't working" is better copy, not more
+ * of them.
+ *
+ * Off until the owner switches it on, like everything else that speaks without
+ * being asked.
+ */
+export function chaseReviews({ now = new Date() } = {}) {
+  if (getSetting('review_requests_enabled', '1') !== '1') return { queued: 0, reason: 'off' };
+  if (getSetting('review_chase_enabled', '0') !== '1') return { queued: 0, reason: 'off' };
+
+  const due = db.prepare(
+    `SELECT a.id FROM appointments a
+      WHERE a.status = 'completed'
+        AND a.review_token != ''
+        AND a.review_opened_at = ''
+        AND a.review_chased_at = ''
+        AND NOT EXISTS (SELECT 1 FROM reviews rv WHERE rv.appointment_id = a.id)
+        AND EXISTS (SELECT 1 FROM messages m
+                     WHERE m.appointment_id = a.id AND m.kind = 'review_request' AND m.status = 'sent'
+                       AND m.sent_at != '' AND m.sent_at <= datetime('now', '-2 days'))
+      ORDER BY a.id LIMIT 50`
+  ).all();
+
+  const ins = insMessage();
+  const sendAfter = localStamp(now);
+  let queued = 0;
+  for (const row of due) {
+    const a = apptContext(row.id);
+    if (!a || !a.client_id) continue;
+    const channels = channelsFor('review_request', a.client_email, a.client_phone);
+    if (!channels.length) continue;
+    // Claimed before anything is queued, so a failure halfway costs one nudge
+    // rather than sending the same person two.
+    const claim = db.prepare(
+      "UPDATE appointments SET review_chased_at = datetime('now') WHERE id = ? AND review_chased_at = ''"
+    ).run(row.id);
+    if (!claim.changes) continue;
+
+    const origin = publicUrl();
+    const reviewUrl = origin ? `${origin}/review/${a.review_token}` : `/review/${a.review_token}`;
+    const copy = buildCopy('review_request', a, { reviewUrl, chase: true });
+    for (const [channel, to] of channels) {
+      ins.run(a.id, a.client_id, channel, 'review_request', to, copy.subject, copy.body,
+        channel === 'email' ? copy.html : '', sendAfter);
+    }
+    queued++;
+  }
+  return { queued };
 }
 
 /**

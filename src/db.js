@@ -57,6 +57,16 @@ export function dbFileBytes() {
 }
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
+// Wait rather than fail when something else holds the write lock.
+//
+// WAL lets any number of readers run alongside one writer, but only one writer
+// at a time — and this file genuinely is opened by more than one process: the
+// backup script, the offboarding script, and the app itself all point at it.
+// Without this, a write that collides with another gives up instantly with
+// "database is locked", which reaches the owner as a failed booking or a lost
+// note, for a lock that would have cleared in milliseconds. Five seconds is far
+// longer than any write here takes and far shorter than a person's patience.
+db.exec('PRAGMA busy_timeout = 5000');
 
 export function initSchema() {
   db.exec(`
@@ -401,6 +411,34 @@ function migrate() {
     'source_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL');
   addColumn('appointments', 'referrer_client_id',
     'referrer_client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL');
+
+  // ── Bringing new people in ────────────────────────────────────────────────
+  //
+  // The answer to a marketplace, without building one. A client gets a link;
+  // somebody who books through it is recorded against them, and both sides get
+  // whatever the owner decided to offer.
+  //
+  // The token lives on the client rather than on a campaign because it is meant
+  // to be theirs for good — texted to a sister once and still working two years
+  // later. Minted on first use, so a client who is never given one never has a
+  // token to leak.
+  addColumn('clients', 'referral_token', "referral_token TEXT NOT NULL DEFAULT ''");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_referral ON clients(referral_token) WHERE referral_token != ''");
+
+  // How somebody says they found the salon, in their own words from a short
+  // list. Deliberately NOT appointments.source — that column means "how it was
+  // entered", staff or online, and the dashboard's online-booking count depends
+  // on it reading exactly that. Squeezing "Instagram" in there would quietly
+  // break a number the owner already trusts.
+  addColumn('appointments', 'heard_from', "heard_from TEXT NOT NULL DEFAULT ''");
+
+  // Whether the review request was opened, and whether they went on to Google.
+  // Two different facts: one says the message worked, the other says the review
+  // probably happened. An owner chasing reviews needs to know which half is
+  // failing before they can fix anything.
+  addColumn('appointments', 'review_opened_at', "review_opened_at TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'review_clicked_at', "review_clicked_at TEXT NOT NULL DEFAULT ''");
+  addColumn('appointments', 'review_chased_at', "review_chased_at TEXT NOT NULL DEFAULT ''");
 
   // ── The slot a message was actually offering ──────────────────────────────
   //

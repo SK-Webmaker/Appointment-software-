@@ -14,6 +14,8 @@ const state = {
   pending: null,
   // True when they arrived from "change the time" on an existing booking.
   moving: false,
+  // Who sent them, when they arrived on somebody's referral link.
+  referral: null,
 };
 
 // --- multi-service cart helpers -------------------------------------------
@@ -42,7 +44,10 @@ async function getJson(url, opts) {
   // the difference between "try again" and nothing at all.
   const text = await res.text().catch(() => '');
   let data = {};
-  let unreadable = false;
+  // Nothing arriving is the same failure as something arriving half-written:
+  // every reply this API sends has a JSON body, so an empty one means the
+  // transfer was cut off.
+  let unreadable = !text;
   if (text) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }
@@ -231,6 +236,20 @@ async function boot() {
       state.moving = true;
     }
 
+    // Sent by an existing client. Held for the session like the message token,
+    // for the same reason: they may look, leave, and come back before booking.
+    const ref = params.get('ref');
+    if (ref) {
+      try { sessionStorage.setItem('kairo_referral', ref); } catch { /* private mode */ }
+    }
+    try {
+      const held = sessionStorage.getItem('kairo_referral');
+      if (held) {
+        const res = await getJson(`/api/public/referral?ref=${encodeURIComponent(held)}`);
+        state.referral = res.referral || null;
+      }
+    } catch { state.referral = null; }
+
     // Returning from Stripe after a deposit?
     if (params.get('deposit') && params.get('appt')) {
       history.replaceState(null, '', '/book');
@@ -394,6 +413,31 @@ function renderLocationStep() {
   });
 }
 
+/**
+ * "Emma sent you" — shown on the first screen and nowhere else.
+ *
+ * The friend's name is the whole persuasion here; the discount is secondary and
+ * sometimes absent. It appears once, at the top, and does not follow them
+ * through the flow, because a banner repeated on every screen stops being a
+ * welcome and starts being a nag.
+ */
+function referralHtml() {
+  const r = state.referral;
+  if (!r) return '';
+  const perk = r.friend_type === 'fixed' && r.friend_value > 0
+    ? `${money(Math.round(r.friend_value * 100))} off your first visit`
+    : r.friend_type === 'percent' && r.friend_value > 0
+      ? `${r.friend_value}% off your first visit`
+      : '';
+  return `
+    <div class="bk-referral">
+      ${icon('users', 16)}
+      <span><b>${esc(r.first_name)} sent you.</b>
+      ${perk ? `They've got you ${esc(perk)} — it comes off on the day.`
+        : 'Lovely to meet you — pick whatever suits.'}</span>
+    </div>`;
+}
+
 function renderServiceStep() {
   state.step = 1;
   const cats = [...new Set(state.info.services.map((s) => s.category))];
@@ -401,6 +445,7 @@ function renderServiceStep() {
   root.innerHTML = `
     ${headHtml({ cover: !state.location })}${stepsHtml()}
     ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
+    ${referralHtml()}
     <div class="bk-section-title">Choose your services</div>
     <div class="bk-hint">Add as many as you like. Tap to select.</div>
     ${cats.map((cat) => `
@@ -772,6 +817,14 @@ function renderDetailsStep() {
       <div class="field"><label>Phone *</label><input name="phone" required placeholder="So we can reach you"></div>
       <div class="field"><label>Email</label><input name="email" type="email"></div>
       <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?"></textarea></div>
+      ${state.info.ask_heard_from && !state.referral ? `
+        <div class="field span2"><label>How did you hear about us?
+          <span class="bk-optional">optional</span></label>
+          <select name="heard_from" class="nice-select">
+            <option value="">Rather not say</option>
+            ${(state.info.heard_options || []).map((o) =>
+              `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}
+          </select></div>` : ''}
       ${state.info.follow_up_unfinished ? `
         <div class="span2 bk-privacy">
           If you don't finish booking, we'll keep your name and number for up to 7 days
@@ -849,6 +902,10 @@ function renderDetailsStep() {
           reschedule_token: (() => {
             try { return sessionStorage.getItem('kairo_reschedule') || ''; } catch { return ''; }
           })(),
+          referral_token: (() => {
+            try { return sessionStorage.getItem('kairo_referral') || ''; } catch { return ''; }
+          })(),
+          heard_from: fd.get('heard_from') || '',
           client: {
             first_name: fd.get('first_name'), last_name: fd.get('last_name'),
             phone: fd.get('phone'), email: fd.get('email'),
@@ -920,6 +977,10 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
         <div class="bk-moved">Your old time on
           <b>${fmtDate(res.moved_from.from_date)} at ${fmtTime(res.moved_from.from_start_min)}</b>
           has been released — you only have the one below.</div>` : ''}
+      ${res.referred_by ? `
+        <div class="bk-moved">${esc(res.referred_by.first_name)} referred you${
+          res.friend_reward_cents ? `, so <b>${money(res.friend_reward_cents)}</b> comes off on the day` : ''}.
+          We'll let them know you came.</div>` : ''}
       <div class="bk-summary" style="justify-content:center">
         <div style="text-align:center">
           <b>${esc(res.service)}</b> with ${esc(res.staff)}<br>

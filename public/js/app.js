@@ -11,12 +11,14 @@ import { renderSettings } from './pages/settings.js';
 import { renderAccount } from './pages/account.js';
 import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
+import { renderGrowth } from './pages/growth.js';
 import { renderPos } from './pages/pos.js';
 import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
 import { mountIntro, adoptBootSplash } from './intro.js';
 import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
+import { mountKai, open as openKai } from './kai.js';
 
 export const state = {
   user: null,
@@ -43,6 +45,7 @@ const ROUTES = {
   invoices: { title: 'Billing', icon: 'invoice', render: renderInvoices },
   messages: { title: 'Messages', icon: 'send', render: renderMessages },
   reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
+  growth: { title: 'Growth', icon: 'trendUp', render: renderGrowth },
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
   account: { title: 'Account', icon: 'user', render: renderAccount },
@@ -108,7 +111,7 @@ function renderShell() {
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
   const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
-  const navManage = ['messages', 'reviews', 'staff', 'settings', 'account'];
+  const navManage = ['messages', 'reviews', 'growth', 'staff', 'settings', 'account'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');
@@ -143,8 +146,8 @@ function renderShell() {
         <header class="topbar">
           <button class="icon-btn nav-toggle" id="nav-toggle" title="Menu" aria-label="Open menu">${icon('menu', 20)}</button>
           <div class="brand-mobile">${LOGO_SVG}<span>${esc(state.settings.business_name || 'Kairo')}</span></div>
-          <div class="search-box">${icon('search')}
-            <input id="global-search" placeholder="Search clients, invoices…"></div>
+          <button class="kai-open" id="kai-btn" title="Ask Kai">
+            ${icon('zap', 15)}<span>Ask Kai</span><kbd>⌘K</kbd></button>
           <div class="topbar-right">
             <span class="topbar-date">${fmtDate(todayStr())}</span>
             <button class="btn primary" id="quick-new">${icon('plus')} <span class="btn-label">New appointment</span></button>
@@ -184,12 +187,11 @@ function renderShell() {
     const { openAppointmentModal } = await import('./pages/calendar.js');
     openAppointmentModal({ onSaved: () => navigate() });
   });
-  const search = root.querySelector('#global-search');
-  search.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && search.value.trim()) {
-      location.hash = `#/clients?q=${encodeURIComponent(search.value.trim())}`;
-    }
-  });
+  // The box this replaces said "Search clients, invoices…" and searched
+  // neither — pressing Enter jumped to the clients page with a query string,
+  // and that was all it ever did. Kai is what was supposed to be behind it.
+  root.querySelector('#kai-btn').addEventListener('click', () => openKai());
+  mountKai(root);
 
   // Pull down at the top of any page to reload it. On a home-screen app there
   // is no address bar and so no reload button; this is the only way to ask for

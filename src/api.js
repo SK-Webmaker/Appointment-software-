@@ -44,6 +44,11 @@ import {
   bookingRuleFor, ruleSettings, noShowsFor, DEPOSIT_WINDOW_DAYS, BLOCK_WINDOW_DAYS,
 } from './booking-rules.js';
 import {
+  referralSettings, rewardCents, referralTokenFor, referralLinkFor, referrerFor,
+  referralSummary, heardFromSummary, HEARD_OPTIONS,
+} from './referrals.js';
+import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
+import {
   listAutomations, getAutomation, saveAutomation, candidatesFor, runAutomation,
 } from './automations.js';
 import {
@@ -426,6 +431,9 @@ const EDITABLE_SETTINGS = new Set([
   'marketing_cooldown_days', 'sms_cost_cents', 'gap_offer_cap',
   'noshow_deposit_after', 'noshow_block_after', 'deposit_over_cents',
   'confirm_requests_enabled',
+  'referral_reward_type', 'referral_reward_value',
+  'referral_friend_type', 'referral_friend_value',
+  'ask_heard_from', 'review_chase_enabled',
   'waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
@@ -2080,6 +2088,81 @@ route('POST', '/api/automations/:kind/run', async ({ req, params }) => {
 });
 
 /**
+ * Everything about where new clients come from, in one answer.
+ *
+ * Referrals and discovery are reported apart on purpose. "You saved $136 in
+ * commission" is only true for clients a marketplace would actually have
+ * introduced — a referral from an existing client would never have come through
+ * one, and folding the two together makes a number that does not survive an
+ * owner checking it.
+ */
+route('GET', '/api/growth', async ({ query }) => {
+  const since = isDateStr(query.get('since')) ? query.get('since') : '';
+  const cfg = referralSettings();
+  const refs = referralSummary({ since });
+  const heard = heardFromSummary({ since });
+
+  // How the review requests are actually doing. Sent, opened, and gone through
+  // to Google are three different numbers, and an owner chasing reviews needs
+  // to know which step is losing people before they can fix anything.
+  const reviewWhere = since ? 'AND a.date >= ?' : '';
+  const reviewArgs = since ? [since] : [];
+  const reviews = db.prepare(
+    `SELECT COUNT(DISTINCT m.appointment_id) AS sent,
+            SUM(CASE WHEN a.review_opened_at != '' THEN 1 ELSE 0 END) AS opened,
+            SUM(CASE WHEN a.review_clicked_at != '' THEN 1 ELSE 0 END) AS clicked
+       FROM messages m JOIN appointments a ON a.id = m.appointment_id
+      WHERE m.kind = 'review_request' ${reviewWhere}`
+  ).get(...reviewArgs);
+  const left = db.prepare(
+    `SELECT COUNT(*) AS n FROM reviews rv JOIN appointments a ON a.id = rv.appointment_id
+      WHERE 1 = 1 ${reviewWhere}`
+  ).get(...reviewArgs).n;
+
+  return {
+    since,
+    // The switch lives beside the number it fills, so it is returned here
+    // rather than making the page fetch settings separately to render one box.
+    ask_heard_from: getSetting('ask_heard_from', '0') === '1',
+    referral: { ...cfg, ...refs },
+    heard,
+    reviews: {
+      sent: reviews.sent || 0,
+      opened: reviews.opened || 0,
+      clicked: reviews.clicked || 0,
+      left,
+      google_url_set: Boolean(getSetting('google_review_url', '')),
+    },
+  };
+});
+
+/**
+ * Kai — one question, answered from the owner's own data.
+ *
+ * No model, no side effects. Every answer is a read, and every one of them
+ * carries what Kai believes it matched, so the owner can see it guessed wrong
+ * before they press anything. That is the whole safety model: a bar that acts
+ * on a guess is one bad match away from cancelling the wrong Sarah.
+ */
+route('GET', '/api/ask', async ({ query }) => {
+  const q = str(query.get('q'), 120);
+  if (!q) return { query: '', answers: [], suggestions: kaiSuggestions() };
+  return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions() };
+});
+
+/** One client's own referral link, minted on first ask. */
+route('GET', '/api/clients/:id/referral', async ({ params }) => {
+  if (!db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id)) {
+    throw httpError(404, 'No such client');
+  }
+  return {
+    link: referralLinkFor(Number(params.id)),
+    token: referralTokenFor(Number(params.id)),
+    ...referralSettings(),
+  };
+});
+
+/**
  * What the messages actually earned, by kind.
  *
  * Only bookings traced to a message by its own token — never "they booked
@@ -3192,6 +3275,11 @@ route('GET', '/api/public/info', async () => {
     // so a page working from a stale copy of this flag loses nothing — it just
     // makes a call that gets politely declined.
     follow_up_unfinished: Boolean(getAutomation('abandoned_booking')?.enabled),
+    // Whether to ask how they found the salon, and what to offer as answers.
+    // Off by default: a question on a booking form costs a small percentage of
+    // the people answering it, and that trade is the owner's to make.
+    ask_heard_from: getSetting('ask_heard_from', '0') === '1',
+    heard_options: HEARD_OPTIONS.map(([value, label]) => ({ value, label })),
     waitlist_enabled: waitlistEnabled(),
     deposit: {
       enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
@@ -3214,6 +3302,21 @@ function bookingHorizonDays() {
  * too slow, by a salon they did not ask to hear from. An owner who wants to
  * cast wider can, but they should have to decide to.
  */
+/**
+ * How they say they found the salon.
+ *
+ * Only ever one of the offered answers — this is a select on a public form, and
+ * anything else in the column would be a stranger's free text on the owner's
+ * dashboard. A booking that came through a referral link says so by itself,
+ * whatever they picked, because the link is the harder evidence.
+ */
+const HEARD_VALUES = new Set(HEARD_OPTIONS.map(([v]) => v));
+function heardValue(raw, referredBy) {
+  if (referredBy) return 'friend';
+  const v = str(raw, 20);
+  return HEARD_VALUES.has(v) ? v : '';
+}
+
 function gapOfferCap() {
   return clampInt(getSetting('gap_offer_cap', '5'), 1, 50, 5);
 }
@@ -3360,6 +3463,28 @@ route('GET', '/api/public/availability', async ({ query }) => {
  * free, because a soft hold that a second person can also see is worse than no
  * hold at all. First to actually book gets it, which is what the message says.
  */
+/**
+ * A referral link, from the friend's side.
+ *
+ * Answers only two things: is this link real, and what is on offer. Never who
+ * it belongs to beyond a first name — the link gets forwarded, screenshotted
+ * and posted in group chats, and whoever ends up holding it should learn a
+ * first name and an offer, not a customer list.
+ */
+route('GET', '/api/public/referral', async ({ query }) => {
+  if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  const refer = referrerFor(str(query.get('ref'), 32));
+  if (!refer) return { referral: null };
+  const cfg = referralSettings();
+  return {
+    referral: {
+      first_name: refer.first_name,
+      friend_type: cfg.friend_type,
+      friend_value: cfg.friend_value,
+    },
+  };
+}, { auth: false });
+
 route('GET', '/api/public/offer', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const token = str(query.get('m'), 64);
@@ -3465,6 +3590,7 @@ route('POST', '/api/public/book', async ({ req }) => {
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
     notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
     from_message: s.str(64), reschedule_token: s.str(64),
+    referral_token: s.str(32), heard_from: s.str(20),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
   // Before anything is written: is there a person on the other end? Checked
@@ -3516,10 +3642,12 @@ route('POST', '/api/public/book', async ({ req }) => {
   const email = str(b.client?.email, 200).toLowerCase();
   let client = email ? db.prepare('SELECT * FROM clients WHERE email = ?').get(email) : null;
   if (!client && phone) client = db.prepare('SELECT * FROM clients WHERE phone = ? AND first_name = ?').get(phone, first);
+  let newClient = false;
   if (!client) {
     const info = db.prepare('INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)')
       .run(first, str(b.client?.last_name, 100), email, phone);
     client = { id: Number(info.lastInsertRowid) };
+    newClient = true;
   }
 
   // A client the salon has closed online booking to. Checked HERE, after the
@@ -3550,10 +3678,25 @@ route('POST', '/api/public/book', async ({ req }) => {
       WHERE converted = 0 AND (client_id = ? OR (email != '' AND email = ?) OR (phone != '' AND phone = ?))`
   ).run(client.id, email || '\u0000', phone || '\u0000');
 
+  // Somebody a client sent.
+  //
+  // Credited only when this booking had to CREATE the client record. That is
+  // the one trustworthy test of "were they already ours": matching on the
+  // contact details they typed cannot work here, because by this point the
+  // record exists either way — it was just made, three lines up.
+  //
+  // Without it, a client texts their own link to the partner they have been
+  // bringing in for six years and the salon pays a discount for a customer it
+  // already had. It also stops anyone referring themselves.
+  const refer = referrerFor(str(b.referral_token, 32));
+  const referredBy = refer && newClient && refer.id !== client.id ? refer.id : null;
+
   const info = db.prepare(
-    `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source, source_message_id)
-     VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online', ?)`
-  ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000), credited);
+    `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source,
+                               source_message_id, referrer_client_id, heard_from)
+     VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online', ?, ?, ?)`
+  ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000), credited,
+    referredBy, heardValue(b.heard_from, referredBy));
   const apptId = Number(info.lastInsertRowid);
   setApptServices(apptId, svc.ids);
 
@@ -3627,6 +3770,12 @@ route('POST', '/api/public/book', async ({ req }) => {
     business_name: getSetting('business_name'),
     checkout_url: checkoutUrl,
     deposit_cents: checkoutUrl ? depositCents : 0,
+    // Who sent them, and what they were promised for coming. Shown on the
+    // confirmation so the offer they were told about is honoured in writing,
+    // not just implied by a link they clicked twenty minutes ago.
+    referred_by: referredBy ? { first_name: refer.first_name } : null,
+    friend_reward_cents: referredBy
+      ? rewardCents(referralSettings().friend_type, referralSettings().friend_value, totalPriceCents) : 0,
     // So the confirmation screen can say "moved from Tuesday 2pm" rather than
     // leaving somebody wondering whether they now have two appointments.
     moved_from: moved,
@@ -4010,6 +4159,10 @@ route('GET', '/api/public/review', async ({ query }) => {
      WHERE a.review_token = ?`
   ).get(token);
   if (!a || a.status !== 'completed') throw httpError(404, 'This review link is no longer valid');
+  // They opened it. Recorded once, on first sight, so "sent 40, opened 9" is a
+  // fact rather than a guess — and so the 48-hour nudge can skip the people who
+  // have already looked.
+  db.prepare("UPDATE appointments SET review_opened_at = datetime('now') WHERE id = ? AND review_opened_at = ''").run(a.id);
   const existing = db.prepare('SELECT rating, comment FROM reviews WHERE appointment_id = ?').get(a.id);
   return {
     business_name: getSetting('business_name'),
@@ -4047,4 +4200,24 @@ route('POST', '/api/public/review', async ({ req }) => {
   db.prepare('INSERT INTO reviews (appointment_id, client_id, staff_id, rating, comment) VALUES (?, ?, ?, ?, ?)')
     .run(a.id, a.client_id, a.staff_id, rating, str(b.comment, 1000));
   return { ok: true, google_review_url: rating >= 4 ? getSetting('google_review_url', '') : '' };
+}, { auth: false });
+
+/**
+ * They went through to Google.
+ *
+ * Its own tiny route rather than a redirect Kairo owns, because a redirect
+ * would put Kairo in the path of the one link that has to work: an outage here
+ * would silently stop every Google review the salon was about to get. The page
+ * opens Google directly and tells us afterwards. If this call never lands the
+ * review still happens; only the count is short, which is the right thing to
+ * lose.
+ */
+route('POST', '/api/public/review-clicked', async ({ req }) => {
+  const b = await readJson(req).catch(() => null);
+  const token = str(b?.token, 64);
+  if (!token) return { ok: true };
+  db.prepare(
+    "UPDATE appointments SET review_clicked_at = datetime('now') WHERE review_token = ? AND review_token != '' AND review_clicked_at = ''"
+  ).run(token);
+  return { ok: true };
 }, { auth: false });
