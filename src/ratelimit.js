@@ -25,6 +25,7 @@ const POLICIES = {
   // Joining a waitlist creates a client record, so it gets the same guard as
   // booking — tighter, in fact, since nobody legitimately joins twelve times.
   public_waitlist: { limit: 6, windowMs: 10 * 60 * 1000 },
+  public_attempt: { limit: 20, windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
   // principle — kept tight for the same reason login is, even though a 128-bit
   // token makes brute force hopeless. Generous enough for a client who opens
@@ -110,6 +111,9 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
+  // Fires as somebody types, so it needs more headroom than a booking — but it
+  // writes contact details, so it still needs a ceiling.
+  if (pathname === '/api/public/booking-attempt') return 'public_attempt';
   if (pathname === '/api/public/cancel') return 'public_cancel'; // GET too — the lookup is the guessable part
   if (pathname === '/api/public/unsubscribe') return 'public_unsub'; // GET too, same reason
   if (pathname === '/api/public/confirm-deposit') return 'public_deposit';

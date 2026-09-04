@@ -263,6 +263,10 @@ export function openClientModal({ client = null, onSaved } = {}) {
         <div class="field"><label>Last name</label><input name="last_name" value="${esc(c?.last_name || '')}"></div>
         <div class="field"><label>Phone</label><input name="phone" value="${esc(c?.phone || '')}"></div>
         <div class="field"><label>Email</label><input name="email" type="email" value="${esc(c?.email || '')}"></div>
+        <div class="field"><label>Birthday <span class="co-hint" style="display:inline">month then day, no year</span></label>
+          <input name="birthday" placeholder="07-14 for 14 July" maxlength="5" inputmode="numeric"
+                 pattern="(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
+                 value="${esc(c?.birthday || '')}"></div>
         <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Preferences, allergies, colour formulas…">${esc(c?.notes || '')}</textarea></div>
       </form>`,
     footer: `

@@ -593,6 +593,11 @@ function renderDetailsStep() {
       <div class="field"><label>Phone *</label><input name="phone" required placeholder="So we can reach you"></div>
       <div class="field"><label>Email</label><input name="email" type="email"></div>
       <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?"></textarea></div>
+      ${state.info.follow_up_unfinished ? `
+        <div class="span2 bk-privacy">
+          If you don't finish booking, we'll keep your name and number for up to 7 days
+          so we can check whether you still wanted a time. Nothing else, and then it's deleted.
+        </div>` : ''}
       ${state.info.turnstile_site_key ? '<div class="span2" id="bk-turnstile" style="display:flex;justify-content:center"></div>' : ''}
       <div class="span2" style="text-align:right">
         <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} ${depositCents() > 0 ? 'Continue to deposit' : 'Confirm booking'}</button>
@@ -603,6 +608,40 @@ function renderDetailsStep() {
 
   root.querySelector('#back').onclick = renderTimeStep;
   mountTurnstile();
+
+  // If they wander off from here, the salon can ask whether they still wanted a
+  // time. Sent when they finish typing a contact field rather than on every
+  // keystroke, and only when the business has the follow-up switched on — the
+  // notice above the button and this listener are the same switch, so nobody is
+  // ever recorded without having been told. The server refuses it independently
+  // too, so a stale page loses nothing.
+  if (state.info.follow_up_unfinished) {
+    const form = root.querySelector('#bk-form');
+    let noted = '';
+    const noteAttempt = () => {
+      const fd = new FormData(form);
+      const first = String(fd.get('first_name') || '').trim();
+      const phone = String(fd.get('phone') || '').trim();
+      const email = String(fd.get('email') || '').trim();
+      if (!first || (!phone && !email)) return;
+      const sig = `${first}|${phone}|${email}`;
+      if (sig === noted) return;
+      noted = sig;
+      fetch('/api/public/booking-attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name: first, phone, email,
+          service_id: state.services[0]?.id,
+          date: state.date, start_min: state.slot?.start_min,
+        }),
+      }).catch(() => { /* never let this get in the way of booking */ });
+    };
+    for (const n of ['first_name', 'phone', 'email']) {
+      form.querySelector(`[name="${n}"]`)?.addEventListener('blur', noteAttempt);
+    }
+  }
+
   root.querySelector('#bk-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);

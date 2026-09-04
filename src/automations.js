@@ -136,6 +136,95 @@ export const AUTOMATIONS = [
     },
   },
   {
+    kind: 'abandoned_booking',
+    label: 'Started booking but didn\'t finish',
+    blurb: 'A client already on your list picked a time, typed their details and never confirmed. One message, then the record is deleted. First-timers are never recorded at all.',
+    defaults: {
+      channel: 'sms',
+      subject: 'Did you still want that appointment?',
+      body: 'Hi {first_name}, looks like you started booking with us and got interrupted. '
+        + 'Here\'s the diary if you\'d still like a time: {booking_link}\n\n{business_name}',
+    },
+    find() {
+      // At least an hour old, so it isn't chasing somebody who is still on the
+      // page deciding.
+      //
+      // The far edge is two days rather than one, and that is not slack. The
+      // pass runs once a day, so an attempt made in the hour BEFORE a pass is
+      // too fresh at that pass and would be a day and a bit old at the next —
+      // outside a one-day window, and silently never followed up. The window
+      // has to be wider than the gap between passes or it drops people. In
+      // practice nobody is messaged more than about 25 hours late; two days is
+      // only reached if a pass was missed entirely.
+      const rows = db.prepare(
+        `SELECT id, first_name, email, phone, client_id FROM booking_attempts
+          WHERE converted = 0
+            AND created_at <= datetime('now', '-1 hour')
+            AND created_at >= datetime('now', '-2 days')`
+      ).all();
+      const out = [];
+      for (const r of rows) {
+        // Every attempt is stored against a client — the capture route refuses
+        // to record anyone else — so this is a person with an opt-out on their
+        // record and a cooldown that already applies to them. The lookup is the
+        // fallback for a client created between the attempt and this pass.
+        const c = r.client_id || db.prepare(
+          'SELECT id FROM clients WHERE (email != \'\' AND email = ?) OR (phone != \'\' AND phone = ?) LIMIT 1'
+        ).get(r.email, r.phone)?.id;
+        if (!c) continue;
+        out.push({ clientId: c, ref: `attempt:${r.id}`, context: r });
+      }
+      return out;
+    },
+  },
+  {
+    kind: 'birthday',
+    label: 'Birthday',
+    blurb: 'A week before a client\'s birthday — only for the ones who gave you a date.',
+    defaults: {
+      channel: 'sms',
+      subject: 'Happy birthday from {business_name}',
+      body: 'Hi {first_name}, happy birthday for next week from all of us. '
+        + 'If you\'d like to get in beforehand: {booking_link}\n\n{business_name}',
+    },
+    find({ today }) {
+      const isLeapYear = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+
+      // Five to seven days out, not exactly seven. The pass runs once a day, so
+      // a single day it does not run — a restart, a deploy, a box that was
+      // asleep — would skip somebody's birthday for the entire year. A window
+      // costs nothing, because the year on the record is what stops a second
+      // greeting, not the narrowness of the day.
+      //
+      // Matched on month and day alone; the year of birth is never stored.
+      const wanted = new Map(); // 'MM-DD' → the year that birthday falls in
+      for (let d = 7; d >= 5; d--) {
+        const t = new Date(`${today}T12:00:00`);
+        t.setDate(t.getDate() + d);
+        const mm = String(t.getMonth() + 1).padStart(2, '0');
+        const dd = String(t.getDate()).padStart(2, '0');
+        if (!wanted.has(`${mm}-${dd}`)) wanted.set(`${mm}-${dd}`, t.getFullYear());
+        // 29 February comes round every fourth year. In a common year the
+        // greeting rides along with the 28th rather than being skipped for
+        // three years running.
+        if (mm === '02' && dd === '28' && !isLeapYear(t.getFullYear()) && !wanted.has('02-29')) {
+          wanted.set('02-29', t.getFullYear());
+        }
+      }
+
+      const keys = [...wanted.keys()];
+      const rows = db.prepare(
+        `SELECT id, birthday FROM clients WHERE birthday IN (${keys.map(() => '?').join(',')})`
+      ).all(...keys);
+      // Once per calendar year, so a birthday greeting can never go twice.
+      return rows.map((r) => ({
+        clientId: r.id,
+        ref: String(wanted.get(r.birthday)),
+        context: { birthday: r.birthday },
+      }));
+    },
+  },
+  {
     kind: 'no_future_booking',
     label: 'Left without rebooking',
     blurb: 'A few days after a visit, when a regular has walked out with nothing in the diary.',
@@ -368,6 +457,13 @@ export function runDailyPass({ now = new Date(), force = false } = {}) {
   lastPassDay = today;
   db.prepare("INSERT INTO settings (key, value) VALUES ('automations_last_pass', ?) "
     + 'ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(today);
+
+  // The booking page promises an unfinished attempt is deleted after a week.
+  // That promise is only worth making if something actually keeps it, so it
+  // runs here whether or not the follow-up automation is even switched on.
+  try {
+    db.prepare("DELETE FROM booking_attempts WHERE created_at < datetime('now', '-7 days')").run();
+  } catch { /* never let housekeeping stop the pass */ }
 
   const results = [];
   for (const a of listAutomations()) {

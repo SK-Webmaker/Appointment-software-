@@ -71,6 +71,13 @@
     }
     .steps .s.done { background: var(--accent-fill); }
     .bk-section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+    /* The promise made about half-finished bookings. Quiet, but not hidden —
+       it sits directly above the button, where somebody deciding whether to
+       type their number can actually read it. */
+    .bk-privacy {
+      color: var(--muted); font-size: 11.5px; line-height: 1.5;
+      border-left: 2px solid var(--border); padding-left: 10px;
+    }
     .bk-option {
       width: 100%; text-align: left;
       display: flex; align-items: center; gap: 12px;

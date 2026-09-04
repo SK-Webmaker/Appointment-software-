@@ -7,8 +7,50 @@ import { mountSmsCredit } from '../sms-credit.js';
 
 let filter = '';
 
+/** Marketing kinds, in the words the owner turned them on with. */
+const EARNED_LABEL = {
+  gap_offer: 'Gap offers', rebook_nudge: 'Rebooking nudges', broadcast: 'Broadcasts',
+  due_back: 'Due back soon', lapsed_winback: 'Win-backs', first_visit: 'After a first visit',
+  abandoned_booking: 'Unfinished bookings', birthday: 'Birthdays',
+  no_future_booking: 'Left without rebooking',
+};
+
+/**
+ * What the messages actually brought in.
+ *
+ * Only bookings carrying the token from a specific message — never "they booked
+ * sometime after we texted", which is the number every marketing tool quotes
+ * and none of them can defend. It is a smaller number than the competition
+ * shows, and it is the true one, which is the point.
+ */
+function earnedHtml(att) {
+  if (!att || !att.bookings) return '';
+  const rows = att.by_kind.filter((r) => r.bookings);
+  return `
+    <div class="card earned">
+      <div class="earned-head">
+        ${icon('trendUp', 15)}
+        <b>${money(att.revenue_cents)}</b> from ${att.bookings} booking${att.bookings === 1 ? '' : 's'}
+        <span class="cell-sub">traced to a message you sent, last 90 days</span>
+      </div>
+      <div class="earned-kinds">
+        ${rows.map((r) => `
+          <span class="earned-kind">
+            ${esc(EARNED_LABEL[r.kind] || r.kind)}
+            <b>${money(r.revenue_cents)}</b>
+            <span class="cell-sub">${r.bookings} booked</span>
+          </span>`).join('')}
+      </div>
+    </div>`;
+}
+
 export async function renderMessages(container) {
   const messages = await api.get(`/api/messages${filter ? `?status=${filter}` : ''}`);
+  // A quarter is long enough to have caught a rhythm and short enough that the
+  // figure still describes how the salon is running now. Never fatal: a strip
+  // that fails to load must not take the message log down with it.
+  const since = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+  const att = await api.get(`/api/attribution?since=${since}`).catch(() => null);
   // Secret values never reach the browser; the API sends `<key>_set` flags instead.
   const configuredEmail = Boolean(state.settings.resend_api_key_set === '1' && state.settings.notif_from_email);
   // SMS is configured when the CHOSEN provider's own credentials are filled in.
@@ -21,11 +63,14 @@ export async function renderMessages(container) {
     twilio: Boolean(s.twilio_sid && s.twilio_token_set === '1' && s.twilio_from),
   }[s.sms_provider || 'clicksend'] || false;
 
+  // Marketing kinds included, so an automation's messages read as English in
+  // the log rather than as the slug they are stored under.
   const KIND = {
     confirmation: 'Confirmation', reminder: 'Reminder', receipt: 'Receipt',
     reschedule: 'Time changed', cancellation: 'Cancellation',
     owner_cancellation: 'Cancellation alert',
     review_request: 'Review request', owner_new_booking: 'New booking alert', test: 'Test',
+    ...EARNED_LABEL,
   };
   const STATUS_CHIP = {
     queued: '<span class="chip s-booked"><span class="dot"></span>Queued</span>',
@@ -55,6 +100,8 @@ export async function renderMessages(container) {
 
     ${state.settings.sms_notifications_enabled === '1'
       ? '<div id="sms-credit" class="sms-credit is-loading"></div>' : ''}
+
+    ${earnedHtml(att)}
 
     <div class="toolbar">
       <div class="seg" id="msg-filter">

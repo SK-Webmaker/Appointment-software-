@@ -1,6 +1,6 @@
 // The Marketing automations card in Settings.
 //
-// Four switches that can each message a client list, so the screen's job is to
+// Six switches that can each message a client list, so the screen's job is to
 // make the consequence obvious BEFORE the switch is flipped: who it would
 // reach, what it would cost, and what the message actually says with a real
 // client's name in it. An owner should never be surprised by something they
@@ -8,6 +8,25 @@
 import { esc, icon, toast, money } from './ui.js';
 
 const CHANNELS = [['sms', 'Text message'], ['email', 'Email'], ['both', 'Both']];
+
+/**
+ * Where an automation needs something the owner has to know about, said before
+ * the switch rather than discovered after it.
+ *
+ * The abandoned-booking one is not a nicety. Switching it on changes the PUBLIC
+ * booking page — it starts holding a client's name and number for a week — and
+ * the salon, not Kairo, is the one answering for that. Nobody should find that
+ * out by reading the privacy notice on their own booking page.
+ */
+const NEEDS = {
+  birthday: 'Only reaches clients with a birthday saved on their record — the '
+    + 'month and day, on the client\'s card. Nobody else is messaged.',
+  abandoned_booking: 'Turning this on changes your booking page: if a client already '
+    + 'on your list starts booking and leaves without confirming, their details are '
+    + 'kept for 7 days so this can follow up, then deleted. The page says so, above '
+    + 'the button. Somebody booking with you for the first time is never recorded — '
+    + 'they never agreed to be contacted, so this leaves them alone.',
+};
 
 /** One automation's row: the switch, the state, and the detail behind it. */
 function row(a, preview) {
@@ -37,6 +56,7 @@ function row(a, preview) {
         <div class="auto-reach">
           ${icon('users', 15)} <span data-reach>Would reach ${reach}${cost}</span>
         </div>
+        ${NEEDS[a.kind] ? `<div class="auto-needs">${icon('alert', 14)} ${esc(NEEDS[a.kind])}</div>` : ''}
 
         <div class="form-grid">
           <div class="field"><label>Send by</label>

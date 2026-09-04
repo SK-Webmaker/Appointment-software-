@@ -276,6 +276,32 @@ export function initSchema() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_automation_once
       ON automation_sends(kind, client_id, ref);
 
+    -- Someone who started booking and stopped.
+    --
+    -- This holds contact details for a person who never completed anything, so
+    -- it is deliberately narrow, and four rules keep it that way. Nothing is
+    -- written unless the owner has switched the follow-up on. Nothing is
+    -- written until they have typed a first name AND a way to reach them, so
+    -- arriving on the page records nobody. Nothing is written for somebody who
+    -- is not already a client — a first-timer never agreed to be contacted and
+    -- has no unsubscribe to honour, so there is no purpose in keeping them.
+    -- And everything unconverted is deleted after seven days, whether or not
+    -- the follow-up is still on, because the booking page promises exactly that
+    -- above the button in words the customer read before typing.
+    CREATE TABLE IF NOT EXISTS booking_attempts (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      first_name  TEXT NOT NULL DEFAULT '',
+      email       TEXT NOT NULL DEFAULT '',
+      phone       TEXT NOT NULL DEFAULT '',
+      service_id  INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      date        TEXT NOT NULL DEFAULT '',
+      start_min   INTEGER,
+      client_id   INTEGER REFERENCES clients(id) ON DELETE CASCADE,
+      converted   INTEGER NOT NULL DEFAULT 0,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_attempts_open ON booking_attempts(converted, created_at);
+
     CREATE TABLE IF NOT EXISTS waitlist (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       client_id  INTEGER REFERENCES clients(id) ON DELETE CASCADE,
@@ -375,6 +401,14 @@ function migrate() {
     'source_message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL');
   addColumn('appointments', 'referrer_client_id',
     'referrer_client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL');
+
+  // Birthday as MM-DD, never the year.
+  //
+  // The automation only needs the day, and a salon has no business holding
+  // somebody's age — collecting less is both the privacy answer and the reason
+  // clients will actually give it. Blank for almost everyone at first; the
+  // field has to exist before it can start filling.
+  addColumn('clients', 'birthday', "birthday TEXT NOT NULL DEFAULT ''");
 
   addColumn('clients', 'marketing_opt_out', 'marketing_opt_out INTEGER NOT NULL DEFAULT 0');
   // The client's own way out, without having to ask the salon.

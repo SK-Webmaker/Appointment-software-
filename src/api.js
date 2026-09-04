@@ -524,6 +524,7 @@ function snapToWeekday(dateStr, dow) {
 const CLIENT_SCHEMA = {
   first_name: s.str(100, { required: true }), last_name: s.str(100),
   email: s.str(200), phone: s.str(50), notes: s.str(2000),
+  birthday: s.str(5),
 };
 const SERVICE_SCHEMA = {
   name: s.str(200, { required: true }), category: s.str(100),
@@ -1001,12 +1002,32 @@ function clientBody(b) {
   checkBody(b, CLIENT_SCHEMA);
   const first = str(b.first_name, 100);
   if (!first) throw httpError(400, 'First name is required');
-  return [first, str(b.last_name, 100), str(b.email, 200).toLowerCase(), str(b.phone, 50), str(b.notes, 2000)];
+  // Month and day, never the year — a salon has no business knowing how old
+  // anyone is, and a date of birth is the one field on a client record that
+  // turns a leaked backup into identity theft.
+  //
+  // Anything unparseable is REFUSED rather than quietly dropped. Australia
+  // writes dates day-first, so "14-07" is the mistake an owner here is most
+  // likely to make, and silently storing nothing would leave them believing
+  // they had set a birthday that then never fires.
+  const bday = str(b.birthday, 5);
+  if (bday) {
+    const m = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(bday);
+    // 31 September is not a date. Without this the record saves happily and the
+    // greeting simply never fires, which is the silent failure again in a
+    // smaller costume. February allows 29 — leap-year birthdays are real, and
+    // the automation already knows what to do with one in a common year.
+    const lastDay = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (!m || Number(m[2]) > lastDay[Number(m[1]) - 1]) {
+      throw httpError(400, 'Birthday should be month then day, like 07-14 for 14 July');
+    }
+  }
+  return [first, str(b.last_name, 100), str(b.email, 200).toLowerCase(), str(b.phone, 50), str(b.notes, 2000), bday];
 }
 
 route('POST', '/api/clients', async ({ req }) => {
   const info = db.prepare(
-    'INSERT INTO clients (first_name, last_name, email, phone, notes) VALUES (?, ?, ?, ?, ?)'
+    'INSERT INTO clients (first_name, last_name, email, phone, notes, birthday) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(...clientBody(await readJson(req)));
   return db.prepare('SELECT * FROM clients WHERE id = ?').get(info.lastInsertRowid);
 });
@@ -1014,7 +1035,7 @@ route('POST', '/api/clients', async ({ req }) => {
 route('PUT', '/api/clients/:id', async ({ req, params }) => {
   if (!db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id)) throw httpError(404, 'Client not found');
   db.prepare(
-    'UPDATE clients SET first_name = ?, last_name = ?, email = ?, phone = ?, notes = ? WHERE id = ?'
+    'UPDATE clients SET first_name = ?, last_name = ?, email = ?, phone = ?, notes = ?, birthday = ? WHERE id = ?'
   ).run(...clientBody(await readJson(req)), params.id);
   return db.prepare('SELECT * FROM clients WHERE id = ?').get(params.id);
 });
@@ -1878,6 +1899,75 @@ route('GET', '/api/messages', async ({ query }) => {
      ${where} ORDER BY m.id DESC LIMIT 300`
   ).all(...args);
 });
+
+/**
+ * Somebody started booking and stopped.
+ *
+ * Called from the booking page once they have typed a first name AND a way to
+ * reach them — so arriving on the page records nobody, and the notice above the
+ * button has already said their details are kept for a week if they don't
+ * finish. The same switch controls the notice and this route: no notice, no
+ * storing. The notice promises an upper bound, and for a first-timer the real
+ * answer is better than the promise: nothing is stored at all.
+ *
+ * Deliberately forgiving: if this fails, the customer's booking must not. It
+ * returns ok either way, and it never lets a bad field become an error the
+ * customer sees — a stranger posting a service that doesn't exist would
+ * otherwise trip the foreign key and turn a public endpoint into a 500.
+ */
+route('POST', '/api/public/booking-attempt', async ({ req }) => {
+  // Nothing is stored unless the owner has actually switched the follow-up on.
+  // Holding contact details for a feature that is off would be collecting data
+  // for no purpose, which is the thing the privacy principles are about.
+  if (!getAutomation('abandoned_booking')?.enabled) return { ok: true, stored: false };
+
+  const b = await readJson(req).catch(() => null);
+  if (!b) return { ok: true, stored: false };
+  const first = str(b.first_name, 100);
+  const email = str(b.email, 200).toLowerCase();
+  const phone = str(b.phone, 50);
+  if (!first || (!email && !phone)) return { ok: true, stored: false };
+
+  // One open attempt per person — a customer who edits the form five times is
+  // one interrupted booking, not five.
+  db.prepare(
+    `DELETE FROM booking_attempts
+      WHERE converted = 0 AND ((email != '' AND email = ?) OR (phone != '' AND phone = ?))`
+  ).run(email, phone);
+
+  // Only for somebody already on the books, and nothing is kept for anyone
+  // else. Two reasons that point the same way.
+  //
+  // A first-timer who typed a number into a form never agreed to be contacted,
+  // and Kairo has nowhere to hang an unsubscribe token for a person who has no
+  // record — so the one message would arrive with no way out of it, and under
+  // the Spam Act that lands on the salon, not on us. And holding a stranger's
+  // details for a message that is never going to be sent is collecting data for
+  // no purpose, which is the whole thing the privacy principles are about.
+  //
+  // For an existing client this is clean: there is a business relationship, an
+  // opt-out already on their record, and a follow-up they will recognise.
+  const client = db.prepare(
+    "SELECT id FROM clients WHERE (email != '' AND email = ?) OR (phone != '' AND phone = ?) LIMIT 1"
+  ).get(email, phone);
+  if (!client) return { ok: true, stored: false };
+
+  // Checked rather than trusted: service_id carries a foreign key, so a value
+  // naming no service would raise a constraint error on an endpoint anyone on
+  // the internet can call. It is only context for the follow-up, so an unknown
+  // one is simply dropped.
+  const wanted = Number(b.service_id) || 0;
+  const serviceId = wanted && db.prepare('SELECT id FROM services WHERE id = ?').get(wanted)
+    ? wanted : null;
+
+  db.prepare(
+    `INSERT INTO booking_attempts (first_name, email, phone, service_id, date, start_min, client_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(first, email, phone, serviceId,
+    isDateStr(b.date) ? b.date : '', Number.isInteger(b.start_min) ? b.start_min : null,
+    client?.id || null);
+  return { ok: true, stored: true };
+}, { auth: false });
 
 // ---------------------------------------------------------------------------
 // Marketing automations
@@ -2992,6 +3082,12 @@ route('GET', '/api/public/info', async () => {
     // The public half of the Turnstile pair — meant for the browser. Empty
     // when it is off, which is how the page knows not to render the widget.
     turnstile_site_key: turnstileSiteKey(),
+    // Whether half-finished bookings get followed up. The page uses it for two
+    // things that must agree: showing the privacy notice, and sending the
+    // details at all. The server refuses to store an attempt when this is off,
+    // so a page working from a stale copy of this flag loses nothing — it just
+    // makes a call that gets politely declined.
+    follow_up_unfinished: Boolean(getAutomation('abandoned_booking')?.enabled),
     waitlist_enabled: waitlistEnabled(),
     deposit: {
       enabled: stripeConfigured() && getSetting('deposit_type', 'none') !== 'none',
@@ -3232,6 +3328,13 @@ route('POST', '/api/public/book', async ({ req }) => {
   // shared between friends credits nobody rather than crediting the wrong
   // person and inflating what the campaign appears to have earned.
   const credited = attributionFor(str(b.from_message, 64), client.id);
+
+  // They finished. Close any open attempt so the "didn't finish" follow-up can
+  // never chase somebody who is already in the diary.
+  db.prepare(
+    `UPDATE booking_attempts SET converted = 1
+      WHERE converted = 0 AND (client_id = ? OR (email != '' AND email = ?) OR (phone != '' AND phone = ?))`
+  ).run(client.id, email || '\u0000', phone || '\u0000');
 
   const info = db.prepare(
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source, source_message_id)
