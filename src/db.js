@@ -402,6 +402,28 @@ function migrate() {
   addColumn('appointments', 'referrer_client_id',
     'referrer_client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL');
 
+  // ── The slot a message was actually offering ──────────────────────────────
+  //
+  // "We've had 2:30 on Thursday come free" should land the client ON 2:30 on
+  // Thursday, not on a general booking page where they hunt for it and give up.
+  //
+  // It hangs off the MESSAGE rather than off the link, and that is the whole
+  // design. The alternative — service, staff, date and time as query
+  // parameters — adds about thirty characters to every text, and an SMS
+  // segment is 160. The salon pays for those characters. The token is already
+  // in the link for attribution, so the offer travels for free by hanging off
+  // the thing the token already names. It also means the offer is a record
+  // rather than a claim: what was offered, to whom, for when, is answerable
+  // afterwards instead of being lost in a URL somebody clicked once.
+  //
+  // Query parameters are still accepted by the booking page, because an owner
+  // pasting a link into Instagram has no message to hang anything off. They
+  // just are not what the salon's own texts use.
+  addColumn('messages', 'offer_service_ids', "offer_service_ids TEXT NOT NULL DEFAULT ''");
+  addColumn('messages', 'offer_staff_id', 'offer_staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL');
+  addColumn('messages', 'offer_date', "offer_date TEXT NOT NULL DEFAULT ''");
+  addColumn('messages', 'offer_start_min', 'offer_start_min INTEGER');
+
   // Birthday as MM-DD, never the year.
   //
   // The automation only needs the day, and a salon has no business holding

@@ -76,6 +76,10 @@ const finding = (o) => ({
   // context the campaign builder needs to pick the right people.
   suggestion: suggestionFor(o.kind, o.context || {}),
   campaign: o.campaign || null,
+  // Numbers that only one kind of finding has. Spread rather than declared, so
+  // a finding can carry what it needs without every other one growing a field
+  // set to zero that the screen then has to remember not to show.
+  ...(o.extra || {}),
 });
 
 // ---------------------------------------------------------------------------
@@ -99,59 +103,111 @@ const finding = (o) => ({
  * And a member with nothing at all booked that day is skipped entirely, for
  * the same reason: an empty column is not a set of gaps.
  */
-function emptyTime({ today, horizonDays = 3, hoursFor, staffWindow, blocksFor }) {
-  const MAX_GAP = 180;
+const MAX_GAP = 180;
+
+/**
+ * The bookable holes on ONE day, for every rostered member.
+ *
+ * Pulled out of the finding because the same arithmetic answers two different
+ * questions: what is still fillable in the days ahead, and what went unfilled
+ * yesterday. Those have to be counted the same way or the second one is a
+ * rebuke based on different rules from the first.
+ *
+ * `fromMin` drops anything that has already started, which only matters for
+ * today — a 9am gap is not an opportunity at half past two.
+ */
+function gapsOn(date, { staff, services, hoursFor, staffWindow, blocksFor, fromMin = -1 }) {
+  if (!hoursFor(date)) return []; // shut that day
+  const shortest = services[0];
+  const out = [];
+
+  for (const member of staff) {
+    const win = staffWindow(member.id, date);
+    if (!win) continue; // rostered off
+    const appts = db.prepare(
+      `SELECT start_min, end_min FROM appointments
+       WHERE staff_id = ? AND date = ? AND status NOT IN ('cancelled', 'no_show')`
+    ).all(member.id, date);
+    // Nothing booked at all is an empty column, not a list of gaps.
+    if (!appts.length) continue;
+    const busy = [...appts, ...blocksFor(member.id, date)].sort((a, b) => a.start_min - b.start_min);
+
+    let cursor = win.open;
+    const holes = [];
+    for (const b of busy) {
+      if (b.end_min <= cursor) continue;
+      if (b.start_min > cursor) holes.push({ start_min: cursor, end_min: Math.min(b.start_min, win.close) });
+      cursor = Math.max(cursor, b.end_min);
+      if (cursor >= win.close) break;
+    }
+    if (cursor < win.close) holes.push({ start_min: cursor, end_min: win.close });
+
+    for (const h of holes) {
+      const length = h.end_min - h.start_min;
+      if (length < shortest.duration_min || length > MAX_GAP) continue;
+      // Today only: a gap that has already begun is not one somebody can be
+      // texted about. Counting it would make the panel confidently wrong by
+      // lunchtime every day.
+      if (fromMin >= 0 && h.start_min < fromMin) continue;
+      // The best-value service that actually fits, valued at the cheapest
+      // option of that length — deliberately the low estimate.
+      const fits = services.filter((s) => s.duration_min <= length);
+      const worth = fits.length ? Math.min(...fits.map((s) => s.price_cents)) : 0;
+      // The cheapest fitting service is also the one to offer: it is the most
+      // likely to be said yes to, and it is what the figure above was based on.
+      const cheapest = fits.length ? fits.reduce((a, b) => (b.price_cents < a.price_cents ? b : a)) : null;
+      out.push({
+        date, staff_id: member.id, staff_name: member.name, ...h,
+        minutes: length, worth_cents: worth, service_id: cheapest ? cheapest.id : null,
+      });
+    }
+  }
+  return out;
+}
+
+function emptyTime({ today, horizonDays = 3, nowMin = -1, hoursFor, staffWindow, blocksFor }) {
   const staff = db.prepare('SELECT id, name FROM staff WHERE active = 1').all();
   const services = db.prepare(
-    'SELECT name, duration_min, price_cents FROM services WHERE active = 1 AND price_cents > 0 ORDER BY duration_min'
+    'SELECT id, name, duration_min, price_cents FROM services WHERE active = 1 AND price_cents > 0 ORDER BY duration_min'
   ).all();
   if (!staff.length || !services.length) return null;
 
-  const shortest = services[0];
+  const opts = { staff, services, hoursFor, staffWindow, blocksFor };
   const days = [];
-
-  for (let i = 1; i <= horizonDays; i++) {
+  // Today counts, and counts first. A hole at three this afternoon is the most
+  // urgent thing in the building — it is the one that can only be filled by
+  // somebody deciding in the next hour — and the panel used to start at
+  // tomorrow, which meant the single most fillable gap of the day was the one
+  // it never mentioned.
+  for (let i = 0; i <= horizonDays; i++) {
     const date = addDays(today, i);
-    if (!hoursFor(date)) continue; // shut that day
-    for (const member of staff) {
-      const win = staffWindow(member.id, date);
-      if (!win) continue; // rostered off
-      const appts = db.prepare(
-        `SELECT start_min, end_min FROM appointments
-         WHERE staff_id = ? AND date = ? AND status NOT IN ('cancelled', 'no_show')`
-      ).all(member.id, date);
-      // Nothing booked at all is an empty column, not a list of gaps.
-      if (!appts.length) continue;
-      const busy = [...appts, ...blocksFor(member.id, date)].sort((a, b) => a.start_min - b.start_min);
-
-      let cursor = win.open;
-      const holes = [];
-      for (const b of busy) {
-        if (b.end_min <= cursor) continue;
-        if (b.start_min > cursor) holes.push({ start_min: cursor, end_min: Math.min(b.start_min, win.close) });
-        cursor = Math.max(cursor, b.end_min);
-        if (cursor >= win.close) break;
-      }
-      if (cursor < win.close) holes.push({ start_min: cursor, end_min: win.close });
-
-      for (const h of holes) {
-        const length = h.end_min - h.start_min;
-        if (length < shortest.duration_min || length > MAX_GAP) continue;
-        // The best-value service that actually fits, valued at the cheapest
-        // option of that length — deliberately the low estimate.
-        const fits = services.filter((s) => s.duration_min <= length);
-        const worth = fits.length ? Math.min(...fits.map((s) => s.price_cents)) : 0;
-        days.push({ date, staff_id: member.id, staff_name: member.name, ...h, minutes: length, worth_cents: worth });
-      }
-    }
+    days.push(...gapsOn(date, { ...opts, fromMin: i === 0 ? Math.max(0, nowMin) : -1 }));
   }
   if (!days.length) return null;
+  days.sort((a, b) => (a.date === b.date ? a.start_min - b.start_min : a.date.localeCompare(b.date)));
   const real = days;
+
+  // What yesterday's holes were worth, counted by exactly the same rules. It is
+  // the only figure on this panel that cannot be acted on, and that is the
+  // point of it: it is what happens when the ones above it are ignored.
+  const yesterday = addDays(today, -1);
+  const missed = gapsOn(yesterday, opts);
+  const missedCents = missed.reduce((n, g) => n + g.worth_cents, 0);
+
+  // Today and tomorrow are a different kind of thing from Thursday. One is a
+  // phone-in-hand decision; the other is a diary entry.
+  const urgent = real.filter((g) => g.date === today || g.date === addDays(today, 1));
 
   const soonest = real.filter((g) => g.date === real[0].date);
   const totalWorth = real.reduce((n, g) => n + g.worth_cents, 0);
   const totalMin = real.reduce((n, g) => n + g.minutes, 0);
-  const when = real[0].date === addDays(today, 1) ? 'tomorrow' : DAY_NAMES[weekdayOf(real[0].date)];
+  const dayWord = (d) => (d === today ? 'today' : d === addDays(today, 1) ? 'tomorrow' : DAY_NAMES[weekdayOf(d)]);
+  const when = dayWord(real[0].date);
+
+  // The slot the offer is actually for. The soonest one, because that is the
+  // one that runs out first, and a message that names a time is worth several
+  // that say "we have some availability".
+  const lead = urgent[0] || real[0];
 
   return finding({
     kind: 'empty_time',
@@ -164,20 +220,43 @@ function emptyTime({ today, horizonDays = 3, hoursFor, staffWindow, blocksFor })
       + `between existing bookings.`
       + (real.length > soonest.length
         ? ` Across the next ${horizonDays} days there are <b>${real.length}</b>, totalling <b>${dur(totalMin)}</b>.`
+        : '')
+      // Said last, and only when there is something to say. It is the one line
+      // here that is about the past, and it is the reason to act on the rest.
+      + (missedCents
+        ? ` Yesterday <b>${missed.length}</b> like ${missed.length === 1 ? 'it' : 'these'} went unfilled.`
         : ''),
     worth_cents: totalWorth,
     worth_label: 'if they all filled',
+    // How many of those hours are in the next 48, and what went by yesterday.
+    // Both are context for the same decision: this is worth a text now.
+    extra: {
+      urgent_count: urgent.length,
+      urgent_worth_cents: urgent.reduce((n, g) => n + g.worth_cents, 0),
+      missed_yesterday_cents: missedCents,
+      missed_yesterday_count: missed.length,
+    },
     evidence: real.slice(0, 8).map((g) => ({
-      label: `${DAY_NAMES[weekdayOf(g.date)].slice(0, 3)} ${clock(g.start_min)}–${clock(g.end_min)}`,
+      label: `${g.date === today ? 'Today' : DAY_NAMES[weekdayOf(g.date)].slice(0, 3)} ${clock(g.start_min)}–${clock(g.end_min)}`,
       sub: `${g.staff_name} · ${dur(g.minutes)} free`,
       date: g.date,
     })),
     actions: [{ label: 'Open the calendar', href: `#/calendar?date=${real[0].date}`, icon: 'calendar' }],
     campaign: {
       kind: 'gap_offer',
-      weekday: weekdayOf(real[0].date),
-      when: real[0].date === addDays(today, 1) ? 'tomorrow' : `on ${DAY_NAMES[weekdayOf(real[0].date)]}`,
-      times: namedTimes(soonest),
+      weekday: weekdayOf(lead.date),
+      when: lead.date === today ? 'today' : lead.date === addDays(today, 1) ? 'tomorrow'
+        : `on ${DAY_NAMES[weekdayOf(lead.date)]}`,
+      times: namedTimes(real.filter((g) => g.date === lead.date)),
+      // The exact slot, so the message can carry a link that opens ON it rather
+      // than on a booking page where the client has to go hunting for a time
+      // they were just told about.
+      offer: lead.service_id ? {
+        service_ids: [lead.service_id],
+        staff_id: lead.staff_id,
+        date: lead.date,
+        start_min: lead.start_min,
+      } : null,
     },
   });
 }
@@ -531,9 +610,9 @@ function money(cents) {
  * API's routing and session code — which is what lets the tests drive it
  * directly with a fixed date instead of waiting for real time to pass.
  */
-export function opportunities({ today, hoursFor, staffWindow, blocksFor, horizonDays = 3 }) {
+export function opportunities({ today, hoursFor, staffWindow, blocksFor, horizonDays = 3, nowMin = -1 }) {
   const found = [
-    emptyTime({ today, horizonDays, hoursFor, staffWindow, blocksFor }),
+    emptyTime({ today, horizonDays, nowMin, hoursFor, staffWindow, blocksFor }),
     unfilledCancellations({ today, staffWindow }),
     overdueRegulars({ today }),
     weakestPeriod({ today, hoursFor }),

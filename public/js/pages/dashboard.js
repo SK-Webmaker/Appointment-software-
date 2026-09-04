@@ -555,6 +555,15 @@ async function drawOpportunities(slot) {
               <div class="op-kicker">${esc(f.kicker)}</div>
               <div class="op-title">${esc(f.title)}</div>
               <div class="op-why">${f.detail}</div>
+              ${f.urgent_count || f.missed_yesterday_cents ? `
+                <div class="op-urgency">
+                  ${f.urgent_count ? `
+                    <span class="ou-now">${icon('clock', 12)}
+                      <b>${f.urgent_count}</b> in the next 48 hours${f.urgent_worth_cents
+                        ? ` · ${money(f.urgent_worth_cents)}` : ''}</span>` : ''}
+                  ${f.missed_yesterday_cents ? `
+                    <span class="ou-lost">${money(f.missed_yesterday_cents)} went unfilled yesterday</span>` : ''}
+                </div>` : ''}
               ${f.evidence.length ? `
                 <div class="op-ev">
                   ${f.evidence.map((e) => `
@@ -604,12 +613,31 @@ async function drawOpportunities(slot) {
 
 const CH_LABEL = { email: 'Email', sms: 'SMS', both: 'Email + SMS' };
 
+/** "Thu 2:30pm" — the offered slot as the owner would say it out loud. */
+function offerLabel(offer) {
+  const d = new Date(`${offer.date}T12:00:00`);
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+  const h = Math.floor(offer.start_min / 60), mm = offer.start_min % 60;
+  const t = `${(h % 12) || 12}${mm ? `:${String(mm).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
+  return `${day} ${t}`;
+}
+
 async function openCampaign(campaign) {
   // `audience` is the new axis: the same freed slot can go to the handful of
   // people it actually suits, or to the whole list as a long shot. They are not
   // the same message and they are not the same decision, so the switch is the
   // first thing in the dialog rather than a checkbox buried under the draft.
   let state_ = { channel: 'email', audience: 'matched', data: null, chosen: new Set() };
+
+  /**
+   * The most people this send may go to, or null when there is no ceiling.
+   *
+   * There is one only when a single named slot is attached and it is going to
+   * picked-out people. A broadcast has no slot on it, and "we've got room in
+   * the diary" cannot run out.
+   */
+  const capFor = () => (campaign.offer && state_.audience !== 'everyone'
+    ? (state_.data?.gap_offer_cap || 5) : null);
 
   const m = openModal({
     title: 'Draft a message',
@@ -640,7 +668,13 @@ async function openCampaign(campaign) {
     // take its answer rather than keeping a stale SMS selection on screen.
     state_.channel = state_.data.channel;
     // Everyone reachable starts ticked; anyone inside the cooldown cannot be.
-    state_.chosen = new Set(state_.data.recipients.filter((r) => !r.cooling_off).map((r) => r.id));
+    const live = state_.data.recipients.filter((r) => !r.cooling_off);
+    // Unless one actual slot is on offer, in which case only the first few
+    // start ticked. Offering 2:30 to everyone who fits would mean telling all
+    // but one of them they were too slow — so the default is the cap, and going
+    // past it has to be a decision somebody makes.
+    const cap = capFor();
+    state_.chosen = new Set((cap === null ? live : live.slice(0, cap)).map((r) => r.id));
     paint();
   };
 
@@ -672,6 +706,15 @@ async function openCampaign(campaign) {
                texts is real money for a long shot and this one is free.`
             : `The people this actually suits: due for a visit, and they've booked this day
                of the week before. Fewer names, far more replies.`}</div>
+
+          ${campaign.offer && !broadcast ? `
+            <div class="cmp-offer">
+              ${icon('link', 14)}
+              <span>Their link opens straight on
+              <b>${esc(offerLabel(campaign.offer))}</b> — one tap and it's booked.
+              Only ${capFor()} people can be sent it, because the rest would just be
+              told it had gone.</span>
+            </div>` : ''}
 
           ${broadcast ? '' : `
           <div class="cmp-label" style="margin-top:16px">Send by</div>
@@ -733,8 +776,16 @@ async function openCampaign(campaign) {
         : `About <b>${money(cents)}</b> in SMS credit · ${smsTo} text${smsTo === 1 ? '' : 's'}`
           + `${seg > 1 ? ` × ${seg} segments (${len} characters)` : ''}`;
       m.querySelector('#cmp-count').textContent = n.length;
-      m.querySelector('#cmp-send').disabled = n.length === 0;
-      m.querySelector('#cmp-send').innerHTML = `${icon('send', 14)} Send to ${n.length}`;
+      // Over the cap the button says why rather than going grey for no visible
+      // reason. The server refuses this too — the screen is the explanation,
+      // not the guard.
+      const cap = capFor();
+      const over = cap !== null && n.length > cap;
+      const send = m.querySelector('#cmp-send');
+      send.disabled = n.length === 0 || over;
+      send.innerHTML = over
+        ? `${icon('alert', 14)} ${cap} at most for one slot`
+        : `${icon('send', 14)} Send to ${n.length}`;
     };
     recost();
 
@@ -764,10 +815,18 @@ async function openCampaign(campaign) {
     };
     const all = m.querySelector('#cmp-all');
     if (all) all.onclick = () => {
-      const everyone = state_.chosen.size === live.length;
-      state_.chosen = everyone ? new Set() : new Set(live.map((r) => r.id));
-      m.querySelectorAll('#cmp-people [data-id]').forEach((c) => { c.checked = !everyone; });
-      all.textContent = everyone ? 'Select all' : 'Select none';
+      // "Select all" cannot mean "give one slot to everybody". With a slot
+      // attached it fills up to the cap and stops, which is the honest reading
+      // of the button — the alternative is a click that lands the owner on a
+      // disabled Send with no idea why.
+      const cap = capFor();
+      const most = cap === null ? live : live.slice(0, cap);
+      const already = state_.chosen.size >= most.length;
+      state_.chosen = already ? new Set() : new Set(most.map((r) => r.id));
+      m.querySelectorAll('#cmp-people [data-id]').forEach((c) => {
+        c.checked = state_.chosen.has(Number(c.dataset.id));
+      });
+      all.textContent = already ? 'Select all' : 'Select none';
       recost();
     };
   };
@@ -791,12 +850,23 @@ async function openCampaign(campaign) {
     const was = btn.innerHTML;
     btn.innerHTML = 'Sending…';
     try {
+      // The slot goes with the send, not with the draft: whoever receives this
+      // gets a link that opens on that exact time. Left off a broadcast on
+      // purpose — one slot to the whole list is the disappointment the cap
+      // exists to prevent, and "we've got room this week" has nothing to run out.
+      const offer = campaign.offer && state_.audience !== 'everyone' ? campaign.offer : null;
       const res = await api.post('/api/campaigns/send', {
         kind: campaign.kind,
         channel: state_.channel,
         subject: m.querySelector('#cmp-subject')?.value || '',
         body: m.querySelector('#cmp-body-text').value,
         client_ids: [...state_.chosen],
+        ...(offer ? {
+          offer_service_ids: offer.service_ids,
+          offer_staff_id: offer.staff_id || undefined,
+          offer_date: offer.date,
+          offer_start_min: offer.start_min,
+        } : {}),
       });
       toast(res.detail, res.queued ? 'ok' : 'err', { ms: 6000 });
       m.close();

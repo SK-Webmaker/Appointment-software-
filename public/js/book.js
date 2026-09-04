@@ -6,7 +6,13 @@ import { lockZoom } from './nozoom.js';
 const root = document.getElementById('book');
 // state.services is the "cart" — one or more chosen services, booked back-to-
 // back with the same team member for one combined appointment.
-const state = { info: null, location: null, services: [], staff: null, date: todayStr(), slot: null, step: 1 };
+const state = {
+  info: null, location: null, services: [], staff: null, date: todayStr(), slot: null, step: 1,
+  // A slot this visitor was sent here for, waiting to be matched against what
+  // is actually free. Cleared the moment the times step has dealt with it, so
+  // changing date doesn't keep re-announcing an offer they have moved on from.
+  pending: null,
+};
 
 // --- multi-service cart helpers -------------------------------------------
 const cartIds = () => state.services.map((s) => s.id);
@@ -199,7 +205,6 @@ async function boot() {
     const cameFrom = params.get('m');
     if (cameFrom) {
       try { sessionStorage.setItem('kairo_from_message', cameFrom); } catch { /* private mode */ }
-      history.replaceState(null, '', location.pathname);
     }
 
     // Returning from Stripe after a deposit?
@@ -209,11 +214,94 @@ async function boot() {
       return;
     }
 
+    // Came from "2:30 on Thursday just came free"? Land on 2:30 on Thursday.
+    const offer = await resolveOffer(params, cameFrom);
+    history.replaceState(null, '', location.pathname);
+    if (offer) { await openOnOffer(offer); return; }
+
     if (state.info.locations.length > 1) renderLocationStep();
     else renderServiceStep();
   } catch (err) {
     root.innerHTML = `<div class="empty" style="padding-top:80px">${icon('alert', 26)}<div>${esc(err.message)}</div></div>`;
   }
+}
+
+/**
+ * The exact slot this visitor was sent here for, if there is one.
+ *
+ * Two ways in, and they are not equal. Query parameters are for a link the
+ * owner pasted somewhere by hand — Instagram, a WhatsApp message — and are
+ * checked here against what the salon actually offers, because anybody can type
+ * anything into a URL. A message token is for the salon's own texts, where the
+ * offer is a record on the server rather than a claim in the address bar, and
+ * costs the salon nothing per character.
+ *
+ * Explicit parameters win when both are present: they are the more specific
+ * instruction, and if they disagree with the message the person clicking is
+ * looking at the parameters.
+ *
+ * Never throws. A link that cannot be honoured must open the ordinary booking
+ * page, not an error — the client cannot tell the difference between "that slot
+ * went" and "this salon's booking is broken", and will assume the second.
+ */
+async function resolveOffer(params, token) {
+  const services = state.info.services || [];
+  const byId = (id) => services.find((s) => s.id === Number(id));
+
+  const wantIds = String(params.get('s') || '').split(',').map(Number).filter(Boolean);
+  const picked = wantIds.map(byId).filter(Boolean);
+  const date = params.get('d') || '';
+  const startMin = Number(params.get('t'));
+  if (picked.length && picked.length === wantIds.length
+      && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isInteger(startMin)) {
+    const staff = (state.info.staff || []).find((m) => m.id === Number(params.get('st'))) || null;
+    return { services: picked, staff, date, start_min: startMin, checked: false };
+  }
+
+  if (!token) return null;
+  try {
+    const res = await getJson(`/api/public/offer?m=${encodeURIComponent(token)}`);
+    if (!res.offer) return null;
+    const o = res.offer;
+    // The server hands back the services as it holds them; use the page's own
+    // copies so prices, names and the cart maths all come from one place.
+    const cart = o.service_ids.map(byId).filter(Boolean);
+    if (cart.length !== o.service_ids.length) return null;
+    return {
+      services: cart,
+      staff: o.staff ? (state.info.staff || []).find((m) => m.id === o.staff.id) || null : null,
+      date: o.date,
+      start_min: o.start_min,
+      // The server already looked: true means free a moment ago, false means
+      // somebody beat them to it and the page should say so rather than let
+      // them find out at the last screen.
+      checked: true,
+      still_free: o.still_free,
+      staff_id: o.staff_id,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Open the page on the offered slot.
+ *
+ * It still opens on the TIMES step rather than jumping to the details form, and
+ * that is deliberate. The slot may have gone in the twenty minutes since the
+ * text arrived, and the kindest place to be told that is the screen that also
+ * shows the other times that day. Landing them on a form and failing at the
+ * last button would be one tap shorter and much worse.
+ */
+async function openOnOffer(offer) {
+  state.services = offer.services;
+  state.staff = offer.staff;
+  state.date = offer.date;
+  state.location = offer.staff && offer.staff.location_id
+    ? (state.info.locations || []).find((l) => l.id === offer.staff.location_id) || null
+    : null;
+  state.pending = { date: offer.date, start_min: offer.start_min };
+  await renderTimeStep();
 }
 
 async function handleDepositReturn(params) {
@@ -458,7 +546,17 @@ async function renderTimeStep() {
         // A full day is the moment a waitlist is worth offering — they wanted
         // this day, and telling them "try another" is how you lose them to the
         // salon down the road that asked.
+        // Somebody sent here for a specific time deserves to be told that time
+        // has gone, not a generic "no free times" that reads as though the
+        // message was made up.
+        const missed = state.pending && state.pending.date === state.date ? state.pending.start_min : null;
+        state.pending = null;
         slotsEl.innerHTML = `
+          ${missed !== null ? `
+            <div class="bk-held gone">${icon('clock', 15)}
+              <span><b>${fmtTime(missed)} has just gone.</b> Sorry — it was first to book,
+              and that day is now full.</span>
+            </div>` : ''}
           <div class="empty">${icon('clock', 22)}<div>No free times that day. Try another date${state.info.waitlist_enabled ? ', or put your name down' : ''}.</div></div>
           ${state.info.waitlist_enabled ? `
             <button class="btn primary" id="join-wl" style="display:block;margin:0 auto">
@@ -483,6 +581,32 @@ async function renderTimeStep() {
       if (state.info.waitlist_enabled) {
         slotsEl.querySelector('#join-wl-foot').onclick = () => renderWaitlistStep({ dayFull: false });
       }
+      // Sent here for one particular time? Select it, and say so above the
+      // grid. Or say it has gone — with the rest of that day's times already on
+      // screen underneath, which is the only version of that news worth giving.
+      if (state.pending && state.pending.date === state.date) {
+        const want = state.pending.start_min;
+        const btn = [...slotsEl.querySelectorAll('.slot')].find((b) => Number(b.dataset.slot) === want);
+        state.pending = null;
+        if (btn) {
+          btn.classList.add('sel');
+          state.slot = { start_min: Number(btn.dataset.slot), staff_id: Number(btn.dataset.sid) };
+          root.querySelector('#next').disabled = false;
+          slotsEl.insertAdjacentHTML('afterbegin', `
+            <div class="bk-held">${icon('check', 15)}
+              <span><b>${fmtTime(want)}</b> is still free${state.staff ? ` with ${esc(state.staff.name)}` : ''} —
+              it's picked below. Tap Continue and it's yours.</span>
+            </div>`);
+          btn.scrollIntoView({ block: 'nearest' });
+        } else {
+          slotsEl.insertAdjacentHTML('afterbegin', `
+            <div class="bk-held gone">${icon('clock', 15)}
+              <span><b>${fmtTime(want)} has just gone.</b> Sorry — it was first to book.
+              Here's what's still free that day.</span>
+            </div>`);
+        }
+      }
+
       slotsEl.querySelectorAll('.slot').forEach((b) => {
         b.onclick = () => {
           state.slot = { start_min: Number(b.dataset.slot), staff_id: Number(b.dataset.sid) };

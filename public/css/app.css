@@ -1693,6 +1693,26 @@ table.roster th.is-today .rs-day { color: var(--accent); }
 .opp .op-title { font-size: 14.5px; font-weight: 700; letter-spacing: -0.01em; }
 .opp .op-why { font-size: 13px; color: var(--text-2); line-height: 1.6; margin-top: 5px; }
 .opp .op-why b { color: var(--text); }
+/* How much of this is urgent, and what it cost to ignore yesterday. Two facts
+   about the same decision: the first is why to act now, the second is what
+   happens if you don't. Deliberately not styled as an alarm — the panel is read
+   every morning and a red badge every morning stops being read. */
+.opp .op-urgency { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.opp .op-urgency span {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 3px 10px;
+}
+.opp .op-urgency svg { flex: none; }
+/* Mixed from the salon's own accent rather than a fixed blue — every business
+   picks its colour, and a hardcoded sky chip on a pink brand looks like a bug. */
+.opp .ou-now {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.opp .ou-lost {
+  color: var(--muted); background: var(--panel-2); border: 1px solid var(--border);
+}
 /* The working, shown rather than claimed — an owner who can check the numbers
    is one who keeps reading them. */
 .opp .op-ev { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
@@ -1802,6 +1822,17 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   margin-top: 8px; font-size: 11.5px; line-height: 1.65; color: var(--muted);
 }
 .cmp-aud-note b { color: var(--text-2); }
+
+/* The slot the link will open on. Sits under the audience switch because it is
+   part of the same decision: who gets the one time that is going. */
+.cmp-offer {
+  display: flex; gap: 8px; align-items: flex-start; margin-top: 10px;
+  font-size: 11.5px; line-height: 1.6; color: var(--text-2);
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 11px;
+}
+.cmp-offer svg { flex: none; margin-top: 2px; color: var(--accent); }
+.cmp-offer b { color: var(--text); }
 
 /* ---------- "don't send them offers" ---------- */
 /* On the client's own record, because it is a fact about the person rather than

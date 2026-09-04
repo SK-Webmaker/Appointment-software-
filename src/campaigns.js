@@ -219,10 +219,16 @@ export function draftFor(kind, context = {}, audience = 'matched') {
   if (kind === 'gap_offer') {
     const when = context.when || 'tomorrow';
     const times = context.times || '';
+    // "It's yours" is true when one person is asked and a small lie when five
+    // are. The same slot goes to a handful of people, so the draft says which
+    // it is — otherwise the owner spends the evening apologising to whoever
+    // replied second, having been told by their own software that it was
+    // theirs. The link lands them on that exact time, so first to book is a
+    // race that takes one tap to win rather than a phone call to lose.
     return {
       subject: `A spot has opened up at ${biz}`,
       body: `Hi {first_name}, we've had ${times ? `${times} ` : 'a time '}come free ${when}. `
-        + `If you've been meaning to get in, it's yours.${linkLine}\n\n${biz}`,
+        + `If you'd like it, it's first to book.${linkLine}\n\n${biz}`,
     };
   }
   if (kind === 'rebook_nudge') {
@@ -428,9 +434,50 @@ export function recipientsFor(kind, { today, channel = 'both', context = {}, aud
 // ---------------------------------------------------------------------------
 
 const insMessage = () => db.prepare(
-  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after, token)
-   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?)`
+  `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after, token,
+                         offer_service_ids, offer_staff_id, offer_date, offer_start_min)
+   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?)`
 );
+
+/**
+ * The slot a campaign is offering, checked against the diary before it is
+ * attached to anything.
+ *
+ * Nothing here trusts the caller. A date that is not a date, a staff member who
+ * left, a service that was deleted — each of those would produce a link that
+ * opens on an error, and the client blames the salon rather than the software.
+ * An offer that does not survive this is simply dropped: the message still goes
+ * out, it just points at the booking page instead of at one slot.
+ */
+export function cleanOffer(offer) {
+  if (!offer || typeof offer !== 'object') return null;
+  const date = String(offer.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const start = Number(offer.start_min);
+  if (!Number.isInteger(start) || start < 0 || start >= 1440) return null;
+
+  const ids = (Array.isArray(offer.service_ids) ? offer.service_ids : [])
+    .map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  const found = ids.length
+    ? db.prepare(`SELECT id FROM services WHERE active = 1 AND id IN (${ids.map(() => '?').join(',')})`).all(...ids)
+      .map((r) => r.id)
+    : [];
+  if (!found.length) return null;
+
+  const staffId = Number(offer.staff_id) || 0;
+  const staff = staffId
+    ? db.prepare('SELECT id FROM staff WHERE id = ? AND active = 1').get(staffId)
+    : null;
+
+  return {
+    // Ordered as the caller asked, not as the database returned them — a
+    // two-service offer priced in that order should arrive in that order.
+    service_ids: ids.filter((id) => found.includes(id)),
+    staff_id: staff ? staff.id : null,
+    date,
+    start_min: start,
+  };
+}
 
 function localStamp(d = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
@@ -445,9 +492,14 @@ function localStamp(d = new Date()) {
  * gone out in between, and a client being messaged twice because a browser
  * tab was stale is exactly the failure this is supposed to prevent.
  */
-export function sendCampaign(kind, { clientIds = [], channel = 'email', subject = '', body = '', renderEmail } = {}) {
+export function sendCampaign(kind, {
+  clientIds = [], channel = 'email', subject = '', body = '', renderEmail, offer = null,
+} = {}) {
   if (!CAMPAIGN_KINDS.has(kind)) throw new Error('Unknown campaign');
   if (!body.trim()) throw new Error('The message is empty');
+  // Validated once here rather than per recipient — it is the same slot for
+  // everyone, and an offer that fails the check is dropped rather than fatal.
+  const slot = cleanOffer(offer);
 
   const skip = recentlyMessaged();
   const off = optedOut();
@@ -488,7 +540,9 @@ export function sendCampaign(kind, { clientIds = [], channel = 'email', subject 
           unsubscribeUrl: publicUrl() ? `${publicUrl()}/api/public/unsubscribe?t=${unsubTokenFor(c.id)}` : '',
         })
         : '';
-      ins.run(c.id, ch, kind, to, subj, text, html, now, token);
+      ins.run(c.id, ch, kind, to, subj, text, html, now, token,
+        slot ? slot.service_ids.join(',') : '', slot ? slot.staff_id : null,
+        slot ? slot.date : '', slot ? slot.start_min : null);
     }
     queued++;
     // Within one campaign too — the same client cannot appear twice because

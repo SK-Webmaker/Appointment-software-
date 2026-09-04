@@ -420,7 +420,7 @@ const EDITABLE_SETTINGS = new Set([
   'receipts_enabled', 'review_requests_enabled', 'review_delay_hours', 'google_review_url',
   'chan_confirmation', 'chan_reminder', 'chan_receipt', 'chan_review_request',
   'notif_reply_to', 'clicksend_starter_from', 'clicksend_starter_dismissed',
-  'marketing_cooldown_days', 'sms_cost_cents',
+  'marketing_cooldown_days', 'sms_cost_cents', 'gap_offer_cap',
   'waitlist_enabled', 'waitlist_autofill', 'waitlist_channel', 'waitlist_max_offers',
   'sms_notifications_enabled', 'public_url',
   'backup_email_enabled', 'backup_frequency', 'backup_email_to',
@@ -2882,7 +2882,15 @@ route('GET', '/api/dashboard', async ({ query }) => {
 route('GET', '/api/opportunities', async ({ query }) => {
   const asked = query.get('date');
   const today = isDateStr(asked) ? asked : bizToday();
-  return opportunities({ today, hoursFor, staffWindow, blocksFor });
+  // The clock where the salon is, not where the server is. Today's gaps are
+  // only opportunities if they haven't started yet, and a UTC box thinks it is
+  // still yesterday evening all through a Melbourne morning — which would offer
+  // the owner a nine o'clock slot at half past ten.
+  const now = bizNow();
+  return opportunities({
+    today, hoursFor, staffWindow, blocksFor,
+    nowMin: today === now.date ? now.min : -1,
+  });
 });
 
 /**
@@ -2920,6 +2928,9 @@ route('GET', '/api/campaigns/preview', async ({ query }) => {
     recipients,
     cost: messageCost(draft.body, chan, selectable),
     cooldown_days: Number(getSetting('marketing_cooldown_days', '14')) || 0,
+    // How many one slot may go to. Sent whether or not this campaign has a slot
+    // attached, so the screen can say the number before the owner runs into it.
+    gap_offer_cap: gapOfferCap(),
     booking_url: publicUrl() ? `${publicUrl()}/book` : '',
     last_sent: lastSent(kind),
     // So the switch between the two can show what each would reach without the
@@ -2985,9 +2996,40 @@ route('POST', '/api/campaigns/send', async ({ req }) => {
     subject: s.str(200),
     body: s.str(1600, { required: true }),
     client_ids: s.arr(s.num({ min: 1 }), 500, { required: true }),
+    offer_service_ids: s.arr(s.num({ min: 1 }), 10),
+    offer_staff_id: s.num({ min: 1 }),
+    offer_date: s.str(10),
+    offer_start_min: s.num({ min: 0, max: 1439 }),
   });
   if (!CAMPAIGN_KINDS.has(b.kind)) throw httpError(400, 'Unknown campaign');
   if (!b.client_ids.length) throw httpError(400, 'Nobody is selected');
+
+  const offer = b.offer_date ? {
+    service_ids: b.offer_service_ids || [],
+    staff_id: b.offer_staff_id || 0,
+    date: b.offer_date,
+    start_min: b.offer_start_min,
+  } : null;
+
+  // One slot cannot be given to a crowd.
+  //
+  // Offer 2:30 on Thursday to eight people and seven of them are told it has
+  // gone — by the salon, in a message the salon chose to send. That is a worse
+  // afternoon than an empty chair. The cap is what stands between "cast the net
+  // wide" and eight small disappointments, and it is enforced HERE rather than
+  // only on the screen, because the screen can be stale and this cannot.
+  //
+  // It applies only when a specific slot is attached. "We've got room in the
+  // diary this week" is a different message with nothing to run out, and
+  // capping that would be capping the wrong thing.
+  if (offer) {
+    const cap = gapOfferCap();
+    if (b.client_ids.length > cap) {
+      throw httpError(400,
+        `That offers one slot to ${b.client_ids.length} people — ${b.client_ids.length - cap} of them `
+        + `would be told it's gone. Pick ${cap} or fewer, or raise the limit in Settings.`);
+    }
+  }
   // A blank message is the owner's slip, not a server fault — say so plainly
   // rather than letting campaigns.js throw and turn it into a 500 with a stack
   // trace in the log. (The guard stays there too, for any other caller.)
@@ -2995,7 +3037,7 @@ route('POST', '/api/campaigns/send', async ({ req }) => {
 
   const out = sendCampaign(b.kind, {
     clientIds: b.client_ids, channel: b.channel,
-    subject: b.subject || '', body: b.body, renderEmail,
+    subject: b.subject || '', body: b.body, renderEmail, offer,
   });
   processQueue().catch(() => {});
   const aside = [
@@ -3100,6 +3142,18 @@ route('GET', '/api/public/info', async () => {
 /** How far ahead customers may book online (days), clamped to something sane. */
 function bookingHorizonDays() {
   return clampInt(getSetting('booking_horizon_days', '90'), 1, 365, 90);
+}
+
+/**
+ * How many people one freed slot may be offered to.
+ *
+ * Five by default. Low on purpose: the arithmetic of offering a single 2:30 to
+ * a crowd is that one person is pleased and everybody else is told they were
+ * too slow, by a salon they did not ask to hear from. An owner who wants to
+ * cast wider can, but they should have to decide to.
+ */
+function gapOfferCap() {
+  return clampInt(getSetting('gap_offer_cap', '5'), 1, 50, 5);
 }
 
 /** The hour settings the shared rules engine needs. */
@@ -3212,6 +3266,75 @@ route('GET', '/api/public/availability', async ({ query }) => {
   return {
     duration_min: totalDuration,
     slots: [...slotMap.entries()].sort((a, b) => a[0] - b[0]).map(([start_min, staff_id]) => ({ start_min, staff_id })),
+  };
+}, { auth: false });
+
+/**
+ * The slot a message was offering, resolved from the token in its link.
+ *
+ * "We've had 2:30 on Thursday come free" is worth nothing if it lands the
+ * client on a general booking page to go hunting. This is what lets the page
+ * open ON that slot.
+ *
+ * Two things it deliberately does NOT do. It never returns who the message was
+ * sent to — the token is in a link that gets forwarded, screenshotted and left
+ * open on shared phones, and a stranger holding it must learn nothing about the
+ * client beyond a time that was free. And it never reserves anything: the slot
+ * is checked against the diary right now and reported honestly as taken or
+ * free, because a soft hold that a second person can also see is worse than no
+ * hold at all. First to actually book gets it, which is what the message says.
+ */
+route('GET', '/api/public/offer', async ({ query }) => {
+  if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  const token = str(query.get('m'), 64);
+  const empty = { offer: null };
+  if (!token) return empty;
+
+  const msg = db.prepare(
+    `SELECT offer_service_ids, offer_staff_id, offer_date, offer_start_min
+       FROM messages WHERE token = ? AND offer_date != '' ORDER BY id DESC LIMIT 1`
+  ).get(token);
+  if (!msg || msg.offer_start_min === null) return empty;
+
+  // A slot in the past is not an offer, it is an apology. Said as expired
+  // rather than taken, because they are different disappointments.
+  if (msg.offer_date < bizToday()) return { offer: null, expired: true };
+
+  const ids = String(msg.offer_service_ids || '').split(',').map(Number).filter(Boolean);
+  const services = ids.length
+    ? db.prepare(`SELECT id, name, duration_min, price_cents, price_type FROM services
+                   WHERE active = 1 AND id IN (${ids.map(() => '?').join(',')})`).all(...ids)
+    : [];
+  // A service deleted since the message went out leaves an offer that cannot be
+  // honoured. Better a plain booking page than a link that opens on an error.
+  if (services.length !== ids.length || !services.length) return empty;
+
+  const duration = services.reduce((n, s) => n + s.duration_min, 0);
+  const staff = msg.offer_staff_id
+    ? db.prepare('SELECT id, name, title FROM staff WHERE id = ? AND active = 1').get(msg.offer_staff_id)
+    : null;
+  if (msg.offer_staff_id && !staff) return empty; // the stylist has left
+
+  // Free right now, for the member it was offered with — or for anybody, if it
+  // went out as "any available".
+  const pool = staff
+    ? [staff.id]
+    : db.prepare('SELECT id FROM staff WHERE active = 1 ORDER BY id').all().map((r) => r.id);
+  const freeWith = pool.find((id) => freeSlotsFor(id, msg.offer_date, duration).includes(msg.offer_start_min));
+
+  return {
+    offer: {
+      service_ids: services.map((s) => s.id),
+      services,
+      staff: staff || null,
+      date: msg.offer_date,
+      start_min: msg.offer_start_min,
+      duration_min: duration,
+      // Which member is actually free, so the booking names the same person the
+      // page just promised rather than whoever the server picks later.
+      staff_id: freeWith ?? null,
+      still_free: freeWith !== undefined,
+    },
   };
 }, { auth: false });
 
