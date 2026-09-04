@@ -6,6 +6,7 @@ import { state, refreshLookups } from '../app.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
 import { mountSmsCredit } from '../sms-credit.js';
+import { mountAutomations } from '../automations.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
@@ -547,6 +548,15 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">Marketing automations</div>
+        <div class="card-sub" style="margin-bottom:16px">Kairo can message clients on its own, based on
+          their own visit rhythm rather than a blanket rule. <b>Everything here is off until you turn it
+          on</b>, nothing sends without a cap, and everything it sends appears in Messages like any other
+          message. Open one to see exactly who it would reach before you switch it on.</div>
+        <div id="auto-list" class="auto-list is-loading">Loading…</div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Backups</div>
         <div class="card-sub" style="margin-bottom:16px">Your whole business — every client, appointment,
           invoice and payment — lives in one file. If the machine it sits on is ever lost, this is what
@@ -840,6 +850,9 @@ export async function renderSettings(container) {
   // --- SMS credit ----------------------------------------------------------
   // Prepaid credit is the one thing that stops texts without warning, so it is
   // shown where the owner turns SMS on, and refreshed when they save new keys.
+  const autoEl = container.querySelector('#auto-list');
+  if (autoEl) mountAutomations(autoEl, api);
+
   const creditEl = container.querySelector('#sms-credit');
   const loadCredit = (refresh = false) => mountSmsCredit(creditEl, api, { refresh });
   creditEl.addEventListener('click', (e) => {

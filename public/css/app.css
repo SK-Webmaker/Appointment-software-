@@ -2086,3 +2086,50 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   .cal-scroll { max-height: calc(100vh - 250px); }
   .cal-col { min-width: 150px; }
 }
+
+/* ---------- Marketing automations (Settings) ----------
+   Four switches that can each message a client list, so the row has to carry
+   its consequence at a glance: on/off, who it reaches, what it costs. The
+   detail stays folded until asked for — four expanded forms would make the
+   card unreadable and the decision harder, not easier. */
+.auto-list.is-loading { color: var(--muted); font-size: 13px; padding: 8px 0; }
+.auto {
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--panel-2); margin-bottom: 10px;
+}
+.auto[open] { background: var(--bg-raise); }
+.auto > summary {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px; cursor: pointer; list-style: none;
+}
+.auto > summary::-webkit-details-marker { display: none; }
+.auto > summary:hover { border-radius: 12px; background: var(--panel); }
+.auto-switch { display: flex; align-items: center; flex: none; }
+.auto-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.auto-name b { font-size: 14px; color: var(--text); }
+.auto-blurb { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.auto-state { flex: none; }
+.auto-body { padding: 4px 15px 16px; border-top: 1px solid var(--border); margin-top: 2px; }
+.auto-reach {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--text); margin: 13px 0 15px;
+}
+.auto-reach svg { color: var(--muted); flex: none; }
+.auto-example {
+  margin-top: 14px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--panel-2); overflow: hidden;
+}
+.auto-example-label {
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border);
+}
+.auto-example-body {
+  padding: 12px; font-size: 13px; line-height: 1.6; color: var(--text);
+  white-space: pre-wrap; word-break: break-word;
+}
+.auto-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 12px; }
+
+@media (max-width: 560px) {
+  .auto > summary { flex-wrap: wrap; }
+  .auto-name { flex: 1 1 100%; order: 3; }
+}

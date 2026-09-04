@@ -8,6 +8,7 @@ import { bootstrap, getSetting, storageWarning, publicUrl, publicUrlIsRaw } from
 import { handleApi } from './src/api.js';
 import { startScheduler } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
+import { runDailyPass } from './src/automations.js';
 import { checkOrigin } from './src/origin.js';
 import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
@@ -18,9 +19,25 @@ const PORT = Number(process.env.PORT || 4820);
 const HOST = process.env.HOST || '0.0.0.0';
 
 bootstrap();
-// Delivers queued confirmations & reminders every minute, and posts a backup
-// off the machine when one is due.
-startScheduler({ tick: runScheduledBackup });
+// Delivers queued confirmations & reminders every minute, posts a backup off
+// the machine when one is due, and makes the marketing automations' daily pass.
+// All three ride the same minute tick rather than three timers; each one does
+// nothing until it is actually due.
+startScheduler({
+  tick: async () => {
+    await runScheduledBackup();
+    // Guarded to once a day inside. That guard is about work, not safety —
+    // what actually stops a client being messaged twice is the unique index on
+    // automation_sends, which holds even if this ran every minute. Worth being
+    // exact about, because someone tidying up later needs to know which of the
+    // two is load-bearing.
+    try {
+      runDailyPass();
+    } catch (err) {
+      console.error('automations:', err.message);
+    }
+  },
+});
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',

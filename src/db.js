@@ -243,6 +243,39 @@ export function initSchema() {
     -- Clients waiting for a time that isn't free yet. The whole point of a
     -- waitlist is the moment a cancellation happens: that slot is money already
     -- earned and handed back, and somebody here has said in advance they want it.
+    -- Marketing automations: one row per kind, off until the owner turns it on.
+    -- Settings rather than code, because the words and the channel belong to
+    -- the business — Kairo supplies a starting draft and then gets out of the way.
+    CREATE TABLE IF NOT EXISTS automations (
+      kind          TEXT PRIMARY KEY,
+      enabled       INTEGER NOT NULL DEFAULT 0,
+      channel       TEXT NOT NULL DEFAULT 'sms',   -- sms|email|both
+      subject       TEXT NOT NULL DEFAULT '',
+      body          TEXT NOT NULL DEFAULT '',
+      cooldown_days INTEGER NOT NULL DEFAULT 14,
+      max_per_day   INTEGER NOT NULL DEFAULT 20,
+      last_run      TEXT NOT NULL DEFAULT '',
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- What an automation has already done, so it can never do it twice.
+    --
+    -- The ref column is what the send was ABOUT — an appointment id, a birthday
+    -- year, a lapse. The unique index across (kind, client_id, ref) makes "once
+    -- per first visit" and "once a year" true by construction rather than by a
+    -- query remembering to check. A marketing message sent twice is the fastest
+    -- way for a salon's regulars to start ignoring them.
+    CREATE TABLE IF NOT EXISTS automation_sends (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind       TEXT NOT NULL,
+      client_id  INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      message_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+      ref        TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_automation_once
+      ON automation_sends(kind, client_id, ref);
+
     CREATE TABLE IF NOT EXISTS waitlist (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       client_id  INTEGER REFERENCES clients(id) ON DELETE CASCADE,

@@ -41,6 +41,9 @@ import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
 import {
+  listAutomations, getAutomation, saveAutomation, candidatesFor, runAutomation,
+} from './automations.js';
+import {
   recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent,
   recentlyMessagedSet, setMarketingOptOut, clientByUnsubToken,
   attributionFor, attributionSummary, bookingsFromMessage, fillTokens, bookingLinkFor, mintToken,
@@ -85,7 +88,13 @@ const routes = [];
 // A path parameter is a row id — digits — unless it is named `date`, in which
 // case it is a calendar date. Keeping the pattern strict per name means a
 // malformed URL never reaches a handler: it simply doesn't match a route.
-const PARAM_PATTERN = { date: '(\\d{4}-\\d{2}-\\d{2})' };
+// A named parameter is digits unless it says otherwise — ids are the common
+// case. Anything else has to be declared here, or the route silently never
+// matches and every request to it comes back "Not found".
+const PARAM_PATTERN = {
+  date: '(\\d{4}-\\d{2}-\\d{2})',
+  kind: '([a-z][a-z0-9_]{0,40})',
+};
 function route(method, pattern, handler, { auth = true } = {}) {
   const names = [];
   const regex = new RegExp(
@@ -1868,6 +1877,54 @@ route('GET', '/api/messages', async ({ query }) => {
      ) led ON led.mid = m.id
      ${where} ORDER BY m.id DESC LIMIT 300`
   ).all(...args);
+});
+
+// ---------------------------------------------------------------------------
+// Marketing automations
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/automations', async () => ({
+  automations: listAutomations(),
+  // Email is free but Resend's free tier stops at 100 a day, so an owner
+  // choosing "email" for a big list needs to know it will spread out.
+  sent_today: db.prepare(
+    "SELECT COUNT(*) AS n FROM automation_sends WHERE substr(created_at, 1, 10) = date('now')"
+  ).get().n,
+}));
+
+route('PUT', '/api/automations/:kind', async ({ req, params }) => {
+  const b = await readJson(req);
+  return saveAutomation(params.kind, b);
+});
+
+/**
+ * Who this would reach, before it is switched on.
+ *
+ * The same function the runner uses, so what an owner approves is what
+ * actually happens. Nothing is queued — this only looks.
+ */
+route('GET', '/api/automations/:kind/preview', async ({ params }) => {
+  const conf = getAutomation(params.kind);
+  if (!conf) throw httpError(404, 'Unknown automation');
+  const found = candidatesFor(params.kind, { limit: 25 });
+  return {
+    ...conf,
+    ...found,
+    // What one run would actually cost, at today's cap.
+    cost: messageCost(conf.body, conf.channel,
+      found.eligible.slice(0, conf.max_per_day).map((c) => ({ phone: c.phone }))),
+    example: fillTokens(conf.body, {
+      firstName: found.eligible[0]?.first_name || 'Sam',
+      token: 'EXAMPLE',
+      businessName: getSetting('business_name', ''),
+    }),
+  };
+});
+
+/** Run one now, rather than waiting for tomorrow morning. */
+route('POST', '/api/automations/:kind/run', async ({ req, params }) => {
+  const b = await readJson(req).catch(() => ({}));
+  return runAutomation(params.kind, { dryRun: b?.dry_run === true });
 });
 
 /**

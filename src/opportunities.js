@@ -195,13 +195,29 @@ function emptyTime({ today, horizonDays = 3, hoursFor, staffWindow, blocksFor })
  * is the only honest yardstick — median rather than mean so one gap year
  * doesn't drag the whole picture.
  */
-function overdueRegulars({ today }) {
+const daysBetween = (a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000);
+
+/**
+ * Every client's own visit rhythm, computed once.
+ *
+ * Exported because more than one feature needs to know when somebody is due —
+ * the Opportunities panel, and the automations that message them before and
+ * after they drift. Two copies of this maths would eventually disagree about
+ * what "due" means, and the client would get told twice.
+ *
+ * Returns one row per client with enough history to have a rhythm at all:
+ *   median_days   their own typical gap between visits
+ *   since_days    how long since the last one
+ *   ratio         since / median — under 1 is early, over 1.5 is drifted
+ *   has_future    already booked in, so nothing should chase them
+ */
+export function clientRhythms({ today, minVisits = 3 }) {
   const rows = db.prepare(
     `SELECT client_id, date FROM appointments
      WHERE client_id IS NOT NULL AND status NOT IN ('cancelled', 'no_show') AND date <= ?
      ORDER BY client_id, date`
   ).all(today);
-  if (!rows.length) return null;
+  if (!rows.length) return [];
 
   const byClient = new Map();
   for (const r of rows) {
@@ -214,13 +230,11 @@ function overdueRegulars({ today }) {
      WHERE date > ? AND status IN ('booked','confirmed') AND client_id IS NOT NULL`
   ).all(today).map((r) => r.client_id));
 
-  const daysBetween = (a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000);
   const out = [];
-
   for (const [clientId, dates] of byClient) {
     // Three visits gives two gaps, the minimum for a median that means
     // anything. Two visits is a coincidence, not a rhythm.
-    if (dates.length < 3 || booked.has(clientId)) continue;
+    if (dates.length < minVisits) continue;
     const gaps = [];
     for (let i = 1; i < dates.length; i++) gaps.push(daysBetween(dates[i - 1], dates[i]));
     gaps.sort((a, b) => a - b);
@@ -228,21 +242,39 @@ function overdueRegulars({ today }) {
     if (median < 7 || median > 240) continue; // not a rhythm worth acting on
 
     const since = daysBetween(dates[dates.length - 1], today);
+    out.push({
+      client_id: clientId,
+      visits: dates.length,
+      last_visit: dates[dates.length - 1],
+      median_days: median,
+      since_days: since,
+      ratio: since / median,
+      has_future: booked.has(clientId),
+    });
+  }
+  return out;
+}
+
+function overdueRegulars({ today }) {
+  const out = [];
+  for (const r of clientRhythms({ today })) {
+    if (r.has_future) continue;
     // Half again past their own gap — early enough to still win them back,
     // late enough that it isn't nagging someone who is simply a bit late.
-    if (since < median * 1.5) continue;
+    if (r.ratio < 1.5) continue;
 
-    const c = db.prepare('SELECT id, first_name, last_name, email, phone FROM clients WHERE id = ?').get(clientId);
+    const c = db.prepare('SELECT id, first_name, last_name, email, phone FROM clients WHERE id = ?').get(r.client_id);
     if (!c) continue;
     const spend = db.prepare(
       `SELECT COALESCE(AVG(sv.price_cents), 0) AS v FROM appointments a
        JOIN services sv ON sv.id = a.service_id
        WHERE a.client_id = ? AND a.status NOT IN ('cancelled','no_show')`
-    ).get(clientId).v;
+    ).get(r.client_id).v;
 
     out.push({
-      ...c, visits: dates.length, last_visit: dates[dates.length - 1],
-      usual_days: median, overdue_days: since - median, worth_cents: Math.round(spend),
+      ...c, visits: r.visits, last_visit: r.last_visit,
+      usual_days: r.median_days, overdue_days: r.since_days - r.median_days,
+      worth_cents: Math.round(spend),
     });
   }
   if (!out.length) return null;
