@@ -26,8 +26,8 @@ session loses nothing.
 | 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | Approved 2026-09-05 with directions; see addendum |
 | 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
 | 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04b-connectors-made-easy.md`](04b-connectors-made-easy.md) · [`04-policies.md`](04-policies.md) · [`walkthrough-business-abc.md`](walkthrough-business-abc.md) | **Written, awaiting the owner's green light for Phase 5** |
-| 5 — Sha and Hora, uninterrupted | [`05-phase-5-sha-and-hora.md`](05-phase-5-sha-and-hora.md) | **Written, awaiting the owner's approval before Phase 6 (build)** |
-| 6 — Build, in shippable slices | code + tests | not started |
+| 5 — Sha and Hora, uninterrupted | [`05-phase-5-sha-and-hora.md`](05-phase-5-sha-and-hora.md) | Approved 2026-09-05; Sha on a Monday; executes after slices 2–4 |
+| 6 — Build, in shippable slices | [`06-phase-6-build-log.md`](06-phase-6-build-log.md) | **In progress — slice 1 (test harness) done** |
 | 7 — Launch | `07-…` | not started |
 
 ## Decision log
@@ -64,3 +64,4 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Owner chose **A: one price, A$410, website only; the app is free and sign-in only.** D2 reversed. Clarified: texts come from the salon's **own existing mobile number**, verified on their own ClickSend account by a code sent to that phone (ClickSend Own Numbers API); no number is bought unless their business number is a landline and they choose to. | `02b` amendment, `04b` amendment |
 | 2026-09-05 | Phase 5 written: rehearsal on copies, a five-minute read-only window on a Sunday evening, Cloudflare switch behind the proxy, verification checklist, old service kept running read-only for 7 days, rollback by checklist in 5 minutes, and what "Friday 6pm" actually means once the old data is stale. Hora first, Sha a week later. | `05-…` |
 | 2026-09-05 | Owner: Sha's move on a **Monday** (she is closed Mon/Tue); downtime must be short. Recorded: 10-minute maximum, 3–5 target, writes only; reads never stop. Owner intends to resume on Monday and save credits until then. Phase 6 (build) has not started. | `05-…` amendment |
+| 2026-09-05 | Owner: start Phase 6 now, begin with the test harness. Slice 1 done: 12 suites / 77 checks / 14 mutations all caught; two real defects found and fixed (move dropped the client; mixed-case admin email could not log in). v1.53.0 on this branch only. | `06-…` |

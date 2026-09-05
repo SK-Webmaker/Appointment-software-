@@ -59,6 +59,12 @@ npm run reset-demo   # same thing from the terminal
 - **Clean, phone-friendly dropdowns** across the whole editor (styled to match the app,
   large tap targets)
 - Double-booking detection with an explicit override; **overlapping appointments stack side-by-side** in the staff column
+- **A moved booking keeps its client.** An update that never mentions the
+  client — a drag, a resize, a nudge from the app — leaves the person on the
+  appointment; only the editor's explicit "walk-in" clears them. (Fixed in
+  v1.53.0: such an update silently set the client to nobody, so there was no
+  one to re-queue the reminder or the "your appointment has moved" message
+  for. Found by the test harness the day it was written.)
 - Status flow: Booked → Confirmed → Completed (plus Cancelled / No-show)
 - "Now" line, online-booking badge, per-staff colours
 - **Extended range with shaded off-hours (Fresha-style)**: the grid shows a couple of
@@ -772,7 +778,10 @@ the flags.
 - Each database is one file under `/srv/kairo/data/<slug>/` — back the folder up nightly
 - `/srv/kairo/businesses.tsv` records every business, host, port and service
 - Environment overrides: `PORT`, `HOST`, `KAIRO_DATA_DIR`, `KAIRO_ADMIN_EMAIL`,
-  `KAIRO_ADMIN_PASSWORD` (first-run only); the script sets all of these for you
+  `KAIRO_ADMIN_PASSWORD` (first-run only); the script sets all of these for you.
+  The email is stored lowercased, because that is what login compares against
+  (fixed in v1.53.0: `Owner@Salon.example` typed at provisioning could never
+  sign in)
 - Doing it by hand instead: `PORT=80 node --disable-warning=ExperimentalWarning server.js`
   behind nginx/Caddy works the same way
 
@@ -794,6 +803,17 @@ Balayage,Colour,150,220.00,Full balayage with toner
 
 A single "Name" column is split into first/last automatically. Duplicates are skipped,
 never overwritten.
+
+## Tests
+
+```bash
+npm test               # 12 suites, 77 checks, ~35 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 14 ways; every guarding suite must fail
+```
+
+Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
+The rule is the house rule — **a test that cannot fail is not a test** — and
+`test/falsify.mjs` enforces it in CI.
 
 ## Architecture
 

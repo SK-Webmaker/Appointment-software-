@@ -2070,6 +2070,13 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   // sends just the primary service_id (or none), so we keep the existing
   // multi-service rows intact rather than flattening them to one.
   const serviceId = a.sentServices ? a.serviceId : before.service_id;
+  // Same rule for the client: a request that never mentions client_id (a
+  // drag, a resize, a status nudge from the app) keeps the person on the
+  // booking. Only an explicit null — the editor's "walk-in" — clears it.
+  // Without this a move silently orphaned the appointment, and with no client
+  // there was nobody to re-queue the reminder or the "your appointment has
+  // moved" message for. Found by the test harness, 2026-09-05.
+  const clientId = ('client_id' in a.b || a.b.new_client) ? a.clientId : before.client_id;
   // Setting Status to Cancelled in the editor IS a cancellation, so it takes
   // the same path as the Cancel button — including the owner's choice about
   // whether the client hears about it, and the undo window that follows.
@@ -2082,10 +2089,10 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   db.prepare(
     `UPDATE appointments SET client_id = ?, staff_id = ?, service_id = ?, date = ?, start_min = ?, end_min = ?, status = ?, notes = ?
      WHERE id = ?`
-  ).run(a.clientId, a.staffId, serviceId, a.date, a.start, a.end,
+  ).run(clientId, a.staffId, serviceId, a.date, a.start, a.end,
     cancelling ? before.status : a.status, a.notes, params.id);
   if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
-  carryNoteToClient(a.clientId, a.notes, a.date);
+  carryNoteToClient(clientId, a.notes, a.date);
   if (cancelling) {
     return cancelAppointment(params.id, { by: 'owner', notifyClient: a.b.notify_client !== false });
   }

@@ -982,7 +982,10 @@ export function bootstrap() {
     const { salt, hash } = hashPassword(handover || 'admin123');
     db.prepare('INSERT INTO users (name, email, pass_hash, salt) VALUES (?, ?, ?, ?)').run(
       'Admin',
-      process.env.KAIRO_ADMIN_EMAIL || 'admin@kairo.local',
+      // Lowercased, because login lowercases what the owner types. Stored as
+      // typed, "Owner@Salon.example" could never sign in — found by the test
+      // harness, 2026-09-05.
+      String(process.env.KAIRO_ADMIN_EMAIL || 'admin@kairo.local').trim().toLowerCase(),
       hash,
       salt
     );
