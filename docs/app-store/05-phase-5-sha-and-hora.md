@@ -178,3 +178,21 @@ before anyone moves.
 - `KAIRO_READ_ONLY` maintenance mode, tested.
 - The `muted` registry flag for rehearsals.
 - Two rehearsal reports and two move reports, kept in this folder.
+
+---
+
+## Amendment, 2026-09-05 — the owner's window for Sha
+
+- **Sha does not work Mondays or Tuesdays.** Her move happens on a **Monday**,
+  in a slot the owner picks (early morning before 8 am, or after 9 pm, when
+  online bookings are rarest). Hora moves on the Monday before.
+- **Downtime budget: 10 minutes maximum, target 3–5.** Only *writes* stop —
+  a customer pressing *Confirm booking* sees "back in a few minutes, please
+  try again", and the owner's edits are refused for that window. The booking
+  page, the calendar, every read keeps working throughout. If step 5's
+  verification is not green by minute 8, the move is abandoned for the day
+  by removing `KAIRO_READ_ONLY`; nothing has changed for Sha.
+- **Order of events is unchanged:** Phase 6 builds and tests the shared
+  service, the maintenance switch and the migration script; the demo tenant
+  runs for a week; each salon is rehearsed on a copy; *then* the first
+  Monday. The move is the last thing that happens, not the first.
