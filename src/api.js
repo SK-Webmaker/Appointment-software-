@@ -423,7 +423,10 @@ route('GET', '/api/auth/verify-email', async ({ res, query }) => {
 // Settings
 // ---------------------------------------------------------------------------
 
-const EDITABLE_SETTINGS = new Set([
+// Exported so the platform's control API applies settings through exactly the
+// same allow-list and validation as the owner's own Settings screen. One gate,
+// not two that can drift apart.
+export const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
   'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
@@ -468,7 +471,7 @@ const settingCap = (k) => (k === 'brand_gallery' ? 3_500_000 : IMAGE_SETTINGS.ha
 
 // Apply a settings object with the same validation everywhere (PUT + wizard):
 // secrets are write-only, images must be genuine data URIs, others are capped.
-function applySettings(body) {
+export function applySettings(body) {
   for (const [k, v] of Object.entries(body)) {
     if (!EDITABLE_SETTINGS.has(k)) continue;
     // The site address is pinned by the environment on the platform. The field

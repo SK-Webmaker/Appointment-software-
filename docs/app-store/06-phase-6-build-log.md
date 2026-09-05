@@ -136,6 +136,65 @@ caught.**
 (a parameter-count error in `since`) and one in the test's premise, both fixed
 before the commit — which is what a rehearsal is for.
 
-**Next: slice 4 — the platform service** (directory, signup, Stripe Checkout,
-screening, provisioning via `createTenant`, the flag queue, the operator
-console), against a scratch shard, with the connectors following in slice 5.
+## Slice 4 — the platform: signup, payment, provisioning (2026-09-05) — done
+
+**What was built** (v1.55.0, this branch only)
+
+- **`src/platform.js` — the shard's control API.** Six verbs at
+  `/api/platform/*`, each authenticated by an HMAC over the timestamp, method,
+  path and the exact bytes of the body; five-minute replay window;
+  constant-time compare. **404 unless `KAIRO_PLATFORM_KEY` is set**, which is
+  the state both live salons are in. Settings go through the *same* allow-list
+  as the owner's own screen (exported from `api.js` rather than copied).
+- **`platform/` — the service itself**, same zero-dependency style, its own
+  SQLite: owners, businesses, codes, events, tasks. Signup state machine;
+  Stripe Checkout and refunds; webhook verification against the raw bytes;
+  the free ABN check; the six-digit codes; the operator queue; the signup page,
+  the operator console and the three policy pages.
+- **Provisioning is one call.** The wildcard domain already resolves, so
+  "create the salon" is a folder, a file and a settings pass — seconds, not the
+  nine-step, three-API machine Phase 4 described before the architecture
+  changed.
+- The owner's password is hashed **on the platform** and only the hash is sent
+  to the shard; the platform's copy is **cleared the moment the salon exists**.
+
+**The two rules the tests are built around**
+
+1. Nothing is provisioned until Stripe's signed webhook says the money moved.
+   A forged signature, a stale one, an unsigned body and a replay all provision
+   nobody; a genuine duplicate provisions exactly one salon.
+2. Screening flags, never refuses. Mismatched ABN, unknown ABN, duplicate
+   business name, three signups from one address — each waits for one tap in
+   the queue with the reason spelled out. No ABN at all is not a flag.
+
+**Tests:** `test/control-api.test.js` (11) and `test/signup.test.js` (17),
+including the whole journey end to end against a scratch shard: form → codes →
+payment → a provisioned salon → the owner signing in with the password they
+chose → a real customer booking on their own address. Mock Stripe signs
+webhooks exactly as Stripe does. **Whole suite: 17 suites, 123 checks.** Six
+new mutations (signature ignored, replay window open, webhook signature
+ignored, screening never flags, credential kept, expired signup keeps its
+address) — **25/25 caught.**
+
+**Bug found by the suite:** an expired (never-paid) signup went on holding its
+address forever, because the uniqueness check ignored state. Now the unique
+index covers only signups that still hold an address, and an expiry frees it —
+while a refunded salon keeps its address reserved, because its data is still on
+the shard and its links are still in people's phones.
+
+Two more things the tests pushed into the product while it was being written:
+the signer moved to its own dependency-free module (`src/platform-sign.js`) so
+the platform process does not load the whole of Kairo just to sign a request;
+and provisioning now **checks the salon's address actually answers** before
+anybody is told it is ready, and survives a retry over a tenant a previous
+attempt already created rather than sticking on "already exists".
+
+**Not in this slice:** the in-Kairo "cancel and refund" button (slice 5, with
+the connectors); push notifications; the App Store side. The platform's own
+Resend and ClickSend accounts are unconfigured, so verification codes are
+recorded as skipped until the owner adds keys — the tests read the codes from
+the platform's own table rather than through any back door in the product.
+
+**Next: slice 5 — the connectors** (email set up for the business by default,
+texts on their own number via ClickSend Own Numbers, payments optional), the
+setup checklist inside Kairo, and the in-Kairo refund and delete buttons.

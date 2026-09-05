@@ -180,3 +180,88 @@ export function tenantCli(dataDir, args, env = {}) {
   if (r.status !== 0) throw new Error(`tenant.mjs ${args.join(' ')} failed (${r.status}):\n${r.stdout}\n${r.stderr}`);
   return r.stdout;
 }
+
+/**
+ * Start the platform service against a running shard. Returns the same shape
+ * as startKairo plus `platformDb()` — the tests read verification codes from
+ * the database rather than from a back door in the product.
+ */
+export async function startPlatform({ shardUrl, platformKey, env = {}, dataDir = null, timeoutMs = 20000 } = {}) {
+  const dir = dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'kairo-platform-'));
+  const port = await freePort();
+  const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', 'platform/server.js'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PLATFORM_PORT: String(port),
+      PLATFORM_HOST: '127.0.0.1',
+      PLATFORM_ORIGIN: `http://127.0.0.1:${port}`,
+      PLATFORM_DATA_DIR: dir,
+      PLATFORM_RATELIMIT: 'off',
+      PLATFORM_OPERATOR_PASSWORD: 'operator-pass-2026!!',
+      KAIRO_SHARD_URL: shardUrl,
+      KAIRO_PLATFORM_KEY: platformKey,
+      KAIRO_BREACH_CHECK: 'off',
+      ...env,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  running.add(child);
+  child.on('exit', () => running.delete(child));
+  let log = '';
+  child.stdout.on('data', (d) => { log += d; });
+  child.stderr.on('data', (d) => { log += d; });
+  const base = `http://127.0.0.1:${port}`;
+  const deadline = Date.now() + timeoutMs;
+  let up = false;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) break;
+    try { const r = await fetch(`${base}/health`); if (r.ok) { up = true; break; } } catch { /* not yet */ }
+    await sleep(100);
+  }
+  if (!up) { child.kill('SIGKILL'); throw new Error(`platform did not start on ${base}\n${log}`); }
+
+  async function api(method, p, { body, cookie, headers = {}, raw = false } = {}) {
+    const h = { ...headers };
+    if (body !== undefined && typeof body !== 'string') h['content-type'] = 'application/json';
+    if (cookie) h.cookie = cookie;
+    const res = await fetch(base + p, {
+      method, headers: h,
+      body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
+      redirect: 'manual',
+    });
+    const buf = Buffer.from(await res.arrayBuffer());
+    let json = null;
+    if (!raw && /json/.test(res.headers.get('content-type') || '')) {
+      try { json = JSON.parse(buf.toString('utf8')); } catch { json = null; }
+    }
+    return { status: res.status, headers: res.headers, json, text: raw ? '' : buf.toString('utf8'), buffer: buf };
+  }
+
+  function platformDb() {
+    const d = new DatabaseSync(path.join(dir, 'platform.db'));
+    d.exec('PRAGMA busy_timeout = 5000');
+    return d;
+  }
+
+  /** The code that was just sent, read from the platform's own table. */
+  function latestCode(kind) {
+    const d = platformDb();
+    const row = d.prepare("SELECT code FROM codes WHERE kind = ? AND used = 0 ORDER BY id DESC LIMIT 1").get(kind);
+    d.close();
+    if (!row) throw new Error(`no unused ${kind} code`);
+    return row.code;
+  }
+
+  async function stop({ keepData = false } = {}) {
+    if (child.exitCode === null) {
+      child.kill('SIGTERM');
+      const t = Date.now() + 5000;
+      while (child.exitCode === null && Date.now() < t) await sleep(50);
+      if (child.exitCode === null) child.kill('SIGKILL');
+    }
+    if (!keepData) fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  return { base, port, dataDir: dir, api, platformDb, latestCode, stop, log: () => log };
+}

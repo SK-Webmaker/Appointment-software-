@@ -12,6 +12,7 @@ import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
 import { checkOrigin } from './src/origin.js';
+import { handlePlatform, platformEnabled, platformKeyFingerprint } from './src/platform.js';
 import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
 
@@ -166,6 +167,14 @@ function refuseReadOnly(res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  // The platform's control API is addressed to the shard itself, not to any
+  // salon, so it is answered before a Host is turned into a tenant. It is
+  // 404 unless KAIRO_PLATFORM_KEY is set, which is every deployment today.
+  if (url.pathname.startsWith('/api/platform/')) {
+    res.setHeader('Cache-Control', 'no-store');
+    if (await handlePlatform(req, res, url.pathname)) return;
+  }
+
   // Which salon? The Host header decides, and nothing else. The health check
   // answers for any host because Render pings the raw hostname, and a shard
   // that looks down because its health check named no salon restarts forever.
@@ -255,6 +264,7 @@ server.listen(PORT, HOST, () => {
     console.log(`  ◆ Kairo v${VERSION} is running — multi-tenant`);
     console.log(`    ${slugs.length} salon${slugs.length === 1 ? '' : 's'} under ${TENANTS_DIR}`);
     console.log(`    Addresses: https://<slug>.${BASE_DOMAIN}   (Host header decides the salon)`);
+    if (platformEnabled()) console.log(`    Control API: on, key ${platformKeyFingerprint()}…`);
     if (String(process.env.KAIRO_READ_ONLY || '') === '1') console.log('    !  KAIRO_READ_ONLY=1 — every salon is refusing writes');
     console.log('');
     return;

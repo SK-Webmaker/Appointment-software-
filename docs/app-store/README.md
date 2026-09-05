@@ -27,7 +27,7 @@ session loses nothing.
 | 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
 | 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04b-connectors-made-easy.md`](04b-connectors-made-easy.md) · [`04-policies.md`](04-policies.md) · [`walkthrough-business-abc.md`](walkthrough-business-abc.md) | **Written, awaiting the owner's green light for Phase 5** |
 | 5 — Sha and Hora, uninterrupted | [`05-phase-5-sha-and-hora.md`](05-phase-5-sha-and-hora.md) | Approved 2026-09-05; Sha on a Monday; executes after slices 2–4 |
-| 6 — Build, in shippable slices | [`06-phase-6-build-log.md`](06-phase-6-build-log.md) | **In progress — slices 1 (harness), 2 (the shard), 3 (the move tool) done** |
+| 6 — Build, in shippable slices | [`06-phase-6-build-log.md`](06-phase-6-build-log.md) | **In progress — slices 1–4 done (harness, shard, move tool, platform)** |
 | 7 — Launch | `07-…` | not started |
 
 ## Decision log
@@ -68,3 +68,4 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Slice 2 done: one process serves many salons, each in its own file; single-tenant mode preserved; maintenance and muted modes; tenant CLI. 13 suites / 89 checks / 18 mutations caught. v1.54.0 on this branch only. | `06-…` |
 | 2026-09-05 | Slice 3 done: `scripts/migrate-tenant.mjs` (fetch / import / verify / compare / since) with an end-to-end rehearsal test that also proves the verifier fails on a bad copy; `release` branch created at the live commit, no service moved to it. 14 suites / 94 checks / 19 mutations caught. | `06-…` |
 | 2026-09-05 | Owner's plan accepted: **enrol with Apple as an individual now**, convert to an organisation once Kairo is established (Apple keeps the Apple ID, Team ID, certificates and apps; only the seller name changes). One exception: **Tap to Pay on iPhone requires an organisation account**, so it stays in 1.1 and follows the conversion. No D-U-N-S and no company needed today. | `07-apple-account-plan.md` |
+| 2026-09-05 | Slice 4 done: the shard's HMAC control API (404 without a key) and the platform service — signup, verification codes, Stripe Checkout, webhook-driven provisioning, screening that flags rather than refuses, the operator queue, the signup page and policy pages. End-to-end test provisions a salon and books a customer on it. 17 suites / 123 checks / 25 mutations caught. v1.55.0 on this branch only. | `06-…` |

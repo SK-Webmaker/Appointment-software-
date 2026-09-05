@@ -108,6 +108,36 @@ const MUTATIONS = {
     find: "  for (const t of a.tables) check(`rows: ${t}`, a.counts[t], b.counts[t]);",
     replace: '',
   },
+  'control-api-signature-ignored': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: "  if (!m) return 'missing or malformed signature';",
+    replace: '  if (!m) return null;',
+  },
+  'control-api-replay-window-open': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: "  if (!Number.isFinite(t) || Math.abs(Date.now() - t) > MAX_AGE_MS) return 'signature timestamp is outside the accepted window';",
+    replace: "  if (!Number.isFinite(t)) return 'no timestamp';",
+  },
+  'webhook-signature-ignored': {
+    file: 'platform/stripe.js', suites: ['signup'],
+    find: "  if (!secret) return { ok: false, reason: 'no STRIPE_WEBHOOK_SECRET set' };",
+    replace: '  return { ok: true };',
+  },
+  'screening-never-flags': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: '  return flags;\n}',
+    replace: '  return [];\n}',
+  },
+  'owner-credential-kept-after-provisioning': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  db.prepare(\"UPDATE businesses SET pass_hash = '', salt = '', last_error = '', ready_at = datetime('now') WHERE id = ?\").run(b.id);",
+    replace: "  db.prepare(\"UPDATE businesses SET last_error = '', ready_at = datetime('now') WHERE id = ?\").run(b.id);",
+  },
+  'expired-signup-keeps-its-address': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  if (db.prepare(\"SELECT id FROM businesses WHERE slug = ? AND state != 'expired'\").get(slug)) return { ok: false, reason: 'That address is taken.' };",
+    replace: "  if (db.prepare('SELECT id FROM businesses WHERE slug = ?').get(slug)) return { ok: false, reason: 'That address is taken.' };",
+  },
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',

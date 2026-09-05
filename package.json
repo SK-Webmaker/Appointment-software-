@@ -1,6 +1,6 @@
 {
   "name": "kairo",
-  "version": "1.54.0",
+  "version": "1.55.0",
   "description": "Kairo \u2014 modern appointment booking, client management and billing for service businesses.",
   "type": "module",
   "main": "server.js",
@@ -12,7 +12,8 @@
     "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
     "update": "bash scripts/update.sh",
     "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=3 test/*.test.js",
-    "test:falsify": "node --disable-warning=ExperimentalWarning test/falsify.mjs"
+    "test:falsify": "node --disable-warning=ExperimentalWarning test/falsify.mjs",
+    "platform": "node --disable-warning=ExperimentalWarning platform/server.js"
   },
   "engines": {
     "node": ">=22.5.0"

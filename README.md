@@ -834,11 +834,29 @@ forces multi-tenant mode, `KAIRO_BASE_DOMAIN` sets the platform domain,
 mapping is the one line that could ever show one salon another's data; it is
 tested in `test/tenants.test.js` and broken on purpose by `test/falsify.mjs`.
 
+## Selling it: the platform (v1.55.0)
+
+A separate, equally dependency-free service — [`platform/`](platform/) — sells
+Kairo and provisions salons without anybody being woken up. A business fills in
+one form, types a code from their email and one from their phone, pays once,
+and their Kairo is serving at its own address seconds later. Nothing is
+provisioned until Stripe's *signed webhook* says the money moved, and screening
+(ABN, duplicates, signup bursts) **flags for a human rather than refusing**.
+
+The shard exposes six HMAC-signed control verbs at `/api/platform/*` — create,
+status, patch, settings, password reset, export, delete — and every one of them
+answers `404` unless `KAIRO_PLATFORM_KEY` is set, which is every deployment that
+has not been told otherwise. See [`platform/README.md`](platform/README.md).
+
+```bash
+npm run platform     # the signup page, the Stripe webhook, and the operator queue
+```
+
 ## Tests
 
 ```bash
-npm test               # 14 suites, 94 checks, ~60 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 19 ways; every guarding suite must fail
+npm test               # 17 suites, 123 checks, ~60 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 25 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
