@@ -16,6 +16,9 @@ const state = {
   moving: false,
   // Who sent them, when they arrived on somebody's referral link.
   referral: null,
+  // A patch-test slot they picked after the gate asked for one, carried into
+  // the retry so the test and the treatment are booked in one go.
+  patch: null,
 };
 
 // --- multi-service cart helpers -------------------------------------------
@@ -51,7 +54,16 @@ async function getJson(url, opts) {
   if (text) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }
-  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  if (!res.ok) {
+    const err = new Error(data.error || 'Something went wrong');
+    // The body of a refusal, kept rather than thrown away. A booking that needs
+    // a patch test or a consent is refused with everything the page needs to
+    // offer that in the same flow — and "you need a patch test" with nothing
+    // behind it is just a locked door.
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   if (unreadable) throw new Error('The reply was cut short — please try again.');
   return data;
 }
@@ -582,6 +594,7 @@ async function renderTimeStep() {
   root.innerHTML = `
     ${headHtml()}${stepsHtml()}
     <button class="bk-back" id="back">${icon('chevL', 14)} ${esc(cartLabel())} with ${esc(state.staff?.name || 'any available')}</button>
+    ${requirementNoticeHtml()}
     <div class="bk-datehead">
       <div class="bk-section-title" style="margin-bottom:0">Pick a date &amp; time</div>
       <label class="bk-jump" title="Jump to a date">
@@ -808,15 +821,17 @@ function renderDetailsStep() {
         ${cartHasFrom() ? '<div style="color:var(--muted);font-size:11.5px;margin-top:2px">Final price confirmed at your appointment</div>' : ''}
       </div>
     </div>
+    ${requirementNoticeHtml()}
     ${depositNoteHtml()}
     ${cancelPolicyHtml()}
     <div class="bk-section-title">Your details</div>
     <form id="bk-form" class="form-grid">
-      <div class="field"><label>First name *</label><input name="first_name" required></div>
-      <div class="field"><label>Last name</label><input name="last_name"></div>
-      <div class="field"><label>Phone *</label><input name="phone" required placeholder="So we can reach you"></div>
-      <div class="field"><label>Email</label><input name="email" type="email"></div>
-      <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?"></textarea></div>
+      <div class="field"><label>First name *</label><input name="first_name" required value="${esc(state.lastDetails?.first_name || '')}"></div>
+      <div class="field"><label>Last name</label><input name="last_name" value="${esc(state.lastDetails?.last_name || '')}"></div>
+      <div class="field"><label>Phone *</label><input name="phone" required placeholder="So we can reach you" value="${esc(state.lastDetails?.phone || '')}"></div>
+      <div class="field"><label>Email</label><input name="email" type="email" value="${esc(state.lastDetails?.email || '')}"></div>
+      <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything we should know?">${esc(state.lastDetails?.notes || '')}</textarea></div>
+      ${consentHtml()}
       ${state.info.ask_heard_from && !state.referral ? `
         <div class="field span2"><label>How did you hear about us?
           <span class="bk-optional">optional</span></label>
@@ -878,42 +893,31 @@ function renderDetailsStep() {
     e.preventDefault();
     const fd = new FormData(e.target);
     const btn = e.target.querySelector('button[type=submit]');
+    // Everything they typed, kept so a refusal that sends them to the patch-test
+    // step can put the booking through afterwards without asking for it again.
+    // Held in memory for this page only; nothing is stored.
+    const details = {
+      first_name: fd.get('first_name'), last_name: fd.get('last_name'),
+      phone: fd.get('phone'), email: fd.get('email'),
+      notes: fd.get('notes'), heard_from: fd.get('heard_from') || '',
+      consents: [...root.querySelectorAll('[data-consent]')].map((box) => ({
+        service_id: Number(box.dataset.consent),
+        typed_name: box.querySelector('input')?.value.trim() || '',
+      })).filter((c) => c.typed_name),
+    };
+    state.lastDetails = details;
+
+    const missing = [...root.querySelectorAll('[data-consent]')]
+      .filter((box) => !box.querySelector('input')?.value.trim());
+    if (missing.length) {
+      root.querySelector('#bk-error').textContent = 'Please type your name to agree before we book this in';
+      missing[0].querySelector('input')?.focus();
+      return;
+    }
+
     btn.disabled = true;
     try {
-      const humanToken = await turnstileToken();
-      const res = await getJson('/api/public/book', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: state.services[0].id,
-          service_ids: cartIds(),
-          staff_id: state.staff ? state.staff.id : state.slot.staff_id,
-          location_id: state.location?.id,
-          date: state.date,
-          start_min: state.slot.start_min,
-          notes: fd.get('notes'),
-          origin: location.origin,
-          turnstile_token: humanToken,
-          from_message: (() => {
-            try { return sessionStorage.getItem('kairo_from_message') || ''; } catch { return ''; }
-          })(),
-          // Releases the appointment they are moving — but only once this one
-          // exists. The server checks the token names a live booking of theirs.
-          reschedule_token: (() => {
-            try { return sessionStorage.getItem('kairo_reschedule') || ''; } catch { return ''; }
-          })(),
-          referral_token: (() => {
-            try { return sessionStorage.getItem('kairo_referral') || ''; } catch { return ''; }
-          })(),
-          heard_from: fd.get('heard_from') || '',
-          client: {
-            first_name: fd.get('first_name'), last_name: fd.get('last_name'),
-            phone: fd.get('phone'), email: fd.get('email'),
-          },
-        }),
-      });
-      if (res.checkout_url) { location.href = res.checkout_url; return; }
-      renderConfirmed(res);
+      await submitBooking(details);
     } catch (err) {
       root.querySelector('#bk-error').textContent = err.message;
       btn.disabled = false;
@@ -921,6 +925,216 @@ function renderDetailsStep() {
       if (/just taken/i.test(err.message)) setTimeout(renderTimeStep, 1600);
     }
   });
+}
+
+/**
+ * Put the booking through, and deal with the two answers that are not a
+ * refusal: a patch test that has to happen first, and wording that has to be
+ * agreed to. Both come back as a 409 carrying what is missing, and both are
+ * handled by moving the person forward rather than by printing an error.
+ */
+async function submitBooking(details) {
+  const humanToken = await turnstileToken();
+  const fromStore = (k) => { try { return sessionStorage.getItem(k) || ''; } catch { return ''; } };
+  let res;
+  try {
+    res = await getJson('/api/public/book', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: state.services[0].id,
+        service_ids: cartIds(),
+        staff_id: state.staff ? state.staff.id : state.slot.staff_id,
+        location_id: state.location?.id,
+        date: state.date,
+        start_min: state.slot.start_min,
+        notes: details.notes,
+        origin: location.origin,
+        turnstile_token: humanToken,
+        from_message: fromStore('kairo_from_message'),
+        // Releases the appointment they are moving — but only once this one
+        // exists. The server checks the token names a live booking of theirs.
+        reschedule_token: fromStore('kairo_reschedule'),
+        referral_token: fromStore('kairo_referral'),
+        heard_from: details.heard_from || '',
+        consents: details.consents?.length ? details.consents : undefined,
+        patch: state.patch
+          ? { date: state.patch.date, start_min: state.patch.start_min, staff_id: state.patch.staff_id }
+          : undefined,
+        client: {
+          first_name: details.first_name, last_name: details.last_name,
+          phone: details.phone, email: details.email,
+        },
+      }),
+    });
+  } catch (err) {
+    if (err.data?.needs === 'consent') {
+      // The wording changed between this page loading and them pressing the
+      // button. Re-read it and show the new words rather than storing agreement
+      // to a sentence that is no longer the one on file.
+      try {
+        const fresh = await getJson('/api/public/info');
+        state.info.requirements = fresh.requirements || {};
+      } catch { /* keep what we have; the server will refuse again */ }
+      renderDetailsStep();
+      root.querySelector('#bk-error').textContent =
+        'We\'ve updated this wording — please read it and type your name again.';
+      return;
+    }
+    if (err.data?.needs === 'patch_test') {
+      // Not an error to read — a step to take. The slot they had chosen is
+      // cleared first, because whatever was in it did not satisfy the server.
+      state.patch = null;
+      resetTurnstile();
+      renderPatchStep(err.data.patch_test);
+      return;
+    }
+    throw err;
+  }
+  if (res.checkout_url) { location.href = res.checkout_url; return; }
+  renderConfirmed(res);
+}
+
+// --- safety requirements ----------------------------------------------------
+
+/** The requirements attached to whatever is in the cart. */
+function cartRequirements() {
+  const map = state.info?.requirements || {};
+  return state.services
+    .map((s) => ({ service: s, req: map[s.id] || map[String(s.id)] || null }))
+    .filter((x) => x.req);
+}
+
+/**
+ * The heads-up, shown while they are still choosing.
+ *
+ * It says the same thing to everybody — a first-timer, a regular whose test
+ * lapsed last week, somebody who was tested on Tuesday — because the page has
+ * no idea who is reading it and must never become a way of finding out what the
+ * salon holds on a person. Whether they actually need one is decided at the
+ * moment they book, by the server, once there is a name to check.
+ */
+function requirementNoticeHtml() {
+  const reqs = cartRequirements();
+  const needsPatch = reqs.filter((r) => r.req.patch_test);
+  if (!needsPatch.length) return '';
+  const lead = state.info?.patch?.lead_hours || 48;
+  const hrs = lead % 24 === 0 && lead >= 48 ? `${lead / 24} days` : `${lead} hours`;
+  const names = needsPatch.map((r) => r.service.name).join(' and ');
+  return `
+    <div class="bk-safety">${icon('alert', 15)}
+      <div><b>${esc(names)} needs a patch test.</b>
+      It has to be done at least ${esc(hrs)} beforehand. If you've had one with us recently
+      you're all set — if not, ${state.info?.patch?.bookable
+        ? 'we\'ll offer you a free one to book at the same time.'
+        : 'we\'ll ask you to give us a ring so we can sort one out.'}</div>
+    </div>`;
+}
+
+/** The wording, and the box they type their name into. */
+function consentHtml() {
+  return cartRequirements()
+    .filter((r) => r.req.consent?.text)
+    .map((r) => `
+      <div class="bk-consent span2" data-consent="${r.service.id}">
+        <div class="words">${esc(r.req.consent.text)}</div>
+        <label>Type your full name to agree — ${esc(r.service.name)} *</label>
+        <input name="consent_${r.service.id}" autocomplete="name" placeholder="Your full name">
+        <span class="co-hint">Kept word-for-word with the time you agreed. Your name typed here
+          is a record of consent, not a witnessed signature.</span>
+      </div>`).join('');
+}
+
+/**
+ * The patch test, offered rather than demanded.
+ *
+ * This screen only ever appears after the server has refused the booking, and
+ * it carries the refusal's own answer: the slots that would still count. The
+ * treatment they picked is held in state and re-submitted with the test, so
+ * they leave with both in the diary rather than being sent back to the start.
+ */
+async function renderPatchStep(detail) {
+  const svcName = detail?.service?.name || 'Patch test';
+  const lead = detail?.lead_hours || state.info?.patch?.lead_hours || 48;
+  const hrs = lead % 24 === 0 && lead >= 48 ? `${lead / 24} days` : `${lead} hours`;
+  root.innerHTML = `
+    ${headHtml()}${stepsHtml()}
+    <button class="bk-back" id="back">${icon('chevL', 14)} Back to your details</button>
+    <div class="bk-section-title">One quick thing first</div>
+    <div class="bk-safety">${icon('alert', 15)}
+      <div><b>${esc(cartLabel())} needs a patch test.</b>
+      It takes a few minutes and has to be at least ${esc(hrs)} before your appointment on
+      ${esc(fmtDate(state.date))}.</div>
+    </div>
+    <div id="bk-patch-body"><div class="bk-hint">Finding you a time…</div></div>
+    ${poweredHtml()}`;
+  root.querySelector('#back').onclick = renderDetailsStep;
+
+  const body = root.querySelector('#bk-patch-body');
+  if (!detail?.bookable) {
+    body.innerHTML = `
+      <div class="bk-hint">We book patch tests in over the phone.
+        ${detail?.phone ? `Give us a ring on <b>${esc(detail.phone)}</b> and we'll` : 'Give us a ring and we\'ll'}
+        get one done, then your appointment is ready to book.</div>`;
+    return;
+  }
+
+  let data;
+  try {
+    data = await getJson(`/api/public/patch-slots?for_date=${encodeURIComponent(state.date)}`
+      + `&for_start_min=${state.slot.start_min}`);
+  } catch {
+    body.innerHTML = '<div class="bk-hint">We couldn\'t load patch test times just now — please try again.</div>';
+    return;
+  }
+
+  if (!data.slots?.length) {
+    // No room before the deadline. Said as what to do rather than as a refusal:
+    // the appointment they want is still available, just not this soon.
+    body.innerHTML = `
+      <div class="bk-hint">There's no patch test time left before
+        ${esc(fmtDate(state.date))}. Pick a later date for your appointment and we'll fit the
+        test in beforehand${data.service ? '' : ''}.</div>
+      <div style="margin-top:14px"><button class="btn primary" id="bk-later">Choose another date</button></div>`;
+    root.querySelector('#bk-later').onclick = renderTimeStep;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="bk-hint">Pick a time for your free ${esc(svcName)}. We'll book both in one go.</div>
+    <div class="bk-patch-slots">
+      ${data.slots.map((sl, i) => `
+        <button type="button" data-i="${i}">${esc(fmtDate(sl.date, { weekday: true }))} · ${esc(fmtTime(sl.start_min))}</button>`).join('')}
+    </div>
+    ${state.info.turnstile_site_key ? '<div id="bk-turnstile" style="display:flex;justify-content:center;margin-top:14px"></div>' : ''}
+    <div style="margin-top:16px;text-align:right">
+      <button class="btn primary" id="bk-patch-go" disabled style="min-width:200px;justify-content:center">
+        ${icon('check')} Book both</button>
+    </div>
+    <div id="bk-error" style="color:var(--red);font-size:13px;text-align:center;margin-top:10px"></div>`;
+
+  // The token the first attempt used is spent, so this step needs its own
+  // widget — without it the retry waits six seconds and then fails on a check
+  // the person already passed.
+  mountTurnstile();
+
+  const go = root.querySelector('#bk-patch-go');
+  root.querySelectorAll('.bk-patch-slots button').forEach((b) => {
+    b.onclick = () => {
+      root.querySelectorAll('.bk-patch-slots button').forEach((x) => x.classList.toggle('sel', x === b));
+      state.patch = data.slots[Number(b.dataset.i)];
+      go.disabled = false;
+    };
+  });
+  go.onclick = async () => {
+    go.disabled = true;
+    try {
+      await submitBooking(state.lastDetails || {});
+    } catch (err) {
+      root.querySelector('#bk-error').textContent = err.message;
+      go.disabled = false;
+    }
+  };
 }
 
 function depositCents() {
@@ -988,6 +1202,11 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
           ${depositPaid ? `<br><span style="color:var(--green);font-weight:600">💳 ${money(paidCents)} deposit paid</span>` : ''}
         </div>
       </div>
+      ${res.patch_appointment ? `
+        <div class="bk-moved"><b>Two appointments, not one.</b> Your patch test is on
+          <b>${fmtDate(res.patch_appointment.date)} at ${fmtTime(res.patch_appointment.start_min)}</b>
+          (${res.patch_appointment.duration_min} minutes), and the appointment above follows it.
+          You'll get a confirmation for each.</div>` : ''}
       <div style="color:var(--muted);font-size:13px">We look forward to seeing you at ${esc(res.business_name)}.</div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:22px">
         <a class="btn" href="${esc(res.ics_url || '')}" download>${icon('calendar')} Add to calendar</a>

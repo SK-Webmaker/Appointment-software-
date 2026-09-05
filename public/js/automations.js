@@ -26,6 +26,10 @@ const NEEDS = {
     + 'kept for 7 days so this can follow up, then deleted. The page says so, above '
     + 'the button. Somebody booking with you for the first time is never recorded — '
     + 'they never agreed to be contacted, so this leaves them alone.',
+  patch_test_expiring: 'Only reaches clients booked in for a service you have marked as '
+    + 'needing a patch test, whose own test will have run out by the day. Mark none, and '
+    + 'this reaches nobody. Anyone who has opted out of messages is left alone — '
+    + 'Settings → Patch tests lists them so you can ring them instead.',
 };
 
 /** One automation's row: the switch, the state, and the detail behind it. */

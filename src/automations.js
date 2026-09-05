@@ -27,6 +27,7 @@
 import { db, getSetting } from './db.js';
 import { clientRhythms } from './opportunities.js';
 import { mintToken, fillTokens, recentlyMessagedSet } from './campaigns.js';
+import { expiringPatchTests } from './safety.js';
 
 /** Nothing is queued outside these hours, local time. */
 const SEND_FROM_HOUR = 10;
@@ -250,6 +251,30 @@ export const AUTOMATIONS = [
       return rows
         .filter((r) => rhythm.has(r.client_id) && !rhythm.get(r.client_id).has_future)
         .map((r) => ({ clientId: r.client_id, ref: r.last_date, context: rhythm.get(r.client_id) }));
+    },
+  },
+  {
+    kind: 'patch_test_expiring',
+    label: 'Patch test running out',
+    blurb: 'Before an appointment that needs a patch test the client no longer has a valid one — '
+      + 'early enough to fix in ten minutes rather than on the day.',
+    defaults: {
+      channel: 'sms',
+      subject: 'Quick patch test before your appointment',
+      body: 'Hi {first_name}, before your next colour we need to redo your patch test — '
+        + 'it takes ten minutes and has to be done a few days beforehand. '
+        + 'Pop in any time, or grab a slot here: {booking_link}\n\n{business_name}',
+    },
+    find({ today }) {
+      // Three weeks of warning. On the morning of a four-hour balayage this
+      // sentence is a cancelled appointment and an empty chair; three weeks out
+      // it is a ten-minute visit nobody remembers.
+      //
+      // The ref is the appointment, so it goes once per booking rather than
+      // once per client — somebody with two colours in the diary should hear
+      // about the one that is actually at risk, and only once about it.
+      return expiringPatchTests({ today, withinDays: 21 })
+        .map((e) => ({ clientId: e.client_id, ref: `a${e.appointment_id}`, context: e }));
     },
   },
 ];

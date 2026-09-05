@@ -587,6 +587,36 @@ export async function renderSettings(container) {
       </div>
 
       <div class="card">
+        <div class="card-title">Patch tests &amp; consent</div>
+        <div class="card-sub" style="margin-bottom:16px">You set what each service needs on the service
+          itself — this is where you say how patch tests work across the salon. <b>Nothing here does
+          anything until a service asks for one.</b> Kairo keeps the records; it never decides whether a
+          treatment is safe.</div>
+        <form id="set-safety" style="display:flex;flex-direction:column;gap:13px">
+          <div class="form-grid">
+            <div class="field"><label>The service you book patch tests as</label>
+              <select name="patch_service_id" class="nice-select" id="patch-service">
+                <option value="">Not set — clients are asked to call</option>
+              </select>
+              <div class="hint">Usually free and ten minutes. Without one, a client who needs a test is
+                told to ring you instead of being offered a time.</div></div>
+            <div class="field"><label>Must be done at least</label>
+              <select name="patch_lead_hours" class="nice-select">
+                ${[24, 48, 72].map((n) => `<option value="${n}" ${String(s.patch_lead_hours || '48') === String(n) ? 'selected' : ''}>${n} hours before</option>`).join('')}
+              </select>
+              <div class="hint">48 hours is what the instructions on a box of colour say.</div></div>
+            <div class="field"><label>A patch test lasts</label>
+              <select name="patch_valid_months" class="nice-select">
+                ${[3, 6, 12, 24].map((n) => `<option value="${n}" ${String(s.patch_valid_months || '6') === String(n) ? 'selected' : ''}>${n} months</option>`).join('')}
+              </select>
+              <div class="hint">The default. Any service can ask for something different.</div></div>
+          </div>
+          <button class="btn primary" type="submit" style="align-self:flex-start">${icon('check')} Save</button>
+        </form>
+        <div id="safety-status" class="flagged is-loading" style="margin-top:18px">Checking…</div>
+      </div>
+
+      <div class="card">
         <div class="card-title">Marketing automations</div>
         <div class="card-sub" style="margin-bottom:16px">Kairo can message clients on its own, based on
           their own visit rhythm rather than a blanket rule. <b>Everything here is off until you turn it
@@ -1022,6 +1052,69 @@ export async function renderSettings(container) {
     });
     toast('Saved', 'ok');
     loadFlagged();
+  });
+
+  // --- Patch tests & consent -----------------------------------------------
+  // Two things the owner cannot see anywhere else: whether the gate can
+  // actually offer a booking (it can't without a patch-test service, and it
+  // fails at the worst possible moment — while a client is trying to book), and
+  // who is about to turn up with a test that has run out.
+  const safetyEl = container.querySelector('#safety-status');
+  const patchSelect = container.querySelector('#patch-service');
+  const paintSafety = (d) => {
+    if (!d) { safetyEl.className = 'flagged'; safetyEl.innerHTML = '<div class="fl-empty">Couldn\'t load this just now.</div>'; return; }
+    safetyEl.className = 'flagged';
+    const gated = (d.requirements || []).filter((r) => r.active);
+    if (!gated.length) {
+      safetyEl.innerHTML = `<div class="fl-empty">${icon('check', 14)}
+        <span>No service asks for a patch test or written consent, so none of this is doing anything.
+        Set it on the service itself.</span></div>`;
+      return;
+    }
+    const rows = (d.expiring || []);
+    safetyEl.innerHTML = `
+      ${d.patch_service_missing ? `
+        <div class="fl-head" style="color:var(--red)">No patch-test service set</div>
+        <div class="fl-note">${gated.filter((r) => r.kind === 'patch_test').map((r) => esc(r.service_name)).join(', ')}
+          needs a patch test, but there's nothing to book it as — so clients are told to ring you.
+          Add a short free service and pick it above.</div>` : ''}
+      <div class="fl-head">${gated.length} requirement${gated.length === 1 ? '' : 's'} in place</div>
+      ${gated.map((r) => `
+        <div class="fl-row">
+          <span class="fl-who"><b>${esc(r.service_name)}</b>
+            <span>${r.kind === 'patch_test' ? `Patch test, valid ${r.valid_months} months` : 'Written consent'}</span></span>
+        </div>`).join('')}
+      ${rows.length ? `
+        <div class="fl-head" style="margin-top:14px">${rows.length} booked appointment${rows.length === 1 ? '' : 's'} with a lapsed patch test</div>
+        ${rows.slice(0, 12).map((e) => `
+          <div class="fl-row">
+            <span class="fl-who"><b>${esc(e.client_name || 'Client')}</b>
+              <span>${esc(e.service_name)} on ${esc(e.date)} · test expired ${esc(e.expires_on)}</span></span>
+            <a class="btn small" href="#/clients?id=${e.client_id}">Open</a>
+          </div>`).join('')}
+        <div class="fl-note">Switch on "Patch test running out" in the automations below to have Kairo
+          ask them. Anyone who's opted out of messages won't be texted — they're listed here so you can
+          call them instead.</div>` : `
+        <div class="fl-note">Nobody booked in has a patch test that's run out.</div>`}
+      <div class="fl-note">Photos are capped at ${Math.round((d.photo_max_bytes || 0) / 1024)} KB each and
+        shrunk in the browser first. Your whole business file is currently
+        ${((d.db_bytes || 0) / 1024 / 1024).toFixed(1)} MB of the 1 GB disk.</div>`;
+  };
+  const loadSafety = () => api.get('/api/safety/overview').then((d) => {
+    // The picker is built from the live service list, so a service that has
+    // been archived cannot go on sitting in this setting unnoticed.
+    api.get('/api/services').then((list) => {
+      patchSelect.innerHTML = '<option value="">Not set — clients are asked to call</option>'
+        + list.map((sv) => `<option value="${sv.id}" ${String(d.settings.patch_service_id) === String(sv.id) ? 'selected' : ''}>${esc(sv.name)} · ${sv.duration_min} min</option>`).join('');
+    }).catch(() => { /* the rest of the panel still works */ });
+    paintSafety(d);
+  }).catch(() => paintSafety(null));
+  loadSafety();
+
+  container.querySelector('#set-safety').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings(e.target, ['patch_service_id', 'patch_lead_hours', 'patch_valid_months']);
+    loadSafety();
   });
 
   // --- Backups -------------------------------------------------------------

@@ -5,6 +5,7 @@ import {
   initials, avatarColor, statusChip, downloadText, copyText,
 } from '../ui.js';
 import { runImportWizard } from '../import.js';
+import { openSafetyModal, safetyFlagHtml } from '../safety.js';
 
 // Sort + filter are applied in the browser on the already-fetched list, so
 // they're instant and stack on top of the server-side search. Kept module-
@@ -30,6 +31,11 @@ const fullName = (c) => `${c.first_name} ${c.last_name}`.trim().toLowerCase();
 export async function renderClients(container, params) {
   const q = params?.get('q') || '';
   await drawList(container, q);
+  // "Open" on a settings panel names one person, so it should land on them.
+  // Without this it dropped the visitor on the full list to go and find the
+  // client themselves — the button did something, just not what it said.
+  const id = Number(params?.get('id'));
+  if (id) openClientDetail(id, () => drawList(container, q));
 }
 
 async function drawList(container, q = '') {
@@ -350,6 +356,7 @@ async function openClientDetail(id, onChanged) {
           <div style="font-size:20px;font-weight:700" class="money">${money(c.total_paid_cents)}</div>
         </div>
       </div>
+      <div id="cd-safety-flag"></div>
       <div class="mini-label" style="margin-bottom:6px">Upcoming</div>
       ${upcoming.length ? upcoming.map(apptLine).join('') : '<div class="cell-sub" style="padding:6px 0 2px">No upcoming appointments.</div>'}
       <div class="mini-label" style="margin:16px 0 6px">History</div>
@@ -394,10 +401,24 @@ async function openClientDetail(id, onChanged) {
         </span>
       </label>`,
     footer: `
+      <button class="btn" id="cd-safety">${icon('alert')} Treatment record</button>
       <div class="spacer"></div>
       <button class="btn" id="cd-edit">${icon('edit')} Edit</button>
       <button class="btn primary" id="cd-book">${icon('plus')} Book appointment</button>`,
   });
+
+  // Health information, fetched separately and shown only when there is
+  // something to say. A recorded reaction or a lapsed test is the one thing that
+  // must be visible without opening anything; everything else stays behind the
+  // Treatment record button, where somebody has to mean it.
+  api.get(`/api/clients/${c.id}/safety`).then((rec) => {
+    const box = m.querySelector('#cd-safety-flag');
+    if (box) box.innerHTML = safetyFlagHtml(rec);
+  }).catch(() => { /* the record still opens; the button is right there */ });
+
+  // Closed first, the way Edit does: one modal on screen at a time, so Escape
+  // means one unambiguous thing.
+  m.querySelector('#cd-safety').onclick = () => { m.close(); openSafetyModal({ client: c, onChanged }); };
 
   m.querySelectorAll('[data-nav-away]').forEach((el) => el.addEventListener('click', () => m.close()));
   // Saved on the spot rather than behind an Edit → Save round trip. Somebody

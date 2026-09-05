@@ -483,6 +483,62 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### 🧪 Treatment records & safety gates (v1.52.0 — off until a service asks)
+Hair colour needs a patch test; PPD allergy can cause anaphylaxis. Lash and brow
+tint, peels and injectables carry consent and contraindication requirements, and
+insurers expect the records. Most salons keep this in a paper book or in the
+free-text notes field — prose a computer can't act on. If a client reacts,
+"we always do patch tests" is not evidence.
+
+Set on the **service itself** (Services → open a service → *Before this can be
+booked*), so a salon that marks nothing sees no change anywhere:
+
+- **Needs a valid patch test**, with how long one lasts.
+- **Needs written consent**, with the exact wording clients agree to.
+
+Then, on the booking page:
+
+- A **notice while they're still choosing** — the same sentence for everybody,
+  because the page has no idea who is reading it and must never become a way of
+  finding out what the salon holds on a person.
+- A booking that needs a patch test is **not refused — it's answered** with the
+  times a test could still be done (the appointment minus the lead you set,
+  48 hours by default). Pick one and **both go in the diary together**; the
+  confirmation says *"two appointments, not one"*. Where no patch-test service
+  is configured, the client is asked to ring you and given the number.
+- A **recorded reaction** closes online booking for that service and asks them
+  to call. No flow routes around it, including one arriving with a slot already
+  chosen — that is a conversation for a human.
+- **Consent wording on screen**, agreed by typing their name. Stored word for
+  word with the time. Reword it and everybody agrees again: a tick against a
+  form that has since been edited is not a record of what anyone agreed to.
+
+On the client's record (Clients → open somebody → **Treatment record**):
+contraindication flags, the full patch-test history including failures,
+every consent with its wording, and before/after photos. Only a reaction, a
+lapsed test or a noted allergy appears on the client's card itself — the rest is
+behind a press, because an owner checking a phone number shouldn't have
+somebody's medication list on screen in front of whoever is at the counter.
+
+**One printable document** (Treatment record → *Print / save full record*) with
+everything on it, photos embedded, no scripts — for the day an insurer or a
+solicitor asks.
+
+Two limits stated rather than hidden. **Photos are capped at 400 KB each** and
+resized in the browser first: the persistent disk is 1 GB and holds the whole
+business, and Settings shows what your file weighs today. And **a typed name
+with a timestamp is a record of consent, not a witnessed signature** — adequate
+for most Australian salon contexts, and the interface says so rather than
+letting anyone assume more.
+
+Settings → **Patch tests & consent** sets which service a patch test is booked
+as, the lead time and the default validity, and lists every booked appointment
+whose test will have lapsed by the day. The *Patch test running out* automation
+can chase those clients; anyone who has opted out of messages is listed there
+so you can ring them instead.
+
+**Kairo stores these records. It never decides whether a treatment is safe.**
+
 ### 📋 Waitlist & automatic filling (v1.39.0 — off by default)
 Settings → **Waitlist & automatic filling**. Two switches, both off on every
 install:

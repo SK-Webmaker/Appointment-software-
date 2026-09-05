@@ -85,6 +85,7 @@ const PLACES = [
   { title: 'Settings → Notifications', href: '#/settings', words: 'sms reminders notifications email confirmations texts resend clicksend' },
   { title: 'Settings → Booking page', href: '#/settings', words: 'booking page brand colours logo online booking' },
   { title: 'Settings → No-shows', href: '#/settings', words: 'no shows noshow deposits blocked rules confirm' },
+  { title: 'Settings → Patch tests', href: '#/settings', words: 'patch test allergy consent safety contraindication ppd colour' },
   { title: 'Settings → Marketing', href: '#/settings', words: 'marketing automations campaigns offers' },
   { title: 'Settings → Backups', href: '#/settings', words: 'backup backups restore export database' },
   { title: 'Account', href: '#/account', words: 'account password security login sign in' },

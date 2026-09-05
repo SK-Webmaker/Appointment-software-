@@ -2350,3 +2350,81 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   .auto > summary { flex-wrap: wrap; }
   .auto-name { flex: 1 1 100%; order: 3; }
 }
+
+/* ---------------------------------------------------------------------------
+   Treatment records & safety gates
+   ---------------------------------------------------------------------------
+   Deliberately quiet. This is health information on somebody's card in a room
+   where other people can see the screen, so nothing here shouts unless there is
+   a recorded reaction — which is the one fact that must never be missed.
+--------------------------------------------------------------------------- */
+.safety-flag {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12.5px; line-height: 1.5; color: var(--amber);
+  border: 1px solid rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.07);
+  border-radius: 9px; padding: 9px 11px; margin-bottom: 8px;
+}
+.safety-flag svg { flex: none; margin-top: 2px; }
+.safety-flag.bad {
+  color: var(--red); border-color: rgba(248, 113, 113, 0.38); background: rgba(248, 113, 113, 0.08);
+  font-weight: 600;
+}
+.chip.chip-ok  { color: var(--green); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.08); }
+.chip.chip-bad { color: var(--red); border-color: rgba(248, 113, 113, 0.38); background: rgba(248, 113, 113, 0.09); }
+
+.sf-note {
+  font-size: 12.5px; line-height: 1.6; color: var(--text-2);
+  border: 1px solid var(--border); background: var(--panel-2);
+  border-radius: 10px; padding: 10px 12px;
+}
+.sf-standing { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.sf-consent {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
+}
+.sf-words {
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--panel-2); border-radius: 7px; padding: 9px 10px;
+  margin-top: 7px; font-size: 12.5px; color: var(--text-2); line-height: 1.55;
+}
+.sf-photos { display: flex; flex-wrap: wrap; gap: 12px; }
+.sf-photo { margin: 0; width: 150px; }
+.sf-photo-img {
+  width: 150px; height: 150px; border-radius: 9px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--border);
+}
+.sf-photo-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sf-photo figcaption { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+.sf-photo .lnk {
+  background: none; border: 0; padding: 0; margin-left: 6px; cursor: pointer;
+  color: var(--red); font-size: 11.5px; font-family: inherit;
+}
+
+/* The booking page's half: the notice while choosing, the consent box, and the
+   patch-test slots offered when the gate stops somebody. Modelled on .bk-held
+   so it sits in the page rather than on top of it — the booking page is themed
+   per business, so nothing here may assume a dark background. */
+.bk-safety {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: 13px; line-height: 1.55; margin: 0 0 14px;
+  padding: 11px 13px; border-radius: 11px;
+  color: var(--text); background: rgba(251, 191, 36, 0.09);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.bk-safety svg { flex: none; margin-top: 2px; color: var(--amber); }
+.bk-consent {
+  border: 1px solid var(--border); background: var(--panel-2);
+  border-radius: 11px; padding: 12px 13px; margin: 0 0 14px;
+}
+.bk-consent .words {
+  white-space: pre-wrap; font-size: 13px; line-height: 1.6; margin: 0 0 11px; color: var(--text);
+}
+.bk-consent label { display: block; font-size: 12px; margin: 0 0 5px; color: var(--text-2); }
+.bk-consent .co-hint { display: block; margin-top: 7px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.bk-patch-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.bk-patch-slots button {
+  border: 1px solid var(--border); background: var(--panel-2);
+  color: var(--text); font: inherit; font-size: 13px; border-radius: 10px;
+  padding: 9px 12px; cursor: pointer;
+}
+.bk-patch-slots button.sel { border-color: var(--accent-fill); font-weight: 600; }

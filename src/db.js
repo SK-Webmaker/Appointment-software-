@@ -345,6 +345,93 @@ export function initSchema() {
     -- replaces what was there rather than stacking a second one behind it.
     CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_weekly ON staff_shifts(staff_id, weekday) WHERE date = '';
     CREATE UNIQUE INDEX IF NOT EXISTS idx_shift_date ON staff_shifts(staff_id, date) WHERE date != '';
+
+    -- ── Treatment records ───────────────────────────────────────────────────
+    --
+    -- Everything below holds HEALTH INFORMATION, which the Australian Privacy
+    -- Principles treat as a higher-sensitivity category than anything else in
+    -- this file. That is the reason it lives in its own tables rather than as
+    -- extra columns on clients: the client list, the CSV export, the duplicate
+    -- finder and half a dozen SELECTs elsewhere all read the clients table, and
+    -- a pregnancy flag added as a column there would eventually be exported by
+    -- a query written for something else entirely. Separate tables mean the
+    -- only code that can spill this is code that asked for it by name.
+    --
+    -- Kairo STORES these records. It never decides whether a treatment is safe.
+
+    -- What a service needs before it can be booked. One row per service per
+    -- kind, so a colour can require both a patch test and a signed consent.
+    CREATE TABLE IF NOT EXISTS service_requirements (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      service_id   INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+      kind         TEXT NOT NULL,                   -- patch_test|consent
+      valid_months INTEGER NOT NULL DEFAULT 6,      -- how long a patch test lasts
+      consent_text TEXT NOT NULL DEFAULT '',        -- the wording, for kind=consent
+      created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_service_req ON service_requirements(service_id, kind);
+
+    -- Contraindications as real fields rather than a sentence buried in a note.
+    -- One row per client, created the first time anything is recorded.
+    CREATE TABLE IF NOT EXISTS client_safety (
+      client_id   INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+      pregnant    INTEGER NOT NULL DEFAULT 0,
+      allergies   TEXT NOT NULL DEFAULT '',
+      medications TEXT NOT NULL DEFAULT '',
+      conditions  TEXT NOT NULL DEFAULT '',
+      notes       TEXT NOT NULL DEFAULT '',
+      updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_by  TEXT NOT NULL DEFAULT ''
+    );
+
+    -- Patch tests, kept as a history rather than a single date. A test that
+    -- FAILED is the most important row in this table and overwriting it with
+    -- the next one would destroy the only evidence that matters.
+    CREATE TABLE IF NOT EXISTS patch_tests (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id   INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      service_id  INTEGER REFERENCES services(id) ON DELETE SET NULL, -- NULL = covers everything
+      tested_on   TEXT NOT NULL,                    -- YYYY-MM-DD
+      result      TEXT NOT NULL DEFAULT 'pass',     -- pass|fail
+      product     TEXT NOT NULL DEFAULT '',
+      note        TEXT NOT NULL DEFAULT '',
+      recorded_by TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_patch_client ON patch_tests(client_id, tested_on);
+
+    -- The exact wording agreed to, copied in at the moment of agreement.
+    -- Deliberately NOT a foreign key to the requirement's text: a tick against
+    -- a form that has since been edited is not a record of what anyone agreed
+    -- to, and that difference is the whole point of keeping consents at all.
+    CREATE TABLE IF NOT EXISTS consents (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id      INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+      service_id     INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      service_name   TEXT NOT NULL DEFAULT '',      -- kept as text: services get renamed
+      body           TEXT NOT NULL,
+      typed_name     TEXT NOT NULL,
+      taken_by       TEXT NOT NULL DEFAULT '',      -- client|the staff name who recorded it
+      agreed_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_consents_client ON consents(client_id);
+
+    -- Before/after photos, stored as data URIs the way brand images already
+    -- are. The persistent disk is 1 GB; see PHOTO_MAX_BYTES in safety.js for
+    -- the cap that keeps this from eating it.
+    CREATE TABLE IF NOT EXISTS treatment_photos (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id      INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+      kind           TEXT NOT NULL DEFAULT 'after', -- before|after
+      image          TEXT NOT NULL,
+      note           TEXT NOT NULL DEFAULT '',
+      bytes          INTEGER NOT NULL DEFAULT 0,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_photos_client ON treatment_photos(client_id);
+    CREATE INDEX IF NOT EXISTS idx_photos_appt ON treatment_photos(appointment_id);
   `);
   migrate();
 }
@@ -498,6 +585,17 @@ function migrate() {
   // means all of them, and a token that only worked for the email it came in
   // would be a worse promise than none.
   addColumn('clients', 'unsub_token', "unsub_token TEXT NOT NULL DEFAULT ''");
+
+  // ── The patch test and the treatment it clears ────────────────────────────
+  //
+  // Set on the PATCH TEST appointment, naming the colour it was booked for.
+  // That direction rather than the other because the patch test is the row
+  // that would otherwise be a mystery in the diary — a free ten-minute slot on
+  // Thursday with no explanation — and because "is this booking still waiting
+  // on a test" is then one query rather than a column that has to be kept
+  // truthful as the test passes, fails or gets cancelled.
+  addColumn('appointments', 'patch_for_id',
+    'patch_for_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL');
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
@@ -827,6 +925,12 @@ const DEFAULT_SETTINGS = {
   brand_cover: '',        // data: URI, hero banner on the booking page
   brand_gallery: '',      // JSON array of data: URIs (up to 4 photos)
   brand_tagline: '',
+  // Safety gates. All inert until a service is actually marked as needing
+  // something — a salon that never opens the Requirements panel sees no change
+  // anywhere, which is the same rule every other gate in Kairo follows.
+  patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
+  patch_lead_hours: '48', // how long before the treatment a patch test must sit
+  patch_valid_months: '6',// default validity when a service doesn't say otherwise
 };
 
 /**
@@ -1125,8 +1229,15 @@ export function clearBusinessData() {
   db.exec(`
     DELETE FROM messages; DELETE FROM reviews; DELETE FROM payments; DELETE FROM invoice_items; DELETE FROM invoices;
     DELETE FROM time_blocks;
+    -- Treatment records go FIRST and by name. The foreign keys would cascade
+    -- them anyway, but health information is the one category where "it should
+    -- have been deleted by something else" is not good enough: this function is
+    -- what offboarding a business runs, and anything left behind is somebody's
+    -- medical note sitting in a file nobody thinks contains one.
+    DELETE FROM treatment_photos; DELETE FROM consents; DELETE FROM patch_tests;
+    DELETE FROM client_safety; DELETE FROM service_requirements;
     DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM products; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
-    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','time_blocks','appointment_services','appointments','services','products','clients','staff','locations');
+    DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','time_blocks','appointment_services','appointments','services','products','clients','staff','locations','treatment_photos','consents','patch_tests','service_requirements');
   `);
   setSetting('invoice_seq', '1000');
 }

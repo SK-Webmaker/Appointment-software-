@@ -49,6 +49,11 @@ import {
 } from './referrals.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
 import {
+  safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
+  safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
+  PHOTO_MAX_BYTES, PHOTO_MAX_EDGE, PHOTO_MAX_PER_APPOINTMENT,
+} from './safety.js';
+import {
   listAutomations, getAutomation, saveAutomation, candidatesFor, runAutomation,
 } from './automations.js';
 import {
@@ -450,6 +455,7 @@ const EDITABLE_SETTINGS = new Set([
   'pos_card_method',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
   'brand_gallery', 'brand_tagline',
+  'patch_service_id', 'patch_lead_hours', 'patch_valid_months',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -1408,6 +1414,362 @@ function normalizePriceTypeImport(raw) {
     else if (/^(free|0(\.00?)?)$/.test(priceCell.trim())) row.price_type = 'free';
   }
   return row;
+}
+
+// ---------------------------------------------------------------------------
+// Treatment records & safety gates
+//
+// Health information, which the Australian Privacy Principles treat as a
+// higher-sensitivity category than anything else in this file. Every route
+// below is behind the owner's login without exception — there is no public read
+// of any of it, and the public booking route never reports what is on file for
+// anybody. See src/safety.js for why the tables sit apart from clients.
+// ---------------------------------------------------------------------------
+
+route('GET', '/api/services/:id/requirements', async ({ params }) => {
+  const svc = db.prepare('SELECT id, name FROM services WHERE id = ?').get(params.id);
+  if (!svc) throw httpError(404, 'Service not found');
+  return {
+    service: svc,
+    requirements: db.prepare('SELECT * FROM service_requirements WHERE service_id = ? ORDER BY kind').all(params.id),
+  };
+});
+
+/**
+ * Set (or clear) what a service needs.
+ *
+ * Whole-object rather than one row at a time: an owner is deciding "this
+ * service needs a patch test and this wording signed", and half-applying that
+ * would leave a service gated by something the owner thought they had removed.
+ */
+route('PUT', '/api/services/:id/requirements', async ({ req, params }) => {
+  const svc = db.prepare('SELECT id, name FROM services WHERE id = ?').get(params.id);
+  if (!svc) throw httpError(404, 'Service not found');
+  const b = checkBody(await readJson(req), {
+    patch_test: s.bool(),
+    valid_months: s.num({ min: 1, max: 60 }),
+    consent: s.bool(),
+    consent_text: s.str(4000),
+  });
+
+  const del = db.prepare('DELETE FROM service_requirements WHERE service_id = ? AND kind = ?');
+  const ins = db.prepare(
+    `INSERT INTO service_requirements (service_id, kind, valid_months, consent_text)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(service_id, kind) DO UPDATE SET valid_months = excluded.valid_months,
+                                                consent_text = excluded.consent_text`
+  );
+
+  if (b.patch_test) ins.run(params.id, 'patch_test', clampInt(b.valid_months, 1, 60, safetySettings().patch_valid_months), '');
+  else del.run(params.id, 'patch_test');
+
+  // Consent with nothing to agree to is a tick-box with no words behind it,
+  // which is worse than no consent at all — it looks like a record and is not
+  // one. Refused rather than silently stored empty.
+  const text = str(b.consent_text, 4000);
+  if (b.consent && !text) throw httpError(400, 'Write the wording clients are agreeing to');
+  if (b.consent) ins.run(params.id, 'consent', 0, text);
+  else del.run(params.id, 'consent');
+
+  return {
+    service: svc,
+    requirements: db.prepare('SELECT * FROM service_requirements WHERE service_id = ? ORDER BY kind').all(params.id),
+  };
+});
+
+/** Every service that gates something, for the settings screen and the tests. */
+route('GET', '/api/safety/overview', async () => {
+  const rows = db.prepare(
+    `SELECT r.*, s.name AS service_name, s.active FROM service_requirements r
+       JOIN services s ON s.id = r.service_id ORDER BY s.name, r.kind`
+  ).all();
+  const cfg = safetySettings();
+  const svc = patchService();
+  return {
+    requirements: rows,
+    settings: cfg,
+    patch_service: svc,
+    // The gate cannot offer a booking without a service to book. Said here so
+    // the settings screen can warn BEFORE a client hits the wall rather than
+    // after.
+    patch_service_missing: rows.some((r) => r.kind === 'patch_test' && r.active) && !svc,
+    // Everything that lapses before an appointment already in the book.
+    expiring: expiringPatchTests({ today: bizToday(), withinDays: 60 }).map((e) => ({
+      ...e,
+      client_name: db.prepare(
+        "SELECT first_name || CASE WHEN last_name != '' THEN ' ' || last_name ELSE '' END AS n FROM clients WHERE id = ?"
+      ).get(e.client_id)?.n || '',
+    })),
+    photo_max_bytes: PHOTO_MAX_BYTES,
+    photo_max_edge: PHOTO_MAX_EDGE,
+    photo_max_per_appointment: PHOTO_MAX_PER_APPOINTMENT,
+    db_bytes: dbFileBytes(),
+  };
+});
+
+route('GET', '/api/clients/:id/safety', async ({ params }) => {
+  const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id);
+  if (!client) throw httpError(404, 'Client not found');
+  return safetyRecord(params.id);
+});
+
+route('PUT', '/api/clients/:id/safety', async ({ req, params, user }) => {
+  const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id);
+  if (!client) throw httpError(404, 'Client not found');
+  const b = checkBody(await readJson(req), {
+    pregnant: s.bool(),
+    allergies: s.str(2000), medications: s.str(2000),
+    conditions: s.str(2000), notes: s.str(4000),
+  });
+  db.prepare(
+    `INSERT INTO client_safety (client_id, pregnant, allergies, medications, conditions, notes, updated_at, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(client_id) DO UPDATE SET pregnant = excluded.pregnant, allergies = excluded.allergies,
+       medications = excluded.medications, conditions = excluded.conditions, notes = excluded.notes,
+       updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+  ).run(params.id, b.pregnant ? 1 : 0, str(b.allergies, 2000), str(b.medications, 2000),
+    str(b.conditions, 2000), str(b.notes, 4000), bizStamp(), str(user?.name, 100));
+  return safetyRecord(params.id);
+});
+
+route('POST', '/api/clients/:id/patch-tests', async ({ req, params, user }) => {
+  const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id);
+  if (!client) throw httpError(404, 'Client not found');
+  const b = checkBody(await readJson(req), {
+    service_id: s.num(), tested_on: s.str(10, { required: true }),
+    result: s.oneOf(['pass', 'fail']), product: s.str(200), note: s.str(1000),
+  });
+  if (!isDateStr(b.tested_on)) throw httpError(400, 'Give the date the test was done, as YYYY-MM-DD');
+  // A test dated in the future is a typo, and a typo here reads as cover for a
+  // test that never happened. Refused rather than stored.
+  if (b.tested_on > bizToday()) throw httpError(400, 'A patch test cannot be dated in the future');
+  const serviceId = Number(b.service_id) || null;
+  if (serviceId && !db.prepare('SELECT id FROM services WHERE id = ?').get(serviceId)) {
+    throw httpError(400, 'That service no longer exists');
+  }
+  db.prepare(
+    `INSERT INTO patch_tests (client_id, service_id, tested_on, result, product, note, recorded_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(params.id, serviceId, b.tested_on, b.result === 'fail' ? 'fail' : 'pass',
+    str(b.product, 200), str(b.note, 1000), str(user?.name, 100));
+  return safetyRecord(params.id);
+});
+
+/**
+ * Deleting a patch test.
+ *
+ * Allowed, because the alternative is a salon stuck with a row somebody typed
+ * the wrong date into and no way to correct it. But a FAILED test is the one
+ * record that exists for a moment nobody wants to be in, so removing one is
+ * deliberately harder: it has to be named explicitly.
+ */
+route('DELETE', '/api/patch-tests/:id', async ({ params, query }) => {
+  const row = db.prepare('SELECT * FROM patch_tests WHERE id = ?').get(params.id);
+  if (!row) throw httpError(404, 'Patch test not found');
+  if (row.result === 'fail' && query.get('confirm') !== 'remove-reaction') {
+    throw httpError(409, 'This is a record of a reaction. Removing it needs to be confirmed.');
+  }
+  db.prepare('DELETE FROM patch_tests WHERE id = ?').run(params.id);
+  return safetyRecord(row.client_id);
+});
+
+/** Consent taken in the salon — over the phone, or on a walk-in. */
+route('POST', '/api/clients/:id/consents', async ({ req, params, user }) => {
+  const client = db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id);
+  if (!client) throw httpError(404, 'Client not found');
+  const b = checkBody(await readJson(req), {
+    service_id: s.num({ required: true }), typed_name: s.str(200, { required: true }),
+    appointment_id: s.num(),
+  });
+  const svc = db.prepare('SELECT id, name FROM services WHERE id = ?').get(b.service_id);
+  if (!svc) throw httpError(404, 'Service not found');
+  const req_ = db.prepare(
+    "SELECT consent_text FROM service_requirements WHERE service_id = ? AND kind = 'consent'"
+  ).get(svc.id);
+  const text = str(req_?.consent_text, 4000);
+  // The wording is copied from the requirement as it stands right now, never
+  // typed in here. A consent whose words came from the same box as the name
+  // records nothing.
+  if (!text) throw httpError(400, `${svc.name} has no consent wording set`);
+  recordConsent({
+    clientId: params.id,
+    appointmentId: Number(b.appointment_id) || null,
+    serviceId: svc.id, serviceName: svc.name, body: text,
+    typedName: str(b.typed_name, 200),
+    takenBy: str(user?.name, 100) || 'staff',
+  });
+  return safetyRecord(params.id);
+});
+
+/**
+ * A before/after photo.
+ *
+ * Capped hard, and the cap is checked on the DECODED bytes rather than on the
+ * data URI — base64 is a third larger than what it encodes, so a limit applied
+ * to the string would let a third more through than it claims to.
+ */
+route('POST', '/api/appointments/:id/photos', async ({ req, params }) => {
+  const appt = db.prepare('SELECT id, client_id FROM appointments WHERE id = ?').get(params.id);
+  if (!appt) throw httpError(404, 'Appointment not found');
+  if (!appt.client_id) throw httpError(400, 'This appointment has no client on it');
+  const b = checkBody(await readJson(req), {
+    image: s.str(1_200_000, { required: true }), kind: s.oneOf(['before', 'after']), note: s.str(500),
+  });
+  if (!isImageDataUri(b.image)) throw httpError(400, 'That does not look like an image');
+  const bytes = dataUriBytes(b.image);
+  if (bytes > PHOTO_MAX_BYTES) {
+    throw httpError(413, `Photos are capped at ${Math.round(PHOTO_MAX_BYTES / 1024)} KB each `
+      + `so they cannot fill the disk. This one is ${Math.round(bytes / 1024)} KB.`);
+  }
+  const already = db.prepare('SELECT COUNT(*) AS n FROM treatment_photos WHERE appointment_id = ?').get(params.id).n;
+  if (already >= PHOTO_MAX_PER_APPOINTMENT) {
+    throw httpError(409, `That is ${PHOTO_MAX_PER_APPOINTMENT} photos on this appointment — the most it holds.`);
+  }
+  db.prepare(
+    'INSERT INTO treatment_photos (client_id, appointment_id, kind, image, note, bytes) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(appt.client_id, appt.id, b.kind === 'before' ? 'before' : 'after', b.image, str(b.note, 500), bytes);
+  return { ok: true, photos: photosForAppointment(appt.id) };
+});
+
+route('GET', '/api/appointments/:id/photos', async ({ params }) => photosForAppointment(params.id));
+
+/** The image itself, separately from the list — so a record with twenty photos
+ *  is not twenty megabytes of JSON before anything appears on screen. */
+route('GET', '/api/photos/:id', async ({ params }) => {
+  const row = db.prepare('SELECT * FROM treatment_photos WHERE id = ?').get(params.id);
+  if (!row) throw httpError(404, 'Photo not found');
+  return row;
+});
+
+route('DELETE', '/api/photos/:id', async ({ params }) => {
+  const row = db.prepare('SELECT id FROM treatment_photos WHERE id = ?').get(params.id);
+  if (!row) throw httpError(404, 'Photo not found');
+  db.prepare('DELETE FROM treatment_photos WHERE id = ?').run(params.id);
+  return { ok: true };
+});
+
+/**
+ * The whole of one client's record, as a single printable page.
+ *
+ * The reason this exists is a claim. When an insurer or a solicitor asks what
+ * the salon holds, the answer has to be one document handed over in a minute —
+ * not an owner reading dates off a screen into an email at eleven at night. So
+ * it is plain HTML with the photos embedded: no scripts, no fonts to fetch,
+ * nothing that stops working when it is saved to a disk, printed to PDF, or
+ * opened in five years by somebody who has never heard of Kairo.
+ *
+ * Signed the same way the ICS file is, and openable in a new tab, because a
+ * fetch() cannot hand a person a document to print.
+ */
+route('GET', '/api/clients/:id/record', async ({ res, params }) => {
+  const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(params.id);
+  if (!client) throw httpError(404, 'Client not found');
+  const rec = safetyRecord(params.id);
+  const photos = db.prepare(
+    'SELECT * FROM treatment_photos WHERE client_id = ? ORDER BY created_at, id'
+  ).all(params.id);
+  const appts = db.prepare(
+    `SELECT a.date, a.start_min, a.status, a.notes,
+            COALESCE(st.name, '') AS staff_name,
+            (SELECT GROUP_CONCAT(sv.name, ' + ') FROM appointment_services aps
+               JOIN services sv ON sv.id = aps.service_id
+              WHERE aps.appointment_id = a.id) AS services
+       FROM appointments a LEFT JOIN staff st ON st.id = a.staff_id
+      WHERE a.client_id = ? ORDER BY a.date DESC, a.start_min DESC`
+  ).all(params.id);
+
+  const biz = getSetting('business_name', 'This business');
+  const name = `${client.first_name}${client.last_name ? ` ${client.last_name}` : ''}`;
+  const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const row = (k, v) => (v ? `<tr><th>${escHtml(k)}</th><td>${escHtml(v)}</td></tr>` : '');
+  const sect = (t, inner) => `<h2>${escHtml(t)}</h2>${inner || '<p class="none">Nothing recorded.</p>'}`;
+
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escHtml(name)} — treatment record</title>
+<style>
+  body { font:14px/1.6 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; color:#111; background:#fff;
+         margin:0 auto; padding:32px 28px; max-width:52rem; }
+  h1 { font-size:22px; margin:0 0 2px; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:#555;
+       margin:28px 0 8px; border-bottom:1px solid #ddd; padding-bottom:5px; }
+  .sub { color:#666; margin:0 0 18px; }
+  table { border-collapse:collapse; width:100%; margin:0 0 8px; }
+  th, td { text-align:left; vertical-align:top; padding:5px 10px 5px 0; border-bottom:1px solid #eee; }
+  th { width:11rem; font-weight:600; color:#444; }
+  .none { color:#888; margin:4px 0 0; }
+  .fail { color:#a11; font-weight:700; }
+  .consent { border:1px solid #ddd; border-radius:6px; padding:12px 14px; margin:0 0 10px; }
+  .consent .words { white-space:pre-wrap; background:#fafafa; padding:10px; border-radius:4px; margin:8px 0 0; }
+  .photos { display:flex; flex-wrap:wrap; gap:12px; }
+  .photos figure { margin:0; width:220px; }
+  .photos img { width:100%; border:1px solid #ddd; border-radius:6px; }
+  .photos figcaption { font-size:12px; color:#666; margin-top:4px; }
+  .note { border:1px solid #d8d8d8; background:#fbfbfb; border-radius:6px; padding:12px 14px; margin:22px 0 0;
+          font-size:12.5px; color:#444; }
+  @media print { body { padding:0; max-width:none; } .note { break-inside:avoid; } }
+</style></head><body>
+<h1>${escHtml(name)}</h1>
+<p class="sub">Treatment record held by ${escHtml(biz)} · printed ${escHtml(bizStamp())}</p>
+
+${sect('Client', `<table>
+  ${row('Name', name)}${row('Phone', client.phone)}${row('Email', client.email)}
+  ${row('Client since', client.created_at)}${row('General notes', client.notes)}
+</table>`)}
+
+${sect('Safety record', (() => {
+    const f = rec.flags;
+    const body = `${row('Pregnant / breastfeeding', f.pregnant ? 'Yes' : '')}`
+      + `${row('Known allergies', f.allergies)}${row('Medications', f.medications)}`
+      + `${row('Conditions', f.conditions)}${row('Notes', f.notes)}`
+      + `${row('Last updated', f.updated_at ? `${f.updated_at}${f.updated_by ? ` by ${f.updated_by}` : ''}` : '')}`;
+    return body ? `<table>${body}</table>` : '';
+  })())}
+
+${sect('Patch tests', rec.patch_tests.length ? `<table>
+  <tr><th>Date</th><td><b>Result</b> · service · product · recorded by</td></tr>
+  ${rec.patch_tests.map((t) => `<tr><th>${escHtml(t.tested_on)}</th><td>`
+    + `<span class="${t.result === 'fail' ? 'fail' : ''}">${t.result === 'fail' ? 'REACTION' : 'Pass'}</span>`
+    + `${t.service_name ? ` · ${escHtml(t.service_name)}` : ' · all services'}`
+    + `${t.product ? ` · ${escHtml(t.product)}` : ''}`
+    + `${t.recorded_by ? ` · ${escHtml(t.recorded_by)}` : ''}`
+    + `${t.note ? `<br>${escHtml(t.note)}` : ''}</td></tr>`).join('')}
+</table>` : '')}
+
+${sect('Consents', rec.consents.map((c) => `<div class="consent">
+  <b>${escHtml(c.service_name || 'Service')}</b> — agreed by ${escHtml(c.typed_name)} on ${escHtml(c.agreed_at)}
+  ${c.taken_by ? ` (recorded: ${escHtml(c.taken_by)})` : ''}
+  <div class="words">${escHtml(c.body)}</div>
+</div>`).join(''))}
+
+${sect('Appointment history', appts.length ? `<table>
+  ${appts.map((a) => `<tr><th>${escHtml(a.date)} ${escHtml(hhmm(a.start_min))}</th><td>`
+    + `${escHtml(a.services || '—')}${a.staff_name ? ` · ${escHtml(a.staff_name)}` : ''} · ${escHtml(a.status)}`
+    + `${a.notes ? `<br>${escHtml(a.notes)}` : ''}</td></tr>`).join('')}
+</table>` : '')}
+
+${sect('Photos', photos.length ? `<div class="photos">${photos.map((p) => `<figure>
+  <img src="${escHtml(p.image)}" alt="">
+  <figcaption>${escHtml(p.kind)} · ${escHtml(String(p.created_at).slice(0, 10))}${p.note ? ` · ${escHtml(p.note)}` : ''}</figcaption>
+</figure>`).join('')}</div>` : '')}
+
+<p class="note"><b>About this document.</b> It is a copy of what ${escHtml(biz)} has recorded
+in its booking system, printed on the date shown above. Consents were agreed by a name typed
+into a form and are recorded with the exact wording shown and the time it was agreed — that is
+a record of consent, not a witnessed signature. This system stores these records; it does not
+assess whether any treatment was safe for this person.</p>
+</body></html>`;
+  sendText(res, 200, html, 'text/html; charset=utf-8');
+});
+
+function photosForAppointment(apptId) {
+  return {
+    photos: db.prepare(
+      'SELECT id, kind, note, bytes, created_at FROM treatment_photos WHERE appointment_id = ? ORDER BY id'
+    ).all(apptId),
+    max_bytes: PHOTO_MAX_BYTES, max_edge: PHOTO_MAX_EDGE, max_per_appointment: PHOTO_MAX_PER_APPOINTMENT,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3286,6 +3648,19 @@ route('GET', '/api/public/info', async () => {
       type: getSetting('deposit_type', 'none'),
       value: Number(getSetting('deposit_value', '0')) || 0,
     },
+    // What each service needs before it can happen — the salon's own policy,
+    // and nothing about any client. The same sentence printed on the wall of
+    // every colour bar in the country, so it discloses nothing, and having it
+    // here means the page can warn while somebody is choosing rather than after
+    // they have filled in a form.
+    requirements: publicRequirements(),
+    patch: {
+      lead_hours: safetySettings().patch_lead_hours,
+      // Whether a patch test can actually be booked online, or whether the gate
+      // has to fall back to "give us a call".
+      bookable: Boolean(patchService()),
+      service: patchService(),
+    },
   };
 }, { auth: false });
 
@@ -3408,6 +3783,63 @@ function freeSlotsFor(staffId, date, durationMin) {
   }
   return slots;
 }
+
+/**
+ * Free slots for a patch test that would still count for a treatment at a
+ * given date and time.
+ *
+ * The deadline is the treatment minus the lead time the salon set — 48 hours by
+ * default, which is what the instructions on every box of colour say. Slots are
+ * offered soonest-first: a patch test is ten minutes and nobody wants to plan
+ * it, they want it out of the way.
+ *
+ * Public and unauthenticated, and it must stay that way — but notice what it
+ * does NOT take: no client, no contact details, no reference to anybody's
+ * record. It answers "when is this salon free", which the availability endpoint
+ * beside it already answers for every other service.
+ */
+route('GET', '/api/public/patch-slots', async ({ query }) => {
+  if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  const svc = patchService();
+  if (!svc) return { service: null, slots: [], deadline: null };
+  const forDate = query.get('for_date');
+  const forStart = clampInt(query.get('for_start_min'), 0, 1439, NaN);
+  const today = bizToday();
+  if (!isDateStr(forDate) || Number.isNaN(forStart)) throw httpError(400, 'Which appointment is this for?');
+  if (forDate < today) throw httpError(400, 'Choose an upcoming date');
+  if (forDate > addDaysStr(today, bookingHorizonDays())) throw httpError(400, 'That date is too far ahead');
+
+  const lead = safetySettings().patch_lead_hours;
+  // The last moment a test may be done and still count, in whole minutes from
+  // midnight on some earlier day. Worked in day/minute rather than as a
+  // timestamp because that is the only arithmetic the rest of this file does,
+  // and mixing the two is how off-by-one-day bugs get in.
+  let dl = { date: forDate, min: forStart - (lead * 60) };
+  while (dl.min < 0) dl = { date: addDaysStr(dl.date, -1), min: dl.min + 1440 };
+
+  const staffList = db.prepare('SELECT id FROM staff WHERE active = 1 ORDER BY id').all();
+  const out = [];
+  for (let day = today; day <= dl.date && out.length < 12; day = addDaysStr(day, 1)) {
+    if (!isOpenDay(day)) continue;
+    const limit = day === dl.date ? dl.min : 1440;
+    const seen = new Set();
+    for (const m of staffList) {
+      for (const t of freeSlotsFor(m.id, day, svc.duration_min)) {
+        if (t + svc.duration_min > limit) continue;
+        if (seen.has(t)) continue;
+        seen.add(t);
+        out.push({ date: day, start_min: t, staff_id: m.id });
+      }
+    }
+  }
+  out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.start_min - b.start_min));
+  return {
+    service: { id: svc.id, name: svc.name, duration_min: svc.duration_min, price_cents: svc.price_cents, price_type: svc.price_type },
+    lead_hours: lead,
+    deadline: dl,
+    slots: out.slice(0, 12),
+  };
+}, { auth: false });
 
 route('GET', '/api/public/availability', async ({ query }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
@@ -3591,6 +4023,11 @@ route('POST', '/api/public/book', async ({ req }) => {
     notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
     from_message: s.str(64), reschedule_token: s.str(64),
     referral_token: s.str(32), heard_from: s.str(20),
+    // What they have just agreed to, and the patch-test slot they picked when
+    // the gate asked for one. Both arrive on the second attempt: the first is
+    // refused with a 409 saying exactly what is missing.
+    consents: s.arr(s.obj({ service_id: s.num({ required: true }), typed_name: s.str(200, { required: true }) }), 20),
+    patch: s.obj({ date: s.str(10), start_min: s.num({ min: 0, max: 1439 }), staff_id: s.num() }),
     client: s.obj({ first_name: s.str(100), last_name: s.str(100), email: s.str(200), phone: s.str(50) }, { required: true }),
   });
   // Before anything is written: is there a person on the other end? Checked
@@ -3639,16 +4076,15 @@ route('POST', '/api/public/book', async ({ req }) => {
     if (!staffId) throw httpError(409, 'That time was just taken — please pick another slot');
   }
 
+  // Who this is, if we already know them. Looked up but NOT created yet: every
+  // gate below runs against the person we found, and a booking that gets
+  // refused must not leave a client record behind. It would be a ghost in the
+  // owner's list, and — because a referral is only credited when the booking
+  // had to create the record — it would silently cost the referrer their
+  // reward on the second, successful attempt.
   const email = str(b.client?.email, 200).toLowerCase();
   let client = email ? db.prepare('SELECT * FROM clients WHERE email = ?').get(email) : null;
   if (!client && phone) client = db.prepare('SELECT * FROM clients WHERE phone = ? AND first_name = ?').get(phone, first);
-  let newClient = false;
-  if (!client) {
-    const info = db.prepare('INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)')
-      .run(first, str(b.client?.last_name, 100), email, phone);
-    client = { id: Number(info.lastInsertRowid) };
-    newClient = true;
-  }
 
   // A client the salon has closed online booking to. Checked HERE, after the
   // client is resolved and before anything is written, so a repeat no-show
@@ -3659,10 +4095,82 @@ route('POST', '/api/public/book', async ({ req }) => {
   // no-shows in the last 180 days") is true and is exactly the sentence that
   // loses a customer who is about to explain that their mother was in hospital.
   const totalCents = svc.services.reduce((sum, x) => sum + (x.price_cents || 0), 0);
-  const rule = bookingRuleFor(client.id, { priceCents: totalCents });
+  const rule = bookingRuleFor(client?.id || 0, { priceCents: totalCents });
   if (rule.blocked) {
     throw httpError(403, rule.client_note
       + (getSetting('business_phone', '') ? ` ${getSetting('business_phone')}` : ''));
+  }
+
+  // ── The safety gate ───────────────────────────────────────────────────────
+  //
+  // Every answer here is the same for a stranger as for a client whose test
+  // lapsed last week, deliberately: "needs a patch test" either way, "give us a
+  // call" either way. So this endpoint cannot be used to find out whether
+  // somebody is a client of this salon, or what is in their record.
+  const gate = safetyGateFor(client?.id || 0, svc.ids, { date: b.date, consents: b.consents });
+  if (gate.call_us) {
+    throw httpError(403, gate.client_note
+      + (getSetting('business_phone', '') ? ` ${getSetting('business_phone')}` : ''));
+  }
+  if (gate.consents_needed.length) {
+    const err = httpError(409, 'Please read and agree before we book this in');
+    err.data = { needs: 'consent', consents: gate.consents_needed };
+    throw err;
+  }
+
+  // Needs a patch test, and they have not picked a slot for one yet. Refused
+  // with everything the page needs to offer that booking in the same flow —
+  // which is the whole point: "you need a patch test" and nothing else is just
+  // a locked door.
+  let patchSlot = null;
+  if (gate.patch_test_needed) {
+    const pSvc = patchService();
+    const want = b.patch || {};
+    const wantDate = str(want.date, 10);
+    const wantStart = clampInt(want.start_min, 0, 1439, NaN);
+    const lead = safetySettings().patch_lead_hours;
+    // The last moment a test still counts for this booking.
+    let dl = { date: b.date, min: start - (lead * 60) };
+    while (dl.min < 0) dl = { date: addDaysStr(dl.date, -1), min: dl.min + 1440 };
+
+    const usable = pSvc && isDateStr(wantDate) && !Number.isNaN(wantStart)
+      && (wantDate < dl.date || (wantDate === dl.date && wantStart + pSvc.duration_min <= dl.min))
+      && wantDate >= todayLocal && isOpenDay(wantDate);
+    if (!usable) {
+      const err = httpError(409, gate.client_note);
+      err.data = {
+        needs: 'patch_test',
+        patch_test: {
+          ...gate.patch_test_needed,
+          bookable: Boolean(pSvc),
+          service: pSvc ? { id: pSvc.id, name: pSvc.name, duration_min: pSvc.duration_min } : null,
+          deadline: dl,
+          phone: getSetting('business_phone', ''),
+        },
+      };
+      throw err;
+    }
+    // Whoever is free. A patch test does not need the colourist — insisting on
+    // them is how a test ends up three weeks out and the colour gets cancelled.
+    const wantStaff = Number(want.staff_id) || 0;
+    const pool = wantStaff
+      ? [{ id: wantStaff }]
+      : db.prepare('SELECT id FROM staff WHERE active = 1 ORDER BY id').all();
+    const pStaff = pool.find((m) => freeSlotsFor(m.id, wantDate, pSvc.duration_min).includes(wantStart))?.id;
+    if (!pStaff) {
+      const err = httpError(409, 'That patch test time was just taken — please pick another');
+      err.data = { needs: 'patch_test', patch_test: { ...gate.patch_test_needed, bookable: true, service: { id: pSvc.id, name: pSvc.name, duration_min: pSvc.duration_min }, deadline: dl, phone: getSetting('business_phone', '') } };
+      throw err;
+    }
+    patchSlot = { service: pSvc, date: wantDate, start: wantStart, staffId: pStaff };
+  }
+
+  let newClient = false;
+  if (!client) {
+    const info = db.prepare('INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)')
+      .run(first, str(b.client?.last_name, 100), email, phone);
+    client = { id: Number(info.lastInsertRowid) };
+    newClient = true;
   }
 
   // Which message brought them, if any. Looked up rather than trusted: the
@@ -3699,6 +4207,40 @@ route('POST', '/api/public/book', async ({ req }) => {
     referredBy, heardValue(b.heard_from, referredBy));
   const apptId = Number(info.lastInsertRowid);
   setApptServices(apptId, svc.ids);
+
+  // What they agreed to, in the words that were on screen at the time. Written
+  // here rather than at the gate so a consent is never on file for a booking
+  // that then failed to happen — the record and the appointment stand or fall
+  // together.
+  // The wording comes from the gate, never from the request: a consent whose
+  // words arrived in the same body as the name records nothing.
+  for (const c of gate.consents_given) {
+    recordConsent({
+      clientId: client.id, appointmentId: apptId, serviceId: c.service_id,
+      serviceName: c.service_name, body: c.text,
+      typedName: str(c.typed_name, 200), takenBy: 'client',
+    });
+  }
+
+  // The patch test itself, booked in the same breath. It carries the id of the
+  // appointment it clears, so a free ten-minute slot on Thursday is never a
+  // mystery in the owner's diary.
+  let patchAppt = null;
+  if (patchSlot) {
+    const pInfo = db.prepare(
+      `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source, patch_for_id)
+       VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online', ?)`
+    ).run(client.id, patchSlot.staffId, patchSlot.service.id, patchSlot.date, patchSlot.start,
+      patchSlot.start + patchSlot.service.duration_min,
+      `Patch test for ${svc.services.map((x) => x.name).join(' + ')} on ${b.date}`, apptId);
+    const pId = Number(pInfo.lastInsertRowid);
+    setApptServices(pId, [patchSlot.service.id]);
+    queueAppointmentMessages(pId);
+    patchAppt = {
+      appointment_id: pId, date: patchSlot.date, start_min: patchSlot.start,
+      service: patchSlot.service.name, duration_min: patchSlot.service.duration_min,
+    };
+  }
 
   // Deposit via Stripe Checkout (optional). If Stripe errors, never lose the
   // booking — it proceeds without a deposit and the workspace still sees it.
@@ -3782,6 +4324,10 @@ route('POST', '/api/public/book', async ({ req }) => {
     // Why a deposit is being asked of THIS booking when the salon does not ask
     // for one as a rule. Said in the client's terms, never as a count.
     deposit_note: checkoutUrl && rule.deposit_required ? rule.client_note : '',
+    // The patch test booked alongside, so the confirmation screen shows both
+    // appointments. Somebody who thinks they booked one thing and turns up to
+    // find they booked two has been tricked, however helpfully.
+    patch_appointment: patchAppt,
   };
 }, { auth: false });
 

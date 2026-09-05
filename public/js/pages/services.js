@@ -6,6 +6,17 @@ import { refreshLookups } from '../app.js';
 
 export async function renderServices(container) {
   const services = await api.get('/api/services?all=1');
+  // Which services gate something. Its own call so the service list stays the
+  // plain catalogue it has always been for every other screen that reads it.
+  let gated = new Map();
+  try {
+    const ov = await api.get('/api/safety/overview');
+    for (const r of (ov?.requirements || [])) {
+      const e = gated.get(r.service_id) || [];
+      e.push(r.kind);
+      gated.set(r.service_id, e);
+    }
+  } catch { gated = new Map(); }
   const active = services.filter((s) => s.active);
   const inactive = services.filter((s) => !s.active);
   const cats = [...new Set(active.map((s) => s.category))];
@@ -20,6 +31,8 @@ export async function renderServices(container) {
       ${s.description ? `<div class="cell-sub">${esc(s.description)}</div>` : ''}
       <div class="sc-meta">
         <span>${icon('clock')} ${durLabel(s.duration_min)}</span>
+        ${(gated.get(s.id) || []).includes('patch_test') ? '<span class="chip">Patch test</span>' : ''}
+        ${(gated.get(s.id) || []).includes('consent') ? '<span class="chip">Consent</span>' : ''}
         ${s.active ? '' : '<span class="chip">Archived</span>'}
       </div>
     </div>`;
@@ -61,8 +74,18 @@ export async function renderServices(container) {
   });
 }
 
-function openServiceModal({ service = null, cats = [], onSaved } = {}) {
+async function openServiceModal({ service = null, cats = [], onSaved } = {}) {
   const s = service;
+  // What this service already asks for. Fetched rather than carried on the
+  // service row: requirements are health policy, and they have no business
+  // being in the list every other screen loads.
+  let reqs = [];
+  if (s) {
+    try { reqs = (await api.get(`/api/services/${s.id}/requirements`)).requirements || []; } catch { reqs = []; }
+  }
+  const patchReq = reqs.find((r) => r.kind === 'patch_test') || null;
+  const consentReq = reqs.find((r) => r.kind === 'consent') || null;
+
   const m = openModal({
     title: s ? 'Edit service' : 'New service',
     body: `
@@ -90,6 +113,35 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
             <input type="checkbox" name="active" ${!s || s.active ? 'checked' : ''} class="chk"> Bookable online</label></div>
         <div class="field span2"><label>Description</label>
           <textarea name="description" placeholder="Shown to clients on your booking page">${esc(s?.description || '')}</textarea></div>
+
+        <div class="field span2" style="border-top:1px solid var(--border);padding-top:14px;margin-top:2px">
+          <label>Before this can be booked</label>
+          <div class="hint">Leave both off and nothing changes. Switch one on and online booking will
+            ask for it — Kairo keeps the record; it never decides whether a treatment is safe.</div>
+        </div>
+        <div class="field span2">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
+            <input type="checkbox" name="req_patch" class="chk" ${patchReq ? 'checked' : ''}>
+            Needs a valid patch test</label>
+        </div>
+        <div class="field" id="req-months-field" style="${patchReq ? '' : 'display:none'}">
+          <label>Valid for (months)</label>
+          <input name="req_months" type="number" min="1" max="60" value="${patchReq?.valid_months || 6}">
+        </div>
+        <div class="field span2">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
+            <input type="checkbox" name="req_consent" class="chk" ${consentReq ? 'checked' : ''}>
+            Needs the client to agree to something in writing</label>
+        </div>
+        <div class="field span2" id="req-consent-field" style="${consentReq ? '' : 'display:none'}">
+          <label>The exact wording they agree to</label>
+          <textarea name="req_consent_text" rows="4"
+            placeholder="I confirm I have no known allergy to the products used and have told the salon about any medication or skin condition.">${esc(consentReq?.consent_text || '')}</textarea>
+          <div class="hint">Stored word-for-word with the name they type and the time they agreed.
+            Change this later and everyone is asked again — a tick against wording that has since been
+            edited is not a record of what anybody agreed to. A typed name is a record of consent,
+            not a witnessed signature.</div>
+        </div>
       </form>`,
     footer: `
       ${s ? `<button class="btn danger" id="svc-delete">${icon('trash')} ${s.active ? 'Archive' : 'Delete'}</button>` : ''}
@@ -108,6 +160,13 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
     m.querySelector('[name=price]').required = !isFree;
   });
 
+  const toggleReq = (name, field) => {
+    const box = m.querySelector(`[name=${name}]`);
+    box.addEventListener('change', () => { m.querySelector(field).style.display = box.checked ? '' : 'none'; });
+  };
+  toggleReq('req_patch', '#req-months-field');
+  toggleReq('req_consent', '#req-consent-field');
+
   m.querySelector('#svc-save').onclick = async () => {
     const fd = new FormData(m.querySelector('#svc-form'));
     const priceType = fd.get('price_type') || 'fixed';
@@ -119,9 +178,22 @@ function openServiceModal({ service = null, cats = [], onSaved } = {}) {
     };
     if (!payload.name.trim()) { toast('Service name is required', 'err'); return; }
     if (priceType !== 'free' && payload.price === '') { toast('Enter a price, or switch to Free', 'err'); return; }
+    const wantsConsent = fd.get('req_consent') === 'on';
+    const consentText = String(fd.get('req_consent_text') || '').trim();
+    // Caught here as well as on the server, because a tick with no words behind
+    // it looks like a record and is not one — and finding that out at the
+    // moment a client is trying to book is the wrong time.
+    if (wantsConsent && !consentText) { toast('Write the wording clients are agreeing to', 'err'); return; }
     try {
-      if (s) await api.put(`/api/services/${s.id}`, payload);
-      else await api.post('/api/services', payload);
+      const saved = s
+        ? await api.put(`/api/services/${s.id}`, payload)
+        : await api.post('/api/services', payload);
+      await api.put(`/api/services/${saved.id}/requirements`, {
+        patch_test: fd.get('req_patch') === 'on',
+        valid_months: Number(fd.get('req_months')) || 6,
+        consent: wantsConsent,
+        consent_text: consentText,
+      });
       toast(s ? 'Service updated' : 'Service added');
       m.close(); onSaved?.();
     } catch (err) { toast(err.message, 'err'); }
