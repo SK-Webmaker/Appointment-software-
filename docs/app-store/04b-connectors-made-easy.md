@@ -152,3 +152,47 @@ https://developers.clicksend.com/docs/messaging/sender_ids/numbers/other/purchas
 numbers overview: https://developers.clicksend.com/docs/messaging/sender_ids/numbers ·
 [2] Twilio, *Australia's SMS Sender ID Register* (alphanumeric IDs only):
 https://www.twilio.com/en-us/blog/insights/australia-sender-id-register
+
+---
+
+## Amendment, 2026-09-05 — the salon's own existing number
+
+The owner clarified: the business does not buy a number. It uses **the
+mobile number it already has** — the salon's own phone — as the sender.
+ClickSend supports exactly this ("Own Numbers"): the number is verified by a
+one-time code sent to that handset, then texts go out showing that number and
+**replies land on the salon's own phone**, which is better than a rented
+number nobody answers [1][2].
+
+**The flow inside Kairo** (no dashboard, all through ClickSend's API with the
+key they pasted):
+
+1. *"Which number should your texts come from?"* — prefilled with the
+   business phone they gave at signup; editable.
+2. Kairo calls `POST /v3/own-numbers/verifications` for that number.
+   ClickSend texts a 6-character code to the salon's phone.
+3. *"Type the code we just sent to 04xx xxx xxx"* — Kairo submits it with
+   `POST /v3/own-numbers/verifications/{id}`. Status `APPROVED`.
+4. Kairo sets it as the sender and sends **a real test text** to the same
+   phone. Green when it arrives.
+
+**Three facts, stated on the screen because they matter:**
+
+- **It must be a mobile.** A landline cannot receive the code. If the
+  salon's business number is a landline, Kairo says so and offers the
+  owner's mobile or, as the fallback, a dedicated number bought in-app
+  (§2 above, ~A$20/month). Nothing is bought unless they choose it.
+- **Re-verify once a year.** ClickSend requires it; Kairo shows a reminder a
+  month before, and the re-verify is the same two taps.
+- **Replies go to the salon's phone.** *"Can I move to 3?"* arrives where a
+  human reads it. Kairo never reads their texts.
+
+No ABN, no ACMA registration, no monthly number fee. The only cost is the
+per-text price on their own prepaid ClickSend balance. Everything §2 says
+about the account being theirs, the key checked live, and the tile going
+green only on a delivered text, still holds.
+
+Sources: [1] ClickSend Help, *Verify your own mobile number for sending
+messages* — https://help.clicksend.com/article/0hhs6ba7dt-verify-your-own-mobile-number-for-sending-messages ;
+*Guide to own numbers* — https://help.clicksend.com/en/articles/44194-guide-to-own-numbers ·
+[2] ClickSend API, Own Numbers — https://developers.clicksend.com/docs/messaging/sender_ids/own-numbers/other/request-own-number-verification-otp

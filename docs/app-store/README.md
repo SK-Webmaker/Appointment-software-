@@ -26,7 +26,7 @@ session loses nothing.
 | 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | Approved 2026-09-05 with directions; see addendum |
 | 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
 | 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04b-connectors-made-easy.md`](04b-connectors-made-easy.md) · [`04-policies.md`](04-policies.md) · [`walkthrough-business-abc.md`](walkthrough-business-abc.md) | **Written, awaiting the owner's green light for Phase 5** |
-| 5 — Sha and Hora, uninterrupted | `05-…` | not started |
+| 5 — Sha and Hora, uninterrupted | [`05-phase-5-sha-and-hora.md`](05-phase-5-sha-and-hora.md) | **Written, awaiting the owner's approval before Phase 6 (build)** |
 | 6 — Build, in shippable slices | code + tests | not started |
 | 7 — Launch | `07-…` | not started |
 
@@ -61,3 +61,5 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Phase 4 written: end-to-end flow, screening, provisioning in seconds, setup checklist, fourteen unhappy paths, the owner's four residual roles; policies drafted. | `04-…` |
 | 2026-09-05 | Owner: confirmed free download, sign up or log in, buy on the website or in the app, pay once. Everything must be tested; no failures. API-key steps are too confusing for most owners: email setup defaults to **Kairo (the owner) does it**, prefilled, ≈3 min copy-paste; texts stay the business's own account but Kairo checks the key live and **buys the number in-app** via ClickSend's API; ABN optional; ACMA only for the advanced "show your name" option. | `04b-…` |
 | 2026-09-05 | Owner: two prices for one product is unacceptable. Recommended and pending confirmation: **one price, A$410, sold on the website only; the app is free and sign-in only** (Apple 3.1.3(f)), reversing D2. Alternatives (one price both doors at A$410 netting ≈A$317 in-app, or at A$519.99) documented. Confirmed: each business has its own dedicated number on its own ClickSend account. | `02b-…` amendment, `04-…` amendments |
+| 2026-09-05 | Owner chose **A: one price, A$410, website only; the app is free and sign-in only.** D2 reversed. Clarified: texts come from the salon's **own existing mobile number**, verified on their own ClickSend account by a code sent to that phone (ClickSend Own Numbers API); no number is bought unless their business number is a landline and they choose to. | `02b` amendment, `04b` amendment |
+| 2026-09-05 | Phase 5 written: rehearsal on copies, a five-minute read-only window on a Sunday evening, Cloudflare switch behind the proxy, verification checklist, old service kept running read-only for 7 days, rollback by checklist in 5 minutes, and what "Friday 6pm" actually means once the old data is stale. Hora first, Sha a week later. | `05-…` |
