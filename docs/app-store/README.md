@@ -21,8 +21,8 @@ session loses nothing.
 | Phase | Deliverable | Status |
 |---|---|---|
 | 0 — Learn the system | [`00-phase-0-how-kairo-works.md`](00-phase-0-how-kairo-works.md) | Approved 2026-09-05 (owner's answers logged below) |
-| 1 — Is it possible at all? | [`01-phase-1-is-it-possible.md`](01-phase-1-is-it-possible.md) | **Written, awaiting the owner's decisions D1–D7** |
-| 2 — How | `02-…` | not started |
+| 1 — Is it possible at all? | [`01-phase-1-is-it-possible.md`](01-phase-1-is-it-possible.md) | Approved 2026-09-05 with decisions D1–D7 (below) |
+| 2 — How | [`02-phase-2-how.md`](02-phase-2-how.md) | **Written, awaiting the owner's approval and decisions D8–D12** |
 | 3 — What it costs (1 / 10 / 50 / 200 businesses) | `03-…` | not started |
 | 4 — The onboarding flow, end to end | `04-…` | not started |
 | 5 — Sha and Hora, uninterrupted | `05-…` | not started |
@@ -50,3 +50,5 @@ build command, emails from its own domain. Hora: Singapore, `/api/version`
 health check, emails from the platform subdomain, no business phone set.
 Origin lock off on both; `*.onrender.com` reachable on both. Cloudflare API
 token expired 26 August. ACMA sender-ID registration outstanding for both.
+| 2026-09-05 | Owner's decisions on Phase 1. D1: the app is for the salon owner. D2: sign up then pay $400 **in the app** (owner accepts the in-app door; Apple's 15% and GST-first arithmetic are documented in `02-…` §2). D3: each business on its **own** Resend account, Kairo pays for none; connected by the business or done for them by the owner, as automated as possible. D4: Stripe and/or Square optional, including linking their own payment link. D5: business's own ClickSend via guided setup, ACMA status tracked, clearly theirs. D6: owner's role is flagged signups and refunds; a clear refund policy plus every needed policy. D7: iOS first, Android after. | `01-…` §9, `02-…` |
+| 2026-09-05 | Phase 2 written: platform service + instance control API + iOS shell; two purchase doors (web via Stripe at 0%, app via IAP at 15% after GST); four business-owned connectors; provisioning state machine; `release` branch; policy set. Decisions D8–D12 put to the owner. | `02-…` |
