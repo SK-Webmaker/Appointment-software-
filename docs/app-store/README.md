@@ -22,8 +22,8 @@ session loses nothing.
 |---|---|---|
 | 0 — Learn the system | [`00-phase-0-how-kairo-works.md`](00-phase-0-how-kairo-works.md) | Approved 2026-09-05 (owner's answers logged below) |
 | 1 — Is it possible at all? | [`01-phase-1-is-it-possible.md`](01-phase-1-is-it-possible.md) | Approved 2026-09-05 with decisions D1–D7 (below) |
-| 2 — How | [`02-phase-2-how.md`](02-phase-2-how.md) | **Written, awaiting the owner's approval and decisions D8–D12** |
-| 3 — What it costs (1 / 10 / 50 / 200 businesses) | `03-…` | not started |
+| 2 — How | [`02-phase-2-how.md`](02-phase-2-how.md) | Approved 2026-09-05 with amendments (see its Amendments section); D8 and D12 carried |
+| 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | **Written, awaiting the owner's decisions D13–D15 (and D8)** |
 | 4 — The onboarding flow, end to end | `04-…` | not started |
 | 5 — Sha and Hora, uninterrupted | `05-…` | not started |
 | 6 — Build, in shippable slices | code + tests | not started |
@@ -52,3 +52,5 @@ Origin lock off on both; `*.onrender.com` reachable on both. Cloudflare API
 token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Owner's decisions on Phase 1. D1: the app is for the salon owner. D2: sign up then pay $400 **in the app** (owner accepts the in-app door; Apple's 15% and GST-first arithmetic are documented in `02-…` §2). D3: each business on its **own** Resend account, Kairo pays for none; connected by the business or done for them by the owner, as automated as possible. D4: Stripe and/or Square optional, including linking their own payment link. D5: business's own ClickSend via guided setup, ACMA status tracked, clearly theirs. D6: owner's role is flagged signups and refunds; a clear refund policy plus every needed policy. D7: iOS first, Android after. | `01-…` §9, `02-…` |
 | 2026-09-05 | Phase 2 written: platform service + instance control API + iOS shell; two purchase doors (web via Stripe at 0%, app via IAP at 15% after GST); four business-owned connectors; provisioning state machine; `release` branch; policy set. Decisions D8–D12 put to the owner. | `02-…` |
+| 2026-09-05 | Owner on Phase 2: free download, the $400 is an order placed in the app for access; **14-day** no-reason refund; D10 yes; a platform Stripe account is fine. D8 and D12 not addressed, carried (D12 assumed). | `02-…` Amendments |
+| 2026-09-05 | Phase 3 written. Finding: hosting is the only perpetual cost; on Render ≈ A$140/salon/year (the $400 covers ~3 years; 200 salons ≈ A$28,600/year), on a Sydney VPS ≈ A$21/salon/year (200 salons ≈ A$4,500/year). Recommends a `vps` host driver before salon 25. Forgotten cost surfaced: a Mac (or macOS CI minutes) is required to build and submit the iOS app; this session cannot. D13–D15 put to the owner. | `03-…` |

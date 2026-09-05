@@ -400,3 +400,19 @@ ORM, a container runtime. The Phase 1 reasoning stands.
 | D10 | Phone verification at signup via the platform's own ClickSend | Yes: the one SMS Kairo pays for, ~6¢ per signup. |
 | D11 | Stripe connector order | Paste-a-restricted-key first (exists), OAuth second. |
 | D12 | The `release` branch | Adopt; it is the safety the two live salons do not have today. |
+
+---
+
+## Amendments
+
+- **2026-09-05, from Phase 3.** The provisioner gets a **host driver**
+  interface: `render` (as designed above) and `vps` (DigitalOcean Sydney,
+  running the `new-business.sh` model over SSH from the platform). Reason:
+  on Render a salon costs ≈ A$140/year to host against a one-off $400; on a
+  VPS ≈ A$21. See `03-phase-3-what-it-costs.md` §3–4 and decision D13.
+- **2026-09-05, owner's decisions on Phase 2.** The app is free to download;
+  the $400 is an order placed inside the app for access (as §2's app door).
+  Refund window is **14 days**, no reason, automatic (not 30). D10 accepted.
+  A platform Stripe account will exist. D8 (in-app price) and D12 (`release`
+  branch) were not addressed and are carried as open, with D12 assumed
+  adopted unless the owner objects.
