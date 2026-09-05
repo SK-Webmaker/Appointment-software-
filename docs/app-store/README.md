@@ -25,7 +25,7 @@ session loses nothing.
 | 2 — How | [`02-phase-2-how.md`](02-phase-2-how.md) | Approved 2026-09-05 with amendments (see its Amendments section); D8 and D12 carried |
 | 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | Approved 2026-09-05 with directions; see addendum |
 | 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
-| 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04-policies.md`](04-policies.md) | **Written, awaiting the owner's approval** |
+| 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04b-connectors-made-easy.md`](04b-connectors-made-easy.md) · [`04-policies.md`](04-policies.md) · [`walkthrough-business-abc.md`](walkthrough-business-abc.md) | **Written, awaiting the owner's green light for Phase 5** |
 | 5 — Sha and Hora, uninterrupted | `05-…` | not started |
 | 6 — Build, in shippable slices | code + tests | not started |
 | 7 — Launch | `07-…` | not started |
@@ -59,3 +59,4 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | **Architecture decision:** one Render service per region serving many salons, each in its own SQLite file (no shared database), wildcard domain, instant provisioning. ≈ A$10/salon/year at 200 salons. Single-tenant mode preserved for the live salons until Phase 5. The only new risk is host-to-file routing; its falsification tests are specified. Phase 2 host-driver amendment withdrawn. | `02b-…` |
 | 2026-09-05 | D8: website A$410, app A$519.99 (both net ≈ A$400). D14: GitHub Actions macOS runners, Codemagic overflow. D15: brief policy statements, drafted. | `02b-…` §7–9, `04-policies.md` |
 | 2026-09-05 | Phase 4 written: end-to-end flow, screening, provisioning in seconds, setup checklist, fourteen unhappy paths, the owner's four residual roles; policies drafted. | `04-…` |
+| 2026-09-05 | Owner: confirmed free download, sign up or log in, buy on the website or in the app, pay once. Everything must be tested; no failures. API-key steps are too confusing for most owners: email setup defaults to **Kairo (the owner) does it**, prefilled, ≈3 min copy-paste; texts stay the business's own account but Kairo checks the key live and **buys the number in-app** via ClickSend's API; ABN optional; ACMA only for the advanced "show your name" option. | `04b-…` |
