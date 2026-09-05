@@ -175,3 +175,16 @@ operator tab that only the owner's account sees.
 Brief statements, drafted in [`04-policies.md`](04-policies.md), linked from
 the signup form, the App Store listing, the login footer and the Account
 page. They are written to be read by a hairdresser in two minutes.
+
+---
+
+## Amendments, 2026-09-05
+
+- **One price, web only** (pending confirmation; see `02b` amendment): the
+  "App Store door" in §1 and §5 is removed. The app is free and sign-in only.
+  Everything else in this document is unchanged; §7's "app door" lines and
+  the App Store refund rows in §10 fall away.
+- **Texts:** every business has **its own dedicated number on its own
+  ClickSend account**, bought inside Kairo (see `04b` §2). No shared or lent
+  numbers, ever. The number costs the business about A$20 a month, paid to
+  ClickSend.

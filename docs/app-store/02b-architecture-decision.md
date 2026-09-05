@@ -203,3 +203,24 @@ https://docs.github.com/en/actions/concepts/billing-and-usage ·
 [5] Codemagic, *App Store Connect publishing* — https://docs.codemagic.io/yaml-publishing/app-store-connect/ ·
 Render wildcard custom domains — https://render.com/docs/custom-domains ·
 Render instance pricing (Standard US$25) — https://render.com/pricing
+
+## Amendment, 2026-09-05 — one price (supersedes §8 and Phase 2 §2)
+
+The owner is right that two prices for one thing is not acceptable. The two
+prices exist only because Apple takes 15% (after GST) of anything bought
+inside the app and nothing of anything bought on the web. There are exactly
+three ways to have one price:
+
+| Option | Where the $ is paid | Price | Owner nets | What it costs |
+|---|---|---|---|---|
+| **A — web only (recommended)** | website only; the app is free and **sign-in only**, no purchase and no mention of buying (Apple 3.1.3(f)) | **A$410** | **≈ A$402 on every sale** | someone who finds the app first sees "Sign in" and must find the website themselves; the Instagram funnel already points at the website. No in-app-purchase code to build, test or defend in review; Apple's refund rules never apply. |
+| B — one price, both doors | website (Stripe) and in-app (IAP) | A$410 | ≈ A$402 web, ≈ **A$317** in-app | the owner absorbs ≈ A$85 on every app-door sale |
+| C — one price, both doors, set high | both | A$519.99 | ≈ A$510 web, ≈ A$402 in-app | every customer pays A$110 more than the product needs |
+
+**Recommendation: A.** One price, the owner's full $400 on every sale, less
+code, less review risk. The app's first screen says *Sign in*, and below it a
+plain line — *"Kairo is set up for a salon by its owner. Use the sign-in
+details from your Kairo."* — with no link and no price, which is what Apple's
+rule requires outside the United States. This reverses decision D2 (pay in
+the app), for the reason the owner identified. **Awaiting the owner's
+confirmation.**
