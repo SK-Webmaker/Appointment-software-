@@ -63,3 +63,40 @@ a `KAIRO_PLATFORM_KEY`: create a salon, read its status, patch its flags
 allow-list the owner's own screen uses, reset its owner's password from a
 hash, export it, and mark it deleted. There is no verb that reads one salon's
 data from another's address, because no such route exists anywhere in Kairo.
+
+## Connecting the salon's email, texts and payments
+
+`/connect?t=…` is the page a signed-in owner reaches from the one line on their
+Kairo dashboard. The handle is minted once at provisioning, kept through
+retries, and only ever shown inside their own workspace.
+
+**Email** (`connect.js`, `resend.js`, `cloudflare.js`). They paste an API key
+from **their own** free Resend account and press one button:
+
+1. create the domain in **their** account (or reuse the one already there);
+2. write the DNS records **Resend returns** into Cloudflare — never a hardcoded
+   set, and any record that already exists with a *different* value aborts the
+   whole thing rather than being overwritten;
+3. add one domain-wide `_dmarc` record if it is missing, and only one however
+   many salons connect;
+4. poll until **Resend itself** says verified — a domain that has not verified
+   is never called done;
+5. create a sending key scoped to that `domain_id` alone;
+6. push the key and From address to the shard over the signed control API;
+7. send a real test message;
+8. delete the setup key they pasted.
+
+Any failure leaves nothing installed, records the reason, and shows it.
+
+A salon on a domain they already own gets the exact records to add at their own
+registrar and a `409` until those records exist. Kairo will not tell anyone
+their email works before it does.
+
+**Texts** stay entirely on the business's side: their own ClickSend account,
+their own existing mobile as the sender, verified by a code ClickSend texts to
+that phone. No number is bought, and the platform pays for nothing.
+
+**Refunds.** `/api/connect/refund` is the business asking for its own. Inside
+14 days it is automatic and no reason is asked. After 14 days it opens a task
+for the owner rather than refusing, because the consumer guarantees may still
+apply and that is a judgement, not a rule.

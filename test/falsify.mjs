@@ -138,6 +138,46 @@ const MUTATIONS = {
     find: "  if (db.prepare(\"SELECT id FROM businesses WHERE slug = ? AND state != 'expired'\").get(slug)) return { ok: false, reason: 'That address is taken.' };",
     replace: "  if (db.prepare('SELECT id FROM businesses WHERE slug = ?').get(slug)) return { ok: false, reason: 'That address is taken.' };",
   },
+  'dns-written-but-not-checked': {
+    file: 'platform/connect.js', suites: ['connect'],
+    find: "      const clash = dns.find((r) => !r.ok);\n      if (clash) throw new Error(`${clash.type} ${clash.name} already exists with a different value — someone must look at it`);\n      await cf.ensureDmarc(zone);",
+    replace: '      await cf.ensureDmarc(zone);',
+  },
+  'second-dmarc-record-allowed': {
+    file: 'platform/cloudflare.js', suites: ['connect'],
+    find: "  const existing = (await listRecords(zone)).find((r) => r.type === 'TXT' && String(r.name).toLowerCase() === name);\n  if (existing) return { name, action: 'already there — a second record would void DMARC for every salon', ok: true };",
+    replace: '',
+  },
+  'sending-key-not-scoped': {
+    file: 'platform/resend.js', suites: ['connect'],
+    find: "  call(key, 'POST', '/api-keys', { name, permission: 'sending_access', domain_id: domainId });",
+    replace: "  call(key, 'POST', '/api-keys', { name, permission: 'full_access' });",
+  },
+  'setup-key-left-behind': {
+    file: 'platform/connect.js', suites: ['connect'],
+    find: "      if (mine) { await resend.deleteKey(setupKey, mine.id); record(businessId, 'email:cleanup', 'setup key deleted from their account'); }",
+    replace: '      if (mine) record(businessId, \'email:cleanup\', \'left alone\');',
+  },
+  'unverified-domain-accepted': {
+    file: 'platform/connect.js', suites: ['connect'],
+    find: "    if (status !== 'verified') {",
+    replace: '    if (false) {',
+  },
+  'refund-window-not-enforced': {
+    file: 'platform/signup.js', suites: ['connect'],
+    find: '  if (left <= 0) {',
+    replace: '  if (false) {',
+  },
+  'checklist-never-hides': {
+    file: 'src/checklist.js', suites: ['connect'],
+    find: '    show: !items.every((i) => i.done),',
+    replace: '    show: true,',
+  },
+  'own-number-code-not-checked': {
+    file: 'src/notify.js', suites: ['connect'],
+    find: "    if (!r.ok) return { ok: false, detail: `ClickSend: ${r.data?.response_msg || r.data?.error_message || `that code was not accepted`}` };",
+    replace: '    if (false) return { ok: false, detail: \'x\' };',
+  },
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',

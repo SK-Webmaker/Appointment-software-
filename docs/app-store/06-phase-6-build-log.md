@@ -198,3 +198,62 @@ the platform's own table rather than through any back door in the product.
 **Next: slice 5 — the connectors** (email set up for the business by default,
 texts on their own number via ClickSend Own Numbers, payments optional), the
 setup checklist inside Kairo, and the in-Kairo refund and delete buttons.
+
+---
+
+## Slice 5 — the connectors, the checklist, and the refund button
+
+**What was built** (v1.56.0, this branch only)
+
+**Email, done for them.** A salon signs in, sees one line on their dashboard —
+*Connect your email* — and follows it to a page the platform serves. They paste
+a Resend API key from their own free account and press one button. Behind it:
+the domain is created in *their* Resend account, the DNS records Resend hands
+back are written into Cloudflare (never hardcoded — whatever the API returns),
+a single domain-wide DMARC record is added if it is not already there, the
+domain is polled until Resend itself says verified, a sending key scoped to that
+one domain is created, the key and From address are pushed to their shard over
+the signed control API, a real test message is sent, and the setup key they
+pasted is deleted. If any step fails, nothing is installed and the reason is on
+screen.
+
+A salon that wants to send from a domain they already own (Hair By Sha does)
+gets the records to add at their own registrar and is **not** marked done until
+those records actually exist. Kairo will not tell anyone their email works
+before it does.
+
+**Texts, on the number they already have.** Two steps in Settings. The
+ClickSend key is checked against ClickSend the moment it is pasted, so a typo
+is caught there rather than by a reminder that silently never sends. Then their
+own salon mobile is registered as the sender through ClickSend Own Numbers —
+ClickSend texts that phone a code, they type it back. No number is bought.
+Replies land where a human reads them. The ACMA line only appears for a salon
+that chose a *name* as the sender; a number needs no register, and most salons
+will never see it.
+
+**Payments stay optional.** Stripe, Square, or simply their own payment link
+pasted in. Nothing about the card path blocks a salon from running.
+
+**The checklist** (`src/checklist.js`) is computed from what is actually true —
+a key that exists, a booking that happened — not from ticks somebody clicked.
+Only the two things Kairo cannot see (the link in their Instagram bio, the app
+on their phone) are ticks. It disappears entirely once the required items are
+done, because a checklist that never goes away is furniture.
+
+**The refund button.** Inside 14 days it is automatic, no reason asked, because
+a policy that says "no reason needed" and then asks for one is the kind the
+ACCC objects to. After 14 days it opens a task for the owner rather than
+refusing outright, because the consumer guarantees may still apply and that is
+a judgement, not a rule.
+
+**Tests:** `test/connect.test.js` (15), against mock Resend, Cloudflare and
+ClickSend that behave like the real ones — the mock Resend verifies a domain
+**only** when the records are genuinely present in the mock Cloudflare, so a
+test cannot pass by pretending. **Whole suite: 18 files, 138 checks, all
+passing.** Eight new mutations; three of them survived the first run
+(DNS written but never checked, a second DMARC record allowed, an unverified
+domain accepted as done) and three tests were written to catch them —
+**33/33 caught.**
+
+**Not in this slice:** the iOS app itself, push notifications, in-Kairo account
+deletion. **Next: slice 6 — the app.**

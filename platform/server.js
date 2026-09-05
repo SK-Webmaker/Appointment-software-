@@ -14,6 +14,7 @@ import { db, getSetting, record, openTask } from './db.js';
 import * as signup from './signup.js';
 import * as stripe from './stripe.js';
 import * as shard from './shard.js';
+import * as connect from './connect.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -138,6 +139,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/' || p === '/start') { if (url.searchParams.get('cancelled')) res.setHeader('X-Payment-Cancelled', '1'); return serveStatic(res, 'start.html'); }
     if (p === '/done') return serveStatic(res, 'start.html');
     if (p === '/operator') return serveStatic(res, 'operator.html');
+    if (p === '/connect') return serveStatic(res, 'connect.html');
     if (p === '/health') return json(res, 200, { ok: true });
     if (!p.startsWith('/api/')) return serveStatic(res, p === '/' ? 'start.html' : p);
     return await api(req, res, url, ip);
@@ -198,6 +200,44 @@ async function api(req, res, url, ip) {
   if (p === '/api/status' && req.method === 'GET') {
     if (limited('status')) return undefined;
     return json(res, 200, signup.statusFor(url.searchParams.get('token')));
+  }
+
+  // ── the business, back from its own Kairo ────────────────────────────────
+  // Reached by a link only a signed-in owner can see. Everything here is
+  // something the salon's own instance deliberately cannot do: it holds no
+  // Cloudflare token and no Stripe key, and it should not.
+  if (p === '/api/connect/status' && req.method === 'GET') {
+    if (limited('status')) return undefined;
+    const b = signup.byConnectToken(url.searchParams.get('t'));
+    const owner = db.prepare('SELECT email FROM owners WHERE id = ?').get(b.owner_id);
+    return json(res, 200, {
+      business_name: b.name,
+      slug: b.slug,
+      url: signup.publicUrlFor(b.slug),
+      owner_email: owner.email,
+      state: b.state,
+      price_cents: b.price_cents,
+      paid_at: b.paid_at,
+      refund_days_left: signup.refundDaysLeft(b),
+      refunded: Boolean(b.refunded_at),
+      base_domain: signup.BASE_DOMAIN(),
+      suggested_domain: `${b.slug}.${signup.BASE_DOMAIN()}`,
+      email: connect.emailStatus(b.id),
+    });
+  }
+
+  if (p === '/api/connect/email' && req.method === 'POST') {
+    if (limited('checkout')) return undefined;
+    const body = await readJson(req);
+    const b = signup.byConnectToken(body.t);
+    const out = await connect.connectEmail(b.id, String(body.resend_key || '').trim(), { domain: String(body.domain || '').trim() });
+    return json(res, 200, out);
+  }
+
+  if (p === '/api/connect/refund' && req.method === 'POST') {
+    if (limited('checkout')) return undefined;
+    const body = await readJson(req);
+    return json(res, 200, await signup.selfRefund(body.t, String(body.reason || '').slice(0, 300)));
   }
 
   // ── Stripe ───────────────────────────────────────────────────────────────
@@ -282,6 +322,13 @@ async function api(req, res, url, ip) {
       }
     }
 
+    const ce = /^\/api\/operator\/business\/(\d+)\/connect-email$/.exec(p);
+    if (ce && req.method === 'POST') {
+      const body = await readJson(req);
+      const out = await connect.connectEmail(Number(ce[1]), String(body.resend_key || '').trim(), { domain: String(body.domain || '').trim() });
+      return json(res, 200, out);
+    }
+
     const t = /^\/api\/operator\/task\/(\d+)\/done$/.exec(p);
     if (t && req.method === 'POST') {
       const body = await readJson(req).catch(() => ({}));
@@ -323,6 +370,7 @@ server.listen(PORT, HOST, () => {
   if (!stripe.stripeConfigured()) console.log('    !  STRIPE_SECRET_KEY is not set — nobody can pay');
   if (!process.env.STRIPE_WEBHOOK_SECRET) console.log('    !  STRIPE_WEBHOOK_SECRET is not set — payments cannot be confirmed');
   if (!process.env.KAIRO_PLATFORM_KEY) console.log('    !  KAIRO_PLATFORM_KEY is not set — the shard will refuse every call');
+  if (!process.env.CLOUDFLARE_API_TOKEN) console.log('    !  CLOUDFLARE_API_TOKEN is not set — salon email cannot be connected');
   if (!operatorPassword()) console.log('    !  PLATFORM_OPERATOR_PASSWORD is not set — the queue cannot be opened');
   console.log('');
 });

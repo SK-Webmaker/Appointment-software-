@@ -19,6 +19,7 @@ import {
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   queueCancellationMessages, cancelUrlFor,
   deliverMessage, processQueue, smsBalance, looksLikeEmail,
+  requestOwnNumberCode, verifyOwnNumberCode,
 } from './notify.js';
 import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
@@ -41,6 +42,7 @@ import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
+import { checklist } from './checklist.js';
 import {
   bookingRuleFor, ruleSettings, noShowsFor, DEPOSIT_WINDOW_DAYS, BLOCK_WINDOW_DAYS,
 } from './booking-rules.js';
@@ -459,7 +461,8 @@ export const EDITABLE_SETTINGS = new Set([
   'telnyx_api_key', 'telnyx_from', 'telnyx_profile_id',
   'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
-  'pos_card_method',
+  'pos_card_method', 'pos_payment_link',
+  'checklist_link_shared', 'checklist_app_installed', 'acma_registered',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
   'brand_gallery', 'brand_tagline',
   'patch_service_id', 'patch_lead_hours', 'patch_valid_months',
@@ -2567,6 +2570,58 @@ route('GET', '/api/attribution', async ({ query }) => {
 const smsBalanceCache = () => (currentTenant().state.smsBalance ||= { at: 0, key: '', data: null });
 const SMS_BALANCE_TTL_MS = 120_000;
 
+/** What is left before this salon is really running. */
+route('GET', '/api/checklist', async () => checklist());
+
+// ---------------------------------------------------------------------------
+// Texts: the salon's own ClickSend account, and their own number as the sender
+// ---------------------------------------------------------------------------
+
+/**
+ * Step one: the key. Checked against ClickSend the moment it is pasted, so a
+ * typo is caught here rather than by a reminder that silently never sends.
+ */
+route('POST', '/api/sms/connect', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    username: s.str(200, { required: true }),
+    api_key: s.str(200, { required: true }),
+  });
+  const probe = await smsBalance({ username: str(b.username, 200), apiKey: str(b.api_key, 200) });
+  if (!probe.ok) throw httpError(400, probe.detail);
+  setSetting('clicksend_username', str(b.username, 200));
+  setSetting('clicksend_api_key', str(b.api_key, 200));
+  setSetting('sms_provider', 'clicksend');
+  return { ok: true, account: probe.account, balance: probe.balance, currency: probe.currency, symbol: probe.symbol };
+});
+
+/**
+ * Step two: their own number, as the sender.
+ *
+ * Not a number bought for the purpose — the phone in the salon. Texts then
+ * come FROM that number, and when a client replies "can I move to 3?" it lands
+ * where a human reads it. ClickSend proves they hold it by texting a code.
+ */
+route('POST', '/api/sms/own-number', async ({ req }) => {
+  const b = checkBody(await readJson(req), { number: s.str(24, { required: true }), label: s.str(80) });
+  const out = await requestOwnNumberCode(str(b.number, 24), str(b.label, 80) || getSetting('business_name', 'Kairo'));
+  if (!out.ok) throw httpError(400, out.detail);
+  return { ok: true, verification_id: out.verification_id, sent_to: str(b.number, 24) };
+});
+
+route('POST', '/api/sms/own-number/verify', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    verification_id: s.str(64, { required: true }),
+    code: s.str(12, { required: true }),
+    number: s.str(24, { required: true }),
+  });
+  const out = await verifyOwnNumberCode(str(b.verification_id, 64), str(b.code, 12));
+  if (!out.ok) throw httpError(400, out.detail);
+  setSetting('clicksend_from', str(b.number, 24));
+  // Whatever was lent at handover is gone the moment they have their own.
+  setSetting('clicksend_starter_from', '');
+  return { ok: true, from: str(b.number, 24) };
+});
+
 route('GET', '/api/sms/balance', async ({ query }) => {
   // Changing the credentials or the provider must not serve the old account's
   // balance back, so they are part of the cache key.
@@ -2678,6 +2733,17 @@ route('POST', '/api/messages/test', async ({ req }) => {
     channel: s.oneOf(['email', 'sms']),
     to: s.str(200),
   });
+  return sendTestMessage(b);
+});
+
+/**
+ * Send one test message and log it like any other.
+ *
+ * Exported because the platform's control API sends one too, the moment it
+ * finishes connecting a provider: a green tick that nobody earned is the kind
+ * that fails at nine o'clock on a Saturday.
+ */
+export async function sendTestMessage(b) {
   const channel = b.channel === 'sms' ? 'sms' : 'email';
   const target = str(b.to, 200) || (channel === 'sms' ? getSetting('business_phone') : getSetting('business_email'));
   if (!target) throw httpError(400, 'No destination — set your business email/phone first');
@@ -2698,7 +2764,7 @@ route('POST', '/api/messages/test', async ({ req }) => {
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(info.lastInsertRowid);
   const result = await deliverMessage(msg);
   return { ok: result.ok, status: result.status, detail: result.detail };
-});
+}
 
 // ---------------------------------------------------------------------------
 // Invoices & payments

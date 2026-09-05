@@ -116,6 +116,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tasks_open ON tasks(state, id);
 `);
 
+// Additive migrations, the same rule Kairo follows: add, never drop or rewrite.
+const addColumn = (table, column, ddl) => {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+};
+// The handle a signed-in owner follows from their Kairo to the pages only the
+// platform can serve: connecting their email, and cancelling. Unguessable, and
+// only ever shown inside their own workspace.
+addColumn('businesses', 'connect_token', "connect_token TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'email_state', "email_state TEXT NOT NULL DEFAULT 'none'");   // none|working|verifying|done|failed
+addColumn('businesses', 'email_detail', "email_detail TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'email_domain', "email_domain TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'email_started_at', "email_started_at TEXT NOT NULL DEFAULT ''");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_connect ON businesses(connect_token) WHERE connect_token != ''");
+
 export function getSetting(key, fallback = '') {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
   return row ? row.value : fallback;

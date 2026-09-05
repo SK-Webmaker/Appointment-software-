@@ -760,6 +760,22 @@ export function starterSenderActive() {
   return String(getSetting('clicksend_from', '') || '').trim().toLowerCase() === starter.toLowerCase();
 }
 
+/**
+ * The links a signed-in owner follows back to the platform.
+ *
+ * They live in the tenant's own tenant.json rather than its settings table,
+ * because they are not the owner's to edit — so they are read from there in
+ * one place, and everything that needs them (the API, the checklist) asks here
+ * rather than reaching into the config itself.
+ */
+export function platformHandles() {
+  const cfg = current().config || {};
+  return {
+    platform_url: String(cfg.platform_url || ''),
+    connect_token: String(cfg.connect_token || ''),
+  };
+}
+
 export function getSettings() {
   const rows = db.prepare('SELECT key, value FROM settings').all();
   const out = {};
@@ -782,6 +798,10 @@ export function getSettings() {
   out.reply_to_effective = replyToAddress();
   out.reply_to_invalid = replyToLooksWrong() ? '1' : '0';
   out.clicksend_starter_active = starterSenderActive() ? '1' : '0';
+  // Where the owner goes for what only the platform can do. Read-only and
+  // absent on a self-hosted install, where the checklist explains the manual
+  // route instead.
+  Object.assign(out, platformHandles());
   return out;
 }
 
@@ -936,6 +956,15 @@ const DEFAULT_SETTINGS = {
   // Safety gates. All inert until a service is actually marked as needing
   // something — a salon that never opens the Requirements panel sees no change
   // anywhere, which is the same rule every other gate in Kairo follows.
+  // Setup checklist. The two ticks are for the things Kairo genuinely cannot
+  // see: whether the link is in their bio, and whether the app is on the phone.
+  checklist_link_shared: '0',
+  checklist_app_installed: '0',
+  acma_registered: '0',
+  // A payment link the salon already has (Stripe Payment Link, Square Online,
+  // PayPal.me). The lowest-effort way to take card money: no keys, no account
+  // to connect, and the till can share it.
+  pos_payment_link: '',
   patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
   patch_lead_hours: '48', // how long before the treatment a patch test must sit
   patch_valid_months: '6',// default validity when a service doesn't say otherwise

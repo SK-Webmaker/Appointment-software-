@@ -25,6 +25,9 @@ import * as notify from './notify.js';
 export const BASE_DOMAIN = () => String(process.env.KAIRO_BASE_DOMAIN || 'kairobookings.com').trim().toLowerCase();
 export const PRICE_CENTS = () => Number(process.env.KAIRO_PRICE_CENTS || 41000);
 export const APP_URL = () => String(process.env.KAIRO_APP_URL || 'https://apps.apple.com/');
+export const PLATFORM_ORIGIN = () => String(process.env.PLATFORM_ORIGIN || 'https://kairobookings.com').replace(/\/+$/, '');
+/** No reason needed inside this many days. After it, the consumer law decides. */
+export const REFUND_DAYS = Number(process.env.KAIRO_REFUND_DAYS || 14);
 const CODE_TTL_MIN = 10;
 const CODE_MAX_ATTEMPTS = 5;
 /** How long an unpaid signup holds its address before somebody else may have it. */
@@ -240,6 +243,14 @@ export async function provision(businessId) {
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
   setState(b.id, 'provisioning');
   const url = publicUrlFor(b.slug);
+  // The handle their Kairo uses to send them back here for the things only the
+  // platform can do. Minted once and kept, so a retry does not invalidate a
+  // link already sitting in their workspace.
+  let connectToken = b.connect_token;
+  if (!connectToken) {
+    connectToken = crypto.randomBytes(24).toString('base64url');
+    db.prepare('UPDATE businesses SET connect_token = ? WHERE id = ?').run(connectToken, b.id);
+  }
   const host = `${b.slug}.${BASE_DOMAIN()}`;
   try {
     if (!b.pass_hash) throw new Error('the owner credential was already cleared — cannot re-provision');
@@ -249,6 +260,8 @@ export async function provision(businessId) {
       public_url: url,
       price_cents: b.price_cents,
       plan_name: 'Kairo',
+      platform_url: PLATFORM_ORIGIN(),
+      connect_token: connectToken,
       owner: { name: owner.name, email: owner.email, pass_hash: b.pass_hash, salt: b.salt },
       settings: {
         business_name: b.name,
@@ -347,6 +360,40 @@ export function expireStale() {
 }
 
 export const publicUrlFor = (slug) => `https://${slug}.${BASE_DOMAIN()}`;
+
+/** The business behind a connect link. Same shape of check as byToken. */
+export function byConnectToken(token) {
+  const b = db.prepare("SELECT * FROM businesses WHERE connect_token = ? AND connect_token != ''").get(clean(token, 64));
+  if (!b) throw err(404, 'That link is no longer valid');
+  return b;
+}
+
+/** How long is left on the no-reason refund, in whole days. Negative once gone. */
+export function refundDaysLeft(b) {
+  const paid = Date.parse(`${String(b.paid_at || '').replace(' ', 'T')}Z`) || 0;
+  if (!paid) return REFUND_DAYS;
+  return Math.ceil((paid + REFUND_DAYS * 86400000 - Date.now()) / 86400000);
+}
+
+/**
+ * The business asking for its own refund, from its own Kairo.
+ *
+ * Inside the window it is automatic, because a policy that says "no reason
+ * needed" and then asks for one is the kind the ACCC objects to. Outside it,
+ * this opens a task rather than refusing outright — the consumer law may still
+ * require a refund and that is a judgement, not a rule.
+ */
+export async function selfRefund(connectToken, reason = '') {
+  const b = byConnectToken(connectToken);
+  if (b.refunded_at) return { already: true };
+  const left = refundDaysLeft(b);
+  if (left <= 0) {
+    openTask(b.id, 'refund_request', `Asked ${left * -1} day(s) after the ${REFUND_DAYS}-day window. Reason: ${reason || '(none given)'}`);
+    record(b.id, 'refund:requested-late', reason);
+    return { queued: true, days_left: left };
+  }
+  return { ...await refundBusiness(b.id, { reason, by: 'business' }), days_left: left };
+}
 
 export function byToken(token) {
   const b = db.prepare('SELECT * FROM businesses WHERE token = ? AND token != ?').get(clean(token, 64), '');

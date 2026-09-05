@@ -24,6 +24,7 @@ mutation that survives fails CI. When you fix a bug, add its mutation.
 | File | What it proves |
 |---|---|
 | `helpers/kairo.js` | boots Kairo on a free port and a temp data dir; `api()`, `login()`, `db()`, `stop()`; kills stray servers on exit |
+| `helpers/mocks.js` | stand-ins for the four outside services, built to behave rather than to agree: mock Stripe signs webhooks exactly as Stripe does, and mock Resend verifies a domain **only** when the records are genuinely present in mock Cloudflare |
 | `boot.test.js` | version, security headers, static serving, traversal, manifest, no-store |
 | `auth.test.js` | 401 gate, login, cookie flags, forged cookies, password rules, session retirement on password change |
 | `settings.test.js` | write-only secrets, allow-list, time zone and From validation, public URL derivation, image URIs, the wizard |
@@ -39,6 +40,7 @@ mutation that survives fails CI. When you fix a bug, add its mutation.
 | `signup.test.js` | a business signs up and comes out taking bookings — with a mock Stripe that signs webhooks exactly as Stripe does, and a mock ABN register |
 | `migrate.test.js` | the Phase 5 move rehearsed end to end: fetch, dry-run import, verify, serve, compare, since — and the verifier failing on a lost client, one cent, a changed owner |
 | `tenants.test.js` | many salons in one process: unknown host → nobody, per-salon data/sessions/tokens, 200 interleaved requests never cross, lazy creation, per-salon maintenance and mute, deletion, per-salon rate limits |
+| `connect.test.js` | the connectors: email set up inside the business's own Resend account with the DNS Resend asks for written to Cloudflare, one DMARC record however many salons connect, a conflicting record aborting the whole thing, an own-domain salon getting the records rather than a green tick, and texts on the salon's own mobile via ClickSend Own Numbers |
 
 ## Conventions
 

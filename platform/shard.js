@@ -69,6 +69,7 @@ export const patchTenant = async (slug, patch) => unwrap(await request('PATCH', 
 export const putSettings = async (slug, settings) => unwrap(await request('PUT', `/api/platform/tenants/${slug}/settings`, { body: settings }), 'settings');
 export const setPassword = async (slug, payload) => unwrap(await request('POST', `/api/platform/tenants/${slug}/password`, { body: payload }), 'password');
 export const deleteTenant = async (slug) => unwrap(await request('DELETE', `/api/platform/tenants/${slug}`), 'delete');
+export const testMessage = async (slug, body) => unwrap(await request('POST', `/api/platform/tenants/${slug}/test-message`, { body }), 'test-message');
 export const exportTenant = async (slug) => {
   const r = await request('GET', `/api/platform/tenants/${slug}/export`, { timeoutMs: 60000 });
   if (!r.ok) throw new Error(`shard export: ${r.status}`);

@@ -1,7 +1,7 @@
 {
   "name": "kairo",
-  "version": "1.55.0",
-  "description": "Kairo \u2014 modern appointment booking, client management and billing for service businesses.",
+  "version": "1.56.0",
+  "description": "Kairo — modern appointment booking, client management and billing for service businesses.",
   "type": "module",
   "main": "server.js",
   "scripts": {

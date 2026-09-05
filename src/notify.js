@@ -18,6 +18,12 @@ import { db, getSetting, setSetting, replyToAddress, publicUrl } from './db.js';
 import { forEachTenant, isMuted } from './tenant.js';
 import { renderEmail } from './email-html.js';
 
+// Overridable so the test suite can stand a local server in front of a
+// provider and exercise the real network path — the same seam src/stripe.js
+// already has. Production never sets these.
+const RESEND_API = () => process.env.RESEND_API_BASE || 'https://api.resend.com';
+const CLICKSEND_API = () => process.env.CLICKSEND_API_BASE || 'https://rest.clicksend.com/v3';
+
 function money(cents) {
   const currency = getSetting('currency', '$') || '$';
   return `${currency}${((Number(cents) || 0) / 100).toFixed(2)}`;
@@ -666,7 +672,7 @@ export async function sendEmail(to, subject, body, html = '', { attachments = []
     return { ok: false, detail: `The From address in Settings → Notifications is not a valid email address: "${from}"` };
   }
   const replyTo = replyToAddress();
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch(`${RESEND_API()}/emails`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -721,7 +727,7 @@ async function sendClickSend(to, body) {
   if (!username || !apiKey) return SMS_NOT_CONFIGURED('ClickSend', 'username + API key');
   const message = { body, to };
   if (from) message.from = from;
-  const res = await fetch('https://rest.clicksend.com/v3/sms/send', {
+  const res = await fetch(`${CLICKSEND_API()}/sms/send`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${Buffer.from(`${username}:${apiKey}`).toString('base64')}`,
@@ -753,16 +759,18 @@ async function sendClickSend(to, body) {
  * Never throws — a provider being unreachable is a fact to report, not an error
  * that should take a settings page down with it.
  */
-export async function smsBalance({ fetchImpl = fetch } = {}) {
-  const provider = getSetting('sms_provider', 'clicksend');
+export async function smsBalance({ fetchImpl = fetch, username: user = null, apiKey: pass = null } = {}) {
+  const provider = user ? 'clicksend' : getSetting('sms_provider', 'clicksend');
   const checked_at = new Date().toISOString();
   if (provider !== 'clicksend') {
     return { ok: false, provider, unsupported: true, checked_at,
       detail: `Kairo can only read the credit balance from ClickSend. Check your ${provider} dashboard.` };
   }
 
-  const username = getSetting('clicksend_username');
-  const apiKey = getSetting('clicksend_api_key');
+  // Credentials being checked at the moment they are pasted are passed in;
+  // otherwise the stored ones are used.
+  const username = user ?? getSetting('clicksend_username');
+  const apiKey = pass ?? getSetting('clicksend_api_key');
   if (!username || !apiKey) {
     return { ok: false, provider, configured: false, checked_at,
       detail: 'Add your ClickSend username and API key in Settings → Notifications.' };
@@ -770,7 +778,7 @@ export async function smsBalance({ fetchImpl = fetch } = {}) {
 
   let res;
   try {
-    res = await fetchImpl('https://rest.clicksend.com/v3/account', {
+    res = await fetchImpl(`${CLICKSEND_API()}/account`, {
       headers: {
         Authorization: `Basic ${Buffer.from(`${username}:${apiKey}`).toString('base64')}`,
         Accept: 'application/json',
@@ -811,6 +819,58 @@ export async function smsBalance({ fetchImpl = fetch } = {}) {
     messages_left: perMessage ? Math.floor(balance / perMessage) : null,
     checked_at,
   };
+}
+
+// ── The salon's own number as the sender ───────────────────────────────────
+//
+// ClickSend calls this "own numbers": the business proves it holds the handset
+// by typing a code, and from then on texts show that number and replies come
+// back to it. No number to rent, no ABN, and nothing for ACMA to register —
+// the register is about sender *names*, not numbers.
+//
+// It has to be re-proved once a year, which Kairo reminds them about rather
+// than discovering the day the reminders stop.
+const CLICKSEND = () => CLICKSEND_API();
+const clickSendAuth = () =>
+  `Basic ${Buffer.from(`${getSetting('clicksend_username')}:${getSetting('clicksend_api_key')}`).toString('base64')}`;
+
+async function clickSend(method, path, body, { fetchImpl = fetch } = {}) {
+  const res = await fetchImpl(CLICKSEND() + path, {
+    method,
+    headers: { Authorization: clickSendAuth(), 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+/** Ask ClickSend to text a code to the salon's own number. */
+export async function requestOwnNumberCode(number, label) {
+  if (!getSetting('clicksend_username') || !getSetting('clicksend_api_key')) {
+    return { ok: false, detail: 'Connect your ClickSend account first.' };
+  }
+  try {
+    const r = await clickSend('POST', '/own-numbers/verifications', { phone_number: number, label: String(label || '').slice(0, 200) });
+    const id = r.data?.data?.id ?? r.data?.data?.verification_id ?? r.data?.id;
+    if (!r.ok || !id) {
+      return { ok: false, detail: `ClickSend: ${r.data?.response_msg || r.data?.error_message || `HTTP ${r.status}`}` };
+    }
+    return { ok: true, verification_id: String(id) };
+  } catch (err) {
+    return { ok: false, detail: `Couldn't reach ClickSend (${String(err.message).slice(0, 120)}).` };
+  }
+}
+
+/** Hand the code back. ClickSend then treats that number as theirs to send from. */
+export async function verifyOwnNumberCode(verificationId, code) {
+  try {
+    const r = await clickSend('PUT', `/own-numbers/verifications/${encodeURIComponent(verificationId)}/verify`, { verification_code: String(code) });
+    if (!r.ok) return { ok: false, detail: `ClickSend: ${r.data?.response_msg || r.data?.error_message || `that code was not accepted`}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, detail: `Couldn't reach ClickSend (${String(err.message).slice(0, 120)}).` };
+  }
 }
 
 async function sendTelnyx(to, body) {

@@ -19,6 +19,7 @@ import { mountIntro, adoptBootSplash } from './intro.js';
 import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
 import { mountKai, open as openKai } from './kai.js';
+import { mountChecklist } from './checklist.js';
 
 export const state = {
   user: null,
@@ -164,6 +165,7 @@ function renderShell() {
             it's in an email, so it isn't private to you yet. Set your own in
             <a href="#/account">Account → Security</a>. Takes ten seconds.</span>
         </div>` : ''}
+        <div id="setup-checklist"></div>
         <main class="content"><div class="page" id="page"></div></main>
       </div>
     </div>`;
@@ -192,6 +194,9 @@ function renderShell() {
   // and that was all it ever did. Kai is what was supposed to be behind it.
   root.querySelector('#kai-btn').addEventListener('click', () => openKai());
   mountKai(root);
+  // What is left before this salon is really running. Hides itself for good
+  // once every line is done, and never blocks the page while it loads.
+  mountChecklist(root.querySelector('#setup-checklist')).catch(() => {});
 
   // Pull down at the top of any page to reload it. On a home-screen app there
   // is no address bar and so no reload button; this is the only way to ask for

@@ -834,7 +834,7 @@ forces multi-tenant mode, `KAIRO_BASE_DOMAIN` sets the platform domain,
 mapping is the one line that could ever show one salon another's data; it is
 tested in `test/tenants.test.js` and broken on purpose by `test/falsify.mjs`.
 
-## Selling it: the platform (v1.55.0)
+## Selling it: the platform (v1.56.0)
 
 A separate, equally dependency-free service — [`platform/`](platform/) — sells
 Kairo and provisions salons without anybody being woken up. A business fills in
@@ -852,11 +852,31 @@ has not been told otherwise. See [`platform/README.md`](platform/README.md).
 npm run platform     # the signup page, the Stripe webhook, and the operator queue
 ```
 
+### Connecting a new salon's email, texts and payments
+
+The two steps that defeat non-technical owners are done for them. From the one
+line on their dashboard, a salon pastes a key from their own free Resend account
+and presses a button: the domain is created **in their account**, the DNS records
+Resend asks for are written to Cloudflare, one domain-wide DMARC record is added
+if it is missing, the domain is polled until Resend itself says verified, a
+sending key scoped to that domain alone is created and pushed to their shard, a
+real test message is sent, and the setup key is deleted. A salon on a domain they
+already own gets the records to add and is **not** called done until they exist.
+
+Texts come from the salon's **own existing mobile**, registered on their own
+ClickSend account through Own Numbers — ClickSend texts that phone a code, they
+type it back. No number is bought and Kairo pays for nothing. Card payments stay
+optional: Stripe, Square, or their own payment link pasted in.
+
+The dashboard checklist is computed from what is actually true — a key that
+exists, a booking that happened — and disappears once the required items are
+done.
+
 ## Tests
 
 ```bash
-npm test               # 17 suites, 123 checks, ~60 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 25 ways; every guarding suite must fail
+npm test               # 18 suites, 138 checks, ~65 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 33 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

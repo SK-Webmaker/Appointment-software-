@@ -2428,3 +2428,42 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   padding: 9px 12px; cursor: pointer;
 }
 .bk-patch-slots button.sel { border-color: var(--accent-fill); font-weight: 600; }
+
+/* ── Setup checklist ─────────────────────────────────────────────────────
+   Above the day's work, until there is nothing left on it. */
+#setup-checklist:empty { display: none; }
+.setup-card {
+  margin: 14px 22px 0; border: 1px solid var(--border); border-radius: 14px;
+  background: var(--panel); overflow: hidden;
+}
+.setup-card.urgent { border-color: rgba(245, 158, 11, .45); }
+.setup-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 16px; border-bottom: 1px solid var(--border);
+}
+.setup-head b { font-size: 14.5px; }
+.setup-count { color: var(--text-2); font-size: 12.5px; margin-left: 9px; }
+.setup-toggle {
+  background: none; border: 0; color: var(--text-2); cursor: pointer;
+  padding: 4px; display: grid; place-items: center; border-radius: 8px;
+  transform: rotate(90deg); transition: transform .15s ease;
+}
+.setup-toggle[aria-expanded="false"] { transform: rotate(0deg); }
+.setup-toggle:hover { background: var(--panel-3); color: var(--text); }
+.setup-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.setup-item:last-child { border-bottom: 0; }
+.setup-dot {
+  width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none;
+  background: var(--text-2); opacity: .45;
+}
+.setup-item.req .setup-dot { background: #f59e0b; opacity: 1; }
+.setup-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.setup-text b { font-size: 14px; }
+.setup-text span { color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.setup-text code { color: var(--text-2); font-size: 12px; word-break: break-all; }
+.setup-actions { display: flex; gap: 7px; flex: none; align-items: center; }
+@media (max-width: 700px) {
+  .setup-card { margin: 12px 12px 0; }
+  .setup-item { flex-wrap: wrap; }
+  .setup-actions { width: 100%; padding-left: 21px; }
+}

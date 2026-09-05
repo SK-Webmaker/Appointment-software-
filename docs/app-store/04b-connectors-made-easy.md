@@ -196,3 +196,33 @@ Sources: [1] ClickSend Help, *Verify your own mobile number for sending
 messages* — https://help.clicksend.com/article/0hhs6ba7dt-verify-your-own-mobile-number-for-sending-messages ;
 *Guide to own numbers* — https://help.clicksend.com/en/articles/44194-guide-to-own-numbers ·
 [2] ClickSend API, Own Numbers — https://developers.clicksend.com/docs/messaging/sender_ids/own-numbers/other/request-own-number-verification-otp
+
+---
+
+## Built, 2026-09-05 (slice 5, v1.56.0)
+
+Everything above is now code, not a plan. What shipped differs from the plan
+in three places, each a tightening:
+
+1. **Nothing is called done on a promise.** The plan said poll until verified;
+   the build refuses to install a sending key at all until *Resend itself*
+   reports the domain verified, and the mock in the test suite verifies a
+   domain **only** when the records are genuinely present in the mock DNS. A
+   green tick nobody earned is the kind that fails at nine o'clock on a
+   Saturday.
+2. **A record that already exists with a different value stops everything.**
+   The plan said write the records. Overwriting somebody's existing DKIM or
+   SPF record could silently break the mail they already send, so a clash
+   aborts the whole connect with the conflict named, and installs nothing.
+3. **One DMARC record for the whole domain.** All the salons on
+   `kairobookings.com` share the one `_dmarc` name; a second record there is a
+   configuration error, not a second salon's setting. Tested by connecting two
+   salons and counting.
+
+The own-domain path (Hair By Sha) is first-class rather than an exception:
+they are handed the exact records to add at their own registrar, and the
+connect stays open — visibly not done — until those records exist.
+
+**Tests:** `test/connect.test.js`, 15 checks. Eight mutations guard this file's
+claims; three of them survived the first run and three tests were written for
+them.

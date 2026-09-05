@@ -21,7 +21,7 @@ import {
   MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, SLUG_RE, BASE_DOMAIN,
 } from './tenant.js';
 import { db, getSetting, setSetting } from './db.js';
-import { EDITABLE_SETTINGS, applySettings } from './api.js';
+import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
 import { snapshot } from './backup.js';
 import { VERSION } from './version.js';
 import { sign as hmac } from './platform-sign.js';
@@ -70,7 +70,7 @@ function tenantStatus(slug) {
   }));
 }
 
-const CONFIG_KEYS = new Set(['read_only', 'muted', 'deleted', 'plan_status', 'plan', 'domains', 'public_url', 'name']);
+const CONFIG_KEYS = new Set(['read_only', 'muted', 'deleted', 'plan_status', 'plan', 'domains', 'public_url', 'name', 'platform_url', 'connect_token']);
 
 /**
  * @returns {boolean} true when this request was handled here.
@@ -146,6 +146,11 @@ async function route(req, res, pathname, body) {
       // A real business starts empty and meets the wizard. 'demo' is for the
       // demo tenant and for a laptop.
       seed: body.seed === 'demo' ? 'demo' : 'none',
+      // Where the owner goes for the things only the platform can do —
+      // connecting their email, cancelling, deleting. Not a secret the owner
+      // must keep, but not public either: shown only inside their workspace.
+      platform_url: String(body.platform_url || '').slice(0, 200),
+      connect_token: String(body.connect_token || '').slice(0, 64),
       plan: String(body.plan || 'once').slice(0, 40),
       owner: {
         name: String(owner.name || 'Owner').slice(0, 100),
@@ -230,6 +235,18 @@ async function route(req, res, pathname, body) {
       setSetting('handover_password_active', '0');
       return { ok: true, email: user.email };
     });
+  }
+
+  // POST /api/platform/tenants/:slug/test-message — prove a just-installed
+  // provider key actually works, and leave the attempt in the salon's own
+  // Messages log where the owner can see it.
+  if (tail === 'test-message' && req.method === 'POST') {
+    const t = getTenant(slug);
+    if (!t) throw httpError(404, 'No such salon');
+    const channel = body.channel === 'sms' ? 'sms' : 'email';
+    const to = String(body.to || '').slice(0, 200);
+    if (!to) throw httpError(400, 'to is required');
+    return withTenant(t, () => sendTestMessage({ channel, to }));
   }
 
   // GET /api/platform/tenants/:slug/export — the whole business as one gzipped
