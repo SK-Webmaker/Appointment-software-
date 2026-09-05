@@ -97,6 +97,45 @@ open; fine for hundreds, revisit at thousands); the wildcard-domain and shard
 setup on Render (Phase 7 / the owner's one-time list); the migration script
 (slice 3).
 
-**Next: slice 3 — `release` branch and `scripts/migrate-tenant.mjs`**
-(snapshot → tenant folder → verification checklist, dry-run by default), then
-a rehearsal against a copy of the demo data.
+## Slice 3 — the move, as a tool (2026-09-05) — done
+
+**What was built**
+
+- `scripts/migrate-tenant.mjs`, five subcommands, all safe to repeat, none
+  ever writing to a live salon:
+  - `fetch` — downloads a salon's own backup snapshot through the authenticated
+    endpoint the app uses (the T+2 step in Phase 5 §5);
+  - `import` — **dry run by default**; `--apply` copies the file into
+    `tenants/<slug>/` and writes `tenant.json`; refuses to overwrite;
+    `--muted` for rehearsals;
+  - `verify` — every table's row count, every cent of payments and line
+    items, the newest ids and invoice number, every setting (secrets compared
+    as set/empty with length), the owner's login row byte for byte, file size
+    within 1%, integrity check. Exit 1 on any difference. This is Phase 5 §4.
+  - `compare` — the old and new booking pages side by side: the public info
+    and the next fortnight's availability per staff member, with a Host
+    override because the shard decides the salon by Host;
+  - `since` — what was written on the shard after a moment, for a rollback's
+    reconciliation (Phase 5 §6 step 4).
+- **`release` branch created** at the commit the two live salons run today
+  (`49ded84`, v1.52.0). No service points at it yet; that is a Phase 5/7
+  action on the live services and needs the owner's say-so at the time.
+
+**Tests:** `test/migrate.test.js` rehearses the whole move end to end — a real
+single-tenant Kairo with a booking, an invoice, a payment, a time zone and a
+secret; `fetch` with the owner's credentials (and a refused wrong password);
+dry-run creates nothing; import; verify passes; the shard serves the moved
+salon with the same login, name, secret present and identical booking-page
+data; `compare` reports identical; `since` reports nothing, then one row
+after a booking. And **the verifier is shown to fail** on a lost client, a
+one-cent change and a changed owner row. New mutation: the verifier ignoring
+row counts — caught. **Whole suite: 14 suites, 94 checks. 19/19 mutations
+caught.**
+
+**Bug found by the rehearsal:** none in the product. One in the tool itself
+(a parameter-count error in `since`) and one in the test's premise, both fixed
+before the commit — which is what a rehearsal is for.
+
+**Next: slice 4 — the platform service** (directory, signup, Stripe Checkout,
+screening, provisioning via `createTenant`, the flag queue, the operator
+console), against a scratch shard, with the connectors following in slice 5.

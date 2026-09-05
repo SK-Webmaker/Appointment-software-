@@ -35,6 +35,7 @@ mutation that survives fails CI. When you fix a bug, add its mutation.
 | `security.test.js` | no secret in any response, token-scoped ICS and reviews, malformed and oversized bodies, demo reset guard |
 | `origin-lock.test.js` | off / monitor / enforce, the foot-gun checks, the environment override |
 | `backup-and-boot.test.js` | downloadable backup, pre-update backup, first-boot owner from the environment, pinned public URL |
+| `migrate.test.js` | the Phase 5 move rehearsed end to end: fetch, dry-run import, verify, serve, compare, since — and the verifier failing on a lost client, one cent, a changed owner |
 | `tenants.test.js` | many salons in one process: unknown host → nobody, per-salon data/sessions/tokens, 200 interleaved requests never cross, lazy creation, per-salon maintenance and mute, deletion, per-salon rate limits |
 
 ## Conventions

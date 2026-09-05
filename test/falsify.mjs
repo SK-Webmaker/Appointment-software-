@@ -103,6 +103,11 @@ const MUTATIONS = {
     find: 'const over = rateHit(bucket, slug ? `${slug}:${ip}` : ip);',
     replace: 'const over = rateHit(bucket, ip);',
   },
+  'verifier-ignores-row-counts': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: "  for (const t of a.tables) check(`rows: ${t}`, a.counts[t], b.counts[t]);",
+    replace: '',
+  },
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',

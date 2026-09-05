@@ -822,7 +822,11 @@ node scripts/tenant.mjs set abchair muted=1         # rehearsal copy: nothing is
 ```
 
 The running server notices a new folder on the next request and a changed
-`tenant.json` on the next request after it is saved. Single-tenant installs
+`tenant.json` on the next request after it is saved. Moving an existing salon
+onto a shared server is `scripts/migrate-tenant.mjs`: `fetch` its backup,
+`import` (dry run by default), `verify` every row, cent and setting, `compare`
+the old and new booking pages, and `since` for what a rollback would have to
+carry back. Single-tenant installs
 are untouched: with no `tenants/` directory the one business is
 `KAIRO_DATA_DIR/kairo.db`, exactly as before. Environment: `KAIRO_MULTI_TENANT=1`
 forces multi-tenant mode, `KAIRO_BASE_DOMAIN` sets the platform domain,
@@ -833,8 +837,8 @@ tested in `test/tenants.test.js` and broken on purpose by `test/falsify.mjs`.
 ## Tests
 
 ```bash
-npm test               # 13 suites, 89 checks, ~50 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 18 ways; every guarding suite must fail
+npm test               # 14 suites, 94 checks, ~60 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 19 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
