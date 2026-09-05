@@ -83,6 +83,26 @@ const MUTATIONS = {
     find: "const clientId = ('client_id' in a.b || a.b.new_client) ? a.clientId : before.client_id;",
     replace: 'const clientId = a.clientId;',
   },
+  'host-routing-picks-first-tenant': {
+    file: 'src/tenant.js', suites: ['tenants'],
+    find: "    if (slug.includes('.')) return null;   // one label only: a.b.<domain> is nobody\n    return getTenant(slug);",
+    replace: "    if (slug.includes('.')) return null;\n    return getTenant(listTenantSlugs()[0]);",
+  },
+  'read-only-not-enforced': {
+    file: 'server.js', suites: ['tenants'],
+    find: "if (isReadOnly() && req.method !== 'GET' && req.method !== 'HEAD'",
+    replace: "if (false && req.method !== 'GET' && req.method !== 'HEAD'",
+  },
+  'muted-still-sends': {
+    file: 'src/notify.js', suites: ['tenants'],
+    find: 'if (isMuted()) {',
+    replace: 'if (false) {',
+  },
+  'rate-limit-shared-across-salons': {
+    file: 'src/api.js', suites: ['tenants'],
+    find: 'const over = rateHit(bucket, slug ? `${slug}:${ip}` : ip);',
+    replace: 'const over = rateHit(bucket, ip);',
+  },
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',

@@ -36,6 +36,7 @@ import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public
 import { buildRoster, bookableWindow, rosteredShift, NO_ROSTER } from '../public/js/roster.js';
 import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
+import { current as currentTenant, isReadOnly } from './tenant.js';
 import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
@@ -137,7 +138,10 @@ export async function handleApi(req, res, pathname, query) {
   if (globalOver) return tooMany(res, globalOver);
   const bucket = classifyRequest(req.method, pathname);
   if (bucket !== 'authed') {
-    const over = rateHit(bucket, ip);
+    // Per salon as well as per address: a scrape of one booking page must not
+    // spend another salon's allowance. The global ceiling above stays global.
+    const slug = currentTenant().slug;
+    const over = rateHit(bucket, slug ? `${slug}:${ip}` : ip);
     if (over) return tooMany(res, over);
   }
 
@@ -2556,7 +2560,8 @@ route('GET', '/api/attribution', async ({ query }) => {
  * Messages page, both of which get opened repeatedly, and the number moves by
  * cents. `?refresh=1` forces a fresh read for the button that says it will.
  */
-let smsBalanceCache = { at: 0, key: '', data: null };
+// Per tenant: the cache lives on the tenant's own state, never on the module.
+const smsBalanceCache = () => (currentTenant().state.smsBalance ||= { at: 0, key: '', data: null });
 const SMS_BALANCE_TTL_MS = 120_000;
 
 route('GET', '/api/sms/balance', async ({ query }) => {
@@ -2565,12 +2570,12 @@ route('GET', '/api/sms/balance', async ({ query }) => {
   const key = [getSetting('sms_provider', 'clicksend'), getSetting('clicksend_username'),
     getSetting('clicksend_api_key') ? 'set' : ''].join('|');
   const fresh = query.get('refresh') === '1';
-  if (!fresh && smsBalanceCache.data && smsBalanceCache.key === key
-      && Date.now() - smsBalanceCache.at < SMS_BALANCE_TTL_MS) {
-    return { ...smsBalanceCache.data, cached: true };
+  const cache = smsBalanceCache();
+  if (!fresh && cache.data && cache.key === key && Date.now() - cache.at < SMS_BALANCE_TTL_MS) {
+    return { ...cache.data, cached: true };
   }
   const data = await smsBalance();
-  smsBalanceCache = { at: Date.now(), key, data };
+  Object.assign(cache, { at: Date.now(), key, data });
   return { ...data, cached: false };
 });
 
@@ -3590,6 +3595,8 @@ route('GET', '/api/public/info', async () => {
     business_name: getSetting('business_name'),
     business_phone: getSetting('business_phone'),
     business_address: getSetting('business_address'),
+    // Maintenance in progress: the page says so and stops offering "Confirm".
+    read_only: isReadOnly(),
     // The DOMAIN mail leaves from — never the mailbox. It is already on every
     // message this business sends, so it discloses nothing new, and it lets
     // scripts/verify-business.mjs check DKIM and SPF on the domain actually in

@@ -804,11 +804,37 @@ Balayage,Colour,150,220.00,Full balayage with toner
 A single "Name" column is split into first/last automatically. Duplicates are skipped,
 never overwritten.
 
+## Many salons, one process (v1.54.0)
+
+Kairo can serve many businesses from one server, **each in its own SQLite
+file** — there is still no shared database and no `tenant_id` column anywhere.
+A salon is a folder: `KAIRO_DATA_DIR/tenants/<slug>/` with its `kairo.db` and
+a small `tenant.json`. The request's `Host` header names the salon
+(`<slug>.kairobookings.com`, or an own domain listed in its `tenant.json`);
+an address that names nobody gets a dull 404, never another salon's page.
+
+```bash
+KAIRO_DATA_DIR=/var/data node scripts/tenant.mjs create abchair \
+    --name "ABC Hair Studio" --email owner@example.com --password 'their-password'
+node scripts/tenant.mjs list
+node scripts/tenant.mjs set abchair read_only=1     # maintenance: writes wait, reads work
+node scripts/tenant.mjs set abchair muted=1         # rehearsal copy: nothing is ever sent
+```
+
+The running server notices a new folder on the next request and a changed
+`tenant.json` on the next request after it is saved. Single-tenant installs
+are untouched: with no `tenants/` directory the one business is
+`KAIRO_DATA_DIR/kairo.db`, exactly as before. Environment: `KAIRO_MULTI_TENANT=1`
+forces multi-tenant mode, `KAIRO_BASE_DOMAIN` sets the platform domain,
+`KAIRO_READ_ONLY=1` puts the whole process in maintenance. The hostname-to-file
+mapping is the one line that could ever show one salon another's data; it is
+tested in `test/tenants.test.js` and broken on purpose by `test/falsify.mjs`.
+
 ## Tests
 
 ```bash
-npm test               # 12 suites, 77 checks, ~35 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 14 ways; every guarding suite must fail
+npm test               # 13 suites, 89 checks, ~50 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 18 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

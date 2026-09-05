@@ -215,6 +215,21 @@ function addReturnBar() {
   document.body.appendChild(bar);
 }
 
+/**
+ * The salon is being updated (a few minutes, announced in advance). Say so
+ * once, at the top, instead of letting "Confirm" fail with a message nobody
+ * expected. Inline style only: the CSP allows it and there is nothing to load.
+ */
+function showMaintenanceBar() {
+  if (document.getElementById('book-maint')) return;
+  const bar = document.createElement('div');
+  bar.id = 'book-maint';
+  bar.setAttribute('role', 'status');
+  bar.style.cssText = 'position:sticky;top:0;z-index:50;padding:.75rem 1rem;background:#b45309;color:#fff;font:600 14px system-ui;text-align:center';
+  bar.textContent = 'Bookings are paused for a few minutes while we update. You can look around — please try confirming again shortly.';
+  document.body.prepend(bar);
+}
+
 async function boot() {
   addReturnBar();
   // "Book another / a different time" buttons — delegated so no inline
@@ -224,6 +239,7 @@ async function boot() {
   });
   try {
     state.info = await getJson('/api/public/info');
+    if (state.info.read_only) showMaintenanceBar();
     setCurrency(state.info.currency);
     applyBrand(state.info.brand);
     document.title = `Book with ${state.info.business_name}`;

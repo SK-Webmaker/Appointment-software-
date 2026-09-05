@@ -15,6 +15,7 @@
 // configured — a business opts in deliberately.
 import crypto from 'node:crypto';
 import { db, getSetting, setSetting, replyToAddress, publicUrl } from './db.js';
+import { forEachTenant, isMuted } from './tenant.js';
 import { renderEmail } from './email-html.js';
 
 function money(cents) {
@@ -841,7 +842,10 @@ async function sendSms(to, body) {
 
 export async function deliverMessage(msg) {
   let result;
-  try {
+  if (isMuted()) {
+    // A rehearsal copy of a real salon: everything works, nothing leaves.
+    result = { ok: false, skipped: true, detail: 'Muted — this is a rehearsal copy; nothing is sent' };
+  } else try {
     result = msg.channel === 'sms'
       ? await sendSms(msg.to_addr, msg.body)
       : await sendEmail(msg.to_addr, msg.subject, msg.body, msg.html || '');
@@ -873,16 +877,29 @@ let onTick = null;
  *   check. Injected rather than imported so notify.js does not depend on
  *   backup.js, which already depends on it.
  */
+/** One minute's work, for every salon this process serves, each in its own context. */
+export async function tickAll() {
+  await forEachTenant(async (t) => {
+    try {
+      await processQueue();
+    } catch (err) {
+      console.error(`notify scheduler${t.slug ? ` [${t.slug}]` : ''}:`, err.message);
+    }
+    // Piggy-backed on the same minute tick rather than a second timer. It costs
+    // one date comparison a minute and does nothing until a backup is due.
+    try {
+      await onTick?.();
+    } catch (err) {
+      console.error(`scheduler tick${t.slug ? ` [${t.slug}]` : ''}:`, err.message);
+    }
+  });
+}
+
 export function startScheduler({ tick = null } = {}) {
   onTick = tick;
   if (timer) return;
-  timer = setInterval(() => {
-    processQueue().catch((err) => console.error('notify scheduler:', err.message));
-    // Piggy-backed on the same minute tick rather than a second timer. It costs
-    // one date comparison a minute and does nothing until a backup is due.
-    onTick?.().catch?.((err) => console.error('backup scheduler:', err.message));
-  }, 60 * 1000);
+  timer = setInterval(() => { tickAll().catch((err) => console.error('scheduler:', err.message)); }, 60 * 1000);
   timer.unref?.();
   // deliver anything due at boot too
-  processQueue().catch(() => {});
+  tickAll().catch(() => {});
 }

@@ -21,7 +21,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import zlib from 'node:zlib';
-import { db, getSetting, setSetting, DATA_DIR } from './db.js';
+import { db, getSetting, setSetting } from './db.js';
+import { current } from './tenant.js';
 import { sendEmail } from './notify.js';
 
 /** Past this, an emailed attachment stops being reasonable — offer a download. */
@@ -137,7 +138,7 @@ export function backupStatus() {
   const lastAt = getSetting('backup_last_at', '');
   const localCopies = (() => {
     try {
-      return fs.readdirSync(DATA_DIR).filter((f) => f.startsWith('backup-') && f.endsWith('.db')).length;
+      return fs.readdirSync(current().dir).filter((f) => f.startsWith('backup-') && f.endsWith('.db')).length;
     } catch { return 0; }
   })();
   return {

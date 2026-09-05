@@ -8,10 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './auth.js';
 import { dateStr } from './util.js';
 import { VERSION } from './version.js';
+import { current, setOpenHook, DATA_DIR as TENANT_DATA_DIR } from './tenant.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const DATA_DIR = process.env.KAIRO_DATA_DIR || path.join(ROOT, 'data');
-const DB_PATH = process.env.KAIRO_DB_PATH || path.join(DATA_DIR, 'kairo.db');
+/** The data root. In multi-tenant mode each business has its own folder under it. */
+export const DATA_DIR = TENANT_DATA_DIR;
 
 /**
  * Is this database sitting somewhere that will be wiped?
@@ -47,26 +48,27 @@ export function storageWarning() {
   };
 }
 
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-
-export const db = new DatabaseSync(DB_PATH);
+/**
+ * The current business's database.
+ *
+ * Every module imports `db` and calls db.prepare()/db.exec() as if there were
+ * one database. There is one — per tenant. This proxy resolves the handle at
+ * call time from the tenant context (src/tenant.js), so thirteen thousand
+ * lines of callers did not change when Kairo learned to serve many salons.
+ * In single-tenant mode it is always DATA_DIR/kairo.db, exactly as before.
+ */
+export const db = new Proxy({}, {
+  get(_, prop) {
+    const real = current().db;
+    const v = real[prop];
+    return typeof v === 'function' ? v.bind(real) : v;
+  },
+});
 
 /** Size of the database file on disk — the whole business, in bytes. */
 export function dbFileBytes() {
-  try { return fs.statSync(DB_PATH).size; } catch { return 0; }
+  try { return fs.statSync(current().dbPath).size; } catch { return 0; }
 }
-db.exec('PRAGMA journal_mode = WAL');
-db.exec('PRAGMA foreign_keys = ON');
-// Wait rather than fail when something else holds the write lock.
-//
-// WAL lets any number of readers run alongside one writer, but only one writer
-// at a time — and this file genuinely is opened by more than one process: the
-// backup script, the offboarding script, and the app itself all point at it.
-// Without this, a write that collides with another gives up instantly with
-// "database is locked", which reaches the owner as a failed booking or a lost
-// note, for a lock that would have cleared in milliseconds. Five seconds is far
-// longer than any write here takes and far shorter than a person's patience.
-db.exec('PRAGMA busy_timeout = 5000');
 
 export function initSchema() {
   db.exec(`
@@ -646,18 +648,25 @@ export const SECRET_SETTINGS = new Set([
  * A malformed value is ignored rather than obeyed. Half a URL in every
  * confirmation email is worse than the stored setting it would have replaced.
  */
-let warnedAboutPublicUrl = '';
-export function publicUrl() {
+const VALID_SITE = /^https?:\/\/[^\s/]+$/i;
+/** The address pinned for this tenant at provisioning (tenant.json), if any. */
+function pinnedUrl() {
+  const t = current();
+  const fromTenant = String(t.config?.public_url || '').trim().replace(/\/+$/, '');
+  if (fromTenant && VALID_SITE.test(fromTenant)) return fromTenant;
   const fromEnv = String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '');
-  if (fromEnv && /^https?:\/\/[^\s/]+$/i.test(fromEnv)) return fromEnv;
+  if (fromEnv && VALID_SITE.test(fromEnv)) return fromEnv;
   // Said once per bad value, not once per link built — this runs on every
   // message that goes out, and a warning repeated a thousand times stops being
   // read at all.
-  if (fromEnv && warnedAboutPublicUrl !== fromEnv) {
-    warnedAboutPublicUrl = fromEnv;
+  if (fromEnv && t.state.warnedAboutPublicUrl !== fromEnv) {
+    t.state.warnedAboutPublicUrl = fromEnv;
     console.error(`KAIRO_PUBLIC_URL is not a valid site address, ignoring it: "${fromEnv.slice(0, 60)}"`);
   }
-  return String(getSetting('public_url', '') || '').trim().replace(/\/+$/, '');
+  return '';
+}
+export function publicUrl() {
+  return pinnedUrl() || String(getSetting('public_url', '') || '').trim().replace(/\/+$/, '');
 }
 
 /**
@@ -700,9 +709,8 @@ export function publicUrlIsRaw() {
   return RAW_HOSTS.test(host);
 }
 
-/** True when the address comes from the environment, so the screen can say so. */
-export const publicUrlFromEnv = () => publicUrl() !== ''
-  && String(process.env.KAIRO_PUBLIC_URL || '').trim().replace(/\/+$/, '').toLowerCase() === publicUrl().toLowerCase();
+/** True when the address is pinned (environment or tenant.json), so the screen can say so. */
+export const publicUrlFromEnv = () => publicUrl() !== '' && pinnedUrl().toLowerCase() === publicUrl().toLowerCase();
 
 /**
  * Where a client's reply actually goes.
@@ -941,14 +949,15 @@ const DEFAULT_SETTINGS = {
 function backupBeforeUpdate(fromVersion) {
   try {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const dest = path.join(DATA_DIR, `backup-v${fromVersion}-${stamp}.db`);
+    const dir = current().dir;
+    const dest = path.join(dir, `backup-v${fromVersion}-${stamp}.db`);
     db.exec(`VACUUM INTO '${dest.replace(/'/g, "''")}'`);
-    const backups = fs.readdirSync(DATA_DIR)
+    const backups = fs.readdirSync(dir)
       .filter((f) => f.startsWith('backup-') && f.endsWith('.db'))
       .sort()
       .reverse();
     for (const old of backups.slice(5)) {
-      try { fs.unlinkSync(path.join(DATA_DIR, old)); } catch { /* ignore */ }
+      try { fs.unlinkSync(path.join(dir, old)); } catch { /* ignore */ }
     }
     console.log(`  ↳ database backed up before update → data/${path.basename(dest)}`);
   } catch (err) {
@@ -977,7 +986,16 @@ export function bootstrap() {
     if (getSetting(k, null) === null) setSetting(k, v);
   }
   const hasUser = db.prepare('SELECT COUNT(*) AS n FROM users').get().n > 0;
-  if (!hasUser) {
+  const tenantCfg = current().config || {};
+  if (!hasUser && tenantCfg.owner && tenantCfg.owner.pass_hash && tenantCfg.owner.salt) {
+    // A provisioned tenant: the platform already hashed the password the owner
+    // typed at signup, so no plaintext ever reaches this process.
+    db.prepare('INSERT INTO users (name, email, pass_hash, salt) VALUES (?, ?, ?, ?)').run(
+      String(tenantCfg.owner.name || 'Owner').slice(0, 100),
+      String(tenantCfg.owner.email || '').trim().toLowerCase(),
+      String(tenantCfg.owner.pass_hash), String(tenantCfg.owner.salt),
+    );
+  } else if (!hasUser) {
     const handover = String(process.env.KAIRO_ADMIN_PASSWORD || '').trim();
     const { salt, hash } = hashPassword(handover || 'admin123');
     db.prepare('INSERT INTO users (name, email, pass_hash, salt) VALUES (?, ?, ?, ?)').run(
@@ -1013,7 +1031,10 @@ export function bootstrap() {
   setSetting('default_password_active', onDefault ? '1' : '0');
 
   const hasStaff = db.prepare('SELECT COUNT(*) AS n FROM staff').get().n > 0;
-  if (!hasStaff) seedDemo();
+  // A provisioned business starts empty and meets the wizard; the demo salon
+  // is for a laptop and for the demo tenant, never for a paying salon.
+  if (!hasStaff && tenantCfg.seed !== 'none') seedDemo();
+  else if (!hasStaff && tenantCfg.name) setSetting('business_name', String(tenantCfg.name).slice(0, 150));
   // A brand-new deployment (no prior user) starts un-configured, so the owner
   // meets the guided setup wizard on first login. Existing installs are
   // grandfathered in as already set up — no surprise wizard.
@@ -1251,3 +1272,8 @@ export function resetDemo() {
   seedDemo();
   setSetting('setup_complete', '1'); // the demo represents a configured business
 }
+
+// Every tenant's database is bootstrapped the first time it is opened: schema,
+// migrations (with the pre-update backup), defaults, the owner. In single-tenant
+// mode that is DATA_DIR/kairo.db on the first call to `db`, exactly as before.
+setOpenHook(() => bootstrap());

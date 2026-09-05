@@ -3,7 +3,8 @@
 //
 // Every suite gets its own process and its own data directory, so suites can
 // never see each other's state and can run in parallel.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import http from 'node:http';
 import net from 'node:net';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -77,10 +78,13 @@ export async function startKairo({ env = {}, dataDir = null, timeoutMs = 20000 }
     throw new Error(`Kairo did not start on ${base}\n${log}`);
   }
 
-  async function api(method, p, { body, cookie, headers = {}, raw = false } = {}) {
+  async function api(method, p, { body, cookie, headers = {}, raw = false, host = null } = {}) {
     const h = { ...headers };
     if (body !== undefined && typeof body !== 'string') h['content-type'] = 'application/json';
     if (cookie) h.cookie = cookie;
+    // fetch() refuses to set Host, so a request "to" a salon's address goes
+    // through node:http with the header set by hand.
+    if (host) return rawRequest(method, p, { body, headers: { ...h, host }, raw });
     const res = await fetch(base + p, {
       method,
       headers: h,
@@ -96,9 +100,29 @@ export async function startKairo({ env = {}, dataDir = null, timeoutMs = 20000 }
     return { status: res.status, headers: res.headers, json, text: raw ? '' : buf.toString('utf8'), buffer: buf };
   }
 
+  function rawRequest(method, p, { body, headers, raw }) {
+    return new Promise((resolve, reject) => {
+      const data = body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body));
+      const req = http.request({ host: '127.0.0.1', port, method, path: p, headers: { ...headers, ...(data !== undefined ? { 'content-length': Buffer.byteLength(data) } : {}) } }, (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          const ct = res.headers['content-type'] || '';
+          let json = null;
+          if (!raw && /json/.test(ct)) { try { json = JSON.parse(buf.toString('utf8')); } catch { json = null; } }
+          resolve({ status: res.statusCode, headers: new Headers(Object.entries(res.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v])), json, text: raw ? '' : buf.toString('utf8'), buffer: buf });
+        });
+      });
+      req.on('error', reject);
+      if (data !== undefined) req.write(data);
+      req.end();
+    });
+  }
+
   /** Sign in and return the cookie header value to pass back. */
-  async function login(email = ADMIN.email, password = ADMIN.password) {
-    const r = await api('POST', '/api/auth/login', { body: { email, password } });
+  async function login(email = ADMIN.email, password = ADMIN.password, { host = null } = {}) {
+    const r = await api('POST', '/api/auth/login', { body: { email, password }, host });
     if (r.status !== 200) throw new Error(`login failed: ${r.status} ${r.text}`);
     const sc = r.headers.get('set-cookie') || '';
     const m = /kairo_session=([^;]+)/.exec(sc);
@@ -145,4 +169,14 @@ export async function bookFirstSlot(k, { date, staffId = 1, serviceIds = [9], cl
     body: { service_ids: serviceIds, staff_id: staffId, date, start_min: slot, client },
   });
   return { ...r, slot };
+}
+
+/** Run scripts/tenant.mjs against a data directory. Throws on a non-zero exit. */
+export function tenantCli(dataDir, args, env = {}) {
+  const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'scripts/tenant.mjs', ...args], {
+    cwd: ROOT, encoding: 'utf8',
+    env: { ...process.env, KAIRO_DATA_DIR: dataDir, KAIRO_MULTI_TENANT: '1', KAIRO_BASE_DOMAIN: env.KAIRO_BASE_DOMAIN || 'kairobookings.test', ...env },
+  });
+  if (r.status !== 0) throw new Error(`tenant.mjs ${args.join(' ')} failed (${r.status}):\n${r.stdout}\n${r.stderr}`);
+  return r.stdout;
 }

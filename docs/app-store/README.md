@@ -27,7 +27,7 @@ session loses nothing.
 | 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
 | 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04b-connectors-made-easy.md`](04b-connectors-made-easy.md) · [`04-policies.md`](04-policies.md) · [`walkthrough-business-abc.md`](walkthrough-business-abc.md) | **Written, awaiting the owner's green light for Phase 5** |
 | 5 — Sha and Hora, uninterrupted | [`05-phase-5-sha-and-hora.md`](05-phase-5-sha-and-hora.md) | Approved 2026-09-05; Sha on a Monday; executes after slices 2–4 |
-| 6 — Build, in shippable slices | [`06-phase-6-build-log.md`](06-phase-6-build-log.md) | **In progress — slice 1 (test harness) done** |
+| 6 — Build, in shippable slices | [`06-phase-6-build-log.md`](06-phase-6-build-log.md) | **In progress — slices 1 (harness) and 2 (the shard) done** |
 | 7 — Launch | `07-…` | not started |
 
 ## Decision log
@@ -65,3 +65,4 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Phase 5 written: rehearsal on copies, a five-minute read-only window on a Sunday evening, Cloudflare switch behind the proxy, verification checklist, old service kept running read-only for 7 days, rollback by checklist in 5 minutes, and what "Friday 6pm" actually means once the old data is stale. Hora first, Sha a week later. | `05-…` |
 | 2026-09-05 | Owner: Sha's move on a **Monday** (she is closed Mon/Tue); downtime must be short. Recorded: 10-minute maximum, 3–5 target, writes only; reads never stop. Owner intends to resume on Monday and save credits until then. Phase 6 (build) has not started. | `05-…` amendment |
 | 2026-09-05 | Owner: start Phase 6 now, begin with the test harness. Slice 1 done: 12 suites / 77 checks / 14 mutations all caught; two real defects found and fixed (move dropped the client; mixed-case admin email could not log in). v1.53.0 on this branch only. | `06-…` |
+| 2026-09-05 | Slice 2 done: one process serves many salons, each in its own file; single-tenant mode preserved; maintenance and muted modes; tenant CLI. 13 suites / 89 checks / 18 mutations caught. v1.54.0 on this branch only. | `06-…` |

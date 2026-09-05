@@ -25,6 +25,7 @@
 // everything else, so the owner sees it in the same log, with the same status,
 // and the same retry.
 import { db, getSetting } from './db.js';
+import { current } from './tenant.js';
 import { clientRhythms } from './opportunities.js';
 import { mintToken, fillTokens, recentlyMessagedSet } from './campaigns.js';
 import { expiringPatchTests } from './safety.js';
@@ -469,17 +470,19 @@ export function runAutomation(kind, { today = dayOf(), now = new Date(), dryRun 
  * send nobody a second message, because the unique index on automation_sends
  * refuses it. Two independent layers, and this is the cheaper one.
  */
-let lastPassDay = '';
+// Per tenant (on the tenant's own state), because one process now serves
+// many salons and "ran today" is a fact about one of them.
+const marker = () => current().state;
 
 export function runDailyPass({ now = new Date(), force = false } = {}) {
   const today = dayOf(now);
-  if (!force && lastPassDay === today) return null;
+  if (!force && marker().lastPassDay === today) return null;
 
   // Survives a restart: the marker lives in the database, not in memory.
   const stored = getSetting('automations_last_pass', '');
-  if (!force && stored === today) { lastPassDay = today; return null; }
+  if (!force && stored === today) { marker().lastPassDay = today; return null; }
 
-  lastPassDay = today;
+  marker().lastPassDay = today;
   db.prepare("INSERT INTO settings (key, value) VALUES ('automations_last_pass', ?) "
     + 'ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(today);
 
@@ -503,4 +506,4 @@ export function runDailyPass({ now = new Date(), force = false } = {}) {
 }
 
 /** Test seam — lets a suite pretend a new day started. */
-export function _resetPassMarker() { lastPassDay = ''; }
+export function _resetPassMarker() { marker().lastPassDay = ''; }
