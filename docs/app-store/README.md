@@ -23,8 +23,9 @@ session loses nothing.
 | 0 — Learn the system | [`00-phase-0-how-kairo-works.md`](00-phase-0-how-kairo-works.md) | Approved 2026-09-05 (owner's answers logged below) |
 | 1 — Is it possible at all? | [`01-phase-1-is-it-possible.md`](01-phase-1-is-it-possible.md) | Approved 2026-09-05 with decisions D1–D7 (below) |
 | 2 — How | [`02-phase-2-how.md`](02-phase-2-how.md) | Approved 2026-09-05 with amendments (see its Amendments section); D8 and D12 carried |
-| 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | **Written, awaiting the owner's decisions D13–D15 (and D8)** |
-| 4 — The onboarding flow, end to end | `04-…` | not started |
+| 3 — What it costs (1 / 10 / 50 / 200 businesses) | [`03-phase-3-what-it-costs.md`](03-phase-3-what-it-costs.md) | Approved 2026-09-05 with directions; see addendum |
+| 2b — Architecture decision | [`02b-architecture-decision.md`](02b-architecture-decision.md) | **Decided per owner's direction; awaiting confirmation** |
+| 4 — The onboarding flow, end to end | [`04-phase-4-onboarding-flow.md`](04-phase-4-onboarding-flow.md) · [`04-policies.md`](04-policies.md) | **Written, awaiting the owner's approval** |
 | 5 — Sha and Hora, uninterrupted | `05-…` | not started |
 | 6 — Build, in shippable slices | code + tests | not started |
 | 7 — Launch | `07-…` | not started |
@@ -54,3 +55,7 @@ token expired 26 August. ACMA sender-ID registration outstanding for both.
 | 2026-09-05 | Phase 2 written: platform service + instance control API + iOS shell; two purchase doors (web via Stripe at 0%, app via IAP at 15% after GST); four business-owned connectors; provisioning state machine; `release` branch; policy set. Decisions D8–D12 put to the owner. | `02-…` |
 | 2026-09-05 | Owner on Phase 2: free download, the $400 is an order placed in the app for access; **14-day** no-reason refund; D10 yes; a platform Stripe account is fine. D8 and D12 not addressed, carried (D12 assumed). | `02-…` Amendments |
 | 2026-09-05 | Phase 3 written. Finding: hosting is the only perpetual cost; on Render ≈ A$140/salon/year (the $400 covers ~3 years; 200 salons ≈ A$28,600/year), on a Sydney VPS ≈ A$21/salon/year (200 salons ≈ A$4,500/year). Recommends a `vps` host driver before salon 25. Forgotten cost surfaced: a Mac (or macOS CI minutes) is required to build and submit the iOS app; this session cannot. D13–D15 put to the owner. | `03-…` |
+| 2026-09-05 | Owner on Phase 3: decide the hosting myself, must hold many salons securely and properly, keep Render if it can work; the iOS app ships from cloud build machines, no Mac; policies are brief statements, no external review; price so the owner nets $400. | — |
+| 2026-09-05 | **Architecture decision:** one Render service per region serving many salons, each in its own SQLite file (no shared database), wildcard domain, instant provisioning. ≈ A$10/salon/year at 200 salons. Single-tenant mode preserved for the live salons until Phase 5. The only new risk is host-to-file routing; its falsification tests are specified. Phase 2 host-driver amendment withdrawn. | `02b-…` |
+| 2026-09-05 | D8: website A$410, app A$519.99 (both net ≈ A$400). D14: GitHub Actions macOS runners, Codemagic overflow. D15: brief policy statements, drafted. | `02b-…` §7–9, `04-policies.md` |
+| 2026-09-05 | Phase 4 written: end-to-end flow, screening, provisioning in seconds, setup checklist, fourteen unhappy paths, the owner's four residual roles; policies drafted. | `04-…` |

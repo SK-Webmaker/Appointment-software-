@@ -216,3 +216,16 @@ Not money, but the brief asked where the human stays:
 11. Hetzner Cloud pricing after the 2026 increases — https://northflank.com/blog/hetzner-cloud-server-price-increases (secondary)
 12. Resend pricing — https://resend.com/pricing
 13. ClickSend Help, ACMA alpha tag registration — https://help.clicksend.com/en/articles/46062-acma-alphanumeric-senderids-alpha-tags-registration-usage
+
+---
+
+## Addendum, 2026-09-05 — Track C, and the decision
+
+The owner asked for the best answer, with Render if it could be made to
+work. It can: **one Render service per region serving many salons, each in
+its own SQLite file** (`02b-architecture-decision.md`). At 200 salons it
+costs ≈ **A$2,100 a year, ≈ A$10 per salon**, against A$28,600 for a service
+per salon and A$4,500 for a VPS fleet. D13 is decided in favour of Track C;
+the host-driver amendment to Phase 2 is withdrawn. D14: GitHub Actions macOS
+runners (Codemagic as overflow); no Mac. D15: brief policy statements, no
+external review. D8: website A$410, app A$519.99, both netting ≈ A$400.
