@@ -1,4 +1,8 @@
-// Stand-ins for the three outside services the platform talks to, so the whole
+// Stand-ins for the outside services Kairo and the platform talk to, so the
+// whole of signup, connecting and push can run in CI without money moving, a
+// government API being hit, or Apple being asked to wake a phone.
+//
+// (Historically: the three the platform talks to.)
 // signup can run in CI without money moving or a government API being hit.
 //
 // They are deliberately *thin and strict*: the mock Stripe verifies nothing it
@@ -6,6 +10,7 @@
 // Stripe signs one. A mock that is easier to satisfy than the real thing tests
 // nothing.
 import http from 'node:http';
+import http2 from 'node:http2';
 import crypto from 'node:crypto';
 
 function listen(handler) {
@@ -266,4 +271,91 @@ export async function mockClickSend({ balance = 25.5 } = {}) {
   m.username = 'salon@example.com'; m.apiKey = 'CS-TEST-KEY';
   m.code = '778899';
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// APNs
+// ---------------------------------------------------------------------------
+
+/** An EC P-256 key pair in the shape Apple hands out: a .p8 PEM and a key id. */
+export function apnsKeyPair() {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  return {
+    keyId: 'ABCD123456',
+    teamId: 'TEAM123456',
+    p8: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+    publicKey,
+  };
+}
+
+/**
+ * An Apple push server.
+ *
+ * Cleartext HTTP/2, which is the one thing it does not share with the real
+ * one — everything else it checks, Apple checks: the provider token must be a
+ * real ES256 JWT over the right claims, signed by the key whose id it names,
+ * and no more than an hour old. The topic must be the app's bundle id. A token
+ * this server has been told is dead answers 410 Unregistered, so the code that
+ * strikes dead phones out can be exercised without waiting for a real one.
+ */
+export async function mockApns({ keys, bundleId = 'com.kairobookings.kairo' } = {}) {
+  const sent = [];
+  const dead = new Set();
+  const bad = new Set();
+  let reject = null;           // set to a reason string to fail every send
+
+  const server = http2.createServer();
+  server.on('stream', (stream, headers) => {
+    const path_ = String(headers[':path'] || '');
+    const deviceToken = path_.replace('/3/device/', '');
+    let body = '';
+    stream.on('data', (c) => { body += c; });
+    stream.on('end', () => {
+      const fail = (status, reason) => {
+        const b = JSON.stringify({ reason });
+        stream.respond({ ':status': status, 'content-type': 'application/json', 'content-length': Buffer.byteLength(b) });
+        stream.end(b);
+      };
+      if (reject) return fail(500, reject);
+
+      // The provider token, checked the way Apple checks it.
+      const auth = String(headers.authorization || '');
+      const jwt = auth.replace(/^bearer\s+/i, '');
+      const [h, pl, sig] = jwt.split('.');
+      if (!h || !pl || !sig) return fail(403, 'MissingProviderToken');
+      let head; let claims;
+      try {
+        head = JSON.parse(Buffer.from(h, 'base64url'));
+        claims = JSON.parse(Buffer.from(pl, 'base64url'));
+      } catch { return fail(403, 'InvalidProviderToken'); }
+      if (head.alg !== 'ES256' || head.kid !== keys.keyId) return fail(403, 'InvalidProviderToken');
+      if (claims.iss !== keys.teamId) return fail(403, 'InvalidProviderToken');
+      if (Math.abs(Date.now() / 1000 - Number(claims.iat || 0)) > 3600) return fail(403, 'ExpiredProviderToken');
+      const ok = crypto.verify('sha256', Buffer.from(`${h}.${pl}`), { key: keys.publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(sig, 'base64url'));
+      if (!ok) return fail(403, 'InvalidProviderToken');
+
+      if (String(headers['apns-topic'] || '') !== bundleId) return fail(400, 'TopicDisallowed');
+      if (bad.has(deviceToken)) return fail(400, 'BadDeviceToken');
+      if (dead.has(deviceToken)) return fail(410, 'Unregistered');
+
+      let payload = null;
+      try { payload = JSON.parse(body || '{}'); } catch { return fail(400, 'PayloadEmpty'); }
+      sent.push({ deviceToken, payload, headers: { ...headers } });
+      stream.respond({ ':status': 200, 'apns-id': crypto.randomUUID() });
+      stream.end();
+    });
+  });
+
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  return {
+    base: `http://127.0.0.1:${port}`,
+    sent,
+    /** Apple's answer for an app that was deleted from the phone. */
+    kill: (t) => dead.add(String(t).toLowerCase()),
+    /** Apple's answer for a token that was never ours. */
+    disown: (t) => bad.add(String(t).toLowerCase()),
+    failWith: (reason) => { reject = reason; },
+    close: () => new Promise((r) => server.close(r)),
+  };
 }

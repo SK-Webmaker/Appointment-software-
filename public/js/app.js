@@ -20,6 +20,7 @@ import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
 import { mountKai, open as openKai } from './kai.js';
 import { mountChecklist } from './checklist.js';
+import { signedIn as nativeSignedIn, signedOut as nativeSignedOut } from './native.js';
 
 export const state = {
   user: null,
@@ -183,6 +184,7 @@ function renderShell() {
   root.querySelector('#logout').addEventListener('click', async () => {
     await api.post('/api/auth/logout');
     state.user = null;
+    nativeSignedOut();   // the app forgets this phone's push token
     renderLogin();
   });
   root.querySelector('#quick-new').addEventListener('click', async () => {
@@ -216,6 +218,7 @@ async function refreshAll() {
     state.settings = me.settings;
     state.version = me.version || '';
     setCurrency(state.settings.currency);
+    nativeSignedIn();
     await refreshLookups();
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) { renderLogin(); return; }
@@ -252,6 +255,10 @@ async function boot() {
     state.settings = me.settings;
     state.version = me.version || '';
     setCurrency(state.settings.currency);
+    // Inside the app this is where notifications are asked for: they are
+    // signed in and about to see their own book, which is the only honest
+    // moment to ask. In a browser it does nothing.
+    nativeSignedIn();
     // First login on a fresh deployment → guided setup wizard before the app.
     if (state.settings.setup_complete !== '1') {
       root.innerHTML = '';

@@ -240,6 +240,14 @@ async function api(req, res, url, ip) {
     return json(res, 200, await signup.selfRefund(body.t, String(body.reason || '').slice(0, 300)));
   }
 
+  // The app's "delete my account". The salon has already shut itself by the
+  // time this arrives; this is the half that owns the money and the files.
+  if (p === '/api/connect/delete' && req.method === 'POST') {
+    if (limited('checkout')) return undefined;
+    const body = await readJson(req);
+    return json(res, 200, await signup.selfDelete(body.token || body.t, String(body.reason || '').slice(0, 300)));
+  }
+
   // ── Stripe ───────────────────────────────────────────────────────────────
   // The only thing that may cause a salon to be provisioned. Verified against
   // the raw bytes, because a re-serialised body has a different signature.

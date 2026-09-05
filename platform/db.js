@@ -130,6 +130,10 @@ addColumn('businesses', 'email_detail', "email_detail TEXT NOT NULL DEFAULT ''")
 addColumn('businesses', 'email_domain', "email_domain TEXT NOT NULL DEFAULT ''");
 addColumn('businesses', 'email_started_at', "email_started_at TEXT NOT NULL DEFAULT ''");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_connect ON businesses(connect_token) WHERE connect_token != ''");
+// Deleting an account is not the same as never having had one: the row stays,
+// so the address is not handed to somebody else while the files still exist.
+addColumn('businesses', 'deleted_at', "deleted_at TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'purge_after', "purge_after TEXT NOT NULL DEFAULT ''");
 
 export function getSetting(key, fallback = '') {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

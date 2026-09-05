@@ -1,0 +1,182 @@
+# Building and shipping the iPhone app without owning a Mac.
+#
+# GitHub's macOS runners come with Xcode already installed, so the whole chain —
+# compile, archive, sign, upload to TestFlight — happens here. Nothing in this
+# file needs a machine anybody owns.
+#
+# Two jobs on purpose:
+#   build       every push that touches ios/. Compiles for the simulator with
+#               signing off, so it needs no Apple account at all and proves the
+#               code is real before a single paid minute is spent on signing.
+#   testflight  only when a release is published (or the run is dispatched with
+#               "ship"), and only if the Apple secrets exist. Skipped silently
+#               until the developer account is enrolled, so nothing here has to
+#               wait for it.
+#
+# The repository is public, so GitHub's macOS runners are free here — the whole
+# iPhone app is built and shipped without anybody owning a Mac. (On a private
+# repository these minutes bill at ten times the Linux rate, which is worth
+# remembering if this repository is ever made private.)
+name: ios
+
+# `paths` applies to tag pushes too, and a tag changes no files, so a single
+# push trigger cannot mean "these paths on branches, and any tag". Shipping
+# therefore hangs off a published release rather than a raw tag.
+on:
+  push:
+    branches: ['**']
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ship:
+        description: 'Also archive and upload to TestFlight'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: compile (unsigned)
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the project
+        working-directory: ios
+        run: xcodegen generate
+
+      # Signing off: this proves the Swift compiles and links. Signing is the
+      # testflight job's problem, and it is the only part that needs an account.
+      - name: Build for the simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Kairo.xcodeproj \
+            -scheme Kairo \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+  testflight:
+    name: archive and upload
+    if: github.event_name == 'release' || inputs.ship
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the Apple secrets are set
+        id: secrets
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$KEY_ID" ] || [ -z "$ISSUER" ] || [ -z "$TEAM" ]; then
+            echo "Apple credentials are not set yet — nothing to upload."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install XcodeGen
+        if: steps.secrets.outputs.ready == 'true'
+        run: brew install xcodegen
+
+      # The App Store Connect API key is how CI signs without anybody exporting
+      # a certificate from a Mac: Xcode fetches and renews the profiles itself.
+      - name: Put the App Store Connect key where Xcode looks for it
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Generate the project
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: ios
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodegen generate
+          # The build number is the run number, which only ever goes up. Apple
+          # refuses a build it has seen before, and a hand-kept counter is the
+          # thing everybody forgets.
+          echo "build = ${GITHUB_RUN_NUMBER}"
+
+      - name: Archive
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: ios
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          VERSION="${GITHUB_REF_NAME#ios-v}"; VERSION="${VERSION#v}"; [ -n "$VERSION" ] || VERSION="1.0"
+          xcodebuild \
+            -project Kairo.xcodeproj \
+            -scheme Kairo \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath build/Kairo.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            archive
+
+      - name: Export and upload to TestFlight
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: ios
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          cat > build/ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>destination</key><string>upload</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/Kairo.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Forget the key
+        if: always()
+        run: rm -rf ~/.appstoreconnect/private_keys

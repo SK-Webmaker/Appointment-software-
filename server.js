@@ -223,10 +223,37 @@ async function handle(req, res, url, tenant) {
     serveManifest(res);
     return;
   }
+  if (url.pathname === '/.well-known/apple-app-site-association') {
+    serveAasa(res);
+    return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405); res.end('Method not allowed'); return;
   }
   serveStatic(res, url.pathname);
+}
+
+// Universal links: a booking link tapped in Messages or Mail opens the app if
+// it is installed, and the website if it is not. Apple fetches this over HTTPS
+// from every salon's address, so it is served per salon — but the app id is
+// the process's, because there is one app for every salon (see src/push.js).
+//
+// Deliberately narrow: /book and /r/ open the app, everything else does not.
+// A universal link that swallowed the whole domain would mean a customer
+// tapping a Kairo link could never reach the page in a browser again.
+function serveAasa(res) {
+  const appId = String(process.env.KAIRO_APPLE_APP_ID || '').trim();
+  if (!appId) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end('{}'); return; }
+  const body = JSON.stringify({
+    applinks: {
+      details: [{ appID: appId, paths: ['/book', '/book/*', '/r/*'] }],
+    },
+    webcredentials: { apps: [appId] },
+  });
+  // Apple requires application/json and no redirect. It caches for a day, so
+  // this is not no-store, but it must not be cached for a week either.
+  res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' });
+  res.end(body);
 }
 
 // Web-app manifest so "Add to Home Screen" installs with the business's own

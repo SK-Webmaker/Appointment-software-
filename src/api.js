@@ -2,7 +2,7 @@
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
-  dbFileBytes, publicUrl, publicUrlFromEnv,
+  dbFileBytes, publicUrl, publicUrlFromEnv, platformHandles,
 } from './db.js';
 import {
   readJson, readBody, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
@@ -43,6 +43,7 @@ import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
 import { checklist } from './checklist.js';
+import { pushConfigured, registerDevice, forgetDevice, devicesFor, pushToOwner } from './push.js';
 import {
   bookingRuleFor, ruleSettings, noShowsFor, DEPOSIT_WINDOW_DAYS, BLOCK_WINDOW_DAYS,
 } from './booking-rules.js';
@@ -2574,6 +2575,173 @@ const SMS_BALANCE_TTL_MS = 120_000;
 route('GET', '/api/checklist', async () => checklist());
 
 // ---------------------------------------------------------------------------
+// The app on the owner's phone
+//
+// The phone runs the same Kairo everyone else does, so there is no second API
+// here — only the four things a native shell needs and a browser does not:
+// what to draw before the workspace loads, where to send push, how to stop it,
+// and how to delete the account without leaving the app.
+// ---------------------------------------------------------------------------
+
+/**
+ * What the shell needs at launch, before any screen exists.
+ *
+ * Deliberately small and deliberately not secret: it is the salon's own name
+ * and colours, which are already on their public booking page.
+ */
+route('GET', '/api/app/config', async ({ user }) => ({
+  version: VERSION,
+  business: {
+    name: getSetting('business_name', 'Kairo'),
+    accent: getSetting('brand_accent', ''),
+    theme: getSetting('brand_theme', ''),
+    logo: getSetting('brand_logo', ''),
+  },
+  booking_url: publicUrl() ? `${publicUrl()}/book` : '',
+  push: {
+    available: pushConfigured(),
+    devices: devicesFor(user.id).length,
+  },
+}));
+
+/**
+ * "Maya just booked Tuesday 2pm." The one push that earns the app its place on
+ * the home screen — the owner finds out from their own book, not from an email
+ * they will read tonight.
+ *
+ * Collapsed per appointment so a customer who books, cancels and rebooks
+ * leaves one notification on the lock screen rather than three.
+ */
+async function pushNewBooking(apptId) {
+  if (!pushConfigured()) return;
+  // Appointments carry no service name of their own — one booking can bundle
+  // several — so it is read the way every other screen reads it.
+  const a = db.prepare(
+    `SELECT a.id, a.date, a.start_min,
+            sv.name AS service_name,
+            (SELECT group_concat(nm, ' + ') FROM (
+               SELECT sv2.name AS nm FROM appointment_services aps
+               JOIN services sv2 ON sv2.id = aps.service_id
+               WHERE aps.appointment_id = a.id ORDER BY aps.sort_order, aps.id
+             )) AS services_summary,
+            c.first_name, c.last_name
+       FROM appointments a
+       LEFT JOIN clients c ON c.id = a.client_id
+       LEFT JOIN services sv ON sv.id = a.service_id
+      WHERE a.id = ?`
+  ).get(apptId);
+  if (!a) return;
+  const who = `${a.first_name || 'Someone'} ${a.last_name || ''}`.trim();
+  const hh = String(Math.floor(a.start_min / 60)).padStart(2, '0');
+  const mm = String(a.start_min % 60).padStart(2, '0');
+  await pushToOwner({
+    title: 'New booking',
+    body: `${who} — ${a.services_summary || a.service_name || 'an appointment'}, ${a.date} ${hh}:${mm}`,
+    threadId: 'bookings',
+    collapseId: `appt-${a.id}`,
+    data: { kind: 'booking', appointment_id: a.id, date: a.date },
+  });
+}
+
+/**
+ * The phone hands back the token Apple gave it. Upserted on the token: the
+ * same phone reinstalled is the same phone.
+ */
+route('POST', '/api/app/devices', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), {
+    token: s.str(200, { required: true }),
+    platform: s.oneOf(['ios', 'android']),
+    name: s.str(80),
+  });
+  const token = str(b.token, 200);
+  // Apple's tokens are hex. Anything else is a mistake or somebody poking, and
+  // either way storing it would only mean failed sends later.
+  if (!/^[0-9a-fA-F]{32,200}$/.test(token)) throw httpError(400, 'That is not a device token');
+  const row = registerDevice(user.id, token.toLowerCase(), {
+    platform: b.platform === 'android' ? 'android' : 'ios',
+    name: str(b.name, 80),
+  });
+  return { ok: true, id: row.id, push_available: pushConfigured() };
+});
+
+/** Signing out on a phone must stop that phone getting the book. */
+route('DELETE', '/api/app/devices', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(200, { required: true }) });
+  return { ok: true, removed: forgetDevice(str(b.token, 200).toLowerCase()) };
+});
+
+/** So the owner can prove to themselves that push works, rather than hope. */
+route('POST', '/api/app/push/test', async ({ user }) => {
+  if (!pushConfigured()) throw httpError(400, 'Push is not configured on this server');
+  const out = await pushToOwner({
+    title: getSetting('business_name', 'Kairo'),
+    body: 'Push notifications are working.',
+    collapseId: 'test',
+    data: { kind: 'test' },
+  }, { userId: user.id });
+  if (!out.sent) throw httpError(400, out.skipped === 'no devices' ? 'No phone is signed in yet' : 'Apple did not accept it');
+  return { ok: true, sent: out.sent, of: out.of };
+});
+
+/**
+ * Delete the account, from inside the app.
+ *
+ * Apple requires an account that can be created to be deletable in the same
+ * app, and this is a salon's entire book — every client, every appointment,
+ * every invoice — so it asks for the password *and* the business name typed
+ * out. What it does not do is destroy anything on the spot: the salon is shut
+ * immediately (signed out, booking page closed, nothing sends) and the files
+ * go seven days later. Somebody who did this at 11pm by mistake can still be
+ * helped at 9am, and that costs nothing.
+ */
+route('POST', '/api/account/delete', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), {
+    password: s.str(200, { required: true }),
+    confirm: s.str(200, { required: true }),
+  });
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  if (!row || !verifyPassword(str(b.password, 200), row.salt, row.pass_hash)) {
+    throw httpError(403, 'That password is not right');
+  }
+  const name = getSetting('business_name', '').trim();
+  if (str(b.confirm, 200).trim().toLowerCase() !== name.toLowerCase() || !name) {
+    throw httpError(400, `Type the business name exactly: ${name}`);
+  }
+
+  const at = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  setSetting('deletion_requested_at', at);
+  setSetting('deletion_requested_by', String(user.id));
+  // Shut it now: no bookings, no messages, nobody signed in anywhere.
+  setSetting('booking_enabled', '0');
+  db.prepare('UPDATE users SET token_version = token_version + 1').run();
+  db.prepare('DELETE FROM devices').run();
+
+  // Tell the platform, which owns the money and the files. Best effort on
+  // purpose: the salon is already shut, and a platform that is down must not
+  // turn "delete my account" into an error the owner has to trust us about.
+  let told = false;
+  const { platform_url: platform, connect_token: token } = platformHandles();
+  if (platform && token) {
+    try {
+      const r = await fetch(`${platform}/api/connect/delete`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, reason: 'deleted in the app' }),
+        signal: AbortSignal.timeout(8000),
+      });
+      told = r.ok;
+    } catch { told = false; }
+  }
+  return {
+    ok: true,
+    deleted_at: at,
+    files_removed_after_days: 7,
+    platform_notified: told,
+    message: 'Your account is closed and your booking page is off. Your data is deleted in 7 days; until then we can still bring it back if this was a mistake.',
+  };
+});
+
+// ---------------------------------------------------------------------------
 // Texts: the salon's own ClickSend account, and their own number as the sender
 // ---------------------------------------------------------------------------
 
@@ -4382,6 +4550,10 @@ route('POST', '/api/public/book', async ({ req }) => {
   queueAppointmentMessages(apptId);
   queueOwnerNotification(apptId); // alert the owner: a customer just booked
   processQueue().catch(() => {});
+  // And on their phone, if it is signed in. Not awaited and never able to
+  // throw: the customer's booking is already made, and Apple being slow or
+  // unreachable must not turn a good booking into an error page.
+  pushNewBooking(apptId).catch(() => {});
 
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
   return {

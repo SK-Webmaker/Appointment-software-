@@ -434,6 +434,24 @@ export function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_photos_client ON treatment_photos(client_id);
     CREATE INDEX IF NOT EXISTS idx_photos_appt ON treatment_photos(appointment_id);
+
+    -- The owner's phones. One row per device token, so reinstalling the app on
+    -- the same phone updates rather than accumulates. Tokens are Apple's
+    -- handles, not secrets about the salon, but they identify a physical phone
+    -- so they are treated like one: never exported, never shown.
+    CREATE TABLE IF NOT EXISTS devices (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      token         TEXT NOT NULL UNIQUE,
+      platform      TEXT NOT NULL DEFAULT 'ios',   -- ios|android
+      name          TEXT NOT NULL DEFAULT '',      -- "Sha's iPhone", as the phone reports itself
+      last_push_at  TEXT NOT NULL DEFAULT '',
+      failed_at     TEXT NOT NULL DEFAULT '',      -- Apple said this token is dead
+      failed_reason TEXT NOT NULL DEFAULT '',
+      last_seen_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id);
   `);
   migrate();
 }

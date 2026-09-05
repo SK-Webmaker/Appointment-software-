@@ -90,12 +90,17 @@ export function checklist() {
     action: { label: 'Open my booking page', url: publicUrl() ? `${publicUrl()}/book` : '/book', external: true },
   });
 
+  // Detected, not ticked: a phone that signed in is a phone that has the app.
+  // The tick is kept only as a fallback for an owner who uses the web app on
+  // their phone and will never register a device.
+  const phones = db.prepare("SELECT COUNT(*) AS n FROM devices WHERE failed_at = ''").get().n;
   items.push({
     id: 'app',
     title: 'Put Kairo on your phone',
-    why: 'You will open it twenty times a day.',
+    why: 'You will open it twenty times a day, and it tells you the moment somebody books.',
     required: false,
-    done: on('checklist_app_installed'),
+    done: phones > 0 || on('checklist_app_installed'),
+    detail: phones === 1 ? '1 phone signed in' : phones > 1 ? `${phones} phones signed in` : '',
     tickable: 'checklist_app_installed',
     action: { label: 'How', hash: '#/settings' },
   });

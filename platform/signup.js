@@ -342,6 +342,42 @@ export async function refundBusiness(businessId, { reason = '', by = 'owner' } =
   return { refunded: true, exported_bytes: exported };
 }
 
+/** A deleted salon's files are kept this long, so a mistake at 11pm is fixable at 9am. */
+export const DELETE_GRACE_DAYS = Number(process.env.KAIRO_DELETE_GRACE_DAYS || 7);
+
+/**
+ * The business deleting itself from inside the app.
+ *
+ * The salon has already shut itself before this is called, so nothing here is
+ * allowed to fail loudly: this records the decision, refunds if they are still
+ * inside the fourteen days, and opens the task that actually removes the files
+ * once the grace period is up. Deleting them here and now would make an
+ * accidental tap unrecoverable, which is a worse outcome than holding data for
+ * a week and saying so.
+ */
+export async function selfDelete(connectToken, reason = '') {
+  const b = byConnectToken(connectToken);
+  if (b.deleted_at) return { already: true, files_removed_after: b.purge_after };
+  const purgeAfter = new Date(Date.now() + DELETE_GRACE_DAYS * 86400000).toISOString().slice(0, 19).replace('T', ' ');
+  db.prepare('UPDATE businesses SET deleted_at = datetime(\'now\'), purge_after = ? WHERE id = ?').run(purgeAfter, b.id);
+  record(b.id, 'account:deleted', reason.slice(0, 300));
+
+  let refunded = false;
+  if (!b.refunded_at && refundDaysLeft(b) > 0) {
+    try { await refundBusiness(b.id, { reason: `deleted in the app: ${reason}`, by: 'business' }); refunded = true; }
+    catch (e) { record(b.id, 'account:delete-refund-failed', e.message); }
+  }
+  if (!refunded) {
+    // Not refunded means the shard still holds their book, so stop it serving
+    // now and let the purge task remove it after the grace period.
+    try { await shard.patchTenant(b.slug, { read_only: true, muted: true }); }
+    catch (e) { record(b.id, 'account:delete-patch-failed', e.message); }
+  }
+  setState(b.id, 'deleted', reason.slice(0, 300));
+  openTask(b.id, 'purge', `${b.name} asked to be deleted. Remove the files on or after ${purgeAfter}.`);
+  return { deleted: true, refunded, files_removed_after: purgeAfter, grace_days: DELETE_GRACE_DAYS };
+}
+
 /** An address is held for a week; after that somebody else may have it. */
 export function expireStale() {
   const rows = db.prepare(

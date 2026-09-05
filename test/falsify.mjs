@@ -183,6 +183,48 @@ const MUTATIONS = {
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',
     replace: '',
   },
+
+  // ── slice 6: the app ─────────────────────────────────────────────────────
+  'any-device-token-accepted': {
+    file: 'src/api.js', suites: ['app'],
+    find: "if (!/^[0-9a-fA-F]{32,200}$/.test(token)) throw httpError(400, 'That is not a device token');",
+    replace: '',
+  },
+  'device-token-case-splits-phones': {
+    file: 'src/api.js', suites: ['app'],
+    find: 'const row = registerDevice(user.id, token.toLowerCase(), {',
+    replace: 'const row = registerDevice(user.id, token, {',
+  },
+  'apns-signature-der': {
+    file: 'src/push.js', suites: ['app'],
+    find: "    dsaEncoding: 'ieee-p1363',",
+    replace: '',
+  },
+  'provider-token-minted-every-send': {
+    file: 'src/push.js', suites: ['app'],
+    find: 'if (cached.token && cached.kid === kid && now - cached.at < TOKEN_TTL_MS) return cached.token;',
+    replace: '',
+  },
+  'dead-device-kept-forever': {
+    file: 'src/push.js', suites: ['app'],
+    find: "  if (out.status === 410 || out.reason === 'BadDeviceToken' || out.reason === 'Unregistered') {",
+    replace: '  if (false) {',
+  },
+  'delete-without-the-password': {
+    file: 'src/api.js', suites: ['app'],
+    find: "  if (!row || !verifyPassword(str(b.password, 200), row.salt, row.pass_hash)) {\n    throw httpError(403, 'That password is not right');\n  }",
+    replace: '',
+  },
+  'delete-leaves-everyone-signed-in': {
+    file: 'src/api.js', suites: ['app'],
+    find: "  db.prepare('UPDATE users SET token_version = token_version + 1').run();",
+    replace: '',
+  },
+  'universal-link-swallows-the-domain': {
+    file: 'server.js', suites: ['app'],
+    find: "details: [{ appID: appId, paths: ['/book', '/book/*', '/r/*'] }],",
+    replace: "details: [{ appID: appId, paths: ['*'] }],",
+  },
 };
 
 const only = process.argv.slice(2);
