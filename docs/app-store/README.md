@@ -20,8 +20,8 @@ session loses nothing.
 
 | Phase | Deliverable | Status |
 |---|---|---|
-| 0 — Learn the system | [`00-phase-0-how-kairo-works.md`](00-phase-0-how-kairo-works.md) | **Written, awaiting the owner's corrections** |
-| 1 — Is it possible at all? | `01-…` | not started |
+| 0 — Learn the system | [`00-phase-0-how-kairo-works.md`](00-phase-0-how-kairo-works.md) | Approved 2026-09-05 (owner's answers logged below) |
+| 1 — Is it possible at all? | [`01-phase-1-is-it-possible.md`](01-phase-1-is-it-possible.md) | **Written, awaiting the owner's decisions D1–D7** |
 | 2 — How | `02-…` | not started |
 | 3 — What it costs (1 / 10 / 50 / 200 businesses) | `03-…` | not started |
 | 4 — The onboarding flow, end to end | `04-…` | not started |
@@ -37,6 +37,11 @@ session loses nothing.
 | 2026-09-05 | Finding: the 1,738-check test suite is not in the repository and never was; a harness must be rebuilt and committed before "test the way this repo tests" is possible. | `00-…` §12.1 |
 | 2026-09-05 | Finding: the docs (`SELLING.md`, README footer, `plan_*` settings) describe monthly pricing; the brief says $400 once. To reconcile in Phase 2. | `00-…` §12.3 |
 | 2026-09-05 | Work branch `claude/markdown-file-analysis-a5ppnf` does not deploy anywhere. The deploy branch is `claude/appointment-booking-software-xqoy4f`. | — |
+| 2026-09-05 | Owner: no known copy of the test harness. A harness will be rebuilt and committed as the first slice of Phase 6. | `00-…` §13 |
+| 2026-09-05 | Owner: Hair By Sha's own-domain email is deliberate. Keep it; the onboarding design must support "own domain" as a first-class case. | `00-…` §12.4, `01-…` §4.3 |
+| 2026-09-05 | Owner could not confirm the reminder-timing observation on the live Messages page. Left as an unconfirmed observation; out of scope; nothing changed. | `00-…` §7 |
+| 2026-09-05 | Phase 0 approved; Phase 1 started. | — |
+| 2026-09-05 | Phase 1 verdict: go, with three forced changes — pay on the web not in the app (Apple 3.1.1 / 3.1.3(f)); one owner app, one binary (4.2.6, 4.3); Resend/ClickSend accounts cannot be machine-created, so the account step moves to the business or to a Kairo-held Resend team with per-business domains and domain-scoped keys. Decisions D1–D7 put to the owner. | `01-…` §0, §9 |
 
 ## Where things stand on the live systems (read 2026-09-05, nothing changed)
 
