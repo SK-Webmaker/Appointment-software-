@@ -1,0 +1,67 @@
+# Render Blueprint — the shard: one Kairo process, many salons.
+#
+# This replaces the one-service-per-business model in render.yaml. That file
+# stays because Hair By Sha and Horahaircutz still run on it; nothing here
+# touches them.
+#
+# One of these exists per region. Each serves every salon in that region from
+# its own SQLite file under /var/data/tenants/<slug>/kairo.db — see
+# docs/app-store/02b-architecture-decision.md. Adding a salon is creating a
+# folder, which is why provisioning takes seconds and needs no Render API.
+#
+# To create it, entirely in the browser:
+#   Render → New → Blueprint → this repo → pick this file → Apply
+# Then, on the service's Settings page, add the custom domain
+#   *.kairobookings.com
+# and point a CNAME at the service. One certificate covers every salon.
+services:
+  - type: web
+    name: kairo-shard-au
+    runtime: node
+    plan: starter              # a disk cannot be attached to the free plan
+    region: singapore          # Render has no Australian region; this is the closest
+    branch: claude/markdown-file-analysis-a5ppnf
+    buildCommand: echo "no build step — Kairo has no dependencies"
+    startCommand: npm start
+    healthCheckPath: /api/version
+    autoDeploy: true
+
+    # Every salon on this shard lives here. Losing it loses every salon at
+    # once, which is why the nightly off-site copy in Phase 3 is not optional.
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 5
+
+    envVars:
+      - key: KAIRO_DATA_DIR
+        value: /var/data
+      - key: KAIRO_MULTI_TENANT
+        value: "1"
+      - key: KAIRO_BASE_DOMAIN
+        value: kairobookings.com
+      - key: NODE_VERSION
+        value: "22"
+
+      # The control API the platform signs its requests with. Until this is
+      # set, every /api/platform/* route answers 404 — which is the right
+      # state for a shard nobody is provisioning onto yet.
+      - key: KAIRO_PLATFORM_KEY
+        generateValue: true
+
+      # Push. Absent, the app still works and the server simply never sends.
+      - key: KAIRO_APNS_KEY
+        sync: false
+      - key: KAIRO_APNS_KEY_ID
+        sync: false
+      - key: KAIRO_APNS_TEAM_ID
+        sync: false
+      - key: KAIRO_APNS_BUNDLE_ID
+        value: com.kairobookings.kairo
+      - key: KAIRO_APPLE_APP_ID
+        sync: false
+
+      # The move switch. Set to 1 for the minutes a salon is being copied off;
+      # reads keep working, writes answer 503 with a friendly banner.
+      - key: KAIRO_READ_ONLY
+        value: "0"
