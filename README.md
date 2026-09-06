@@ -834,7 +834,7 @@ forces multi-tenant mode, `KAIRO_BASE_DOMAIN` sets the platform domain,
 mapping is the one line that could ever show one salon another's data; it is
 tested in `test/tenants.test.js` and broken on purpose by `test/falsify.mjs`.
 
-## Selling it: the platform (v1.56.0)
+## Selling it: the platform (v1.57.0)
 
 A separate, equally dependency-free service — [`platform/`](platform/) — sells
 Kairo and provisions salons without anybody being woken up. A business fills in
@@ -872,11 +872,28 @@ The dashboard checklist is computed from what is actually true — a key that
 exists, a booking that happened — and disappears once the required items are
 done.
 
+## On the owner's phone (v1.57.0)
+
+[`ios/`](ios/) is a SwiftUI shell around this same workspace — not a second
+client. It adds the four things a web page cannot do: wake the phone when
+somebody books, unlock with a face, open booking links in the app, and sit on
+the home screen. Everything else is the workspace you are already reading
+about, in a `WKWebView` holding the same session cookie a laptop holds; the app
+stores no password and holds no credential of its own.
+
+It is built and shipped entirely on GitHub's hosted macOS runners — no Mac is
+needed, and that is proven rather than assumed: see
+[`ios/README.md`](ios/README.md).
+
+Push goes straight to Apple over `node:http2` with a provider token signed by
+`node:crypto`; no dependency here either. The APNs credentials live on the
+process, never in a salon's settings, because one app serves every salon.
+
 ## Tests
 
 ```bash
-npm test               # 18 suites, 138 checks, ~65 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 33 ways; every guarding suite must fail
+npm test               # 19 suites, 153 checks, ~70 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 41 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

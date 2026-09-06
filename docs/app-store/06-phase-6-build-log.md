@@ -257,3 +257,82 @@ domain accepted as done) and three tests were written to catch them —
 
 **Not in this slice:** the iOS app itself, push notifications, in-Kairo account
 deletion. **Next: slice 6 — the app.**
+
+---
+
+## Slice 6 — the app
+
+**What was built** (v1.57.0, this branch only)
+
+Split in two, because only one half can be tested in this repository and
+pretending otherwise would be the kind of claim this programme exists to avoid.
+
+### The half that is tested here
+
+- **Push, straight to Apple.** `src/push.js` speaks APNs over `node:http2` and
+  signs the provider token ES256 with `node:crypto` — in JOSE form, not the DER
+  encoding Node produces by default, which is the difference between a working
+  push and a 403 that looks like a bad key. The token is cached for fifty
+  minutes because Apple refuses one minted more often than every twenty.
+  The credentials are **environment variables on the process, never a salon's
+  settings**: there is one app for every salon, so a salon can no more configure
+  these than it can configure the App Store listing.
+- **Devices.** Registered through `/api/app/devices`, upserted on the token so a
+  reinstall is the same phone rather than a second row, lowercased so case
+  cannot split one phone into two, and forgotten on sign-out. A `410
+  Unregistered` from Apple retires the token instead of being retried forever.
+- **The booking push.** A customer books online and the owner's phone says
+  *"Maya Okonkwo — Colour + Blow Dry, 2026-09-09 14:00"*, collapsed per
+  appointment so book-cancel-rebook leaves one line on the lock screen rather
+  than three. Fired without being awaited: Apple being slow can never cost a
+  customer their booking.
+- **Universal links.** `/.well-known/apple-app-site-association`, deliberately
+  narrow — `/book` and `/r/` open the app and nothing else does. An association
+  that swallowed the whole domain would mean a customer tapping a Kairo link
+  could never reach the page in a browser again.
+- **Account deletion, inside the app.** Password *and* the business name typed
+  out, because this is a salon's entire book. The salon shuts on the spot —
+  every session retired, booking page off, every phone forgotten — and the files
+  go after seven days, which is stated on screen before they confirm. Somebody
+  who did this at 11pm by mistake can still be helped at 9am, and that costs
+  nothing. The platform is told over the connect token, best effort: a platform
+  that is down must not turn "delete my account" into an error.
+- **The checklist** now *detects* a signed-in phone instead of asking for a tick.
+
+### The half that cannot be compiled here
+
+`ios/` — a SwiftUI shell around the same Kairo the browser loads. Address
+screen, optional Face ID gate (with passcode fallback, so a cracked screen
+cannot lock an owner out of their own book), `WKWebView` holding the same
+session cookie a laptop holds, push registration handed to the *page* so the
+salon's own cookie carries it, universal links, and Safari for anything that is
+not this salon. An XcodeGen spec rather than a committed `.xcodeproj`, and a
+1024px App Store icon generated full-bleed with no alpha.
+
+**D14 is now proven rather than assumed.** `.github/workflows/ios.yml` ran on a
+hosted macOS runner and compiled and linked `Kairo.app` for arm64 and x86_64 on
+Xcode 26.6, finishing `** BUILD SUCCEEDED **` — with no Apple account, no
+certificate, and no Mac anywhere. The repository is public, so those runner
+minutes are free.
+
+**Tests:** `test/app.test.js` (15) against a mock APNs that verifies the ES256
+provider token exactly as Apple does — right algorithm, right key id, right
+issuer, real signature, right topic — and can declare a token dead. **Whole
+suite: 19 files, 153 checks.** Eight new mutations, all caught first time;
+**41 in total.**
+
+**Bug found by the suite:** the booking push read a `service_name` column that
+does not exist on `appointments` (one booking can bundle several services). The
+error was swallowed by the deliberate `.catch()` that keeps push from breaking a
+booking — so in production the push would simply never have fired, silently,
+and nothing would have said so.
+
+**Not yet falsified:** that the CI *fails* on broken Swift. The build compiles
+and links for real, but "a test that cannot fail is not a test" applies to it
+too, and proving it needs a throwaway branch with a deliberate error pushed to
+GitHub — which needs the owner's word, since the standing rule is that nothing
+is pushed to a branch other than the working one.
+
+**Not in this slice:** the App Store listing itself, screenshots, and the
+enrolment. **Next: Phase 7 — launch**, and Phase 5 (moving Hora and then Sha)
+whenever the owner calls a Monday.
