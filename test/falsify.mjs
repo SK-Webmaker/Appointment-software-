@@ -220,6 +220,11 @@ const MUTATIONS = {
     find: "  db.prepare('UPDATE users SET token_version = token_version + 1').run();",
     replace: '',
   },
+  'workspace-quotes-a-price': {
+    file: 'src/db.js', suites: ['app'],
+    find: "  plan_price_cents: '0',",
+    replace: "  plan_price_cents: '41000',",
+  },
   'universal-link-swallows-the-domain': {
     file: 'server.js', suites: ['app'],
     find: "details: [{ appID: appId, paths: ['/book', '/book/*', '/r/*'] }],",

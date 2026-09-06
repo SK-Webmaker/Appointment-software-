@@ -176,6 +176,18 @@ describe('the app: push, devices and deletion', () => {
     assert.equal(apns.sent.length, before_);
   });
 
+  test('nothing in the workspace quotes a price for Kairo', async () => {
+    // Apple reads price and purchase messaging inside a free, sign-in-only app
+    // as an attempt to route around in-app purchase (3.1.1 / 3.1.3(f)), and the
+    // review notes promise there is none. The Account page will render a price
+    // the moment plan_price_cents is non-zero, so the default has to stay 0 and
+    // provisioning has to leave it alone.
+    const r = await k.api('GET', '/api/account', { cookie });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.plan.price_cents, 0, 'a priced plan card is a rejection waiting to happen');
+    assert.ok(!/\$\s?\d/.test(JSON.stringify(r.json.plan)), 'no amount anywhere in the plan card');
+  });
+
   test('universal links open the app for booking pages, and nothing else', async () => {
     const r = await k.api('GET', '/.well-known/apple-app-site-association');
     assert.equal(r.status, 200);

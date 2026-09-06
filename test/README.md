@@ -41,7 +41,7 @@ mutation that survives fails CI. When you fix a bug, add its mutation.
 | `migrate.test.js` | the Phase 5 move rehearsed end to end: fetch, dry-run import, verify, serve, compare, since — and the verifier failing on a lost client, one cent, a changed owner |
 | `tenants.test.js` | many salons in one process: unknown host → nobody, per-salon data/sessions/tokens, 200 interleaved requests never cross, lazy creation, per-salon maintenance and mute, deletion, per-salon rate limits |
 | `connect.test.js` | the connectors: email set up inside the business's own Resend account with the DNS Resend asks for written to Cloudflare, one DMARC record however many salons connect, a conflicting record aborting the whole thing, an own-domain salon getting the records rather than a green tick, and texts on the salon's own mobile via ClickSend Own Numbers |
-| `app.test.js` | the app: device registration and sign-out, a provider token Apple would accept, the booking that wakes the phone, a phone Apple says is gone being struck out, universal links, and deleting the account from inside the app |
+| `app.test.js` | the app: device registration and sign-out, a provider token Apple would accept, the booking that wakes the phone, a phone Apple says is gone being struck out, universal links, deleting the account from inside the app, and the promise that nothing in the workspace quotes a price (App Store 3.1.3(f)) |
 
 ## Conventions
 

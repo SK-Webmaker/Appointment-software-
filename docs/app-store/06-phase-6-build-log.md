@@ -336,3 +336,29 @@ is pushed to a branch other than the working one.
 **Not in this slice:** the App Store listing itself, screenshots, and the
 enrolment. **Next: Phase 7 — launch**, and Phase 5 (moving Hora and then Sha)
 whenever the owner calls a Monday.
+
+### The CI, falsified (2026-09-06)
+
+The build log above recorded one thing as unproven: that the macOS workflow
+*fails* on broken Swift. A build that cannot fail is not a check, and the house
+rule applies to CI as much as to the suite.
+
+With the owner's permission, a throwaway branch carried one deliberately broken
+file — a call to a method that does not exist, returning the wrong type, which
+is what a real mistake looks like rather than a syntax error any editor would
+catch. The run reported:
+
+```
+error: value of type 'LAContext' has no member 'evaluatePolicyy'
+error: cannot convert value of type 'Optional<_>' to specified type 'Int'
+** BUILD FAILED **
+Process completed with exit code 65
+```
+
+The workflow genuinely compiles the Swift and genuinely fails on it. D14 is now
+proven in both directions: it builds a real app, and it catches a broken one.
+
+The throwaway branch, `claude/ios-ci-falsify`, could not be deleted from this
+session — the git proxy accepts pushes but refuses ref deletions — so it needs
+one click on GitHub's branches page. It holds nothing but the broken commit and
+is merged nowhere.
