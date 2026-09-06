@@ -11,9 +11,17 @@
 // It never writes to the live salon. It only reads, exactly as the owner's own
 // "download a backup" button does.
 //
-//   node scripts/rehearse-move.mjs \
-//     --url https://hairbysha-booking.onrender.com \
+// Two ways in. Either it downloads the snapshot itself:
+//
+//   node scripts/rehearse-move.mjs --url https://hairbysha-booking.onrender.com \
 //     --slug hairbysha --email you@example.com --password '…'
+//
+// or you download the backup yourself from Settings and hand it over, which
+// needs no password at all — the comparison afterwards uses only the salon's
+// public booking endpoints:
+//
+//   node scripts/rehearse-move.mjs --url https://hairbysha-booking.onrender.com \
+//     --slug hairbysha --from ~/Downloads/kairo-backup.db.gz
 //
 // Exit 0 means every check passed and the salon is safe to move. Anything else
 // means stop and read the output; nothing has been changed either way.
@@ -33,14 +41,19 @@ const url = arg('url').replace(/\/+$/, '');
 const slug = arg('slug');
 const email = arg('email');
 const password = arg('password') || process.env.KAIRO_PASSWORD || '';
+const given = arg('from');
 const keep = has('keep');
 
-if (!url || !slug || !email || !password) {
+if (!url || !slug || (!given && (!email || !password))) {
   console.error(`
   Rehearse one salon's move. Reads only; the live salon is never written to.
 
     node scripts/rehearse-move.mjs --url <live url> --slug <slug> --email <owner> --password <pw>
+    node scripts/rehearse-move.mjs --url <live url> --slug <slug> --from <backup.db.gz>
 
+    --from   a backup you already downloaded from Settings. No password
+             needed: everything after the download reads only the salon's
+             public booking endpoints.
     --keep   leave the scratch shard behind for poking at
 
   The password can also come from KAIRO_PASSWORD, so it stays out of your
@@ -56,7 +69,7 @@ const ok = (s) => console.log(`   ${E}32m✓${E}0m ${s}`);
 const bad = (s) => console.log(`   ${E}31m✗${E}0m ${s}`);
 
 const work = fs.mkdtempSync(path.join(os.tmpdir(), `kairo-rehearsal-${slug}-`));
-const snapshot = path.join(work, `${slug}.db.gz`);
+const snapshot = given ? path.resolve(given) : path.join(work, `${slug}.db.gz`);
 const dataDir = path.join(work, 'shard');
 fs.mkdirSync(path.join(dataDir, 'tenants'), { recursive: true });
 
@@ -84,11 +97,17 @@ console.log(`\n  Rehearsing ${slug} from ${url}`);
 console.log(`  Scratch shard: ${dataDir}`);
 console.log('  The live salon is only ever read from.\n');
 
-step(1, 'Download the salon’s own backup');
-check(migrate(['fetch', '--url', url, '--email', email, '--password', password, '--out', snapshot]), 'snapshot downloaded');
-if (failed) {
-  console.log('\n  Stopped: could not download. Check the URL and the owner login.\n');
-  process.exit(1);
+if (given) {
+  step(1, 'Use the backup you already downloaded');
+  if (!fs.existsSync(snapshot)) { bad(`no such file: ${snapshot}`); process.exit(1); }
+  ok(snapshot);
+} else {
+  step(1, 'Download the salon’s own backup');
+  check(migrate(['fetch', '--url', url, '--email', email, '--password', password, '--out', snapshot]), 'snapshot downloaded');
+  if (failed) {
+    console.log('\n  Stopped: could not download. Check the URL and the owner login.\n');
+    process.exit(1);
+  }
 }
 ok(`${(fs.statSync(snapshot).size / 1024 / 1024).toFixed(2)} MB`);
 
