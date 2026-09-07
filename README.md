@@ -946,6 +946,15 @@ feature comparison against Fresha / Square Appointments / Acuity.
 Staff logins with permissions · Google Calendar 2-way sync · recurring appointments ·
 waitlists · packages & memberships · gift cards · marketing campaigns · reports export.
 
+### The next big one: the App Store, and onboarding that runs itself
+
+**[APP-LAUNCH-BRIEF.md](APP-LAUNCH-BRIEF.md)** is the brief for that work —
+what Kairo is, how it is built, what onboarding costs a human today, and the
+phases to answer *whether* it is possible before *how*. It names the known hard
+edges (Apple's cut against a $400 one-off, Guideline 4.2, whether the app is for
+the owner or their customers, and whether per-business Resend and ClickSend
+accounts can be automated at all) and deliberately prescribes no technology.
+
 ---
 
 Built to be sold: rebrand it, deploy it per customer, charge monthly. 🚀
