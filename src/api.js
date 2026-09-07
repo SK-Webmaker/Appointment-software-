@@ -48,6 +48,7 @@ import {
   referralSummary, heardFromSummary, HEARD_OPTIONS,
 } from './referrals.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
+import { planFor as kaiPlanFor } from './kai-actions.js';
 import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
   safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
@@ -2507,9 +2508,36 @@ route('GET', '/api/growth', async ({ query }) => {
  * on a guess is one bad match away from cancelling the wrong Sarah.
  */
 route('GET', '/api/ask', async ({ query }) => {
-  const q = str(query.get('q'), 120);
+  const q = str(query.get('q'), 200);
   if (!q) return { query: '', answers: [], suggestions: kaiSuggestions() };
   return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions() };
+});
+
+/**
+ * Do the change Kai offered — and only that one.
+ *
+ * The sentence is re-read HERE rather than the browser's copy of the plan being
+ * trusted, so a crafted request cannot apply a change Kai never proposed: it
+ * would have to be a sentence that genuinely means that change, which is the
+ * same thing the owner would have seen on screen.
+ *
+ * The fingerprint covers both the settings the plan would write and the ones it
+ * was built against. If the hours moved in another tab between the proposal and
+ * the press, it no longer matches and this refuses — the plan on screen was
+ * describing a world that has since changed, and applying it would silently
+ * undo whatever happened in between.
+ */
+route('POST', '/api/ask/apply', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    q: s.str(200, { required: true }),
+    fingerprint: s.str(64, { required: true }),
+  });
+  const plan = kaiPlanFor(str(b.q, 200), str(b.fingerprint, 64), { today: bizToday() });
+  if (!plan) {
+    throw httpError(409, 'That change no longer matches your settings — ask again and check it.');
+  }
+  applySettings(plan.settings);
+  return { ok: true, applied: plan.title, changes: plan.changes, settings: getSettings() };
 });
 
 /** One client's own referral link, minted on first ask. */

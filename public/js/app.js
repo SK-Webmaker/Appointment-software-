@@ -204,7 +204,7 @@ function renderShell() {
  * settings and lookups the shell is drawn from, then the page itself. Ordered
  * so the page renders against fresh lookups rather than the old ones.
  */
-async function refreshAll() {
+export async function refreshAll() {
   try {
     const me = await api.get('/api/auth/me');
     state.user = me.user;

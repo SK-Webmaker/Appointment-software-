@@ -483,6 +483,47 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### ⌘K Kai — ask for it instead of finding it (v1.53.0)
+Press **⌘K** (Ctrl+K), or just **/**, or the **Ask Kai** button in the top bar.
+
+**Ask in your own words.** Not a phrase you have to learn — a sentence:
+
+- *"hey Kai what did we take last week"*
+- *"what were last week's numbers for Monday, Tuesday and Wednesday"* — split by day
+- *"which clients haven't been in for a while"*
+- *"any no-shows this month"*, *"who owes me"*, *"what's on today"*, *"my booking link"*
+- anyone by name or number, and every settings page under the words you'd
+  actually use rather than the label on the tab
+
+**And it can change things.** Opening days and hours, by asking:
+
+- *"add Friday as an open day from 11 to 2"*
+- *"change my opening days to Monday, Tuesday and Wednesday from 11 to 2"*
+- *"close on Mondays"* · *"open at 10 until 3 on Fridays"* · *"change our hours to 8 to 6"*
+
+Every change is a **proposal, never a done thing**. Kai shows what it would
+change *and what it would change it from* — `Friday: closed → 11am–2pm` — plus
+anything already in the diary it would sit awkwardly with (*"6 appointments are
+already booked on a Monday after today. They stay in your diary — nothing is
+cancelled."*). It takes a deliberate press, and a keyboard press takes two:
+the highlight can move under you, and one keystroke should not be able to shut
+a salon. **A question is never a command** — *"what time do we close on Friday"*
+offers nothing.
+
+**Speak to it.** The 🎤 in the bar uses your browser's own dictation — no
+account, no cost, nothing added to Kairo. Speaking fills the bar and searches,
+and that is *all* it does: it can never press Confirm, because a misheard
+"close on Mondays" acting by itself would cost a salon a week.
+
+**There is no AI model behind any of it**, and that is a decision rather than a
+shortcut. A model is an API call per question — small, permanent, and paid per
+business, on something sold once for $400. Once Kairo holds treatment notes, a
+question that could quote them going to an overseas model is cross-border
+disclosure of health information under Australian Privacy Principle 8. And Kai
+can now alter what a salon trades on: a thing that guesses must never be the
+thing that acts. Every match is explainable in one line, and Kai shows you which
+line it was before anything happens.
+
 ### 🧪 Treatment records & safety gates (v1.52.0 — off until a service asks)
 Hair colour needs a patch test; PPD allergy can cause anaphylaxis. Lash and brow
 tint, peels and injectables carry consent and contraindication requirements, and
