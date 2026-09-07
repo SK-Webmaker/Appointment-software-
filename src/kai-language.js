@@ -175,8 +175,10 @@ export function normalise(text) {
   s = s.replace(/(\w)'(\w)/g, '$1$2');
   // The dollar sign survives: it is the difference between "over 200" meaning
   // an amount and meaning nothing at all, and readMoney is the only thing that
-  // can tell a price from a count.
-  s = s.replace(/[^\w\s:.$-]/g, ' ');
+  // can tell a price from a count. The slash survives because "15/3" is a date
+  // and "15 3" is two numbers; the percent sign because a 20% deposit and a $20
+  // one are different money.
+  s = s.replace(/[^\w\s:.$%/-]/g, ' ');
   return s.replace(/\s+/g, ' ').trim();
 }
 
@@ -276,6 +278,28 @@ export function readWeekdays(text) {
     }
   }
   return [...found].sort((a, b) => a - b);
+}
+
+/**
+ * ONE time of day, in minutes from midnight, or null.
+ *
+ * For the sentences that name a single end rather than a span — "make the
+ * calendar start at 7am", "close at 6". Without a meridiem the reading is the
+ * one a salon means: 1 through 6 is the afternoon, 7 through 12 is the morning.
+ * Nobody opens at four in the morning and nobody closes at eight in it.
+ */
+export function readClock(text) {
+  const s = normalise(text);
+  const m = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/.exec(s);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] || 0);
+  if (h > 24 || min > 59) return null;
+  const ap = m[3];
+  if (ap === 'pm' && h < 12) h += 12;
+  else if (ap === 'am' && h === 12) h = 0;
+  else if (!ap && h >= 1 && h <= 6) h += 12;
+  return Math.min(1440, h * 60 + min);
 }
 
 /** "Monday, Tuesday and Wednesday" from [1,2,3]. */
@@ -500,7 +524,7 @@ export function readDuration(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Periods
+// Periods and single days
 // ---------------------------------------------------------------------------
 
 const addDays = (date, n) => {
@@ -508,6 +532,151 @@ const addDays = (date, n) => {
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 };
+
+const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
+  'august', 'september', 'october', 'november', 'december'];
+const MONTH_RE = MONTHS.map((m) => `${m}|${m.slice(0, 3)}`).join('|');
+
+/** Sunday-first day-of-week for a YYYY-MM-DD, without a timezone in the way. */
+const dowOf = (date) => new Date(`${date}T12:00:00`).getDay();
+
+/**
+ * ONE day a sentence points at, as YYYY-MM-DD, or null.
+ *
+ * This is the difference between a command bar and an assistant. "Show me the
+ * calendar in two days" is not a settings change and not a question about the
+ * past — it is somewhere to go, on a particular day, and until Kai could read
+ * that half of what an owner says hands-free had nowhere to land.
+ *
+ * Everything is resolved against the salon's own today rather than the server
+ * clock, so a Melbourne owner at 11pm gets Melbourne's tomorrow.
+ *
+ * The direction rules are the ones people actually use:
+ *
+ *   - A bare weekday looks FORWARD. "Show me Friday" on a Saturday means the
+ *     Friday coming, not the one that just went — nobody asks to be shown a
+ *     diary they have already worked.
+ *   - "Last Friday" looks back, "next Friday" skips to the following week when
+ *     today is already that day, and "this Friday" is the one in this week.
+ *   - Today itself counts as "today", not as "the next Monday", when the word
+ *     used is the name of today.
+ */
+export function readDate(text, today) {
+  const s = normalise(text);
+  if (!today) return null;
+
+  if (/\btoday\b|\btonight\b|\bthis (?:morning|arvo|afternoon|evening)\b/.test(s)) return today;
+  if (/\btomorrow\b|\btmrw\b/.test(s)) return addDays(today, 1);
+  if (/\byesterday\b/.test(s)) return addDays(today, -1);
+  if (/\bday after tomorrow\b/.test(s)) return addDays(today, 2);
+
+  // "in two days", "3 days from now", "in a fortnight", "in 2 weeks"
+  const ahead = /\bin\s+(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s*(days?|weeks?|fortnights?|months?)\b/.exec(s)
+    || /\b(\d{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\s*(days?|weeks?|fortnights?|months?)\s+(?:from now|from today|away|time|ahead)\b/.exec(s);
+  if (ahead) {
+    const n = Number(ahead[1]) || WORD_NUMBERS[ahead[1]] || 1;
+    const unit = ahead[2].startsWith('day') ? 1 : ahead[2].startsWith('week') ? 7
+      : ahead[2].startsWith('fortnight') ? 14 : 30;
+    return addDays(today, Math.min(730, n * unit));
+  }
+  if (/\bin\s+a\s+fortnight\b|\bfortnight('?s)?\s+time\b/.test(s)) return addDays(today, 14);
+
+  // "next week" / "last week" with no day named lands on the same weekday.
+  const shift = /\b(next|last|following|previous)\s+(week|fortnight|month)\b/.exec(s);
+  const named = readWeekdays(text);
+
+  if (!named.length && shift) {
+    const step = shift[2] === 'week' ? 7 : shift[2] === 'fortnight' ? 14 : 30;
+    return addDays(today, /^(next|following)$/.test(shift[1]) ? step : -step);
+  }
+
+  // A weekday, with or without next/this/last in front of it.
+  if (named.length === 1) {
+    const want = named[0];
+    const cur = dowOf(today);
+    const back = /\b(last|previous)\s+(?:week\s+)?\w*\s*$/.test(s)
+      || new RegExp(`\\b(last|previous)\\s+(?:${DAY_WORDS.flat().join('|')})\\b`).test(s);
+    if (back) {
+      const delta = ((cur - want) + 7) % 7 || 7;
+      return addDays(today, -delta);
+    }
+    let delta = ((want - cur) + 7) % 7;
+    const next = new RegExp(`\\b(next|coming|following)\\s+(?:week\\s+)?(?:${DAY_WORDS.flat().join('|')})\\b`).test(s)
+      || /\b(next|following)\s+week\b/.test(s);
+    if (delta === 0 && next) delta = 7;
+    // A bare weekday that IS today means today, unless they said "next".
+    return addDays(today, delta);
+  }
+
+  // "on the 15th", "the 3rd"
+  const ord = /\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/.exec(s)
+    || /\b(\d{1,2})(?:st|nd|rd|th)\b/.exec(s);
+  // "15 March", "March 15", "15/3", "15-03-2026"
+  const dm = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_RE})\\b`).exec(s)
+    || new RegExp(`\\b(${MONTH_RE})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`).exec(s);
+  const iso = /\b(\d{4})-(\d{2})-(\d{2})\b/.exec(s);
+  const slash = /\b(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?\b/.exec(s);
+
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  if (dm) {
+    const monthFirst = MONTHS.some((m) => dm[1] === m || dm[1] === m.slice(0, 3));
+    const day = Number(monthFirst ? dm[2] : dm[1]);
+    const name = String(monthFirst ? dm[1] : dm[2]);
+    const month = MONTHS.findIndex((m) => m === name || m.slice(0, 3) === name);
+    if (month >= 0 && day >= 1 && day <= 31) return forwardFrom(today, month, day);
+  }
+
+  if (slash) {
+    // Day first: this is Australian software.
+    const day = Number(slash[1]);
+    const month = Number(slash[2]) - 1;
+    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      if (slash[3]) {
+        const y = Number(slash[3].length === 2 ? `20${slash[3]}` : slash[3]);
+        return `${y}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+      return forwardFrom(today, month, day);
+    }
+  }
+
+  if (ord) {
+    const day = Number(ord[1]);
+    if (day >= 1 && day <= 31) {
+      const y = Number(today.slice(0, 4));
+      const m = Number(today.slice(5, 7)) - 1;
+      const thisMonth = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      // The 3rd, said on the 20th, is next month's 3rd.
+      if (thisMonth >= today) return thisMonth;
+      const nm = m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 };
+      return `${nm.y}-${String(nm.m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  return null;
+}
+
+/** The next occurrence of a month/day, this year or next. */
+function forwardFrom(today, month, day) {
+  const y = Number(today.slice(0, 4));
+  const build = (yy) => `${yy}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return build(build(y) >= today ? y : y + 1);
+}
+
+/** "Friday 12 September" — how a day reads when Kai says where it took you. */
+export function dateLabel(date, today) {
+  if (!date) return '';
+  if (date === today) return 'today';
+  if (today && date === addDays(today, 1)) return 'tomorrow';
+  if (today && date === addDays(today, -1)) return 'yesterday';
+  const d = new Date(`${date}T12:00:00`);
+  const month = MONTHS[d.getMonth()].replace(/^./, (c) => c.toUpperCase());
+  // The year only when it is not this one. "Friday 15 March" reads wrong for a
+  // date six months into next year, and an owner checking where Kai took them
+  // has to be able to see that from the sentence.
+  const year = today && date.slice(0, 4) !== today.slice(0, 4) ? ` ${date.slice(0, 4)}` : '';
+  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${month}${year}`;
+}
 
 /**
  * The stretch of time a question is about.

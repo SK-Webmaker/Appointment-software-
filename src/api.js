@@ -53,6 +53,8 @@ import {
   applyPlan as kaiApply, undoChange as kaiUndo, isUndo as kaiIsUndo, lastChange as kaiLastChange,
   readCompound as kaiCompound,
 } from './kai-actions.js';
+import { readNav as kaiNav, closedOn as kaiClosedOn } from './kai-nav.js';
+import { speak as kaiSpeak } from './kai-voice.js';
 import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
   safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
@@ -2567,16 +2569,26 @@ route('POST', '/api/ask/apply', async ({ req, user }) => {
  * from what its owner believes is not fixed by an undo nobody knew to press.
  */
 route('POST', '/api/ask/do', async ({ req, user }) => {
-  const b = checkBody(await readJson(req), { q: s.str(200, { required: true }) });
+  const b = checkBody(await readJson(req), {
+    q: s.str(200, { required: true }),
+    turn: s.num({ min: 0, max: 100000 }),
+  });
   const q = str(b.q, 200);
+  // Which exchange this is, so the opener rotates rather than repeating. Sent
+  // by the panel; a caller that omits it simply always gets the first one.
+  const turn = Number.isFinite(Number(b.turn)) ? Math.floor(Number(b.turn)) : 0;
+  // `said` is the fact and never changes. `warm` is the same sentence with a
+  // greeting on the front — see the header of src/kai-voice.js for why those
+  // are two fields and not one.
+  const dress = (r) => ({ ...r, warm: kaiSpeak(r.kind, r.said, turn) });
 
   if (kaiIsUndo(q)) {
     const undone = kaiUndo('');
-    if (!undone) return { ok: false, kind: 'nothing', said: "There's nothing to undo." };
-    return {
+    if (!undone) return dress({ ok: false, kind: 'nothing', said: "There's nothing to undo." });
+    return dress({
       ok: true, kind: 'undone', said: undone.said,
       did: undone.title, undone_token: undone.token, settings: getSettings(),
-    };
+    });
   }
 
   // Two things in one breath, done in order. Only taken when each half is a
@@ -2587,7 +2599,7 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
       ...many.done.map((p) => p.short || p.said),
       ...many.already,
     ].join(' ');
-    return {
+    return dress({
       ok: many.done.length > 0,
       kind: many.done.length ? 'done' : 'already',
       did: many.done.map((p) => p.title).join(' + '),
@@ -2599,21 +2611,21 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
       ],
       undo_token: many.token || null,
       settings: getSettings(),
-    };
+    });
   }
 
   const { plans, noops } = kaiReadActions(q, { today: bizToday() });
   const { plan, options } = kaiDecide(plans);
 
   if (!plan && options.length) {
-    return {
+    return dress({
       ok: false, kind: 'ambiguous',
       said: 'I could read that two ways — which did you mean?',
       options: options.map((p) => ({
         title: p.title, detail: p.detail, changes: p.changes,
         warnings: p.warnings, fingerprint: p.fingerprint,
       })),
-    };
+    });
   }
   if (!plan) {
     // Understood, but there was nothing to do. Telling an owner that "close
@@ -2623,19 +2635,30 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
     // The first reading only: two capabilities can both find nothing to do —
     // "open Monday to Friday 9 to 5" is already-open and already-those-hours —
     // and saying it twice in different words reads like a stutter.
-    if (noops.length) return { ok: true, kind: 'already', said: noops[0] };
-    return {
+    if (noops.length) return dress({ ok: true, kind: 'already', said: noops[0] });
+
+    // Nothing to change, so: somewhere to go? Read last on purpose. A sentence
+    // that changes something is never a request to visit the screen that would
+    // have changed it by hand.
+    const nav = kaiNav(q, { today: bizToday() });
+    if (nav) {
+      return dress({
+        ok: true, kind: 'went', said: nav.said, did: nav.title, href: nav.href,
+        date: nav.date, warnings: nav.date ? [kaiClosedOn(nav.date)].filter(Boolean) : [],
+      });
+    }
+    return dress({
       ok: false, kind: 'unknown',
       said: "I couldn't work out what to change there.",
-    };
+    });
   }
 
   const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
-  return {
+  return dress({
     ok: true, kind: 'done', did: plan.title, said: plan.said,
     changes: plan.changes, warnings: plan.warnings,
     undo_token: undoToken, settings: getSettings(),
-  };
+  });
 });
 
 /** Put back the last change, or a named one. */

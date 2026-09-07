@@ -29,6 +29,7 @@ import { db, getSetting, publicUrl } from './db.js';
 import { clientRhythms } from './opportunities.js';
 import { tokenise, scoreIntent, readPeriod, readWeekdays } from './kai-language.js';
 import { readActions, previewCompound } from './kai-actions.js';
+import { readNav, matchPlaces } from './kai-nav.js';
 
 const money = (cents) => `${getSetting('currency', '$')}${((cents || 0) / 100).toFixed(2)}`;
 const clock = (min) => {
@@ -66,42 +67,6 @@ const answer = (o) => ({
   // meant and the owner picked one.
   ...(o.plan ? { plan: o.plan } : {}),
 });
-
-// ---------------------------------------------------------------------------
-// Places
-// ---------------------------------------------------------------------------
-
-/**
- * Every screen worth jumping to, with the words an owner would actually use.
- *
- * "sms reminders" is not the name of a page; it is what somebody types when
- * they want to change how texts go out. The aliases matter more than the
- * titles, because the titles are what they could already see in the sidebar.
- */
-const PLACES = [
-  { title: 'Today', href: '#/dashboard', words: 'dashboard home today overview takings' },
-  { title: 'Calendar', href: '#/calendar', words: 'calendar diary book appointments schedule' },
-  { title: 'Clients', href: '#/clients', words: 'clients customers people contacts' },
-  { title: 'Services', href: '#/services', words: 'services prices price list treatments menu' },
-  { title: 'Products', href: '#/products', words: 'products retail stock inventory' },
-  // Alias lists have to carry the CANONICAL word as well as the natural ones —
-  // "who owes me" reaches the matcher as "owing", and a page that only lists
-  // "owed" is invisible to it however obvious the connection looks in writing.
-  { title: 'Billing', href: '#/invoices', words: 'invoices billing bills payments owed unpaid owing' },
-  { title: 'Messages', href: '#/messages', words: 'messages sent email sms log outbox' },
-  { title: 'Reviews', href: '#/reviews', words: 'reviews ratings feedback stars' },
-  { title: 'Growth', href: '#/growth', words: 'growth referrals referral link google new clients' },
-  { title: 'Team', href: '#/staff', words: 'staff team roster hours rota stylists' },
-  { title: 'Point of Sale', href: '#/pos', words: 'pos till checkout sell payment counter' },
-  { title: 'Settings → Opening hours', href: '#/settings', words: 'open hours days times closed shut trading roster week' },
-  { title: 'Settings → Notifications', href: '#/settings', words: 'sms reminders notifications email confirmations texts resend clicksend' },
-  { title: 'Settings → Booking page', href: '#/settings', words: 'booking page brand colours logo online booking' },
-  { title: 'Settings → No-shows', href: '#/settings', words: 'no shows noshow deposits blocked rules confirm' },
-  { title: 'Settings → Patch tests', href: '#/settings', words: 'patch test allergy consent safety contraindication ppd colour' },
-  { title: 'Settings → Marketing', href: '#/settings', words: 'marketing automations campaigns offers' },
-  { title: 'Settings → Backups', href: '#/settings', words: 'backup backups restore export database' },
-  { title: 'Account', href: '#/account', words: 'account password security login sign in' },
-];
 
 // ---------------------------------------------------------------------------
 // The questions
@@ -424,6 +389,23 @@ export function ask(query, { today }) {
     const previews = many
       ? many.map((d) => d.plan).filter(Boolean)
       : readActions(raw, { today }).plans;
+    // Somewhere to go counts as a preview too: an owner typing "calendar in two
+    // days" should see "Calendar — Friday 18 September" before they commit to
+    // the keystroke, the same as any change.
+    const nav = readNav(raw, { today });
+    if (nav) {
+      out.push(answer({
+        // Its own kind, not 'action'. A place to go and a change to make are
+        // different promises, and drawing them the same way tells an owner
+        // that Enter is about to alter something when it is about to move.
+        kind: 'goto',
+        title: nav.title,
+        detail: nav.detail || nav.said,
+        matched: 'somewhere to go',
+        href: nav.href,
+        score: nav.score,
+      }));
+    }
     for (const plan of previews) {
       out.push(answer({
         kind: 'action',
@@ -437,20 +419,22 @@ export function ask(query, { today }) {
     }
   } catch { /* a change Kai cannot work out is simply not offered */ }
 
-  // Places, matched on the words an owner would use rather than the page title.
-  for (const place of PLACES) {
-    const hay = `${place.title.toLowerCase()} ${place.words}`;
-    const hits = keys.filter((t) => hay.includes(t)).length;
-    if (!hits) continue;
+  // Places, from the same catalogue Kai navigates by — so every screen it can
+  // TAKE you to is also a screen you can find by typing a word from it, and the
+  // two can never drift apart into two different ideas of where things live.
+  //
+  // (The line this replaced carried a stray NUL byte in a string literal, which
+  // is why every grep of this file reported it as binary.)
+  for (const place of matchPlaces(raw).slice(0, 4)) {
     out.push(answer({
       kind: 'place',
       title: place.title,
       detail: 'Go there',
-      matched: 'a page',
+      matched: place.kind === 'section' ? 'a settings section' : 'a page',
       href: place.href,
       // Weaker than a real answer: somebody typing "sarah" wants Sarah, not the
       // Services page because both contain an "s".
-      score: 40 + hits * 8 + (hay.startsWith(keys[0] || ' ') ? 20 : 0),
+      score: 40 + place.hits * 6,
     }));
   }
 

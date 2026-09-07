@@ -91,6 +91,43 @@ export function kairoTile(size = 30, id = 'kt') {
 
 export const LOGO_SVG = kairoMark(30, 'kg');
 
+/**
+ * Kai's face.
+ *
+ * The same mark as the brand — the clock hand and the separated dot — inside a
+ * ring that the panel animates to show what Kai is doing. There is no cartoon
+ * and no bouncing blob here on purpose: this thing changes what a salon trades
+ * on, and it should look like a professional instrument that happens to be
+ * friendly rather than a toy that happens to be dangerous.
+ *
+ * The rings are drawn once and animated in CSS, so idling costs nothing and a
+ * reduced-motion setting can stop the whole thing dead.
+ */
+export function kairoOrb(size = 38, id = 'ko') {
+  return `
+<svg class="orb-svg" width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="${id}g" x1="16" y1="12" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <radialGradient id="${id}h" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle class="orb-halo" cx="32" cy="32" r="31" fill="url(#${id}h)"/>
+  <circle class="orb-ring orb-ring-2" cx="32" cy="32" r="28" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="1.5"/>
+  <circle class="orb-ring orb-ring-1" cx="32" cy="32" r="23.5" stroke="#38bdf8" stroke-opacity="0.34" stroke-width="1.5"
+          stroke-dasharray="30 118" stroke-linecap="round"/>
+  <g transform="translate(13.5 13.5) scale(0.78)">
+    <path d="M13.75 10.5V37.5" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M17.2 25.6L33.6 37.5" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <circle class="orb-dot" cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/>
+  </g>
+</svg>`;
+}
+
 // ---------- formatting ----------
 
 let CURRENCY = '$';

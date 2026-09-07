@@ -483,60 +483,83 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
-### ⌘K Kai — say what you want changed, and it changes (v1.54.0)
-Press **⌘K** (Ctrl+K), or just **/**, or the **Ask Kai** button in the top bar.
-
-**Say it and it happens.** Not a form, not a proposal waiting for a press:
+### ⌘K Kai — the assistant that runs the salon while your hands are full (v1.55.0)
+Press **⌘K** (Ctrl+K), or **/**, or the **Ask Kai** button. A console with a
+face, a conversation and a composer — not a search box.
 
 > *"change 11am to 4pm hours on a Sunday to 2 to 6"*
-> **→ Sunday is 2pm–6pm now.**  `Sunday: 11am–4pm → 2pm–6pm`  · **Undo that**
+> **→ No worries — Sunday is 2pm–6pm now.**  `Sunday: 11am–4pm → 2pm–6pm` · **Undo that**
 
-- *"close on Mondays"* · *"open Saturday 10 to 3"* · *"we only open Thursday and Friday"*
-- *"open Monday to Friday 9 to 5"* · *"change our hours to 8 to 6"*
-- *"turn off online booking"* · *"turn the waitlist on"* · *"stop sending reminders"*
-- *"remind them the day before"* · *"let people book 60 days ahead"* · *"I need 2 hours notice"*
-- *"clients can cancel up to 12 hours before"* · *"make my slots 30 minutes"*
-- *"ask for a deposit after 2 no shows"* · *"stop online booking after 3 no shows"*
-- *"take a deposit on anything over $200"* · *"a blow dry is $45 now"* · *"a blow dry takes 25 minutes"*
-- **two in one breath**: *"close Mondays and open Saturday 10 to 3"* — both happen,
-  one **Undo** puts both back
+> *"show me my calendar in two days"*
+> **→ Righto — Here's Friday 18 September — 3 appointments.**
 
-**It still answers questions**, exactly as before — takings, who owes you, who
-hasn't been in, what's on today, anyone by name or number, every settings page
-under the words you'd actually use.
+**It goes anywhere, on any day.** Every screen and every settings card, by the
+words you'd actually use:
 
-**Typing searches. Enter does it.** Every keystroke shows what Enter *would*
-do — `Friday: closed → 11am–2pm` — so the before and after are on screen before
-you commit to the keystroke. Nothing changes while you type, ever.
+- *"show me my calendar in two days"* · *"my booking schedule in three days"*
+- *"what's on tomorrow"* · *"show me next Friday"* · *"open the calendar on the 15th"*
+- *"take me to my clients"* · *"go to billing"* · *"open the till"*
+- *"where do I change my logo"* · *"open my no-show settings"* · *"show me backups"*
 
-**What keeps that safe is not confidence, it's reversibility.** The old model
-was confirm-before; this one is **do-then-undo**, which for this kind of change
-is the stronger of the two. A card you skim protects you from a misreading you
-spot in advance; a result you can read — *"Sunday is 2pm–6pm now"* — is the
-moment a misreading is actually obvious, and **Undo** is one press or one word
-away. Every change records the prior value of *exactly* the settings it wrote,
-so an undo puts those back and leaves anything somebody else changed meanwhile
-alone. The undo stack survives a redeploy.
+It reads days the way people say them — tomorrow, in two days, next Friday, the
+15th, 25/12 — resolves them against **your** today, and says which day it landed
+on, because "in two days" is only checkable once it's a date. A settings card is
+scrolled to and flashed, so you can see *which* one it meant.
+
+**It changes almost anything you can click.** Opening days and hours, online
+booking, the waitlist, reminders and how long before, how far ahead people can
+book, minimum notice, the cancellation window, slot spacing, both no-show rules,
+deposits (flat or a percentage, and the threshold), confirmations, receipts,
+review requests and how long after, **which channel each message goes down**,
+letting clients cancel online, filling cancellations automatically, asking how
+they heard about you, tax, invoice terms, rebooking defaults, the booking page's
+colour scheme, patch-test rules, backups, the hours your calendar grid shows,
+and any service's price or length.
+
+- *"send reminders by text"* · *"make my booking page cream"* · *"take a 20% deposit"*
+- *"don't let clients cancel online"* · *"set GST to 10%"* · *"back up daily"*
+- *"close Mondays and open Saturday 10 to 3"* — two in one breath, one **Undo** for both
+
+**It still answers questions** — takings, who owes you, who hasn't been in,
+what's on today, anyone by name or number.
+
+**Typing searches. Enter does it.** Every keystroke shows what Enter *would* do
+— `Friday: closed → 11am–2pm`, or `Calendar — Friday 18 September` — so the
+before and after are on screen before you commit to the keystroke. Nothing
+changes while you type, ever.
+
+**It has a personality, and it never gets in the way.** "No worries —", "Righto
+—", "Done —". The opener is warm and carries no information; the sentence after
+it is the fact, verbatim from the change that actually ran. The rule the code
+enforces is that the dressed sentence **always ends with the plain one,
+character for character** — so the charm never stands between you and the
+receipt. Openers never appear on a failure or a question, and speech gets the
+fact alone, because "no worries" heard on every change becomes a tic.
+
+**What keeps that safe is reversibility, not confidence.** Every change records
+the prior value of *exactly* the settings it wrote, so an undo puts those back
+and leaves anything changed in another tab alone. The undo stack survives a
+redeploy.
 
 The lines that have not moved:
 
 - **A question is never a command.** *"What time do we close on Friday"* changes
-  nothing. *"Can you please close Mondays"* is an instruction, not a question.
-- **It never guesses.** Where two readings are close it hands both back and
-  asks — an undo does not help somebody who never realised the wrong thing
-  happened.
-- **Nothing that reaches a client happens here.** Settings are reversible; a
-  text to four hundred people is not.
-- **Already-true is said, not mistaken for not-understood.** *"Close on Sunday"*
-  when Sunday is already closed answers *"You're already closed on Sunday"*.
-- It tells you what it **disturbed**: *"6 appointments are already booked on a
-  Monday. They stay in your diary — nothing was cancelled."*
+  nothing, and *"what did we take last week"* is answered rather than navigated
+  away from. *"Can you please close Mondays"* is an instruction, not a question.
+- **Looking at a day is not trading on it.** *"Open my calendar on Saturday"*
+  shows you Saturday; *"open on Saturday"* opens the salon. One word apart, and
+  getting it backwards is the worse of the two mistakes by a wide margin.
+- **It never guesses.** Where two readings are close it hands both back and asks.
+- **Nothing that reaches a client happens here.** Settings are reversible; a text
+  to four hundred people is not. Booking, cancelling, refunding and messaging
+  stay deliberate acts on their own screens.
+- **Already-true is said, not mistaken for not-understood.**
 
-**Hands free, both ways.** The 🎤 uses your browser's own dictation — no
-account, no cost, nothing added to Kairo. Finish the sentence and it happens,
-Kai reads the answer back, and *"undo"* is a word you can say. That is the whole
-point: an owner with wet hands and a client in the chair should be able to
-change their Sunday without touching anything.
+**Hands free, both ways.** The 🎤 uses your browser's own dictation — no account,
+no cost, nothing added to Kairo. Finish the sentence and it happens, Kai reads
+the answer back, and *"undo"* is a word you can say. An owner with wet hands and
+a client in the chair should be able to change their Sunday without touching
+anything.
 
 **There is no AI model behind any of it**, and that is a decision rather than a
 shortcut. A model is an API call per request — small, permanent, and paid per

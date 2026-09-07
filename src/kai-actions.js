@@ -37,8 +37,9 @@ import { db, getSetting, setSetting } from './db.js';
 import { parseDayRules } from '../public/js/hours.js';
 import {
   DAY_NAMES, listDays, readWeekdays, readTimeRanges, tokenise, normalise,
-  clockLabel, readNumbers, readMoney, readDuration, splitClauses,
+  clockLabel, readNumbers, readMoney, readDuration, splitClauses, readClock,
 } from './kai-language.js';
+import { VIEWING } from './kai-nav.js';
 
 /**
  * Sentences that are asking, not instructing.
@@ -47,6 +48,16 @@ import {
  * answering a question and doing something nobody asked for.
  */
 const ASKING = /^(what|when|who|whom|why|where|which|whats|hows|do|does|did|are|is|was|were|am|will|have|has|had|can|could|should|show|tell|list)\b/;
+
+/**
+ * "Don't let clients cancel online" is an instruction that opens with "do".
+ *
+ * A leading negation is never a question — nobody asks "do not we open on
+ * Sunday" — so it is exempted before the guard above sees it. Without this,
+ * the whole family of "don't", "never" and "stop" sentences was silently
+ * refused for starting with the wrong word.
+ */
+const NEGATED_ORDER = /^(do not|dont|does not|never|no longer)\b/;
 
 /**
  * "Can you please close Mondays" is an instruction wearing a question mark.
@@ -66,8 +77,60 @@ const csvDays = (v) => String(v || '')
 
 const uniqueSorted = (arr) => [...new Set(arr)].sort((a, b) => a - b);
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+/**
+ * "By text", "over email", "as an SMS" — a choice of pipe, not a switch.
+ *
+ * Every message type has both a switch and a channel, and they answer to
+ * overlapping words. "Send reminders by text" said to the switch turns on
+ * something already on and quietly changes nothing anybody asked for, so each
+ * switch stands down when one of these appears and the channel takes it.
+ */
+const CHANNEL = /\b(?:by|via|over|through|using|as)\s+(?:an?\s+)?(?:email|e mail|sms|text|texts|txt|message|both)\b|\bemail\s+and\s+(?:text|sms)\b|\b(?:text|sms)\s+and\s+email\b/;
+
+function readChannel(raw) {
+  if (!CHANNEL.test(raw)) return null;
+  const wantsSms = /\b(sms|text|texts|txt)\b/.test(raw);
+  const wantsEmail = /\b(email|e mail)\b/.test(raw);
+  if (/\bboth\b/.test(raw) || (wantsSms && wantsEmail)) return 'both';
+  if (wantsSms) return 'sms';
+  if (wantsEmail) return 'email';
+  return null;
+}
+
+/**
+ * The booking page's colour scheme, named the way somebody would say it.
+ *
+ * These are the eight palettes in public/js/schemes.js. Colour words map to the
+ * scheme that IS that colour rather than to an accent, because an owner who
+ * says "make my booking page cream" means the whole page, and the accent alone
+ * would leave it black.
+ */
+const SCHEME_LABELS = {
+  midnight: 'Midnight', noir: 'Noir', ocean: 'Deep Ocean', mocha: 'Mocha',
+  daylight: 'Daylight', cream: 'Cream', blush: 'Blush', sage: 'Sage',
+};
+const SCHEME_WORDS = [
+  [/\b(midnight|navy|default)\b/, 'midnight'],
+  [/\b(noir|black|charcoal|monochrome)\b/, 'noir'],
+  [/\b(ocean|deep ocean|teal|sea)\b/, 'ocean'],
+  [/\b(mocha|brown|coffee|chocolate)\b/, 'mocha'],
+  [/\b(daylight|light|white|bright)\b/, 'daylight'],
+  [/\b(cream|beige|ivory|warm)\b/, 'cream'],
+  [/\b(blush|pink|rose)\b/, 'blush'],
+  [/\b(sage|green|olive)\b/, 'sage'],
+];
+
+function readScheme(raw) {
+  // Only when the sentence is about the page they see. "Turn the light off" is
+  // not a request for the Daylight palette.
+  if (!/\b(booking page|page|theme|scheme|colour|color|palette|look|style|branding|brand)\b/.test(raw)) return null;
+  return SCHEME_WORDS.find(([re]) => re.test(raw))?.[1] || null;
+}
 const money = (cents) => `${getSetting('currency', '$')}${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
 const onOff = (v) => (v === '1' ? 'on' : 'off');
+/** "1 day", "2 days" — a unit rounded to days should not read like a bug. */
+const plural = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
 
 /** The hours settings as they stand. */
 function currentHours() {
@@ -190,8 +253,13 @@ function makePlan(o) {
 /** A capability that flips one setting between two states. */
 function toggle({ id, key, on, off, label, score = 90 }) {
   return (ctx) => {
-    const wantsOn = on.test(ctx.raw);
-    const wantsOff = off.test(ctx.raw);
+    // A negation settles it before the two patterns fight. "Don't let clients
+    // cancel online" contains "let", which is an on-word, and matched both
+    // sides — so Kai read a plain instruction as self-contradictory and did
+    // nothing at all with it.
+    const negated = /\b(do not|does not|dont|doesnt|never|no longer|stop)\b/.test(ctx.raw);
+    const wantsOn = !negated && on.test(ctx.raw);
+    const wantsOff = negated ? off.test(ctx.raw) || on.test(ctx.raw) : off.test(ctx.raw);
     if (wantsOn === wantsOff) return null; // neither, or contradictory
     const value = wantsOn ? '1' : '0';
     return makePlan({
@@ -229,6 +297,13 @@ const CAPABILITIES = [
   // ── Opening days and hours ───────────────────────────────────────────────
   function hours(ctx) {
     const { days, times, cur, today } = ctx;
+    // "Open my calendar on Saturday" and "open on Saturday" differ by one word
+    // and mean opposite things. Naming a surface you look at — calendar, diary,
+    // schedule — means looking, so the hours reading stands down and navigation
+    // takes it. Getting this backwards changes what a salon trades on because
+    // somebody wanted to see a day, which is the worse of the two mistakes by a
+    // wide margin.
+    if (VIEWING.test(ctx.raw)) return [];
     const has = (k) => ctx.keys.includes(k);
     const wantsClose = has('close') || has('remove');
     const wantsAdd = has('add');
@@ -509,6 +584,10 @@ const CAPABILITIES = [
   // ── A deposit on anything over an amount ─────────────────────────────────
   (ctx) => {
     if (!/deposit/.test(ctx.raw)) return null;
+    // "Over" is what makes this a threshold. Without it, "take a $50 deposit"
+    // reads as both the deposit amount and the size of booking that triggers
+    // one, and Kai stops to ask about a sentence with only one meaning.
+    if (!/\b(over|above|more than|greater than|bigger than|from)\b/.test(ctx.raw)) return null;
     const cents = readMoney(ctx.raw);
     if (cents === null) return null;
     return makePlan({
@@ -527,8 +606,330 @@ const CAPABILITIES = [
     });
   },
 
+  // ── The messages that go out, one by one ─────────────────────────────────
+  //
+  // Each of these is a message type an owner turns on or off in Settings →
+  // Notifications. Guarded by its own subject word so "stop sending receipts"
+  // cannot reach the reminder switch, and each stands down when the sentence is
+  // about the CHANNEL rather than the switch — "send receipts by text" is a
+  // choice of pipe, not a request to turn receipts on.
+  (ctx) => (/(confirmation|confirmations)/.test(ctx.raw) && !CHANNEL.test(ctx.raw)
+    ? toggle({
+      id: 'confirm_enabled',
+      key: 'confirm_enabled',
+      label: 'Booking confirmations',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|send)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 91,
+    })(ctx) : null),
+
+  (ctx) => (/receipt/.test(ctx.raw) && !CHANNEL.test(ctx.raw)
+    ? toggle({
+      id: 'receipts_enabled',
+      key: 'receipts_enabled',
+      label: 'Receipts',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|send)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 91,
+    })(ctx) : null),
+
+  (ctx) => (/review/.test(ctx.raw) && !CHANNEL.test(ctx.raw) && !/\bhours?\b|\bdays?\b/.test(ctx.raw)
+    ? toggle({
+      id: 'review_requests_enabled',
+      key: 'review_requests_enabled',
+      label: 'Review requests',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|send|ask)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 91,
+    })(ctx) : null),
+
+  // How long after a visit the review request goes.
+  (ctx) => (/review/.test(ctx.raw) && /\b(hours?|days?|later|after)\b/.test(ctx.raw)
+    ? number({
+      id: 'review_delay_hours',
+      key: 'review_delay_hours',
+      label: 'Review requests go',
+      read: (c) => { const d = readDuration(c.raw); return d === null ? null : d / 60; },
+      format: (h) => (h >= 48 && h % 24 === 0 ? `${h / 24} days after` : `${h} hours after`),
+      min: 1,
+      max: 720,
+      said: (h) => `Review requests go ${h >= 48 && h % 24 === 0 ? `${h / 24} days` : `${h} hours`} after the visit now.`,
+      score: 92,
+    })(ctx) : null),
+
+  (ctx) => (/\b(text|texts|texting|sms)\b/.test(ctx.raw) && !CHANNEL.test(ctx.raw)
+    ? toggle({
+      id: 'sms_notifications_enabled',
+      key: 'sms_notifications_enabled',
+      label: 'Text messages',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 89,
+    })(ctx) : null),
+
+  // ── Which pipe a message goes down ───────────────────────────────────────
+  //
+  // "Send reminders by text" is one of the most useful sentences in the whole
+  // catalogue and one of the easiest to get wrong: said to the switch instead
+  // of the channel it turns reminders ON when they were already on and changes
+  // nothing anybody wanted.
+  (ctx) => {
+    const chan = readChannel(ctx.raw);
+    if (!chan) return null;
+    const which = [
+      [/remind/, 'chan_reminder', 'Reminders'],
+      [/confirmation/, 'chan_confirmation', 'Confirmations'],
+      [/receipt/, 'chan_receipt', 'Receipts'],
+      [/review/, 'chan_review_request', 'Review requests'],
+    ].find(([re]) => re.test(ctx.raw));
+    if (!which) return null;
+    const [, key, label] = which;
+    const asWords = { email: 'email', sms: 'text', both: 'email and text' };
+    return makePlan({
+      id: key,
+      title: `${label}: by ${asWords[chan]}`,
+      said: `${label} go by ${asWords[chan]} now.`,
+      already: `${label} already go by ${asWords[chan]}.`,
+      changes: [{
+        label,
+        from: `by ${asWords[getSetting(key, 'email')] || 'email'}`,
+        to: `by ${asWords[chan]}`,
+      }],
+      warnings: chan !== 'email' && getSetting('sms_notifications_enabled', '0') !== '1'
+        ? ['Texting is switched off in Settings → SMS, so these will not go until you turn it on.'] : [],
+      settings: { [key]: chan },
+      score: 94,
+    });
+  },
+
+  // ── Letting clients cancel and rebook themselves ─────────────────────────
+  (ctx) => (/cancel/.test(ctx.raw) && /\b(client|clients|customer|customers|them|themselves|people|online)\b/.test(ctx.raw)
+    && !readDuration(ctx.raw) && readNumbers(ctx.raw).length === 0
+    ? toggle({
+      id: 'client_cancel_enabled',
+      key: 'client_cancel_enabled',
+      label: 'Clients cancelling online',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|allow|let)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop|dont|do not|prevent)\b/,
+      score: 90,
+    })(ctx) : null),
+
+  // ── Filling the gaps a cancellation leaves ───────────────────────────────
+  (ctx) => (/(autofill|auto fill|automatically fill|fill.{0,12}(gap|cancellation)|gap fill)/.test(ctx.raw)
+    ? toggle({
+      id: 'waitlist_autofill',
+      key: 'waitlist_autofill',
+      label: 'Filling cancellations automatically',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|automatically)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 90,
+    })(ctx) : null),
+
+  // ── Asking new clients how they found the salon ──────────────────────────
+  (ctx) => (/(heard|found us|find us|how they found|where they came from)/.test(ctx.raw)
+    ? toggle({
+      id: 'ask_heard_from',
+      key: 'ask_heard_from',
+      label: 'Asking how they heard about you',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|ask|do)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop|dont|do not)\b/,
+      score: 90,
+    })(ctx) : null),
+
+  // ── The deposit itself: a flat amount or a share of the price ────────────
+  (ctx) => {
+    if (!/deposit/.test(ctx.raw)) return null;
+    // "over $200" is the threshold rule above, not the deposit amount.
+    if (/\bover\b|\babove\b|\bmore than\b/.test(ctx.raw)) return null;
+    const pct = /(\d{1,3})\s*(?:%|percent|per cent)/.exec(ctx.raw);
+    const cents = readMoney(ctx.raw);
+    if (!pct && cents === null) return null;
+    const type = pct ? 'percent' : 'fixed';
+    const value = pct ? String(clamp(Number(pct[1]), 1, 100)) : String(cents / 100);
+    const shown = pct ? `${value}%` : money(cents);
+    const wasType = getSetting('deposit_type', 'none');
+    const wasValue = getSetting('deposit_value', '');
+    const wasShown = wasType === 'none' ? 'no deposit'
+      : wasType === 'percent' ? `${wasValue}%` : money(Math.round(Number(wasValue || 0) * 100));
+    return makePlan({
+      id: 'deposit_amount',
+      title: `Deposit: ${shown}`,
+      said: `The deposit is ${shown}${pct ? ' of the service price' : ''} now.`,
+      already: `The deposit is already ${shown}.`,
+      changes: [{ label: 'Deposit', from: wasShown, to: shown }],
+      warnings: getSetting('stripe_secret_key', '') === ''
+        ? ['Deposits need Stripe set up in Settings → Payments. Until then there is nothing to charge them on.'] : [],
+      settings: { deposit_type: type, deposit_value: value },
+      score: 93,
+    });
+  },
+
+  // ── Tax ──────────────────────────────────────────────────────────────────
+  (ctx) => {
+    if (!/\b(tax|gst|vat)\b/.test(ctx.raw)) return null;
+    const pct = /(\d{1,2}(?:\.\d{1,2})?)\s*(?:%|percent|per cent)?/.exec(ctx.raw);
+    if (!pct) return null;
+    const v = Math.min(100, Math.max(0, Number(pct[1])));
+    return makePlan({
+      id: 'tax_rate',
+      title: `Tax: ${v}%`,
+      said: v === 0 ? 'No tax is added to invoices now.' : `Tax is ${v}% now.`,
+      already: `Tax is already ${v}%.`,
+      changes: [{ label: 'Tax rate', from: `${getSetting('tax_rate', '0')}%`, to: `${v}%` }],
+      settings: { tax_rate: String(v) },
+      score: 91,
+    });
+  },
+
+  // ── How long an invoice has to be paid ───────────────────────────────────
+  (ctx) => (/invoice/.test(ctx.raw) && /\b(due|payable|terms|pay)\b/.test(ctx.raw)
+    ? number({
+      id: 'invoice_due_days',
+      key: 'invoice_due_days',
+      label: 'Invoices are due in',
+      read: (c) => { const d = readDuration(c.raw); return d === null ? (readNumbers(c.raw)[0] ?? null) : d / 1440; },
+      format: (d) => `${d} days`,
+      min: 0,
+      max: 365,
+      said: (d) => (d === 0 ? 'Invoices are due on the day now.' : `Invoices are due in ${d} days now.`),
+      score: 90,
+    })(ctx) : null),
+
+  // ── When to suggest the next visit ───────────────────────────────────────
+  (ctx) => (/\brebook|\bre book|\bnext visit\b|\bback in\b/.test(ctx.raw)
+    ? number({
+      id: 'rebook_weeks_default',
+      key: 'rebook_weeks_default',
+      label: 'Suggest rebooking in',
+      read: (c) => { const d = readDuration(c.raw); return d === null ? (readNumbers(c.raw)[0] ?? null) : d / 10080; },
+      format: (w) => `${w} weeks`,
+      min: 1,
+      max: 104,
+      said: (w) => `Kairo suggests rebooking in ${w} weeks now.`,
+      score: 90,
+    })(ctx) : null),
+
+  // ── How the booking page looks ───────────────────────────────────────────
+  (ctx) => {
+    const scheme = readScheme(ctx.raw);
+    if (!scheme) return null;
+    return makePlan({
+      id: 'brand_scheme',
+      title: `Booking page: ${SCHEME_LABELS[scheme]}`,
+      said: `Your booking page is ${SCHEME_LABELS[scheme]} now.`,
+      already: `Your booking page is already ${SCHEME_LABELS[scheme]}.`,
+      changes: [{
+        label: 'Booking page',
+        from: SCHEME_LABELS[getSetting('brand_scheme', 'midnight')] || 'Midnight',
+        to: SCHEME_LABELS[scheme],
+      }],
+      detail: 'Only what customers see. Your own workspace is unchanged.',
+      settings: { brand_scheme: scheme },
+      score: 92,
+    });
+  },
+
+  // ── Patch tests ──────────────────────────────────────────────────────────
+  (ctx) => (/(patch|allergy|skin test)/.test(ctx.raw) && /\b(last|valid|good for|expire|month|months)\b/.test(ctx.raw)
+    ? number({
+      id: 'patch_valid_months',
+      key: 'patch_valid_months',
+      label: 'A patch test lasts',
+      read: (c) => readNumbers(c.raw)[0] ?? null,
+      format: (m) => `${m} months`,
+      min: 1,
+      max: 60,
+      said: (m) => `A patch test is good for ${m} months now.`,
+      score: 91,
+    })(ctx) : null),
+
+  (ctx) => (/(patch|allergy|skin test)/.test(ctx.raw) && /\b(before|notice|ahead|lead|hours?|days?)\b/.test(ctx.raw)
+    ? number({
+      id: 'patch_lead_hours',
+      key: 'patch_lead_hours',
+      label: 'A patch test is needed',
+      read: (c) => { const d = readDuration(c.raw); return d === null ? null : d / 60; },
+      format: (h) => (h % 24 === 0 ? plural(h / 24, 'day') : plural(h, 'hour')) + ' before',
+      min: 1,
+      max: 336,
+      said: (h) => `A patch test has to be ${h % 24 === 0 ? plural(h / 24, 'day') : plural(h, 'hour')} before the appointment now.`,
+      score: 91,
+    })(ctx) : null),
+
+  // ── Backups ──────────────────────────────────────────────────────────────
+  (ctx) => (/back ?up/.test(ctx.raw) && !/\b(daily|weekly|monthly|every)\b/.test(ctx.raw)
+    ? toggle({
+      id: 'backup_email_enabled',
+      key: 'backup_email_enabled',
+      label: 'Emailed backups',
+      on: /\b(turn|switch|put)\s+.{0,24}(back\s+)?on\b|\b(enable|start|send|email)\b/,
+      off: /\b(turn|switch|put|stop)\s+.{0,24}off\b|\b(disable|stop)\b/,
+      score: 89,
+    })(ctx) : null),
+
+  (ctx) => {
+    if (!/back ?up/.test(ctx.raw)) return null;
+    const how = /\b(daily|every day|weekly|every week|monthly|every month)\b/.exec(ctx.raw);
+    if (!how) return null;
+    const freq = /^(daily|every day)$/.test(how[1]) ? 'daily'
+      : /^(weekly|every week)$/.test(how[1]) ? 'weekly' : 'monthly';
+    return makePlan({
+      id: 'backup_frequency',
+      title: `Backups: ${freq}`,
+      said: `Backups are emailed ${freq} now.`,
+      already: `Backups are already emailed ${freq}.`,
+      changes: [{ label: 'Backups', from: getSetting('backup_frequency', 'weekly'), to: freq }],
+      settings: { backup_frequency: freq, backup_email_enabled: '1' },
+      score: 90,
+    });
+  },
+
+  // ── The hours the calendar itself shows ──────────────────────────────────
+  //
+  // Not trading hours: how far up and down the grid runs. An owner who starts
+  // at seven and finds the diary begins at nine has to scroll every morning.
+  (ctx) => {
+    // "diary" is what normalise folds calendar, schedule and agenda into.
+    if (!/\b(calendar|diary|grid)\b/.test(ctx.raw)) return null;
+    if (!/\b(start|starts|begin|begins|run|runs|end|ends|finish|finishes|until|till|from|show|display)\b/.test(ctx.raw)) return null;
+
+    const was = {
+      start: Number(getSetting('cal_start_min', '420')) || 420,
+      end: Number(getSetting('cal_end_min', '1260')) || 1260,
+    };
+    let { start, end } = was;
+    if (ctx.times) {
+      start = ctx.times.open_min;
+      end = ctx.times.close_min;
+    } else {
+      // One time, one side. "Make the calendar start at 7am" is how somebody
+      // fixes the thing that annoys them without touching the other end.
+      const one = readClock(ctx.raw);
+      if (one === null) return null;
+      if (/\b(end|ends|finish|finishes|until|till|to)\b/.test(ctx.raw)) end = one;
+      else start = one;
+    }
+    if (end <= start) return null;
+
+    const span = (a, b) => `${clockLabel(a)}–${clockLabel(b)}`;
+    return makePlan({
+      id: 'cal_window',
+      title: `Calendar shows ${span(start, end)}`,
+      said: `Your calendar runs ${clockLabel(start)} to ${clockLabel(end)} now.`,
+      already: `Your calendar already runs ${clockLabel(start)} to ${clockLabel(end)}.`,
+      detail: 'Only what the grid shows. Your trading hours are unchanged.',
+      changes: [{ label: 'Calendar grid', from: span(was.start, was.end), to: span(start, end) }],
+      settings: { cal_start_min: String(start), cal_end_min: String(end) },
+      score: 95,
+    });
+  },
+
   // ── Asking clients to confirm ────────────────────────────────────────────
-  (ctx) => (/confirm/.test(ctx.raw)
+  // Guarded against its near-namesake: "stop sending confirmations" is the
+  // confirmation EMAIL, and this is the separate feature that asks a client to
+  // confirm they are still coming. Both answered to /confirm/ and Kai rightly
+  // refused to guess between them on every sentence containing the word.
+  (ctx) => (/confirm/.test(ctx.raw) && !/confirmation/.test(ctx.raw)
     ? toggle({
       id: 'confirm_requests_enabled',
       key: 'confirm_requests_enabled',
@@ -613,7 +1014,9 @@ function matchService(raw) {
 export function readActions(text, { today }) {
   const raw = normalise(text);
   const asked = raw.replace(POLITE, '');
-  if (!asked || ASKING.test(asked)) return { plans: [], noops: [] };
+  if (!asked || (ASKING.test(asked) && !NEGATED_ORDER.test(asked))) {
+    return { plans: [], noops: [] };
+  }
   const ranges = readTimeRanges(text);
   const ctx = {
     raw,

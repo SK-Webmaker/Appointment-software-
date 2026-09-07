@@ -19,7 +19,7 @@ It is live. Two real businesses run their diaries on it today:
 | Hair By Sha (Camberwell, Melbourne) | `hairbysha.kairobookings.com` | `hairbysha-booking` / `srv-d9945q67r5hc73aoeb20` | Oregon |
 | Horahaircutz | `horahaircutz.kairobookings.com` | `horahaircutz-booking` / `srv-dac10jou01pc73fe99ug` | Singapore |
 
-Currently on **v1.54.0**. Both auto-deploy from branch
+Currently on **v1.55.0**. Both auto-deploy from branch
 `claude/appointment-booking-software-xqoy4f`. Render workspace
 `tea-d98ovh3eo5us73fgj8n0`. Cloudflare holds the zone `kairobookings.com`.
 
@@ -40,14 +40,19 @@ propose changing it:
   — no shared database, no shared table with a `tenant_id` column.
 - **Two front ends in one server:** the owner's workspace (calendar, clients,
   invoices, POS, settings) and the customer-facing booking page at `/book`.
-- **Kai**, the ⌘K bar, answers questions from the salon's own data and makes
-  changes to it from a sentence — opening days and hours, reminders, deposits,
-  no-show rules, service prices — including by voice, using the browser's own
-  dictation. Read `src/kai-actions.js` before you touch anything near it: it is
-  the only place in Kairo that alters a setting from natural language, and the
-  rules around that (do-then-undo rather than confirm-before, a question is
-  never a command, it asks rather than guessing between close readings, nothing
-  that reaches a client happens there) are the design rather than decoration.
+- **Kai**, the ⌘K console, is the product's point of difference and the thing
+  most likely to sell it. It answers questions from the salon's own data, makes
+  changes from a sentence (hours, reminders, deposits, no-show rules, message
+  channels, the booking page's palette, service prices — most of what an owner
+  can click), and takes them to any screen or settings card on any day they
+  name — all of it by voice if they want, using the browser's own dictation.
+  Four files: `kai.js` (the questions), `kai-actions.js` (the changes),
+  `kai-nav.js` (the destinations), `kai-voice.js` (the personality). Read them
+  before you touch anything near it. The rules are the design rather than
+  decoration: do-then-undo rather than confirm-before, a question is never a
+  command, looking at a day is not trading on it, it asks rather than guessing
+  between close readings, the warm opener always ends with the plain fact
+  character-for-character, and nothing that reaches a client happens there.
   **There is no language model anywhere in
   this product**, deliberately, for reasons recorded in `src/kai.js` — cost per
   business on a one-off price, cross-border disclosure of health information
@@ -214,7 +219,7 @@ they usually do — and what "live" actually means operationally on day one.
 ## 4. How to work
 
 - **Stop at the end of every phase and get approval.** This product got to
-  v1.54.0 through eight upgrades, each one explicitly gated by the owner. Keep
+  v1.55.0 through nine upgrades, each one explicitly gated by the owner. Keep
   that rhythm. Do not build during a research phase.
 - **Write deliverables to files in the repo, not just into the chat.** Your
   session may change models partway through (see §5). Anything that exists only
@@ -258,7 +263,7 @@ survives is your question to answer, not a given.
 
 ## 7. Where things stand
 
-- v1.54.0, live on both businesses, 2,000 checks across 59 suites, 0 failures.
+- v1.55.0, live on both businesses, 2,134 checks across 60 suites, 0 failures.
 - `README.md` is long and current — architecture, features, deployment, the lot.
 - `ONBOARDING.md` is the manual runbook you are being asked to make obsolete.
 - Open items unrelated to this work, so you do not trip over them: a stale
