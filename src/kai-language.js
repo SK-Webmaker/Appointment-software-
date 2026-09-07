@@ -124,6 +124,16 @@ const EXPANSIONS = [
   [/\bwe'?re\b/g, 'we are'], [/\bi'?m\b/g, 'i am'], [/\bwon'?t\b/g, 'will not'],
   [/\bcan'?t\b/g, 'can not'], [/\bcould'?ve\b/g, 'could have'],
   [/\bno[\s-]?shows?\b/g, 'noshow'],
+  // "11 a.m." and "11 A.M." are how people write it and how dictation
+  // transcribes it. Left alone, the hour parses and the meridiem does not, so
+  // "11 a.m. to 4 p.m." silently became something else entirely.
+  // No trailing \b: it would force the final dot to be left behind, and
+  // "4pm." does not match a time range because the dot sits where the
+  // separator has to be. That one stray character was the difference between
+  // reading two ranges and reading one.
+  [/\b([ap])\.\s?m\.?/g, '$1m'],
+  [/\bo'?clock\b/g, ''],
+  [/\b(\d{1,2})\s+(am|pm)\b/g, '$1$2'],
 ];
 
 /**
@@ -163,7 +173,10 @@ export function normalise(text) {
   // Apostrophes inside words go before punctuation is stripped, so "sarah's"
   // becomes "sarahs" rather than two tokens.
   s = s.replace(/(\w)'(\w)/g, '$1$2');
-  s = s.replace(/[^\w\s:.-]/g, ' ');
+  // The dollar sign survives: it is the difference between "over 200" meaning
+  // an amount and meaning nothing at all, and readMoney is the only thing that
+  // can tell a price from a count.
+  s = s.replace(/[^\w\s:.$-]/g, ' ');
   return s.replace(/\s+/g, ' ').trim();
 }
 
@@ -230,6 +243,12 @@ const DAY_WORDS = [
  * "sundays" is handled by listing the plural, not by prefix matching — which
  * would make "satisfied" a Saturday.
  */
+// Longest first, so "sunday" wins the alternation before "sun" can take it.
+const DAY_ALT = DAY_WORDS.flat().sort((a, b) => b.length - a.length).join('|');
+const DAY_RANGE = new RegExp(
+  `\\b(${DAY_ALT})\\s*(?:-|–|—|to|til|till|until|thru|through)\\s*(${DAY_ALT})\\b`, 'g');
+const dayIndex = (w) => DAY_WORDS.findIndex((names) => names.includes(w));
+
 export function readWeekdays(text) {
   const words = normalise(text).split(' ').filter(Boolean);
   const found = new Set();
@@ -244,6 +263,18 @@ export function readWeekdays(text) {
   if (/\b(every ?day|everyday|all week|seven days|7 days|any day)\b/.test(joined)) {
     return [0, 1, 2, 3, 4, 5, 6];
   }
+  // "Monday to Friday" is how opening hours are written on every shop door in
+  // the country, and reading it as two days quietly leaves Tuesday out.
+  // Wraps, because "Saturday to Wednesday" is a real week for a salon.
+  for (const m of joined.matchAll(DAY_RANGE)) {
+    const a = dayIndex(m[1]);
+    const b = dayIndex(m[2]);
+    if (a < 0 || b < 0) continue;
+    for (let d = a, n = 0; n < 7; d = (d + 1) % 7, n++) {
+      found.add(d);
+      if (d === b) break;
+    }
+  }
   return [...found].sort((a, b) => a - b);
 }
 
@@ -255,11 +286,63 @@ export function listDays(days) {
 }
 
 // ---------------------------------------------------------------------------
+// Two things in one breath
+// ---------------------------------------------------------------------------
+
+/** Words that make a fragment an instruction rather than a list item. */
+const CLAUSE_VERBS = /\b(open|close|closed|change|set|make|turn|switch|put|stop|start|enable|disable|shut|pause|resume|send|remind|ask|charge|allow|let|give|take|block|need|want)\b/i;
+
+/** A fragment that is only a day name — the tail of a list, not an instruction. */
+const BARE_DAY = new RegExp(`^(?:on\\s+|the\\s+)?(?:${DAY_WORDS.flat().sort((a, b) => b.length - a.length).join('|')})$`, 'i');
+
+/**
+ * Split a sentence that asks for more than one thing.
+ *
+ * People do not speak in single instructions. "Close Mondays and open Saturday
+ * ten to three" is one breath and two changes, and reading only the first half
+ * of it was the worst behaviour Kai had: it closed Monday, said so, and left the
+ * owner believing Saturday was open.
+ *
+ * Two rules keep the split from doing damage:
+ *
+ *   1. "Only" and "opening days" are never split. Both scope over the whole
+ *      list — "open Thursday and Friday only" means those two days and no
+ *      others, and cutting it in half turns it into "Friday only", which closes
+ *      the Thursday the owner just asked for.
+ *   2. A trailing fragment with no verb of its own inherits the first clause's.
+ *      "Open Saturday 10 to 3 and Sunday 11 to 4" becomes two openings rather
+ *      than one opening and a stray time.
+ *
+ * Returns the clauses. A sentence that should be read whole comes back as one.
+ */
+export function splitClauses(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return [];
+  if (/\bonly\b/i.test(raw) || /\bopening\s+days\b/i.test(raw)) return [raw];
+
+  const parts = raw.split(/\s*(?:,|;|\band\b|\bthen\b|\balso\b|\bplus\b)\s*/i)
+    .map((s) => s.trim()).filter(Boolean);
+  if (parts.length < 2) return [raw];
+
+  // "Close Monday and Tuesday" is a list, not two instructions. A trailing
+  // fragment that is nothing but a day name belongs to the sentence it came
+  // from — splitting it out and lending it the first clause's verb produced the
+  // right week by the wrong route, narrating a state in the middle that was
+  // never true.
+  if (parts.slice(1).some((p) => BARE_DAY.test(p))) return [raw];
+
+  const lead = parts[0].match(CLAUSE_VERBS)?.[0] || '';
+  return parts.map((p, i) => (i === 0 || !lead || CLAUSE_VERBS.test(p) ? p : `${lead} ${p}`));
+}
+
+// ---------------------------------------------------------------------------
 // Times
 // ---------------------------------------------------------------------------
 
 const TIME = String.raw`(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?`;
-const RANGE = new RegExp(`\\b${TIME}\\s*(?:-|–|—|to|til|till|until|thru|through|and)\\s*${TIME}\\b`, 'i');
+const RANGE_SRC = `\\b${TIME}\\s*(?:-|–|—|to|til|till|until|thru|through|and)\\s*${TIME}\\b`;
+const RANGE = new RegExp(RANGE_SRC, 'i');
+const RANGE_ALL = new RegExp(RANGE_SRC, 'gi');
 
 /**
  * "11 to 2", "9:30am til 5", "from 8 until 6" → minutes from midnight.
@@ -270,12 +353,41 @@ const RANGE = new RegExp(`\\b${TIME}\\s*(?:-|–|—|to|til|till|until|thru|thro
  * closing time is pushed past it. That gets 9-to-5, 10-to-6 and 11-to-2 all
  * right without asking.
  *
- * It can still be wrong, and that is exactly why nothing here is applied
- * without the owner seeing "11:00 – 14:00" written out and pressing something.
+ * It can still be wrong, which is why the change Kai makes from it is reported
+ * back in clock words — "Sunday is 2pm–6pm now" — and can be undone in one
+ * press or one word. A guess that says what it guessed is checkable; a guess
+ * that goes quiet is not.
  */
 export function readTimeRange(text) {
-  const m = RANGE.exec(normalise(text));
-  if (!m) return null;
+  return readTimeRanges(text).target;
+}
+
+/**
+ * Every time range in a sentence, and which one the owner actually means.
+ *
+ * "Change 11am to 4pm on a Sunday to 2 to 6" contains two, and the first is the
+ * hours being REPLACED — an owner naturally says what it is now before saying
+ * what they want. Reading the first was not a near miss: with "a.m." spelled
+ * out, that sentence proposed opening the salon at two in the morning.
+ *
+ * So the LAST range wins, and the earlier one is returned as `from` so the
+ * caller can check it against reality and say "that is not what Sunday says
+ * now" rather than silently doing something else.
+ *
+ * A sentence with one range is unaffected: it is both the first and the last.
+ */
+export function readTimeRanges(text) {
+  const s = normalise(text);
+  const all = [...s.matchAll(RANGE_ALL)].map(readOne).filter(Boolean);
+  if (!all.length) return { target: null, from: null, count: 0 };
+  return {
+    target: all[all.length - 1],
+    from: all.length > 1 ? all[all.length - 2] : null,
+    count: all.length,
+  };
+}
+
+function readOne(m) {
   const [, h1, m1, ap1, h2, m2, ap2] = m;
 
   const build = (h, min, ap) => {
@@ -290,11 +402,23 @@ export function readTimeRange(text) {
   let close = build(h2, m2, ap2);
   if (open === null || close === null) return null;
 
-  // Neither hour was spoken with am or pm: read the opener literally and push
-  // the closer past it.
-  if (!ap1 && !ap2 && close <= open) close += 12 * 60;
-  // Only the closer was qualified ("11 to 2pm"): the opener is morning.
-  else if (!ap1 && ap2 && close <= open) open = Number(h1) * 60 + Number(m1 || 0);
+  // Neither hour was spoken with am or pm, which is how everybody says it.
+  //
+  // Read the opener the way a salon means it: 7 through 12 is morning, 1
+  // through 6 is afternoon. Nobody opens at two in the morning, and "2 to 6"
+  // used to become exactly that — the old rule only pushed the CLOSER later, so
+  // an already-ascending pair like 2→6 was left before dawn and applied.
+  // Then the closer is pushed past the opener, which handles 9→5 and 11→2.
+  if (!ap1 && !ap2) {
+    if (Number(h1) >= 1 && Number(h1) <= 6) open += 12 * 60;
+    if (close <= open) close += 12 * 60;
+  } else if (!ap1 && ap2 === 'pm' && open + 12 * 60 < close) {
+    // "2 to 6pm" — the afternoon was stated once and applies to both ends.
+    open += 12 * 60;
+  } else if (!ap1 && ap2 && close <= open) {
+    // "11 to 2pm" — the opener is the morning.
+    open = Number(h1) * 60 + Number(m1 || 0);
+  }
 
   if (close <= open || close > 24 * 60 || open < 0) return null;
   return { open_min: open, close_min: close };
@@ -305,6 +429,74 @@ export function clockLabel(min) {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return `${(h % 12) || 12}${m ? `:${String(m).padStart(2, '0')}` : ''}${h >= 12 ? 'pm' : 'am'}`;
+}
+
+// ---------------------------------------------------------------------------
+// Numbers, money and durations
+// ---------------------------------------------------------------------------
+
+const WORD_NUMBERS = {
+  zero: 0, none: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fifteen: 15,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, ninety: 90,
+  a: 1, an: 1, // "an hour's notice"
+};
+
+/**
+ * Every plain number in a sentence, digits or words.
+ *
+ * Times are stripped out first. "Open Friday 11 to 2 and give me 3 days notice"
+ * has one number in it that matters, and reading 11 and 2 as candidates for the
+ * notice period is how an assistant does something nobody asked for.
+ */
+export function readNumbers(text) {
+  const s = normalise(text).replace(RANGE_ALL, ' ');
+  const out = [];
+  for (const w of s.split(' ')) {
+    if (/^\d{1,6}$/.test(w)) out.push(Number(w));
+    else if (WORD_NUMBERS[w] !== undefined && w !== 'a' && w !== 'an') out.push(WORD_NUMBERS[w]);
+  }
+  return out;
+}
+
+/** "$85", "85 dollars", "eighty five" → cents. Null when no amount is named. */
+export function readMoney(text) {
+  const s = normalise(text);
+  const m = /\$\s?(\d{1,6})(?:[.](\d{1,2}))?/.exec(s)
+    || /\b(\d{1,6})(?:[.](\d{1,2}))?\s*(?:dollars?|bucks)\b/.exec(s);
+  if (!m) return null;
+  return Number(m[1]) * 100 + Number((m[2] || '0').padEnd(2, '0'));
+}
+
+/**
+ * "45 minutes", "2 hours", "an hour and a half", "a day before" → minutes.
+ *
+ * Days and weeks are here because that is how people say the long ones: nobody
+ * asks for a reminder "24 hours before", they ask for one "the day before", and
+ * before this understood that, the sentence fell through to plain number
+ * reading and set the reminder to one hour.
+ */
+export function readDuration(text) {
+  const s = normalise(text);
+  const count = (m) => Number(m) || WORD_NUMBERS[m] || 1;
+  let total = 0;
+  let found = false;
+  // "The day before" is the commonest way anyone says 24 hours, so "the" counts
+  // as one here — but only for days and weeks. Letting it count for hours makes
+  // "change the hours on Sunday" measure sixty minutes.
+  const weeks = /\b(\d{1,2}|an?|the|one|two|three|four)\s*(?:weeks?|wks?)\b/.exec(s);
+  if (weeks) { total += 10080 * count(weeks[1]); found = true; }
+  const days = /\b(\d{1,3}|an?|the|one|two|three|four|five|six|seven)\s*(?:days?)\b/.exec(s);
+  if (days) { total += 1440 * count(days[1]); found = true; }
+  const hrs = /\b(\d{1,3}|an?|one|two|three|four)\s*(?:hours?|hrs?|h)\b/.exec(s);
+  if (hrs) {
+    total += 60 * count(hrs[1]);
+    found = true;
+    if (/\band a half\b/.test(s)) total += 30;
+  }
+  const mins = /\b(\d{1,3})\s*(?:minutes?|mins?|m)\b/.exec(s);
+  if (mins) { total += Number(mins[1]); found = true; }
+  return found && total > 0 ? total : null;
 }
 
 // ---------------------------------------------------------------------------

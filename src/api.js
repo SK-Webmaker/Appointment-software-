@@ -48,7 +48,11 @@ import {
   referralSummary, heardFromSummary, HEARD_OPTIONS,
 } from './referrals.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
-import { planFor as kaiPlanFor } from './kai-actions.js';
+import {
+  planFor as kaiPlanFor, readActions as kaiReadActions, decide as kaiDecide,
+  applyPlan as kaiApply, undoChange as kaiUndo, isUndo as kaiIsUndo, lastChange as kaiLastChange,
+  readCompound as kaiCompound,
+} from './kai-actions.js';
 import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
   safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
@@ -2509,8 +2513,13 @@ route('GET', '/api/growth', async ({ query }) => {
  */
 route('GET', '/api/ask', async ({ query }) => {
   const q = str(query.get('q'), 200);
-  if (!q) return { query: '', answers: [], suggestions: kaiSuggestions() };
-  return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions() };
+  const last = kaiLastChange();
+  // The bar shows "you can still undo that" for as long as there is something
+  // to undo — the whole point of acting immediately is that taking it back has
+  // to be as easy as asking for it.
+  const undo = last ? { title: last.title, token: last.token, at: last.at } : null;
+  if (!q) return { query: '', answers: [], suggestions: kaiSuggestions(), undo };
+  return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions(), undo };
 });
 
 /**
@@ -2527,7 +2536,7 @@ route('GET', '/api/ask', async ({ query }) => {
  * describing a world that has since changed, and applying it would silently
  * undo whatever happened in between.
  */
-route('POST', '/api/ask/apply', async ({ req }) => {
+route('POST', '/api/ask/apply', async ({ req, user }) => {
   const b = checkBody(await readJson(req), {
     q: s.str(200, { required: true }),
     fingerprint: s.str(64, { required: true }),
@@ -2536,8 +2545,105 @@ route('POST', '/api/ask/apply', async ({ req }) => {
   if (!plan) {
     throw httpError(409, 'That change no longer matches your settings — ask again and check it.');
   }
-  applySettings(plan.settings);
-  return { ok: true, applied: plan.title, changes: plan.changes, settings: getSettings() };
+  const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
+  return {
+    ok: true, did: plan.title, said: plan.said, changes: plan.changes,
+    warnings: plan.warnings, undo_token: undoToken, settings: getSettings(),
+  };
+});
+
+/**
+ * Say it, and it happens.
+ *
+ * The owner asked for an assistant rather than a form, so this does the thing
+ * and reports back instead of proposing and waiting. What makes that safe is
+ * not confidence, it is reversibility: every change here records the prior
+ * value of exactly the keys it writes, and comes back with an undo token. See
+ * the header of src/kai-actions.js for why do-then-undo beats confirm-before
+ * for this particular kind of change.
+ *
+ * Where the sentence has two plausible readings Kai does NOT pick one. It
+ * returns them and asks, because a salon quietly saying something different
+ * from what its owner believes is not fixed by an undo nobody knew to press.
+ */
+route('POST', '/api/ask/do', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), { q: s.str(200, { required: true }) });
+  const q = str(b.q, 200);
+
+  if (kaiIsUndo(q)) {
+    const undone = kaiUndo('');
+    if (!undone) return { ok: false, kind: 'nothing', said: "There's nothing to undo." };
+    return {
+      ok: true, kind: 'undone', said: undone.said,
+      did: undone.title, undone_token: undone.token, settings: getSettings(),
+    };
+  }
+
+  // Two things in one breath, done in order. Only taken when each half is a
+  // real change on its own — see readCompound.
+  const many = kaiCompound(q, { today: bizToday() });
+  if (many) {
+    const said = [
+      ...many.done.map((p) => p.short || p.said),
+      ...many.already,
+    ].join(' ');
+    return {
+      ok: many.done.length > 0,
+      kind: many.done.length ? 'done' : 'already',
+      did: many.done.map((p) => p.title).join(' + '),
+      said: said || 'There was nothing to change there.',
+      changes: many.done.flatMap((p) => p.changes || []),
+      warnings: [
+        ...many.done.flatMap((p) => p.warnings || []),
+        ...many.stuck.map((c) => `I couldn't work out what to do with “${c}”.`),
+      ],
+      undo_token: many.token || null,
+      settings: getSettings(),
+    };
+  }
+
+  const { plans, noops } = kaiReadActions(q, { today: bizToday() });
+  const { plan, options } = kaiDecide(plans);
+
+  if (!plan && options.length) {
+    return {
+      ok: false, kind: 'ambiguous',
+      said: 'I could read that two ways — which did you mean?',
+      options: options.map((p) => ({
+        title: p.title, detail: p.detail, changes: p.changes,
+        warnings: p.warnings, fingerprint: p.fingerprint,
+      })),
+    };
+  }
+  if (!plan) {
+    // Understood, but there was nothing to do. Telling an owner that "close
+    // Mondays" made no sense, when the truth is Monday is already closed, sends
+    // them off rephrasing something that was right the first time.
+    //
+    // The first reading only: two capabilities can both find nothing to do —
+    // "open Monday to Friday 9 to 5" is already-open and already-those-hours —
+    // and saying it twice in different words reads like a stutter.
+    if (noops.length) return { ok: true, kind: 'already', said: noops[0] };
+    return {
+      ok: false, kind: 'unknown',
+      said: "I couldn't work out what to change there.",
+    };
+  }
+
+  const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
+  return {
+    ok: true, kind: 'done', did: plan.title, said: plan.said,
+    changes: plan.changes, warnings: plan.warnings,
+    undo_token: undoToken, settings: getSettings(),
+  };
+});
+
+/** Put back the last change, or a named one. */
+route('POST', '/api/ask/undo', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(32) });
+  const undone = kaiUndo(str(b.token, 32));
+  if (!undone) throw httpError(409, "There's nothing to undo.");
+  return { ok: true, said: undone.said, did: undone.title, settings: getSettings() };
 });
 
 /** One client's own referral link, minted on first ask. */

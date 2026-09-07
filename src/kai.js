@@ -16,8 +16,10 @@
 //
 //   And the founding rule: nothing acts silently. A model that can act is the
 //   opposite of that — "cancel Sarah's appointment", with two Sarahs in the
-//   book, is somebody's afternoon. So Kai NEVER acts on a guess. It shows what
-//   it matched, and the owner presses the thing.
+//   book, is somebody's afternoon. Kai does act now (see src/kai-actions.js),
+//   but only on readings it can explain in one line, only on things that are
+//   reversible, and never on a guess: where two readings are close it asks.
+//   Every answer here still shows what it matched before anything happens.
 //
 // This is also the right first step even if a model does arrive later. An
 // assistant is only as good as the functions it can call; building that layer
@@ -26,7 +28,7 @@
 import { db, getSetting, publicUrl } from './db.js';
 import { clientRhythms } from './opportunities.js';
 import { tokenise, scoreIntent, readPeriod, readWeekdays } from './kai-language.js';
-import { readActions } from './kai-actions.js';
+import { readActions, previewCompound } from './kai-actions.js';
 
 const money = (cents) => `${getSetting('currency', '$')}${((cents || 0) / 100).toFixed(2)}`;
 const clock = (min) => {
@@ -59,8 +61,9 @@ const answer = (o) => ({
   href: o.href || '',
   copy: o.copy || '',
   score: o.score ?? 0,
-  // Only on a proposed change: what it would do, what it would undo, and the
-  // fingerprint the server checks before it does any of it.
+  // Only on a change Enter would make: what it would do, what it would undo,
+  // and the fingerprint the server checks when Kai had to ask which reading was
+  // meant and the owner picked one.
   ...(o.plan ? { plan: o.plan } : {}),
 });
 
@@ -409,13 +412,23 @@ export function ask(query, { today }) {
     } catch { /* one bad answer must not empty the bar */ }
   }
 
-  // Things Kai could change, shown as proposals with a Confirm on them.
+  // What pressing Enter would do. This is a preview, not a proposal: Kai acts
+  // on Enter now, so the value of showing it while the owner types is that they
+  // see the before and the after BEFORE committing to the keystroke. Nothing
+  // here changes anything — this whole function is a read.
   try {
-    for (const plan of readActions(raw, { today })) {
+    // A sentence asking for two things previews both. Showing only the first
+    // half of "close Mondays and open Saturday" would understate what Enter is
+    // about to do, which is the one thing this preview exists to prevent.
+    const many = previewCompound(raw, { today });
+    const previews = many
+      ? many.map((d) => d.plan).filter(Boolean)
+      : readActions(raw, { today }).plans;
+    for (const plan of previews) {
       out.push(answer({
         kind: 'action',
         title: plan.title,
-        detail: plan.detail,
+        detail: plan.detail || 'Press Enter and Kai will do this.',
         matched: plan.matched,
         rows: plan.changes.map((c) => ({ label: c.label, sub: c.from, value: c.to })),
         score: plan.score,
@@ -447,14 +460,21 @@ export function ask(query, { today }) {
   return { query: raw, answers: out.slice(0, 8) };
 }
 
-/** What to show before anybody has typed anything. */
+/**
+ * What to show before anybody has typed anything.
+ *
+ * Half changes, half questions, and deliberately in that order: Kai spent its
+ * first life as a search box, and an owner who has only ever seen it answer
+ * things has no reason to guess it will now close a Monday for them. The
+ * examples are the documentation.
+ */
 export function suggestions() {
   return [
+    'change Sunday hours to 10 to 4',
+    'close on Mondays',
+    'send reminders 48 hours before',
     'what did we take last week',
     'who owes me',
-    "clients who haven't been in",
-    'no shows this month',
-    'open on Friday from 11 to 2',
     "what's on today",
   ];
 }

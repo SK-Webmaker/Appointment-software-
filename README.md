@@ -483,46 +483,69 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
-### ⌘K Kai — ask for it instead of finding it (v1.53.0)
+### ⌘K Kai — say what you want changed, and it changes (v1.54.0)
 Press **⌘K** (Ctrl+K), or just **/**, or the **Ask Kai** button in the top bar.
 
-**Ask in your own words.** Not a phrase you have to learn — a sentence:
+**Say it and it happens.** Not a form, not a proposal waiting for a press:
 
-- *"hey Kai what did we take last week"*
-- *"what were last week's numbers for Monday, Tuesday and Wednesday"* — split by day
-- *"which clients haven't been in for a while"*
-- *"any no-shows this month"*, *"who owes me"*, *"what's on today"*, *"my booking link"*
-- anyone by name or number, and every settings page under the words you'd
-  actually use rather than the label on the tab
+> *"change 11am to 4pm hours on a Sunday to 2 to 6"*
+> **→ Sunday is 2pm–6pm now.**  `Sunday: 11am–4pm → 2pm–6pm`  · **Undo that**
 
-**And it can change things.** Opening days and hours, by asking:
+- *"close on Mondays"* · *"open Saturday 10 to 3"* · *"we only open Thursday and Friday"*
+- *"open Monday to Friday 9 to 5"* · *"change our hours to 8 to 6"*
+- *"turn off online booking"* · *"turn the waitlist on"* · *"stop sending reminders"*
+- *"remind them the day before"* · *"let people book 60 days ahead"* · *"I need 2 hours notice"*
+- *"clients can cancel up to 12 hours before"* · *"make my slots 30 minutes"*
+- *"ask for a deposit after 2 no shows"* · *"stop online booking after 3 no shows"*
+- *"take a deposit on anything over $200"* · *"a blow dry is $45 now"* · *"a blow dry takes 25 minutes"*
+- **two in one breath**: *"close Mondays and open Saturday 10 to 3"* — both happen,
+  one **Undo** puts both back
 
-- *"add Friday as an open day from 11 to 2"*
-- *"change my opening days to Monday, Tuesday and Wednesday from 11 to 2"*
-- *"close on Mondays"* · *"open at 10 until 3 on Fridays"* · *"change our hours to 8 to 6"*
+**It still answers questions**, exactly as before — takings, who owes you, who
+hasn't been in, what's on today, anyone by name or number, every settings page
+under the words you'd actually use.
 
-Every change is a **proposal, never a done thing**. Kai shows what it would
-change *and what it would change it from* — `Friday: closed → 11am–2pm` — plus
-anything already in the diary it would sit awkwardly with (*"6 appointments are
-already booked on a Monday after today. They stay in your diary — nothing is
-cancelled."*). It takes a deliberate press, and a keyboard press takes two:
-the highlight can move under you, and one keystroke should not be able to shut
-a salon. **A question is never a command** — *"what time do we close on Friday"*
-offers nothing.
+**Typing searches. Enter does it.** Every keystroke shows what Enter *would*
+do — `Friday: closed → 11am–2pm` — so the before and after are on screen before
+you commit to the keystroke. Nothing changes while you type, ever.
 
-**Speak to it.** The 🎤 in the bar uses your browser's own dictation — no
-account, no cost, nothing added to Kairo. Speaking fills the bar and searches,
-and that is *all* it does: it can never press Confirm, because a misheard
-"close on Mondays" acting by itself would cost a salon a week.
+**What keeps that safe is not confidence, it's reversibility.** The old model
+was confirm-before; this one is **do-then-undo**, which for this kind of change
+is the stronger of the two. A card you skim protects you from a misreading you
+spot in advance; a result you can read — *"Sunday is 2pm–6pm now"* — is the
+moment a misreading is actually obvious, and **Undo** is one press or one word
+away. Every change records the prior value of *exactly* the settings it wrote,
+so an undo puts those back and leaves anything somebody else changed meanwhile
+alone. The undo stack survives a redeploy.
+
+The lines that have not moved:
+
+- **A question is never a command.** *"What time do we close on Friday"* changes
+  nothing. *"Can you please close Mondays"* is an instruction, not a question.
+- **It never guesses.** Where two readings are close it hands both back and
+  asks — an undo does not help somebody who never realised the wrong thing
+  happened.
+- **Nothing that reaches a client happens here.** Settings are reversible; a
+  text to four hundred people is not.
+- **Already-true is said, not mistaken for not-understood.** *"Close on Sunday"*
+  when Sunday is already closed answers *"You're already closed on Sunday"*.
+- It tells you what it **disturbed**: *"6 appointments are already booked on a
+  Monday. They stay in your diary — nothing was cancelled."*
+
+**Hands free, both ways.** The 🎤 uses your browser's own dictation — no
+account, no cost, nothing added to Kairo. Finish the sentence and it happens,
+Kai reads the answer back, and *"undo"* is a word you can say. That is the whole
+point: an owner with wet hands and a client in the chair should be able to
+change their Sunday without touching anything.
 
 **There is no AI model behind any of it**, and that is a decision rather than a
-shortcut. A model is an API call per question — small, permanent, and paid per
+shortcut. A model is an API call per request — small, permanent, and paid per
 business, on something sold once for $400. Once Kairo holds treatment notes, a
 question that could quote them going to an overseas model is cross-border
 disclosure of health information under Australian Privacy Principle 8. And Kai
-can now alter what a salon trades on: a thing that guesses must never be the
-thing that acts. Every match is explainable in one line, and Kai shows you which
-line it was before anything happens.
+now alters what a salon trades on: a thing that guesses must never be the thing
+that acts. Every match is explainable in one line, and Kai tells you in words
+what it did.
 
 ### 🧪 Treatment records & safety gates (v1.52.0 — off until a service asks)
 Hair colour needs a patch test; PPD allergy can cause anaphylaxis. Lash and brow

@@ -2480,6 +2480,45 @@ table.roster th.is-today .rs-day { color: var(--accent); }
   border-bottom: 1px solid var(--border); background: var(--bg-raise);
 }
 
+/* ---------------------------------------------------------------------------
+   The transcript.
+
+   Kai acts and then reports, so the panel has to answer "what did it just do to
+   my salon" at a glance and from across the room — an owner with wet hands and
+   a client in the chair is not going to read a paragraph. So each turn is what
+   they said, then one plain sentence back, then the before and after, then the
+   way out. The tick carries the good news in colour as well as in words,
+   because that is the part being checked in half a second.
+--------------------------------------------------------------------------- */
+.kai-convo {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 10px 4px;
+}
+.kai-turn {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 11px; background: var(--bg-raise);
+}
+.kai-you {
+  font-size: 11.5px; color: var(--muted); line-height: 1.5;
+  margin-bottom: 7px;
+}
+.kai-you::before { content: '“'; }
+.kai-you::after { content: '”'; }
+.kai-said {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 13.5px; font-weight: 600; line-height: 1.45; color: var(--text);
+}
+.kai-said svg { flex: none; margin-top: 2px; color: var(--muted); }
+.kai-said.ok svg { color: var(--green); }
+.kai-said.ask svg { color: var(--amber); }
+.kai-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.kai-undo-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+}
+.kai-undo-row.standing {
+  margin: 10px 10px 0; padding-top: 10px; border-top: 1px solid var(--border);
+}
+
 @media (max-width: 560px) {
   .kai-change { grid-template-columns: 5.5rem 1fr; row-gap: 2px; }
   .kc-arrow { display: none; }
