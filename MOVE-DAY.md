@@ -90,23 +90,33 @@ own service already has this set; the shard does not.
 domain: `kairobookings.com` is the marketing site and must never point at the
 shard. If the apex was added by mistake, remove it there.
 
-**Then Cloudflare:** `kairobookings.com` → DNS → a record
+**Then Cloudflare:** `kairobookings.com` → DNS → **three** records. A
+wildcard needs more than a plain subdomain does: Render has to issue a
+*wildcard* certificate (DNS-01, via `_acme-challenge`) and register the
+hostname with Cloudflare for SaaS (via `_cf-custom-hostname`). The two
+verification records must be **DNS only** (grey cloud): proxied, Cloudflare
+answers with its own IPs and Render's verifier sees the wrong thing — which is
+also what happens when the proxied `*` record swallows them, so they must exist
+explicitly.
 
-| Field | Value |
-|---|---|
-| Type | `CNAME` |
-| Name | `*` |
-| Target | `kairo-shard-au.onrender.com` |
-| Proxy | on |
+| Type | Name | Target | Proxy |
+|---|---|---|---|
+| `CNAME` | `*` | `kairo-shard-au.onrender.com` | **on** |
+| `CNAME` | `_acme-challenge` | `kairo-shard-au.verify.renderdns.com` | **DNS only** |
+| `CNAME` | `_cf-custom-hostname` | copy the exact value from Render's Custom Domains dialog | **DNS only** |
+
+Render shows all three targets on the custom domain's dialog with copy buttons;
+use those rather than typing them.
 
 **Leave the existing `hairbysha` and `horahaircutz` records exactly as they
 are.** They are more specific than the wildcard, so they keep winning and both
 salons carry on unchanged. That is what makes the cutover in 3.4 a
 one-record edit.
 
-If Render's verification of the wildcard sits on "pending" behind the
-Cloudflare proxy, switch the `*` record to *DNS only* (grey cloud), press
-*Retry verification*, and switch the proxy back on once it says verified.
+**Check before retrying:** from anywhere,
+`dig +short CNAME _acme-challenge.kairobookings.com` must print
+`kairo-shard-au.verify.renderdns.com.` — not a Cloudflare IP. Then press
+*Retry Verification* on Render.
 
 **Check:** `curl https://demo.kairobookings.com/api/version` → `{"version":…}`
 from the shard, not a Cloudflare error page.
