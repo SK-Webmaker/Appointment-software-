@@ -1,5 +1,26 @@
 # Move day
 
+> ## IN PROGRESS — 8 September, 13:43 UTC
+>
+> **Horahaircutz has online booking switched OFF** while she is copied to the
+> shard. Her workspace and booking page still work; only new customer bookings
+> are refused. **If this is abandoned for any reason, turn it back on** — that
+> is the whole of the rollback at this point, because nothing else has changed:
+>
+> ```bash
+> curl -X PUT https://horahaircutz.kairobookings.com/api/settings \
+>   -H 'content-type: application/json' -H "cookie: <owner session>" \
+>   -d '{"booking_enabled":"1"}'
+> ```
+>
+> Or simply: sign in as her owner → Settings → turn **online booking** back on.
+>
+> Her snapshot at the moment of freezing: 14 clients, 102 appointments,
+> 49 invoices, 43 payments totalling 702,551 cents, 3 staff, 13 services,
+> owner `starsoccer842@gmail.com`. Anything on the shard must match this
+> exactly.
+
+
 **Read this first, whichever of us is reading.** This is the operating script
 for moving Horahaircutz onto the shard. It is written to be picked up cold —
 by the owner, or by a fresh Claude session that has none of yesterday's
