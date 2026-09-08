@@ -85,14 +85,78 @@ early sends them to a salon that is not there yet.
 
 ## Checking it
 
+Run these against the live front door. Every line is what was actually
+observed on 8 September, after the Worker went in.
+
 ```bash
-curl https://demo.kairobookings.com/api/public/info      # a salon on the shard
-curl https://nosuchsalon.kairobookings.com/api/public/info   # must be 404
+# a salon on the shard, through the Worker
+curl -s https://demo.kairobookings.com/api/public/info          # Luxe Hair Studio
+curl -s https://horahaircutz.kairobookings.com/api/public/info  # Horahaircutz
+
+# an address that names nobody
+curl -s -o /dev/null -w '%{http_code}\n' \
+  https://nosuchsalon.kairobookings.com/api/public/info         # 404
+
+# Hair By Sha, still on her own service and untouched
+curl -s https://hairbysha.kairobookings.com/api/version         # {"version":"1.55.0"}
 ```
 
-And the check that matters, which must return **404**, not another salon:
+### The forgery check
+
+A visitor can put `x-kairo-host` on their own request. The Worker overwrites
+it, so it never reaches the shard as sent. Every one of these must answer with
+the **demo** salon — never Horahaircutz, never Hair By Sha:
+
+```bash
+for h in '' 'x-kairo-host: horahaircutz.kairobookings.com'; do
+  curl -s ${h:+-H "$h"} https://demo.kairobookings.com/api/public/info
+done
+```
+
+Also with a wrong secret, a truncated secret, a secret with one character
+added, and — the case that looks alarming and is not — the *real* forward
+secret. All nine variants answer *Luxe Hair Studio*, because `headers.set()`
+in the Worker replaces whatever arrived rather than appending to it.
+
+### Do not expect a 404 from the shard's own address
+
+An earlier version of this file claimed that
 
 ```bash
 curl -H 'x-kairo-host: hairbysha.kairobookings.com' \
      https://kairo-shard-au.onrender.com/api/public/info
 ```
+
+must return 404. **It returns the demo salon**, and that is correct. The
+forged header is ignored, so the request routes by the real `Host` —
+`kairo-shard-au.onrender.com` — which is registered to `demo`. Seeing a salon
+name there is the mechanism working, not failing. What proves it is *which*
+salon: the demo one, never a real business.
+
+The genuine no-such-salon case is a forwarded host that names nobody, sent
+with the correct secret:
+
+```bash
+curl -H 'x-kairo-host: nobody.kairobookings.com' \
+     -H "x-kairo-forward-secret: $KAIRO_FORWARD_SECRET" \
+     https://kairo-shard-au.onrender.com/api/public/info
+# {"error":"No salon at this address"}   http 404
+```
+
+Confirmed alongside `unregistered.example.com` and `a.b.kairobookings.com`,
+which also 404 — the shard never falls back to "some" tenant.
+
+### Proving the check can fail
+
+A check that cannot fail is not a check. Two things establish that the forgery
+probes above would have caught a real leak:
+
+1. The probe can see a different salon at all —
+   `https://horahaircutz.kairobookings.com/api/public/info` returns
+   *Horahaircutz*, so the test would show a different name if one leaked.
+2. The header is genuinely live on the shard — sent **directly** to
+   `kairo-shard-au.onrender.com` with the correct secret, `x-kairo-host`
+   switches the answer between *Horahaircutz* and *Luxe Hair Studio* at will.
+
+So the forged requests do not fail because the header is inert. They fail
+because the Worker strips them, which is the property being tested.

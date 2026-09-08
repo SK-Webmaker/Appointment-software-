@@ -47,16 +47,17 @@ urgent enough to push past a red check.
 
 ## Where things stand
 
-Verified 8 September, 13:32 UTC (23:32 Melbourne).
+Verified 8 September, 13:32 UTC (23:32 Melbourne). Front door re-verified
+after the Worker went live: see *The front door, now live* below.
 
 | Thing | State |
 |---|---|
 | `kairo-shard-au` (Singapore, starter) | **Live**, v1.58.0, multi-tenant, holds no salons |
 | Its persistent disk | **Added** — 5 GB at `/var/data` |
 | Its health check path | **Set** — `/api/version` |
-| Cloudflare `*` record | **Correct, DNS only** — CNAME to `kairo-shard-au.onrender.com`; `_acme-challenge` and `_cf-custom-hostname` both correct and resolving (validation token present) |
+| Cloudflare `*` record | **Proxied (orange)** — CNAME to `kairo-shard-au.onrender.com`. It must be proxied or the Worker never runs; the target itself no longer matters, since the Worker replaces the origin. `_acme-challenge` and `_cf-custom-hostname` are left in place, now unused |
 | Render custom domain | The wildcard `*.kairobookings.com` **verifies, issues a certificate, and never routes** — Cloudflare Error 1000, confirmed from a clean network. Render's edge is itself behind Cloudflare, so a salon hostname pointed at it resolves to a Cloudflare IP and is refused as a loop. Do not retry it. Replaced by the front door, below |
-| The front door | `cloudflare/salon-router.js` — a Worker that forwards every salon to the shard's own address and carries the real hostname in `X-Kairo-Host`. Shard side is **built, tested and live**; the Worker itself is **not deployed yet** |
+| The front door | `cloudflare/salon-router.js` — a Worker that forwards every salon to the shard's own address and carries the real hostname in `X-Kairo-Host`. **Deployed and live**, route `*.kairobookings.com/*`, `*` record proxied (orange). `demo.kairobookings.com` and `horahaircutz.kairobookings.com` both answer through it — the first wildcard addresses that have ever worked. Nine forged-header variants all refused; Hair By Sha still reaches her own service |
 | Demo salon on the shard | **Live and proven.** Created over the control API; serves at the shard's own `onrender.com` address (added to its `domains`), the owner signs in, a real booking was taken — **and the booking survived a full redeploy**, which is the persistent disk actually working |
 | Control API import verb | **Live on the shard**, refusing bad snapshots correctly |
 | The apex `kairobookings.com` | Still serves the marketing site. Untouched. Must **not** be pointed at the shard |
@@ -412,6 +413,50 @@ Proven on the live shard, not only in tests:
 | no secret, `X-Kairo-Host: horahaircutz.…` | the demo salon — header ignored |
 | wrong or truncated secret | the demo salon — header ignored |
 | no secret, `X-Kairo-Host: hairbysha.…` | the demo salon — header ignored |
+
+### The front door, now live
+
+Deployed 8 September. Route `*.kairobookings.com/*` on the `kairobookings.com`
+zone, `*` record **proxied (orange)** so the Worker runs, `SHARD_ORIGIN` and
+`FORWARD_SECRET` set as Worker secrets.
+
+What answers, checked against the live front door:
+
+| Address | Answered by |
+|---|---|
+| `demo.kairobookings.com` | **Luxe Hair Studio** — the first wildcard address that has ever worked |
+| `horahaircutz.kairobookings.com` | **Horahaircutz** |
+| `nosuchsalon.kairobookings.com` | **404** |
+| `hairbysha.kairobookings.com` | **Hair By Sha**, still her own service, still v1.55.0, booking page 200 |
+
+A visitor can set `x-kairo-host` on their own request. The Worker overwrites it
+before it leaves Cloudflare, so it never reaches the shard as sent. Nine
+variants were fired at `demo.kairobookings.com` — no secret, a wrong secret, an
+empty secret, a secret one character short, a secret one character long, the
+header capitalised, naming Horahaircutz, naming Hair By Sha, and the **real**
+forward secret. All nine answered *Luxe Hair Studio*. The same four forgeries
+fired at Hair By Sha's address all answered *Hair By Sha*.
+
+That result only means something if the check could have failed, so both halves
+were falsified:
+
+- **The probe can see another salon.** `horahaircutz.kairobookings.com` returns
+  *Horahaircutz*, so a leak would have shown a different name.
+- **The header is genuinely live.** Sent straight at
+  `kairo-shard-au.onrender.com` with the correct secret, `x-kairo-host` moves
+  the answer between *Horahaircutz* and *Luxe Hair Studio* at will.
+
+So the forgeries fail because the Worker strips them, not because the mechanism
+is inert.
+
+One result that looks wrong and is not: a forged header sent **directly** to
+`kairo-shard-au.onrender.com` answers with the demo salon, not 404. The header
+is ignored, so the request routes by the real Host, and that hostname is
+registered to `demo`. `cloudflare/README.md` used to document 404 there; it has
+been corrected. The genuine 404 case is a forwarded host naming nobody sent
+*with* the correct secret — confirmed for `nobody.kairobookings.com`,
+`unregistered.example.com` and `a.b.kairobookings.com`. The shard never falls
+back to "some" tenant.
 
 Setting it up is four steps in [`cloudflare/README.md`](cloudflare/README.md).
 **Read the warning about Hair By Sha there before adding the route** — the
