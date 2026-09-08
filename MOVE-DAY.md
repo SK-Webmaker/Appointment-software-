@@ -55,7 +55,8 @@ Verified 8 September, 13:32 UTC (23:32 Melbourne).
 | Its persistent disk | **Added** — 5 GB at `/var/data` |
 | Its health check path | **Set** — `/api/version` |
 | Cloudflare `*` record | **Correct, DNS only** — CNAME to `kairo-shard-au.onrender.com`; `_acme-challenge` and `_cf-custom-hostname` both correct and resolving (validation token present) |
-| Render custom domain | `*.kairobookings.com` — **Verified, Certificate Issued**, but **not routing**: Render's own edge answers Cloudflare Error 1000 for every `x.kairobookings.com`, confirmed from a clean network (GitHub runner, `.github/workflows/probe.yml`). Nothing has ever reached the shard through the wildcard. Lead: the Render page says **"2 / 2 custom domains included with your workspace plan"** — a plan cap may be stopping the hostname being provisioned at the edge even though verification passed |
+| Render custom domain | The wildcard `*.kairobookings.com` **verifies, issues a certificate, and never routes** — Cloudflare Error 1000, confirmed from a clean network. Render's edge is itself behind Cloudflare, so a salon hostname pointed at it resolves to a Cloudflare IP and is refused as a loop. Do not retry it. Replaced by the front door, below |
+| The front door | `cloudflare/salon-router.js` — a Worker that forwards every salon to the shard's own address and carries the real hostname in `X-Kairo-Host`. Shard side is **built, tested and live**; the Worker itself is **not deployed yet** |
 | Demo salon on the shard | **Live and proven.** Created over the control API; serves at the shard's own `onrender.com` address (added to its `domains`), the owner signs in, a real booking was taken — **and the booking survived a full redeploy**, which is the persistent disk actually working |
 | Control API import verb | **Live on the shard**, refusing bad snapshots correctly |
 | The apex `kairobookings.com` | Still serves the marketing site. Untouched. Must **not** be pointed at the shard |
@@ -388,3 +389,31 @@ auto-deploys from it, and a redeploy mid-import answers 502. One import failed
 that way; nothing was written, because the import checks everything before it
 creates the folder.
 
+---
+
+## Addressing salons: the front door replaces the wildcard
+
+Render answers only for hostnames it has been told about, and the workspace
+plan caps how many at **2** — which the two live salons already use. The
+wildcard was meant to lift that and does not work here (see above).
+
+So salons stop being addressed by name at Render. A Cloudflare Worker forwards
+every `*.kairobookings.com` request to `kairo-shard-au.onrender.com`, which
+Render always answers for, and passes the real hostname in `X-Kairo-Host`. The
+shard believes that header only when `X-Kairo-Forward-Secret` matches
+`KAIRO_FORWARD_SECRET`, compared in constant time; otherwise it ignores it
+entirely and routes by the real Host as usual.
+
+Proven on the live shard, not only in tests:
+
+| Sent to `kairo-shard-au.onrender.com` | Answered by |
+|---|---|
+| correct secret, `X-Kairo-Host: horahaircutz.…` | **Horahaircutz** |
+| no secret, `X-Kairo-Host: horahaircutz.…` | the demo salon — header ignored |
+| wrong or truncated secret | the demo salon — header ignored |
+| no secret, `X-Kairo-Host: hairbysha.…` | the demo salon — header ignored |
+
+Setting it up is four steps in [`cloudflare/README.md`](cloudflare/README.md).
+**Read the warning about Hair By Sha there before adding the route** — the
+Worker catches every salon, including ones not yet moved, and it carries a
+list that sends those to their own service untouched.

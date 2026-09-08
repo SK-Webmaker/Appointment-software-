@@ -69,10 +69,19 @@ walk from one salon into another.
    runs. Its target no longer matters — the Worker replaces the origin — but
    `kairo-shard-au.onrender.com` keeps it honest.
 
-**Leave `hairbysha` and `horahaircutz` alone.** They are explicit custom
-domains on Render and they work. A route is more specific than the wildcard
-only if you make it so; these two keep their own records and their own path
-until they are deliberately moved onto the Worker.
+### The thing that would break Hair By Sha
+
+A route of `*.kairobookings.com/*` catches **every** salon, including ones
+still running on their own Render service. Forwarding those to the shard would
+answer *"no such salon"* for a working business.
+
+So the Worker holds a short list, `STILL_ON_THEIR_OWN_SERVICE`, and sends
+those straight to their own origin with the Host untouched — exactly what
+Cloudflare does today, so nothing about them changes. `hairbysha` is in it.
+
+**Delete her line the moment she moves**, and not before. Leaving it there
+after a move sends her customers to a copy nobody is reading; removing it
+early sends them to a salon that is not there yet.
 
 ## Checking it
 

@@ -24,6 +24,22 @@
  *   SHARD_ORIGIN     https://kairo-shard-au.onrender.com
  *   FORWARD_SECRET   the same value as KAIRO_FORWARD_SECRET on the shard
  */
+/**
+ * Salons that are NOT on the shard yet, and where they really live.
+ *
+ * A route of `*.kairobookings.com/*` catches every salon, including ones still
+ * running on their own Render service. Sending those to the shard would answer
+ * "no such salon" for a working business — the single worst thing this file
+ * could do — so they are forwarded to their own origin instead, exactly as
+ * Cloudflare does today.
+ *
+ * Delete a line the moment that salon is moved. Leaving one here after a move
+ * sends her customers to a copy nobody is reading.
+ */
+const STILL_ON_THEIR_OWN_SERVICE = {
+  'hairbysha.kairobookings.com': 'hairbysha-booking.onrender.com',
+};
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -31,6 +47,26 @@ export default {
     // The salon is the hostname the visitor typed. Everything else about the
     // request is passed through untouched.
     const salonHost = url.hostname;
+
+    // Not moved yet: straight to her own service, Host untouched, so Render
+    // matches her own custom domain and nothing about her changes.
+    const ownOrigin = STILL_ON_THEIR_OWN_SERVICE[salonHost];
+    if (ownOrigin) {
+      url.hostname = ownOrigin;
+      url.protocol = 'https:';
+      url.port = '';
+      const passthrough = new Headers(request.headers);
+      passthrough.set('host', salonHost);
+      // Never let a forwarded-host header ride along on this path.
+      passthrough.delete('x-kairo-host');
+      passthrough.delete('x-kairo-forward-secret');
+      return fetch(new Request(url.toString(), {
+        method: request.method,
+        headers: passthrough,
+        body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+        redirect: 'manual',
+      }));
+    }
     const origin = new URL(env.SHARD_ORIGIN);
     url.protocol = origin.protocol;
     url.hostname = origin.hostname;

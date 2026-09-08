@@ -979,8 +979,8 @@ process, never in a salon's settings, because one app serves every salon.
 ## Tests
 
 ```bash
-npm test               # 19 suites, 156 checks, ~70 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 44 ways; every guarding suite must fail
+npm test               # 19 suites, 162 checks, ~75 s — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 47 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
