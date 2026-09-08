@@ -16,9 +16,14 @@
 // the file did not exist. That is the state every existing deployment is in,
 // including the two live salons.
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import { DatabaseSync } from 'node:sqlite';
 import { readJson, sendJson, sendText, httpError } from './util.js';
 import {
-  MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, SLUG_RE, BASE_DOMAIN,
+  MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
 } from './tenant.js';
 import { db, getSetting, setSetting } from './db.js';
 import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
@@ -85,7 +90,10 @@ export async function handlePlatform(req, res, pathname) {
   if (req.method !== 'GET' && req.method !== 'DELETE') {
     try { raw = await new Promise((resolve, reject) => {
       let size = 0; const chunks = [];
-      req.on('data', (c) => { size += c.length; if (size > 2_000_000) { req.resume(); reject(httpError(413, 'Payload too large')); return; } chunks.push(c); });
+      // A salon being moved arrives as its whole database, base64 inside JSON.
+      // Everything else the platform sends is a few hundred bytes.
+      const cap = pathname.endsWith('/import') ? 24_000_000 : 2_000_000;
+      req.on('data', (c) => { size += c.length; if (size > cap) { req.resume(); reject(httpError(413, 'Payload too large')); return; } chunks.push(c); });
       req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
       req.on('error', reject);
     }); } catch (err) { sendJson(res, err.status || 400, { error: err.message }); return true; }
@@ -251,6 +259,60 @@ async function route(req, res, pathname, body) {
 
   // GET /api/platform/tenants/:slug/export — the whole business as one gzipped
   // file, for a refund, a deletion, or an owner who asks for their data.
+  // PUT /api/platform/tenants/:slug/import — a salon arriving from elsewhere.
+  //
+  // This is how a salon moves onto the shard: the whole database it already
+  // has, not an empty one that meets the wizard. It is the mirror of export
+  // and the only way to write a database here from outside, so it refuses
+  // three things flatly — a slug that exists, bytes that are not a SQLite
+  // database, and a database that fails its own integrity check — and nothing
+  // is written until all three have passed. A half-imported salon serving at
+  // its address would be worse than no salon.
+  if (tail === 'import' && req.method === 'PUT') {
+    if (!MULTI) throw httpError(400, 'This Kairo is single-tenant; it cannot import salons');
+    if (getTenant(slug) || fs.existsSync(path.join(TENANTS_DIR, slug))) throw httpError(409, `A salon already uses "${slug}" — import never overwrites`);
+    const b64 = String(body.snapshot_b64 || '');
+    if (!b64) throw httpError(400, 'snapshot_b64 is required: the salon\'s backup, gzipped, base64');
+    let raw;
+    try { raw = zlib.gunzipSync(Buffer.from(b64, 'base64')); } catch { throw httpError(400, 'snapshot is not valid gzip'); }
+    if (raw.subarray(0, 15).toString() !== 'SQLite format 3') throw httpError(400, 'snapshot is not a SQLite database');
+
+    const tmp = path.join(os.tmpdir(), `kairo-import-${slug}-${process.pid}-${Date.now()}.db`);
+    fs.writeFileSync(tmp, raw);
+    let counts;
+    try {
+      const d = new DatabaseSync(tmp, { readOnly: true });
+      try {
+        const ic = d.prepare('PRAGMA integrity_check').get();
+        if (ic?.integrity_check !== 'ok') throw httpError(400, `snapshot failed its integrity check: ${JSON.stringify(ic)}`);
+        const n = (t) => { try { return d.prepare(`SELECT COUNT(*) AS n FROM "${t}"`).get().n; } catch { return null; } };
+        counts = { clients: n('clients'), appointments: n('appointments'), invoices: n('invoices'), messages: n('messages'), users: n('users') };
+        if (!counts.users) throw httpError(400, 'snapshot has no owner: refusing a salon nobody can sign in to');
+      } finally { d.close(); }
+
+      // All three checks passed. Now, and only now, the folder exists.
+      const dir = path.join(TENANTS_DIR, slug);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.copyFileSync(tmp, path.join(dir, 'kairo.db'));
+      const cfg = {
+        slug,
+        public_url: String(body.public_url || `https://${slug}.${BASE_DOMAIN}`).slice(0, 200),
+        plan_status: 'active',
+        plan: String(body.plan || 'legacy').slice(0, 40),
+        migrated_from: String(body.migrated_from || '').slice(0, 200),
+        migrated_at: new Date().toISOString(),
+        ...(body.muted ? { muted: true } : {}),
+        ...(body.read_only ? { read_only: true } : {}),
+      };
+      fs.writeFileSync(path.join(dir, 'tenant.json'), JSON.stringify(cfg, null, 2) + '\n');
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+    // tenantStatus carries its own counts; the ones taken from the snapshot
+    // itself (with the owner row) are the ones the caller compares against.
+    return { ...tenantStatus(slug), imported: true, bytes: raw.length, counts };
+  }
+
   if (tail === 'export' && req.method === 'GET') {
     const t = getTenant(slug);
     if (!t) throw httpError(404, 'No such salon');

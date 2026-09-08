@@ -36,7 +36,7 @@ mutation that survives fails CI. When you fix a bug, add its mutation.
 | `security.test.js` | no secret in any response, token-scoped ICS and reviews, malformed and oversized bodies, demo reset guard |
 | `origin-lock.test.js` | off / monitor / enforce, the foot-gun checks, the environment override |
 | `backup-and-boot.test.js` | downloadable backup, pre-update backup, first-boot owner from the environment, pinned public URL |
-| `control-api.test.js` | the shard's control API: unsigned, wrongly signed, stale, future-dated and path-swapped requests refused; create, status, settings, patch, password reset, export, delete |
+| `control-api.test.js` | the shard's control API: unsigned, wrongly signed, stale, future-dated and path-swapped requests refused; create, status, settings, patch, password reset, export, delete; import of a whole salon that refuses to overwrite, refuses non-gzip, non-SQLite and a corrupt page, and writes nothing on refusal |
 | `signup.test.js` | a business signs up and comes out taking bookings — with a mock Stripe that signs webhooks exactly as Stripe does, and a mock ABN register |
 | `migrate.test.js` | the Phase 5 move rehearsed end to end: fetch, dry-run import, verify, serve, compare, since — and the verifier failing on a lost client, one cent, a changed owner |
 | `tenants.test.js` | many salons in one process: unknown host → nobody, per-salon data/sessions/tokens, 200 interleaved requests never cross, lazy creation, per-salon maintenance and mute, deletion, per-salon rate limits |

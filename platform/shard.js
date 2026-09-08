@@ -70,6 +70,17 @@ export const putSettings = async (slug, settings) => unwrap(await request('PUT',
 export const setPassword = async (slug, payload) => unwrap(await request('POST', `/api/platform/tenants/${slug}/password`, { body: payload }), 'password');
 export const deleteTenant = async (slug) => unwrap(await request('DELETE', `/api/platform/tenants/${slug}`), 'delete');
 export const testMessage = async (slug, body) => unwrap(await request('POST', `/api/platform/tenants/${slug}/test-message`, { body }), 'test-message');
+/**
+ * A salon arriving from elsewhere: its whole gzipped database, base64 inside
+ * the signed JSON body so the existing byte-exact signature covers it. The
+ * shard refuses an existing slug, bad gzip, a non-database and a failed
+ * integrity check, and writes nothing until all four pass.
+ */
+export const importSnapshot = async (slug, gz, opts = {}) => unwrap(await request(
+  'PUT', `/api/platform/tenants/${slug}/import`,
+  { body: { snapshot_b64: Buffer.from(gz).toString('base64'), ...opts }, timeoutMs: 120000 },
+), 'import');
+
 export const exportTenant = async (slug) => {
   const r = await request('GET', `/api/platform/tenants/${slug}/export`, { timeoutMs: 60000 });
   if (!r.ok) throw new Error(`shard export: ${r.status}`);

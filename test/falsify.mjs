@@ -113,6 +113,16 @@ const MUTATIONS = {
     find: "  if (!m) return 'missing or malformed signature';",
     replace: '  if (!m) return null;',
   },
+  'import-overwrites-existing': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: "    if (getTenant(slug) || fs.existsSync(path.join(TENANTS_DIR, slug))) throw httpError(409, `A salon already uses \"${slug}\" — import never overwrites`);",
+    replace: '',
+  },
+  'import-skips-integrity-check': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: "        if (ic?.integrity_check !== 'ok') throw httpError(400, `snapshot failed its integrity check: ${JSON.stringify(ic)}`);",
+    replace: '',
+  },
   'control-api-replay-window-open': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!Number.isFinite(t) || Math.abs(Date.now() - t) > MAX_AGE_MS) return 'signature timestamp is outside the accepted window';",

@@ -192,11 +192,11 @@ service runs old code that does not have it. Two ways forward:
 
 **A — Deploy the new code to Hora's service first (recommended).**
 Render → `horahaircutz-booking` → Settings → Branch →
-`claude/markdown-file-analysis-a5ppnf`. It redeploys in single-tenant mode,
-which is byte-for-byte the same behaviour she has now (there is no `tenants/`
-folder on her disk, and single-tenant mode is covered by the test suite).
-Confirm her booking page still works, then continue. Reversible: switch the
-branch back.
+`claude/markdown-file-analysis-a5ppnf`. It redeploys in single-tenant mode.
+Since 8 September the working branch **contains** the Kai v1.55.0 she runs
+today plus the move switch, so this is a pure superset of what she has —
+nothing removed. Confirm her booking page still works, then continue.
+Reversible: switch the branch back.
 
 *This is a change to a live salon.* It is the smallest one available, it is
 what the plan's precondition 4 asks for, and doing it on Hora first is exactly
@@ -218,36 +218,39 @@ Reads keep working: her booking page stays up and readable, and anyone
 mid-booking sees "back in a few minutes" rather than an error. Note the UTC
 time.
 
-### 3.2 Take the real snapshot and import it
+### 3.2 Take the real snapshot
+
+Sign in to Hora's salon → Settings → **Download a backup**. This is the copy
+that moves: nothing booked since the rehearsal snapshot is lost, because writes
+are frozen (3.1) and this is taken after the freeze.
+
+### 3.3 Put it on the shard and prove it — one command
+
+There is no shell on the shard, and there does not need to be: the snapshot
+travels over the signed control API, the shard checks it before writing
+anything (not gzip, not a database, failed integrity check, no owner, or a
+slug that exists — each refused, nothing written), and then the tool asks for
+it straight back and compares every row and every cent against what it sent.
+Finally the booking page and the next fortnight are compared, old salon
+against the new tenant, through a temporary `horahaircutz-preview` address
+under the wildcard — the exact path customers will use after the flip.
 
 ```bash
-node scripts/migrate-tenant.mjs fetch \
-  --url https://horahaircutz-booking.onrender.com \
-  --email <hora owner email> --password '<password>' \
-  --out hora-final.db.gz
-
-node scripts/migrate-tenant.mjs import \
-  --slug horahaircutz --from hora-final.db.gz \
-  --public-url https://horahaircutz.kairobookings.com --apply
-
-node scripts/migrate-tenant.mjs verify \
-  --slug horahaircutz --from hora-final.db.gz
+KAIRO_SHARD_URL=https://kairo-shard-au.onrender.com \
+KAIRO_PLATFORM_KEY=<the shard's key> \
+node scripts/move-tenant.mjs \
+  --slug horahaircutz \
+  --from ~/Downloads/horahaircutz-final.db.gz \
+  --old https://horahaircutz.kairobookings.com
 ```
 
-Note: **no `--muted` this time.** The rehearsal copy was muted so it could
-never send; the real one must be able to send her reminders.
+Note: **no `--muted`**. The rehearsal copy was muted so it could never send;
+the real one must send her reminders.
 
-`verify` must pass. If it does not, stop: nothing has moved yet, and setting
-`KAIRO_READ_ONLY` back to `0` puts her exactly where she started.
-
-### 3.3 Check the new one before anyone is sent to it
-
-```bash
-node scripts/migrate-tenant.mjs compare \
-  --old https://horahaircutz-booking.onrender.com \
-  --new https://kairo-shard-au.onrender.com \
-  --new-host horahaircutz.kairobookings.com
-```
+Exit 0 or stop. If it stops after the import succeeded, delete the shard copy
+(`DELETE /api/platform/tenants/horahaircutz` via the control API) before
+retrying, because import never overwrites. Setting `KAIRO_READ_ONLY` back to
+`0` on her old service puts her exactly where she started.
 
 ### 3.4 Flip the one DNS record
 

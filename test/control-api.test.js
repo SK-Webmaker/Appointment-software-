@@ -158,6 +158,86 @@ test('export returns the whole salon as a gzipped database', async () => {
   assert.equal(gunzip(r.buffer).subarray(0, 15).toString(), 'SQLite format 3');
 });
 
+test('import: a salon arrives whole, serves at its address, and comes back byte-for-byte', async () => {
+  // A real snapshot: the export of a salon this suite already created.
+  const owner = hash('moving-day-pw');
+  await signed('POST', '/api/platform/tenants', { slug: 'origin', name: 'Origin Salon', seed: 'demo', owner: { email: 'o@origin.test', ...owner } });
+  const ex = await signed('GET', '/api/platform/tenants/origin/export', undefined);
+  assert.equal(ex.status, 200);
+  const gz = ex.buffer;
+
+  const r = await signed('PUT', '/api/platform/tenants/arrived/import', {
+    snapshot_b64: gz.toString('base64'), public_url: `https://arrived.${DOMAIN}`, migrated_from: 'origin.db.gz',
+  });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.imported, true);
+  assert.ok(r.json.counts.clients > 0 && r.json.counts.appointments > 0, 'the demo seed came across');
+  assert.ok(r.json.counts.users >= 1);
+
+  // It serves, as itself, at its own address — and the owner from the snapshot can sign in.
+  const info = await k.api('GET', '/api/public/info', { host: `arrived.${DOMAIN}` });
+  assert.equal(info.status, 200);
+  const login = await k.api('POST', '/api/auth/login', { body: { email: 'o@origin.test', password: 'moving-day-pw' }, host: `arrived.${DOMAIN}` });
+  assert.equal(login.status, 200, 'the owner travels with the salon');
+
+  // And what comes back is what went in: same tables, same counts, same money.
+  const back = await signed('GET', '/api/platform/tenants/arrived/export', undefined);
+  const { DatabaseSync } = await import('node:sqlite');
+  const zlib = await import('node:zlib');
+  const tmpA = path.join(os.tmpdir(), `a-${Date.now()}.db`); fs.writeFileSync(tmpA, zlib.gunzipSync(gz));
+  const tmpB = path.join(os.tmpdir(), `b-${Date.now()}.db`); fs.writeFileSync(tmpB, zlib.gunzipSync(back.buffer));
+  const prof = (f) => {
+    const d = new DatabaseSync(f, { readOnly: true });
+    const tables = d.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((x) => x.name);
+    const out = {};
+    for (const t of tables) out[t] = d.prepare(`SELECT COUNT(*) AS n FROM "${t}"`).get().n;
+    out.__money = d.prepare('SELECT COALESCE(SUM(amount_cents),0) AS v FROM payments').get().v;
+    d.close(); return out;
+  };
+  assert.deepEqual(prof(tmpB), prof(tmpA));
+  fs.rmSync(tmpA, { force: true }); fs.rmSync(tmpB, { force: true });
+  // Kept for the refusal tests below.
+  globalThis.__snapshotGz = gz;
+});
+
+test('import refuses to overwrite, and refuses anything that is not a whole, sound salon', async () => {
+  const gz = globalThis.__snapshotGz;
+  const zlib = await import('node:zlib');
+
+  // Never overwrites: the slug from the previous test still exists.
+  const dup = await signed('PUT', '/api/platform/tenants/arrived/import', { snapshot_b64: gz.toString('base64') });
+  assert.equal(dup.status, 409, 'a second import onto a live salon must be refused');
+  assert.match(dup.json.error, /never overwrites/);
+
+  // Not gzip.
+  const notgz = await signed('PUT', '/api/platform/tenants/junk1/import', { snapshot_b64: Buffer.from('hello').toString('base64') });
+  assert.equal(notgz.status, 400);
+  assert.match(notgz.json.error, /gzip/);
+
+  // Gzip, but not a database.
+  const notdb = await signed('PUT', '/api/platform/tenants/junk2/import', { snapshot_b64: zlib.gzipSync(Buffer.from('this is not sqlite')).toString('base64') });
+  assert.equal(notdb.status, 400);
+  assert.match(notdb.json.error, /SQLite/);
+
+  // A real database with a smashed page: the file header is fine, so it still
+  // says "SQLite format 3", but page 2's b-tree header is garbage — an invalid
+  // page type is a structural fault the integrity check has to report.
+  // (Smashing bytes inside a page's unused space is NOT reliably detected,
+  // which is exactly why this hits the header.)
+  const raw = Buffer.from(zlib.gunzipSync(gz));
+  const page = raw.readUInt16BE(16) || 4096;
+  for (let i = page; i < page + 200; i++) raw[i] = 0xff;
+  const broken = await signed('PUT', '/api/platform/tenants/junk3/import', { snapshot_b64: zlib.gzipSync(raw).toString('base64') });
+  assert.equal(broken.status, 400, 'a corrupt database must not become a salon');
+  assert.match(broken.json.error, /integrity/);
+
+  // Nothing was written for any refusal: none of them serve, and no folder exists.
+  for (const slug of ['junk1', 'junk2', 'junk3']) {
+    assert.equal((await k.api('GET', '/api/public/info', { host: `${slug}.${DOMAIN}` })).status, 404, `${slug} must not exist`);
+    assert.equal(fs.existsSync(path.join(dataDir, 'tenants', slug)), false, `${slug} must leave no folder behind`);
+  }
+});
+
 test('delete stops the address serving and keeps the file', async () => {
   const host = `abchair.${DOMAIN}`;
   assert.equal((await signed('DELETE', '/api/platform/tenants/abchair')).json.deleted, true);
