@@ -25,10 +25,34 @@ urgent enough to push past a red check.
 
 ## Where things stand
 
-Verified 6 September, 03:15 UTC.
+Verified 8 September, 12:40 UTC (22:40 Melbourne).
 
 | Thing | State |
 |---|---|
+| `kairo-shard-au` (Singapore, starter) | **Live**, v1.58.0, multi-tenant, holds no salons |
+| Its persistent disk | **Added** — 5 GB at `/var/data` |
+| Its health check path | **Set** — `/api/version` |
+| Cloudflare `*` record | **Correct** — proxied CNAME to `kairo-shard-au.onrender.com` |
+| Render custom domain | **WRONG ONE** — `kairobookings.com` (the apex) was added instead of `*.kairobookings.com`. Cloudflare answers Error 1000 for every `x.kairobookings.com` until the wildcard is registered on Render. See 1.3 |
+| The apex `kairobookings.com` | Still serves the marketing site. Untouched. Must **not** be pointed at the shard |
+| `hairbysha-booking`, `horahaircutz-booking` | Untouched, answering normally, **on the default branch's Kai v1.55.0** (auto-deployed 7 Sep 21:44 UTC) |
+| Kai work on the default branch | **Merged into the working branch** as v1.58.0 — 154 checks, 42/42 mutations caught |
+| Rehearsals, from the owner's own backups | **Both green.** Hora 38 verify + 65 compare; Sha 38 + 37 (own-domain email intact). Hora re-rehearsed on the merged code: green |
+| Off-Render backups | **Taken** — 8 Sep, both salons, on the owner's machine |
+
+The working branch is `claude/markdown-file-analysis-a5ppnf`. The shard deploys
+from it directly.
+
+> **Never merge the working branch into
+> `claude/appointment-booking-software-xqoy4f`.** Both live services
+> auto-deploy from it on every commit — this is not hypothetical, it happened
+> three times on 7 September with the Kai work — so a merge puts new code onto
+> Sha and Hora within a minute, unrehearsed and with no window. The shard reads
+> the working branch, so there is no reason to merge. When the time comes, the
+> Kai lineage is already inside the working branch (v1.58.0), so nothing is lost
+> by leaving the default branch where it is.
+
+---|---|
 | `kairo-shard-au` (Singapore, starter) | **Live**, v1.57.0, multi-tenant, holds no salons |
 | Its persistent disk | **NOT ADDED** — must be done before any import |
 | Its health check path | **NOT SET** — should be `/api/version` |
@@ -81,9 +105,11 @@ own service already has this set; the shard does not.
 ### 1.3 Point the salon addresses at the shard
 
 **Render first:** `kairo-shard-au` → Settings → **Custom Domains** → add
-`*.kairobookings.com`. Render shows what to point at it.
+**`*.kairobookings.com`** — the wildcard, with the asterisk. Not the bare
+domain: `kairobookings.com` is the marketing site and must never point at the
+shard. If the apex was added by mistake, remove it there.
 
-**Then Cloudflare:** `kairobookings.com` → DNS → add a record
+**Then Cloudflare:** `kairobookings.com` → DNS → a record
 
 | Field | Value |
 |---|---|
@@ -97,7 +123,12 @@ are.** They are more specific than the wildcard, so they keep winning and both
 salons carry on unchanged. That is what makes the cutover in 3.4 a
 one-record edit.
 
-**Check:** `dig +short anything.kairobookings.com` resolves.
+If Render's verification of the wildcard sits on "pending" behind the
+Cloudflare proxy, switch the `*` record to *DNS only* (grey cloud), press
+*Retry verification*, and switch the proxy back on once it says verified.
+
+**Check:** `curl https://demo.kairobookings.com/api/version` → `{"version":…}`
+from the shard, not a Cloudflare error page.
 
 ### 1.4 Download a backup of each salon
 
