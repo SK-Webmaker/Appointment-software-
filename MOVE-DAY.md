@@ -1,25 +1,26 @@
 # Move day
 
-> ## IN PROGRESS — 8 September, 13:43 UTC
+> ## HORAHAIRCUTZ IS MOVED — 8 September, 13:57 UTC (23:57 Melbourne)
 >
-> **Horahaircutz has online booking switched OFF** while she is copied to the
-> shard. Her workspace and booking page still work; only new customer bookings
-> are refused. **If this is abandoned for any reason, turn it back on** — that
-> is the whole of the rollback at this point, because nothing else has changed:
+> She is live on the shard at `horahaircutz.kairobookings.com`, running v1.58.0,
+> with all 14 clients, 102 appointments, 49 invoices and 43 payments
+> (702,551 cents) intact. Her owner signs in, her booking page takes bookings,
+> and a real test booking's confirmation was **delivered via Resend** before
+> being cancelled and cleaned up.
 >
-> ```bash
-> curl -X PUT https://horahaircutz.kairobookings.com/api/settings \
->   -H 'content-type: application/json' -H "cookie: <owner session>" \
->   -d '{"booking_enabled":"1"}'
-> ```
+> **The rollback, if she is ever wrong:** her old service
+> `horahaircutz-booking` is still running, untouched, with her data as it was
+> at the moment of the move. Put the custom domain `horahaircutz.kairobookings.com`
+> back on it in Render (removing it from `kairo-shard-au` first), and turn its
+> online booking back on. That is the whole of it — no DNS change is needed,
+> because Render routes by the Host header and the custom domain is what decides
+> which service answers.
 >
-> Or simply: sign in as her owner → Settings → turn **online booking** back on.
+> **Online booking is deliberately OFF on the old service** so nobody can book
+> into a copy nobody is reading. Leave it that way.
 >
-> Her snapshot at the moment of freezing: 14 clients, 102 appointments,
-> 49 invoices, 43 payments totalling 702,551 cents, 3 staff, 13 services,
-> owner `starsoccer842@gmail.com`. Anything on the shard must match this
-> exactly.
-
+> **Next: Hair By Sha, Monday 14 September**, after a week of Hora running. Her
+> rehearsal already passed on real data.
 
 **Read this first, whichever of us is reading.** This is the operating script
 for moving Horahaircutz onto the shard. It is written to be picked up cold —
@@ -355,3 +356,35 @@ and re-entered by hand. This is why the old service stays up for a week.
 - The App Store work ([`docs/app-store/07-phase-7-launch.md`](docs/app-store/07-phase-7-launch.md))
   is entirely separate and waits on the A$149 Apple enrolment. It should not
   share a week with a salon migration.
+
+---
+
+## What Hora's move actually taught us, 8 September
+
+Four things that were not in the plan, and matter for Sha next Monday.
+
+**1. The custom domain IS the cutover; DNS never changes.** Render routes by
+the Host header, so the moment `horahaircutz.kairobookings.com` was removed
+from her old service and added to `kairo-shard-au`, she was being served by the
+shard. The Cloudflare record still points at `horahaircutz-booking.onrender.com`
+and it does not matter. Two clicks, no propagation wait, and the rollback is the
+same two clicks in reverse.
+
+**2. `verify` fails on a cross-version move, and that is correct.** Moving
+1.55.0 → 1.58.0 reported four failures: one extra table (`devices`), four extra
+settings rows, the settings count, and the file size. Every row count, every
+money total and the newest ids matched. Of her 105 settings **exactly one
+changed** — `app_version`. Do not wave this away: diff the settings key by key
+and confirm the only differences are new keys with default values and the
+version stamp. If any of her own settings changed value, stop.
+
+**3. Turning online booking off is a good enough freeze.** It is the only thing
+that writes without a person present, and it works on the old code, so no
+deploy is needed to get a clean snapshot. Her public page 404s while it is off,
+so the `compare` step has to be run with booking briefly back on.
+
+**4. Do not push to the working branch during a cutover.** The shard
+auto-deploys from it, and a redeploy mid-import answers 502. One import failed
+that way; nothing was written, because the import checks everything before it
+creates the folder.
+
