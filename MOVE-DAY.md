@@ -25,15 +25,17 @@ urgent enough to push past a red check.
 
 ## Where things stand
 
-Verified 8 September, 12:40 UTC (22:40 Melbourne).
+Verified 8 September, 13:25 UTC (23:25 Melbourne).
 
 | Thing | State |
 |---|---|
 | `kairo-shard-au` (Singapore, starter) | **Live**, v1.58.0, multi-tenant, holds no salons |
 | Its persistent disk | **Added** — 5 GB at `/var/data` |
 | Its health check path | **Set** — `/api/version` |
-| Cloudflare `*` record | **Correct** — proxied CNAME to `kairo-shard-au.onrender.com` |
-| Render custom domain | **WRONG ONE** — `kairobookings.com` (the apex) was added instead of `*.kairobookings.com`. Cloudflare answers Error 1000 for every `x.kairobookings.com` until the wildcard is registered on Render. See 1.3 |
+| Cloudflare `*` record | **Correct, DNS only** — CNAME to `kairo-shard-au.onrender.com`; `_acme-challenge` and `_cf-custom-hostname` both correct and resolving (validation token present) |
+| Render custom domain | `*.kairobookings.com` — **Verified, Certificate Issued**, but **not routing**: Render's own edge answers Cloudflare Error 1000 for every `x.kairobookings.com`, confirmed from a clean network (GitHub runner, `.github/workflows/probe.yml`). Nothing has ever reached the shard through the wildcard. Lead: the Render page says **"2 / 2 custom domains included with your workspace plan"** — a plan cap may be stopping the hostname being provisioned at the edge even though verification passed |
+| Demo salon on the shard | **Created** over the control API — `demo`, seeded, owner `demo@kairobookings.com`. Cannot be reached until the wildcard routes |
+| Control API import verb | **Live on the shard**, refusing bad snapshots correctly |
 | The apex `kairobookings.com` | Still serves the marketing site. Untouched. Must **not** be pointed at the shard |
 | `hairbysha-booking`, `horahaircutz-booking` | Untouched, answering normally, **on the default branch's Kai v1.55.0** (auto-deployed 7 Sep 21:44 UTC) |
 | Kai work on the default branch | **Merged into the working branch** as v1.58.0 — 154 checks, 42/42 mutations caught |
