@@ -25,7 +25,7 @@ urgent enough to push past a red check.
 
 ## Where things stand
 
-Verified 8 September, 13:25 UTC (23:25 Melbourne).
+Verified 8 September, 13:32 UTC (23:32 Melbourne).
 
 | Thing | State |
 |---|---|
@@ -34,7 +34,7 @@ Verified 8 September, 13:25 UTC (23:25 Melbourne).
 | Its health check path | **Set** — `/api/version` |
 | Cloudflare `*` record | **Correct, DNS only** — CNAME to `kairo-shard-au.onrender.com`; `_acme-challenge` and `_cf-custom-hostname` both correct and resolving (validation token present) |
 | Render custom domain | `*.kairobookings.com` — **Verified, Certificate Issued**, but **not routing**: Render's own edge answers Cloudflare Error 1000 for every `x.kairobookings.com`, confirmed from a clean network (GitHub runner, `.github/workflows/probe.yml`). Nothing has ever reached the shard through the wildcard. Lead: the Render page says **"2 / 2 custom domains included with your workspace plan"** — a plan cap may be stopping the hostname being provisioned at the edge even though verification passed |
-| Demo salon on the shard | **Created** over the control API — `demo`, seeded, owner `demo@kairobookings.com`. Cannot be reached until the wildcard routes |
+| Demo salon on the shard | **Live and proven.** Created over the control API; serves at the shard's own `onrender.com` address (added to its `domains`), the owner signs in, a real booking was taken — **and the booking survived a full redeploy**, which is the persistent disk actually working |
 | Control API import verb | **Live on the shard**, refusing bad snapshots correctly |
 | The apex `kairobookings.com` | Still serves the marketing site. Untouched. Must **not** be pointed at the shard |
 | `hairbysha-booking`, `horahaircutz-booking` | Untouched, answering normally, **on the default branch's Kai v1.55.0** (auto-deployed 7 Sep 21:44 UTC) |
@@ -182,6 +182,35 @@ from the live salon.
 **Exit 0 on both, or the salon that failed does not move.** Sha's rehearsal is
 run today even though she moves next week — if her data has a surprise in it,
 today is when we want to find out.
+
+---
+
+## The custom-domain cap, and the way past it
+
+Render's Custom Domains page reports **"2 / 2 custom domains included with your
+workspace plan"**. The wildcard shows *Verified* and *Certificate Issued* and
+still does not route: every `x.kairobookings.com` gets Cloudflare Error 1000,
+confirmed from a clean network. Verification passing while routing never
+activates is what a quota block looks like from outside.
+
+**This does not block Hora.** The shard routes a salon by any hostname listed
+in its `tenant.json` `domains`, which is how the demo salon is being served
+today at the shard's own `onrender.com` address. So Hora moves by *swapping*
+her existing custom domain rather than adding a new one — net zero against the
+cap:
+
+1. Import her onto the shard (§3.3). Nothing is serving her there yet.
+2. Give the tenant her hostname:
+   `patchTenant('horahaircutz', { domains: ['horahaircutz.kairobookings.com'] })`
+3. On Render, **remove** `horahaircutz.kairobookings.com` from
+   `horahaircutz-booking`, then **add** it to `kairo-shard-au`. One out, one in.
+4. In Cloudflare, point the `horahaircutz` record at
+   `kairo-shard-au.onrender.com`.
+
+The wildcard is what makes *future* salons provision in seconds, so it still
+has to be solved — a workspace plan upgrade, or Render support, since a domain
+that verifies and issues a certificate but never routes is worth reporting. It
+is not on today's critical path.
 
 ---
 
