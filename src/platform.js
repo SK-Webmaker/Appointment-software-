@@ -23,7 +23,8 @@ import zlib from 'node:zlib';
 import { DatabaseSync } from 'node:sqlite';
 import { readJson, sendJson, sendText, httpError } from './util.js';
 import {
-  MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
+  MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, withLegacyTenant,
+  SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
 } from './tenant.js';
 import { db, getSetting, setSetting } from './db.js';
 import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
@@ -126,6 +127,27 @@ async function route(req, res, pathname, body) {
   // GET /api/platform/health — is this shard alive, which version, how many salons.
   if (parts[0] === 'health' && parts.length === 1 && req.method === 'GET') {
     return { ok: true, version: VERSION, multi_tenant: MULTI, base_domain: BASE_DOMAIN, tenants: listTenantSlugs().length };
+  }
+
+  // GET /api/platform/self/export — the salon this service IS.
+  //
+  // A single-tenant Kairo has no slug to address, so a salon being moved OFF
+  // one had no way out except the owner's own password. This is that way out:
+  // the same snapshot the owner's "download a backup" button produces, taken
+  // over the same signature everything else here uses. It exists so a cutover
+  // needs no credential travelling anywhere, and it is refused on a shard,
+  // where salons have slugs and `tenants/:slug/export` is the route.
+  if (parts[0] === 'self' && parts[1] === 'export' && parts.length === 2 && req.method === 'GET') {
+    if (MULTI) throw httpError(400, 'This Kairo holds many salons; export one by slug');
+    const snap = withLegacyTenant(() => snapshot());
+    res.writeHead(200, {
+      'Content-Type': 'application/gzip',
+      'Content-Length': snap.buffer.length,
+      'Content-Disposition': `attachment; filename="${snap.filename}"`,
+      'Cache-Control': 'no-store',
+    });
+    res.end(snap.buffer);
+    return undefined;
   }
 
   if (parts[0] !== 'tenants') throw httpError(404, 'Not found');

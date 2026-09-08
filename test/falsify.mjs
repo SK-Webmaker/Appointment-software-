@@ -113,6 +113,11 @@ const MUTATIONS = {
     find: "  if (!m) return 'missing or malformed signature';",
     replace: '  if (!m) return null;',
   },
+  'self-export-open-to-anyone': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: "  const bad = verify(req, pathname, raw);\n  if (bad) { sendJson(res, 401, { error: `Unauthorised: ${bad}` }); return true; }",
+    replace: '',
+  },
   'import-overwrites-existing': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "    if (getTenant(slug) || fs.existsSync(path.join(TENANTS_DIR, slug))) throw httpError(409, `A salon already uses \"${slug}\" — import never overwrites`);",

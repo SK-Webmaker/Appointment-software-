@@ -81,6 +81,13 @@ export const importSnapshot = async (slug, gz, opts = {}) => unwrap(await reques
   { body: { snapshot_b64: Buffer.from(gz).toString('base64'), ...opts }, timeoutMs: 120000 },
 ), 'import');
 
+/** The salon a single-tenant service IS: a snapshot with no slug and no password. */
+export const exportSelf = async () => {
+  const r = await request('GET', '/api/platform/self/export', { timeoutMs: 120000 });
+  if (!r.ok) throw new Error(`shard self-export: ${r.status} ${r.json?.error || ''}`);
+  return r.buffer;
+};
+
 export const exportTenant = async (slug) => {
   const r = await request('GET', `/api/platform/tenants/${slug}/export`, { timeoutMs: 60000 });
   if (!r.ok) throw new Error(`shard export: ${r.status}`);

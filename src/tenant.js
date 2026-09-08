@@ -168,6 +168,18 @@ export function listTenantSlugs() {
   return names.filter((n) => SLUG_RE.test(n) && !readConfig(path.join(TENANTS_DIR, n)).config.deleted).sort();
 }
 
+/**
+ * Run `fn` inside the context of the one salon a single-tenant service IS.
+ *
+ * A shard addresses its salons by slug; a single-tenant Kairo has no slug,
+ * because the service is the salon. This is the only way to reach it from code
+ * that runs outside a request — which is what the control API does.
+ */
+export function withLegacyTenant(fn) {
+  if (MULTI) throw new Error('withLegacyTenant: this Kairo is multi-tenant');
+  return als.run(boot(legacyTenant()), fn);
+}
+
 /** Run `fn` once per tenant, each inside its own context. The scheduler's loop. */
 export async function forEachTenant(fn) {
   if (!MULTI) { const t = boot(legacyTenant()); return als.run(t, () => fn(t)); }

@@ -158,6 +158,43 @@ test('export returns the whole salon as a gzipped database', async () => {
   assert.equal(gunzip(r.buffer).subarray(0, 15).toString(), 'SQLite format 3');
 });
 
+test('a single-tenant Kairo exports the one salon it is, with no slug and no password', async () => {
+  // How a salon gets OFF a service that has no slugs: the cutover needs a
+  // snapshot, and the alternative was the owner's password travelling to
+  // whoever runs the move.
+  const solo = await startKairo({ env: { KAIRO_PLATFORM_KEY: KEY } });
+  try {
+    const at = Date.now();
+    const p = '/api/platform/self/export';
+    const r = await solo.api('GET', p, { headers: { 'x-kairo-signature': `t=${at},v1=${sign(at, 'GET', p, '', KEY)}` }, raw: true });
+    assert.equal(r.status, 200, 'a signed self-export must be served');
+    assert.match(r.headers.get('content-type'), /gzip/);
+
+    const zlib = await import('node:zlib');
+    const { DatabaseSync } = await import('node:sqlite');
+    const raw = zlib.gunzipSync(r.buffer);
+    assert.equal(raw.subarray(0, 15).toString(), 'SQLite format 3');
+    const f = path.join(os.tmpdir(), `solo-${Date.now()}.db`);
+    fs.writeFileSync(f, raw);
+    const d = new DatabaseSync(f, { readOnly: true });
+    assert.equal(d.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
+    assert.ok(d.prepare('SELECT COUNT(*) AS n FROM users').get().n >= 1, 'the owner travels with it');
+    assert.ok(d.prepare('SELECT COUNT(*) AS n FROM clients').get().n > 0);
+    d.close(); fs.rmSync(f, { force: true });
+
+    // Unsigned, it does not exist.
+    assert.equal((await solo.api('GET', p)).status, 401);
+  } finally { await solo.stop(); }
+});
+
+test('a shard refuses the single-salon export: its salons have slugs', async () => {
+  const at = Date.now();
+  const p = '/api/platform/self/export';
+  const r = await k.api('GET', p, { headers: { 'x-kairo-signature': `t=${at},v1=${sign(at, 'GET', p, '', KEY)}` } });
+  assert.equal(r.status, 400);
+  assert.match(r.json.error, /many salons/);
+});
+
 test('import: a salon arrives whole, serves at its address, and comes back byte-for-byte', async () => {
   // A real snapshot: the export of a salon this suite already created.
   const owner = hash('moving-day-pw');
