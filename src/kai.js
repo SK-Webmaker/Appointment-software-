@@ -16,8 +16,10 @@
 //
 //   And the founding rule: nothing acts silently. A model that can act is the
 //   opposite of that — "cancel Sarah's appointment", with two Sarahs in the
-//   book, is somebody's afternoon. So Kai NEVER acts on a guess. It shows what
-//   it matched, and the owner presses the thing.
+//   book, is somebody's afternoon. Kai does act now (see src/kai-actions.js),
+//   but only on readings it can explain in one line, only on things that are
+//   reversible, and never on a guess: where two readings are close it asks.
+//   Every answer here still shows what it matched before anything happens.
 //
 // This is also the right first step even if a model does arrive later. An
 // assistant is only as good as the functions it can call; building that layer
@@ -25,6 +27,9 @@
 // Done in the other order you get a chatbot that guesses.
 import { db, getSetting, publicUrl } from './db.js';
 import { clientRhythms } from './opportunities.js';
+import { tokenise, scoreIntent, readPeriod, readWeekdays } from './kai-language.js';
+import { readActions, previewCompound } from './kai-actions.js';
+import { readNav, matchPlaces } from './kai-nav.js';
 
 const money = (cents) => `${getSetting('currency', '$')}${((cents || 0) / 100).toFixed(2)}`;
 const clock = (min) => {
@@ -57,39 +62,11 @@ const answer = (o) => ({
   href: o.href || '',
   copy: o.copy || '',
   score: o.score ?? 0,
+  // Only on a change Enter would make: what it would do, what it would undo,
+  // and the fingerprint the server checks when Kai had to ask which reading was
+  // meant and the owner picked one.
+  ...(o.plan ? { plan: o.plan } : {}),
 });
-
-// ---------------------------------------------------------------------------
-// Places
-// ---------------------------------------------------------------------------
-
-/**
- * Every screen worth jumping to, with the words an owner would actually use.
- *
- * "sms reminders" is not the name of a page; it is what somebody types when
- * they want to change how texts go out. The aliases matter more than the
- * titles, because the titles are what they could already see in the sidebar.
- */
-const PLACES = [
-  { title: 'Today', href: '#/dashboard', words: 'dashboard home today overview takings' },
-  { title: 'Calendar', href: '#/calendar', words: 'calendar diary book appointments schedule' },
-  { title: 'Clients', href: '#/clients', words: 'clients customers people contacts' },
-  { title: 'Services', href: '#/services', words: 'services prices price list treatments menu' },
-  { title: 'Products', href: '#/products', words: 'products retail stock inventory' },
-  { title: 'Billing', href: '#/invoices', words: 'invoices billing bills payments owed unpaid' },
-  { title: 'Messages', href: '#/messages', words: 'messages sent email sms log outbox' },
-  { title: 'Reviews', href: '#/reviews', words: 'reviews ratings feedback stars' },
-  { title: 'Growth', href: '#/growth', words: 'growth referrals referral link google new clients' },
-  { title: 'Team', href: '#/staff', words: 'staff team roster hours rota stylists' },
-  { title: 'Point of Sale', href: '#/pos', words: 'pos till checkout sell payment counter' },
-  { title: 'Settings → Notifications', href: '#/settings', words: 'sms reminders notifications email confirmations texts resend clicksend' },
-  { title: 'Settings → Booking page', href: '#/settings', words: 'booking page brand colours logo online booking' },
-  { title: 'Settings → No-shows', href: '#/settings', words: 'no shows noshow deposits blocked rules confirm' },
-  { title: 'Settings → Patch tests', href: '#/settings', words: 'patch test allergy consent safety contraindication ppd colour' },
-  { title: 'Settings → Marketing', href: '#/settings', words: 'marketing automations campaigns offers' },
-  { title: 'Settings → Backups', href: '#/settings', words: 'backup backups restore export database' },
-  { title: 'Account', href: '#/account', words: 'account password security login sign in' },
-];
 
 // ---------------------------------------------------------------------------
 // The questions
@@ -133,27 +110,61 @@ function findClients(q, today) {
   });
 }
 
-/** What came in over a period, against the one before it. */
-function takings(today, days, label) {
-  const from = addDays(today, -(days - 1));
+/**
+ * What came in over a period, against the one before it — and, when the owner
+ * named particular days, split across those days.
+ *
+ * "What were last week's numbers for Monday, Tuesday and Wednesday" is a real
+ * question with a real answer, and it used to get the same undifferentiated
+ * weekly total as everything else. The split is where the useful part is: three
+ * days that look identical on the roster rarely look identical on the takings.
+ */
+function takingsFor(today, period, weekdays = []) {
+  const { from, to, label, days } = period;
   const prevFrom = addDays(from, -days);
   const prevTo = addDays(from, -1);
+  const dayFilter = weekdays.length
+    ? ` AND CAST(strftime('%w', substr(paid_at, 1, 10)) AS INTEGER) IN (${weekdays.join(',')})`
+    : '';
   const sum = (a, b) => db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) AS v FROM payments WHERE substr(paid_at, 1, 10) BETWEEN ? AND ?'
+    `SELECT COALESCE(SUM(amount_cents), 0) AS v FROM payments
+      WHERE substr(paid_at, 1, 10) BETWEEN ? AND ?${dayFilter}`
   ).get(a, b).v;
-  const now = sum(from, today);
+
+  const now = sum(from, to);
   const before = sum(prevFrom, prevTo);
   const diff = now - before;
   // Stated as a comparison rather than a lone figure. "$2,140" means nothing on
-  // its own; "$2,140, up $310 on the fortnight before" is the whole point.
+  // its own; "$2,140, up $310 on the week before" is the whole point.
   const change = before === 0
     ? (now > 0 ? 'nothing to compare it with yet' : 'nothing either period')
     : `${diff >= 0 ? 'up' : 'down'} ${money(Math.abs(diff))} on the ${label} before`;
+
+  const rows = weekdays.length ? weekdays.map((d) => {
+    const v = db.prepare(
+      `SELECT COALESCE(SUM(amount_cents), 0) AS v, COUNT(DISTINCT substr(paid_at, 1, 10)) AS n
+         FROM payments WHERE substr(paid_at, 1, 10) BETWEEN ? AND ?
+          AND CAST(strftime('%w', substr(paid_at, 1, 10)) AS INTEGER) = ?`
+    ).get(from, to, d);
+    return {
+      label: DAYS[d],
+      sub: v.n ? `${v.n} day${v.n === 1 ? '' : 's'} in this period` : 'nothing taken',
+      value: money(v.v),
+    };
+  }) : [];
+
+  const scope = weekdays.length ? ` on ${weekdays.map((d) => DAYS[d]).join(', ')}` : '';
+  // "last 3 days" already says "last"; "week" does not. Reading back "over the
+  // last last 3 days" is the kind of thing that makes an owner trust the number
+  // slightly less, for no reason at all.
+  const when = /^(today|yesterday)$/.test(label) ? label
+    : /^last /.test(label) ? `over the ${label}` : `over the last ${label}`;
   return answer({
-    kind: 'figure',
+    kind: weekdays.length ? 'list' : 'figure',
     title: money(now),
-    detail: `Taken ${label === 'day' ? 'today' : `over the last ${label}`} — ${change}`,
-    matched: `takings, last ${label}`,
+    detail: `Taken ${when}${scope} — ${change}`,
+    matched: `takings, ${label}${scope}`,
+    rows,
     href: '#/dashboard',
     score: 80,
   });
@@ -298,59 +309,132 @@ function todayAt(today) {
 // ---------------------------------------------------------------------------
 
 /**
- * Deliberately simple, and deliberately not clever.
+ * What each question is ABOUT, rather than the words somebody has to type.
  *
- * Every rule here is a phrase somebody would type, matched literally. There is
- * no fuzzy scoring, no stemming and no synonym table beyond the words listed —
- * because a bar that is 80% right and confident is worse than one that is
- * narrow and honest. When nothing matches, Kai says so and offers a client
- * search rather than guessing at the nearest thing.
+ * The first version of this was a regex table: "last week" worked, "what did we
+ * take last week compared to the week before" did not. That is a bar an owner
+ * has to learn the phrasing of, which is a worse menu rather than a better one.
+ *
+ * So each intent lists the words that point at it, weighted, plus the words at
+ * least one of which has to be there. Scoring means a long sentence can carry
+ * several signals and the strongest wins, and it means adding a way of saying
+ * something is one word in a list rather than another branch of a regex.
+ *
+ * Still no fuzzy string distance, no stemming, no model. Every match is
+ * explainable in one line, and Kai shows the owner which line it was.
  */
 const INTENTS = [
-  { test: /\b(today|on today|whats on|what's on|diary)\b/, run: (t) => todayAt(t) },
-  { test: /\b(last week|this week|week)\b/, run: (t) => takings(t, 7, 'week') },
-  { test: /\b(last month|this month|month)\b/, run: (t) => takings(t, 30, 'month') },
-  { test: /\b(fortnight|two weeks)\b/, run: (t) => takings(t, 14, 'fortnight') },
-  { test: /\b(took|takings|revenue|earned|money in|sales)\b/, run: (t) => takings(t, 7, 'week') },
-  { test: /\b(owes?|owing|unpaid|outstanding|debt|who owes)\b/, run: (t) => owing(t) },
-  { test: /\b(overdue|haven'?t been|not been in|lapsed|drifted|due back)\b/, run: (t) => overdue(t) },
-  { test: /\b(no.?shows?|didn'?t turn up|missed)\b/, run: (t) => noShows(t) },
-  { test: /\b(booking link|book link|my link|share link)\b/, run: () => bookingLink() },
+  {
+    id: 'diary',
+    must: ['diary', 'today'],
+    any: { diary: 32, today: 26, tomorrow: 10 },
+    run: ({ today }) => todayAt(today),
+  },
+  {
+    id: 'takings',
+    must: ['takings', 'week', 'month', 'year', 'fortnight', 'quarter', 'yesterday', 'today', 'day'],
+    any: {
+      takings: 34, week: 20, month: 20, fortnight: 20, quarter: 18,
+      year: 18, yesterday: 16, day: 12, today: 10,
+    },
+    run: ({ today, period, weekdays }) => takingsFor(
+      today, period || { from: addDays(today, -6), to: today, label: 'week', days: 7 }, weekdays,
+    ),
+  },
+  { id: 'owing', must: ['owing'], any: { owing: 34, client: 6 }, run: ({ today }) => owing(today) },
+  { id: 'overdue', must: ['overdue'], any: { overdue: 34, client: 6 }, run: ({ today }) => overdue(today) },
+  { id: 'noshow', must: ['noshow'], any: { noshow: 34, client: 6 }, run: ({ today }) => noShows(today) },
+  { id: 'link', must: ['bookinglink', 'link'], any: { bookinglink: 36, link: 22 }, run: () => bookingLink() },
 ];
 
 /**
- * Everything Kai can answer for this query, best first.
+ * Everything Kai can do about this sentence, best first.
  *
  * Always returns SOMETHING, even if only "here is where that lives" — a bar
- * that goes blank has taught the owner not to use it again.
+ * that goes blank has taught the owner not to open it again.
+ *
+ * Changes come back as proposals alongside the answers, never as things already
+ * done. See src/kai-actions.js for why that is the whole design rather than a
+ * politeness.
  */
 export function ask(query, { today }) {
   const raw = String(query || '').trim();
-  const q = raw.toLowerCase();
-  if (!q) return { query: raw, answers: [] };
+  if (!raw) return { query: raw, answers: [] };
 
+  const { keys } = tokenise(raw);
+  const period = readPeriod(raw, today);
+  const weekdays = readWeekdays(raw);
   const out = [];
+
   for (const intent of INTENTS) {
-    if (intent.test.test(q)) {
-      try { out.push(intent.run(today)); } catch { /* one bad answer must not empty the bar */ }
-    }
+    const score = scoreIntent(keys, intent);
+    if (!score) continue;
+    try {
+      const a = intent.run({ today, period, weekdays });
+      // The intent's own confidence, plus how well the sentence pointed at it,
+      // so "what did we take last week" outranks the page that shares a word.
+      out.push({ ...a, score: a.score + score });
+    } catch { /* one bad answer must not empty the bar */ }
   }
 
-  // Places, matched on the words an owner would use rather than the page title.
-  const terms = q.split(/\s+/).filter(Boolean);
-  for (const place of PLACES) {
-    const hay = `${place.title.toLowerCase()} ${place.words}`;
-    const hits = terms.filter((t) => hay.includes(t)).length;
-    if (!hits) continue;
+  // What pressing Enter would do. This is a preview, not a proposal: Kai acts
+  // on Enter now, so the value of showing it while the owner types is that they
+  // see the before and the after BEFORE committing to the keystroke. Nothing
+  // here changes anything — this whole function is a read.
+  try {
+    // A sentence asking for two things previews both. Showing only the first
+    // half of "close Mondays and open Saturday" would understate what Enter is
+    // about to do, which is the one thing this preview exists to prevent.
+    const many = previewCompound(raw, { today });
+    const previews = many
+      ? many.map((d) => d.plan).filter(Boolean)
+      : readActions(raw, { today }).plans;
+    // Somewhere to go counts as a preview too: an owner typing "calendar in two
+    // days" should see "Calendar — Friday 18 September" before they commit to
+    // the keystroke, the same as any change.
+    const nav = readNav(raw, { today });
+    if (nav) {
+      out.push(answer({
+        // Its own kind, not 'action'. A place to go and a change to make are
+        // different promises, and drawing them the same way tells an owner
+        // that Enter is about to alter something when it is about to move.
+        kind: 'goto',
+        title: nav.title,
+        detail: nav.detail || nav.said,
+        matched: 'somewhere to go',
+        href: nav.href,
+        score: nav.score,
+      }));
+    }
+    for (const plan of previews) {
+      out.push(answer({
+        kind: 'action',
+        title: plan.title,
+        detail: plan.detail || 'Press Enter and Kai will do this.',
+        matched: plan.matched,
+        rows: plan.changes.map((c) => ({ label: c.label, sub: c.from, value: c.to })),
+        score: plan.score,
+        plan,
+      }));
+    }
+  } catch { /* a change Kai cannot work out is simply not offered */ }
+
+  // Places, from the same catalogue Kai navigates by — so every screen it can
+  // TAKE you to is also a screen you can find by typing a word from it, and the
+  // two can never drift apart into two different ideas of where things live.
+  //
+  // (The line this replaced carried a stray NUL byte in a string literal, which
+  // is why every grep of this file reported it as binary.)
+  for (const place of matchPlaces(raw).slice(0, 4)) {
     out.push(answer({
       kind: 'place',
       title: place.title,
       detail: 'Go there',
-      matched: 'a page',
+      matched: place.kind === 'section' ? 'a settings section' : 'a page',
       href: place.href,
       // Weaker than a real answer: somebody typing "sarah" wants Sarah, not the
       // Services page because both contain an "s".
-      score: 40 + hits * 8 + (hay.startsWith(q) ? 20 : 0),
+      score: 40 + place.hits * 6,
     }));
   }
 
@@ -360,14 +444,21 @@ export function ask(query, { today }) {
   return { query: raw, answers: out.slice(0, 8) };
 }
 
-/** What to show before anybody has typed anything. */
+/**
+ * What to show before anybody has typed anything.
+ *
+ * Half changes, half questions, and deliberately in that order: Kai spent its
+ * first life as a search box, and an owner who has only ever seen it answer
+ * things has no reason to guess it will now close a Monday for them. The
+ * examples are the documentation.
+ */
 export function suggestions() {
   return [
-    'last week',
+    'change Sunday hours to 10 to 4',
+    'close on Mondays',
+    'send reminders 48 hours before',
+    'what did we take last week',
     'who owes me',
-    "haven't been in",
-    'no shows',
-    'booking link',
-    'today',
+    "what's on today",
   ];
 }

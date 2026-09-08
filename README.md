@@ -489,6 +489,93 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
+### ⌘K Kai — the assistant that runs the salon while your hands are full (v1.55.0)
+Press **⌘K** (Ctrl+K), or **/**, or the **Ask Kai** button. A console with a
+face, a conversation and a composer — not a search box.
+
+> *"change 11am to 4pm hours on a Sunday to 2 to 6"*
+> **→ No worries — Sunday is 2pm–6pm now.**  `Sunday: 11am–4pm → 2pm–6pm` · **Undo that**
+
+> *"show me my calendar in two days"*
+> **→ Righto — Here's Friday 18 September — 3 appointments.**
+
+**It goes anywhere, on any day.** Every screen and every settings card, by the
+words you'd actually use:
+
+- *"show me my calendar in two days"* · *"my booking schedule in three days"*
+- *"what's on tomorrow"* · *"show me next Friday"* · *"open the calendar on the 15th"*
+- *"take me to my clients"* · *"go to billing"* · *"open the till"*
+- *"where do I change my logo"* · *"open my no-show settings"* · *"show me backups"*
+
+It reads days the way people say them — tomorrow, in two days, next Friday, the
+15th, 25/12 — resolves them against **your** today, and says which day it landed
+on, because "in two days" is only checkable once it's a date. A settings card is
+scrolled to and flashed, so you can see *which* one it meant.
+
+**It changes almost anything you can click.** Opening days and hours, online
+booking, the waitlist, reminders and how long before, how far ahead people can
+book, minimum notice, the cancellation window, slot spacing, both no-show rules,
+deposits (flat or a percentage, and the threshold), confirmations, receipts,
+review requests and how long after, **which channel each message goes down**,
+letting clients cancel online, filling cancellations automatically, asking how
+they heard about you, tax, invoice terms, rebooking defaults, the booking page's
+colour scheme, patch-test rules, backups, the hours your calendar grid shows,
+and any service's price or length.
+
+- *"send reminders by text"* · *"make my booking page cream"* · *"take a 20% deposit"*
+- *"don't let clients cancel online"* · *"set GST to 10%"* · *"back up daily"*
+- *"close Mondays and open Saturday 10 to 3"* — two in one breath, one **Undo** for both
+
+**It still answers questions** — takings, who owes you, who hasn't been in,
+what's on today, anyone by name or number.
+
+**Typing searches. Enter does it.** Every keystroke shows what Enter *would* do
+— `Friday: closed → 11am–2pm`, or `Calendar — Friday 18 September` — so the
+before and after are on screen before you commit to the keystroke. Nothing
+changes while you type, ever.
+
+**It has a personality, and it never gets in the way.** "No worries —", "Righto
+—", "Done —". The opener is warm and carries no information; the sentence after
+it is the fact, verbatim from the change that actually ran. The rule the code
+enforces is that the dressed sentence **always ends with the plain one,
+character for character** — so the charm never stands between you and the
+receipt. Openers never appear on a failure or a question, and speech gets the
+fact alone, because "no worries" heard on every change becomes a tic.
+
+**What keeps that safe is reversibility, not confidence.** Every change records
+the prior value of *exactly* the settings it wrote, so an undo puts those back
+and leaves anything changed in another tab alone. The undo stack survives a
+redeploy.
+
+The lines that have not moved:
+
+- **A question is never a command.** *"What time do we close on Friday"* changes
+  nothing, and *"what did we take last week"* is answered rather than navigated
+  away from. *"Can you please close Mondays"* is an instruction, not a question.
+- **Looking at a day is not trading on it.** *"Open my calendar on Saturday"*
+  shows you Saturday; *"open on Saturday"* opens the salon. One word apart, and
+  getting it backwards is the worse of the two mistakes by a wide margin.
+- **It never guesses.** Where two readings are close it hands both back and asks.
+- **Nothing that reaches a client happens here.** Settings are reversible; a text
+  to four hundred people is not. Booking, cancelling, refunding and messaging
+  stay deliberate acts on their own screens.
+- **Already-true is said, not mistaken for not-understood.**
+
+**Hands free, both ways.** The 🎤 uses your browser's own dictation — no account,
+no cost, nothing added to Kairo. Finish the sentence and it happens, Kai reads
+the answer back, and *"undo"* is a word you can say. An owner with wet hands and
+a client in the chair should be able to change their Sunday without touching
+anything.
+
+**There is no AI model behind any of it**, and that is a decision rather than a
+shortcut. A model is an API call per request — small, permanent, and paid per
+business, on something sold once for $400. Once Kairo holds treatment notes, a
+question that could quote them going to an overseas model is cross-border
+disclosure of health information under Australian Privacy Principle 8. And Kai
+now alters what a salon trades on: a thing that guesses must never be the thing
+that acts. Every match is explainable in one line, and Kai tells you in words
+what it did.
+
 ### 🧪 Treatment records & safety gates (v1.52.0 — off until a service asks)
 Hair colour needs a patch test; PPD allergy can cause anaphylaxis. Lash and brow
 tint, peels and injectables carry consent and contraindication requirements, and
@@ -1009,6 +1096,15 @@ feature comparison against Fresha / Square Appointments / Acuity.
 
 Staff logins with permissions · Google Calendar 2-way sync · recurring appointments ·
 waitlists · packages & memberships · gift cards · marketing campaigns · reports export.
+
+### The next big one: the App Store, and onboarding that runs itself
+
+**[APP-LAUNCH-BRIEF.md](APP-LAUNCH-BRIEF.md)** is the brief for that work —
+what Kairo is, how it is built, what onboarding costs a human today, and the
+phases to answer *whether* it is possible before *how*. It names the known hard
+edges (Apple's cut against a $400 one-off, Guideline 4.2, whether the app is for
+the owner or their customers, and whether per-business Resend and ClickSend
+accounts can be automated at all) and deliberately prescribes no technology.
 
 ---
 

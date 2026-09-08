@@ -53,6 +53,13 @@ import {
 } from './referrals.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
 import {
+  planFor as kaiPlanFor, readActions as kaiReadActions, decide as kaiDecide,
+  applyPlan as kaiApply, undoChange as kaiUndo, isUndo as kaiIsUndo, lastChange as kaiLastChange,
+  readCompound as kaiCompound,
+} from './kai-actions.js';
+import { readNav as kaiNav, closedOn as kaiClosedOn } from './kai-nav.js';
+import { speak as kaiSpeak } from './kai-voice.js';
+import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
   safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
   PHOTO_MAX_BYTES, PHOTO_MAX_EDGE, PHOTO_MAX_PER_APPOINTMENT,
@@ -2525,9 +2532,159 @@ route('GET', '/api/growth', async ({ query }) => {
  * on a guess is one bad match away from cancelling the wrong Sarah.
  */
 route('GET', '/api/ask', async ({ query }) => {
-  const q = str(query.get('q'), 120);
-  if (!q) return { query: '', answers: [], suggestions: kaiSuggestions() };
-  return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions() };
+  const q = str(query.get('q'), 200);
+  const last = kaiLastChange();
+  // The bar shows "you can still undo that" for as long as there is something
+  // to undo — the whole point of acting immediately is that taking it back has
+  // to be as easy as asking for it.
+  const undo = last ? { title: last.title, token: last.token, at: last.at } : null;
+  if (!q) return { query: '', answers: [], suggestions: kaiSuggestions(), undo };
+  return { ...kaiAsk(q, { today: bizToday() }), suggestions: kaiSuggestions(), undo };
+});
+
+/**
+ * Do the change Kai offered — and only that one.
+ *
+ * The sentence is re-read HERE rather than the browser's copy of the plan being
+ * trusted, so a crafted request cannot apply a change Kai never proposed: it
+ * would have to be a sentence that genuinely means that change, which is the
+ * same thing the owner would have seen on screen.
+ *
+ * The fingerprint covers both the settings the plan would write and the ones it
+ * was built against. If the hours moved in another tab between the proposal and
+ * the press, it no longer matches and this refuses — the plan on screen was
+ * describing a world that has since changed, and applying it would silently
+ * undo whatever happened in between.
+ */
+route('POST', '/api/ask/apply', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), {
+    q: s.str(200, { required: true }),
+    fingerprint: s.str(64, { required: true }),
+  });
+  const plan = kaiPlanFor(str(b.q, 200), str(b.fingerprint, 64), { today: bizToday() });
+  if (!plan) {
+    throw httpError(409, 'That change no longer matches your settings — ask again and check it.');
+  }
+  const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
+  return {
+    ok: true, did: plan.title, said: plan.said, changes: plan.changes,
+    warnings: plan.warnings, undo_token: undoToken, settings: getSettings(),
+  };
+});
+
+/**
+ * Say it, and it happens.
+ *
+ * The owner asked for an assistant rather than a form, so this does the thing
+ * and reports back instead of proposing and waiting. What makes that safe is
+ * not confidence, it is reversibility: every change here records the prior
+ * value of exactly the keys it writes, and comes back with an undo token. See
+ * the header of src/kai-actions.js for why do-then-undo beats confirm-before
+ * for this particular kind of change.
+ *
+ * Where the sentence has two plausible readings Kai does NOT pick one. It
+ * returns them and asks, because a salon quietly saying something different
+ * from what its owner believes is not fixed by an undo nobody knew to press.
+ */
+route('POST', '/api/ask/do', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), {
+    q: s.str(200, { required: true }),
+    turn: s.num({ min: 0, max: 100000 }),
+  });
+  const q = str(b.q, 200);
+  // Which exchange this is, so the opener rotates rather than repeating. Sent
+  // by the panel; a caller that omits it simply always gets the first one.
+  const turn = Number.isFinite(Number(b.turn)) ? Math.floor(Number(b.turn)) : 0;
+  // `said` is the fact and never changes. `warm` is the same sentence with a
+  // greeting on the front — see the header of src/kai-voice.js for why those
+  // are two fields and not one.
+  const dress = (r) => ({ ...r, warm: kaiSpeak(r.kind, r.said, turn) });
+
+  if (kaiIsUndo(q)) {
+    const undone = kaiUndo('');
+    if (!undone) return dress({ ok: false, kind: 'nothing', said: "There's nothing to undo." });
+    return dress({
+      ok: true, kind: 'undone', said: undone.said,
+      did: undone.title, undone_token: undone.token, settings: getSettings(),
+    });
+  }
+
+  // Two things in one breath, done in order. Only taken when each half is a
+  // real change on its own — see readCompound.
+  const many = kaiCompound(q, { today: bizToday() });
+  if (many) {
+    const said = [
+      ...many.done.map((p) => p.short || p.said),
+      ...many.already,
+    ].join(' ');
+    return dress({
+      ok: many.done.length > 0,
+      kind: many.done.length ? 'done' : 'already',
+      did: many.done.map((p) => p.title).join(' + '),
+      said: said || 'There was nothing to change there.',
+      changes: many.done.flatMap((p) => p.changes || []),
+      warnings: [
+        ...many.done.flatMap((p) => p.warnings || []),
+        ...many.stuck.map((c) => `I couldn't work out what to do with “${c}”.`),
+      ],
+      undo_token: many.token || null,
+      settings: getSettings(),
+    });
+  }
+
+  const { plans, noops } = kaiReadActions(q, { today: bizToday() });
+  const { plan, options } = kaiDecide(plans);
+
+  if (!plan && options.length) {
+    return dress({
+      ok: false, kind: 'ambiguous',
+      said: 'I could read that two ways — which did you mean?',
+      options: options.map((p) => ({
+        title: p.title, detail: p.detail, changes: p.changes,
+        warnings: p.warnings, fingerprint: p.fingerprint,
+      })),
+    });
+  }
+  if (!plan) {
+    // Understood, but there was nothing to do. Telling an owner that "close
+    // Mondays" made no sense, when the truth is Monday is already closed, sends
+    // them off rephrasing something that was right the first time.
+    //
+    // The first reading only: two capabilities can both find nothing to do —
+    // "open Monday to Friday 9 to 5" is already-open and already-those-hours —
+    // and saying it twice in different words reads like a stutter.
+    if (noops.length) return dress({ ok: true, kind: 'already', said: noops[0] });
+
+    // Nothing to change, so: somewhere to go? Read last on purpose. A sentence
+    // that changes something is never a request to visit the screen that would
+    // have changed it by hand.
+    const nav = kaiNav(q, { today: bizToday() });
+    if (nav) {
+      return dress({
+        ok: true, kind: 'went', said: nav.said, did: nav.title, href: nav.href,
+        date: nav.date, warnings: nav.date ? [kaiClosedOn(nav.date)].filter(Boolean) : [],
+      });
+    }
+    return dress({
+      ok: false, kind: 'unknown',
+      said: "I couldn't work out what to change there.",
+    });
+  }
+
+  const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
+  return dress({
+    ok: true, kind: 'done', did: plan.title, said: plan.said,
+    changes: plan.changes, warnings: plan.warnings,
+    undo_token: undoToken, settings: getSettings(),
+  });
+});
+
+/** Put back the last change, or a named one. */
+route('POST', '/api/ask/undo', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(32) });
+  const undone = kaiUndo(str(b.token, 32));
+  if (!undone) throw httpError(409, "There's nothing to undo.");
+  return { ok: true, said: undone.said, did: undone.title, settings: getSettings() };
 });
 
 /** One client's own referral link, minted on first ask. */

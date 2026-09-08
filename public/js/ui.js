@@ -31,6 +31,7 @@ const ICONS = {
   alert: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
   trendUp: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
   zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  mic: '<path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
   phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   mail: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>',
   globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
@@ -46,6 +47,7 @@ const ICONS = {
   note: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
   share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/>',
   external: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
+  back: '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
 };
 
 export function icon(name, size = 16) {
@@ -88,6 +90,43 @@ export function kairoTile(size = 30, id = 'kt') {
 }
 
 export const LOGO_SVG = kairoMark(30, 'kg');
+
+/**
+ * Kai's face.
+ *
+ * The same mark as the brand — the clock hand and the separated dot — inside a
+ * ring that the panel animates to show what Kai is doing. There is no cartoon
+ * and no bouncing blob here on purpose: this thing changes what a salon trades
+ * on, and it should look like a professional instrument that happens to be
+ * friendly rather than a toy that happens to be dangerous.
+ *
+ * The rings are drawn once and animated in CSS, so idling costs nothing and a
+ * reduced-motion setting can stop the whole thing dead.
+ */
+export function kairoOrb(size = 38, id = 'ko') {
+  return `
+<svg class="orb-svg" width="${size}" height="${size}" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="${id}g" x1="16" y1="12" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <radialGradient id="${id}h" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle class="orb-halo" cx="32" cy="32" r="31" fill="url(#${id}h)"/>
+  <circle class="orb-ring orb-ring-2" cx="32" cy="32" r="28" stroke="#38bdf8" stroke-opacity="0.16" stroke-width="1.5"/>
+  <circle class="orb-ring orb-ring-1" cx="32" cy="32" r="23.5" stroke="#38bdf8" stroke-opacity="0.34" stroke-width="1.5"
+          stroke-dasharray="30 118" stroke-linecap="round"/>
+  <g transform="translate(13.5 13.5) scale(0.78)">
+    <path d="M13.75 10.5V37.5" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <path d="M17.2 25.6L33.6 37.5" stroke="url(#${id}g)" stroke-width="5.5" stroke-linecap="round"/>
+    <circle class="orb-dot" cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/>
+  </g>
+</svg>`;
+}
 
 // ---------- formatting ----------
 

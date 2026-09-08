@@ -99,7 +99,7 @@ function readWeekRules(container) {
 }
 
 
-export async function renderSettings(container) {
+export async function renderSettings(container, params) {
   const s = state.settings;
   // The link the owner copies into their Instagram bio. It has to be the
   // business's real address, not whatever they happen to have typed into the
@@ -156,7 +156,7 @@ export async function renderSettings(container) {
       <div><h1>Settings</h1><div class="ph-sub">Your business profile, hours and billing defaults</div></div>
     </div>
     <div class="settings-grid">
-      <div class="card">
+      <div class="card" data-sec="profile">
         <div class="card-title">Business profile</div>
         <div class="card-sub" style="margin-bottom:16px">Shown on your booking page and invoices</div>
         <form id="set-profile" style="display:flex;flex-direction:column;gap:13px">
@@ -170,7 +170,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="hours">
         <div class="card-title">Hours &amp; booking</div>
         <div class="card-sub" style="margin-bottom:16px">Controls the calendar grid and online booking slots</div>
         <form id="set-hours" style="display:flex;flex-direction:column;gap:13px">
@@ -262,7 +262,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="brand">
         <div class="card-title">Booking page appearance</div>
         <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand.
           logo, colour and light/dark style. <a href="/book" target="_blank" rel="noopener noreferrer">Open the booking page ↗</a> to preview.</div>
@@ -323,7 +323,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="billing">
         <div class="card-title">Billing defaults</div>
         <div class="card-sub" style="margin-bottom:16px">Applied to new invoices</div>
         <form id="set-billing" style="display:flex;flex-direction:column;gap:13px">
@@ -338,7 +338,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="notif">
         <div class="card-title">Notifications</div>
         <div class="card-sub" style="margin-bottom:16px">Automatic confirmations, reminders, payment receipts &amp;
           post-visit review requests. Email uses <a href="https://resend.com" target="_blank" rel="noreferrer">Resend</a>
@@ -391,7 +391,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="sms">
         <div class="card-title">SMS (text messages)</div>
         <!-- Credit is prepaid: when it runs out, texts simply stop. The number
              lives here, next to the switch that spends it. -->
@@ -469,7 +469,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="poscard">
         <div class="card-title">In-person card payments (Point of Sale)</div>
         <div class="card-sub" style="margin-bottom:16px">How you take card payments at the counter. Cash and other methods
           are always available too.</div>
@@ -488,7 +488,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="payments">
         <div class="card-title">Online deposits (Stripe)</div>
         <div class="card-sub" style="margin-bottom:16px">Take a card deposit when clients book online. The single biggest no-show killer.
           Get a secret key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe</a>;
@@ -513,7 +513,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="waitlist">
         <div class="card-title">Waitlist &amp; automatic filling</div>
         <div class="card-sub" style="margin-bottom:16px">A cancellation is money you already earned and
           handed back — and the client who cancelled wanted that time, so somebody else probably does too.
@@ -547,7 +547,7 @@ export async function renderSettings(container) {
         </form>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="noshow">
         <div class="card-title">No-shows</div>
         <div class="card-sub" style="margin-bottom:16px">A no-show is the one loss you can't recover —
           the slot is gone and there's nothing to sell in its place. <b>Everything here is off until you
@@ -586,7 +586,7 @@ export async function renderSettings(container) {
         <div id="flagged" class="flagged is-loading" style="margin-top:18px">Checking…</div>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="safety">
         <div class="card-title">Patch tests &amp; consent</div>
         <div class="card-sub" style="margin-bottom:16px">You set what each service needs on the service
           itself — this is where you say how patch tests work across the salon. <b>Nothing here does
@@ -616,7 +616,7 @@ export async function renderSettings(container) {
         <div id="safety-status" class="flagged is-loading" style="margin-top:18px">Checking…</div>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="marketing">
         <div class="card-title">Marketing automations</div>
         <div class="card-sub" style="margin-bottom:16px">Kairo can message clients on its own, based on
           their own visit rhythm rather than a blanket rule. <b>Everything here is off until you turn it
@@ -625,7 +625,7 @@ export async function renderSettings(container) {
         <div id="auto-list" class="auto-list is-loading">Loading…</div>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="backup">
         <div class="card-title">Backups</div>
         <div class="card-sub" style="margin-bottom:16px">Your whole business — every client, appointment,
           invoice and payment — lives in one file. If the machine it sits on is ever lost, this is what
@@ -654,7 +654,7 @@ export async function renderSettings(container) {
       </div>
 
       ${s.operator_mode !== '1' ? '' : `
-      <div class="card">
+      <div class="card" data-sec="edge">
         <div class="card-title">Cloudflare protection</div>
         <div class="card-sub" style="margin-bottom:16px">Optional. If your booking link runs through Cloudflare,
           these two settings make that protection actually count. Leave them alone and nothing changes —
@@ -698,7 +698,7 @@ export async function renderSettings(container) {
         </form>
       </div>`}
 
-      <div class="card">
+      <div class="card" data-sec="locations">
         <div class="card-title">Locations</div>
         <div class="card-sub" style="margin-bottom:16px">Running more than one branch? Each team member belongs to a location;
           the calendar and booking page get a location picker automatically.</div>
@@ -714,7 +714,7 @@ export async function renderSettings(container) {
         <button class="btn" id="loc-add" style="margin-top:12px">${icon('plus')} Add location</button>
       </div>
 
-      <div class="card">
+      <div class="card" data-sec="account">
         <div class="card-title">Your account</div>
         <div class="card-sub" style="margin-bottom:16px">Signed in as ${esc(state.user.email)}</div>
         <div class="hint" style="margin-bottom:14px">Your own name, password, email verification and plan live on your
@@ -1375,4 +1375,25 @@ export async function renderSettings(container) {
     location.hash = '#/dashboard';
     location.reload();
   };
+
+  revealSection(container, params?.get('open'));
+}
+
+/**
+ * Land on the card somebody asked for, rather than the top of sixteen of them.
+ *
+ * Kai navigates here with ?open=<section> — "where do I change my logo" should
+ * put the Booking page card in front of you, not a settings screen you then
+ * have to search by eye. The flash is what makes it obvious WHICH card was
+ * meant, since scrolling alone leaves an owner guessing whether the thing they
+ * wanted is the one at the top of the viewport or the one under it.
+ */
+function revealSection(container, sec) {
+  if (!sec) return;
+  const card = container.querySelector(`.card[data-sec="${CSS.escape(sec)}"]`);
+  if (!card) return;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  card.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
+  card.classList.add('sec-found');
+  setTimeout(() => card.classList.remove('sec-found'), 2400);
 }
