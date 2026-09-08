@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
-import { MULTI, current, resolveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN } from './src/tenant.js';
+import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN } from './src/tenant.js';
 import { sendJson } from './src/util.js';
 import { handleApi } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
@@ -178,7 +178,7 @@ const server = http.createServer(async (req, res) => {
   // Which salon? The Host header decides, and nothing else. The health check
   // answers for any host because Render pings the raw hostname, and a shard
   // that looks down because its health check named no salon restarts forever.
-  const tenant = resolveHost(req.headers.host);
+  const tenant = resolveHost(effectiveHost(req.headers));
   if (!tenant) {
     if (url.pathname === '/api/version') { sendJson(res, 200, { version: VERSION }); return; }
     noSuchSalon(res, url.pathname);

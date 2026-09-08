@@ -16,6 +16,7 @@
 // of code whose failure could show one salon another's data, which is why
 // test/tenants.test.js exists and why test/falsify.mjs breaks it on purpose.
 import { AsyncLocalStorage } from 'node:async_hooks';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +107,36 @@ export function current() {
   if (t) return t;
   if (!MULTI) return boot(legacyTenant());
   throw new Error('No tenant in context: this code must run inside a request or withTenant()');
+}
+
+/**
+ * The salon a request is for, when the shard sits behind a front door.
+ *
+ * Render will only accept a hostname it has been told about, and its plan caps
+ * how many. A wildcard is meant to solve that and does not work here, so the
+ * front door (a Cloudflare Worker) forwards every salon's traffic to the
+ * shard's own address and carries the real hostname in a header instead.
+ *
+ * That header decides which salon's data is served, so it is worth being
+ * blunt about the danger: anyone who could set it at will could read any
+ * salon from any address. It is therefore ignored — completely, not refused,
+ * so a stray header can never break a normal request — unless it arrives with
+ * a secret only the front door has. No secret configured on the shard means
+ * the whole mechanism is off, which is what every deployment is today.
+ */
+const forwardSecret = () => String(process.env.KAIRO_FORWARD_SECRET || '').trim();
+
+export function effectiveHost(headers = {}) {
+  const real = headers['x-kairo-host'];
+  const want = forwardSecret();
+  if (!want || !real) return headers.host;
+  const got = String(headers['x-kairo-forward-secret'] || '');
+  // Constant-time, and length-checked first because timingSafeEqual throws on
+  // a length mismatch.
+  const a = Buffer.from(got);
+  const b = Buffer.from(want);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return headers.host;
+  return String(real);
 }
 
 export function withTenant(record, fn) { return als.run(record, fn); }

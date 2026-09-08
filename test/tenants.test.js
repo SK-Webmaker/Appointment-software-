@@ -1,6 +1,6 @@
 // The one new risk of serving many salons from one process is the line that
 // turns a hostname into a file. Everything here exists to falsify it.
-import { test, before, after } from 'node:test';
+import { test, before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -205,4 +205,91 @@ test('single-tenant maintenance via the environment behaves the same way', async
     assert.equal((await k3.api('POST', '/api/clients', { cookie, body: { first_name: 'No' } })).status, 503);
     assert.equal((await k3.api('GET', '/api/version')).status, 200);
   } finally { await k3.stop(); }
+});
+
+// ---------------------------------------------------------------------------
+// The front door: a forwarded host, and why it must not be believed
+// ---------------------------------------------------------------------------
+
+describe('a shard behind a front door', () => {
+  const SECRET = 'front-door-secret-0123456789';
+  let f, dir;
+
+  before(async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kairo-front-'));
+    fs.mkdirSync(path.join(dir, 'tenants'), { recursive: true });
+    f = await startKairo({ dataDir: dir, env: { KAIRO_MULTI_TENANT: '1', KAIRO_BASE_DOMAIN: DOMAIN, KAIRO_FORWARD_SECRET: SECRET } });
+    // two salons, so "reached the wrong one" is a thing that can be detected
+    tenantCli(dir, ['create', 'alpha', '--name', 'Alpha Salon', '--email', 'a@alpha.test', '--password', 'alpha-pw-123']);
+    tenantCli(dir, ['create', 'beta', '--name', 'Beta Salon', '--email', 'b@beta.test', '--password', 'beta-pw-1234']);
+  });
+  after(async () => { await f?.stop(); fs.rmSync(dir, { recursive: true, force: true }); });
+
+  const name = (r) => r.json?.business_name;
+
+  test('with the secret, the forwarded host decides which salon answers', async () => {
+    const r = await f.api('GET', '/api/public/info', {
+      host: 'kairo-shard.onrender.test',
+      headers: { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': SECRET },
+    });
+    assert.equal(r.status, 200);
+    assert.equal(name(r), 'Alpha Salon');
+
+    const r2 = await f.api('GET', '/api/public/info', {
+      host: 'kairo-shard.onrender.test',
+      headers: { 'x-kairo-host': `beta.${DOMAIN}`, 'x-kairo-forward-secret': SECRET },
+    });
+    assert.equal(name(r2), 'Beta Salon', 'the same front door reaches a different salon');
+  });
+
+  test('WITHOUT the secret the header is ignored, so nobody can walk into another salon', async () => {
+    // The whole danger of this mechanism in one test: an attacker who found the
+    // shard's own address and guessed a salon's name must get nothing.
+    for (const headers of [
+      { 'x-kairo-host': `alpha.${DOMAIN}` },
+      { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': 'wrong' },
+      { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': SECRET.slice(0, -1) },
+      { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': `${SECRET}x` },
+      { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': '' },
+    ]) {
+      const r = await f.api('GET', '/api/public/info', { host: 'kairo-shard.onrender.test', headers });
+      assert.equal(r.status, 404, `must not resolve a salon: ${JSON.stringify(headers)}`);
+    }
+  });
+
+  test('a forwarded host cannot cross from one salon to another', async () => {
+    // Arriving legitimately AT beta, but claiming to be alpha, without the
+    // secret: beta must answer, never alpha.
+    const r = await f.api('GET', '/api/public/info', {
+      host: `beta.${DOMAIN}`,
+      headers: { 'x-kairo-host': `alpha.${DOMAIN}` },
+    });
+    assert.equal(r.status, 200);
+    assert.equal(name(r), 'Beta Salon', 'an unsigned forwarded host must never redirect a real request');
+  });
+
+  test('a shard with no front-door secret ignores the header entirely', async () => {
+    // Every shard is in this state until someone deliberately configures one,
+    // so the header must be inert here — and the dangerous case is the header
+    // arriving with NO secret alongside it, because "no secret configured" and
+    // "no secret sent" are both empty and an empty string equals an empty
+    // string. That comparison must never be reached.
+    // It must have a salon of its own to reach, or this passes for the wrong
+    // reason — a shard with no salons answers 404 however it routes.
+    const pdir = fs.mkdtempSync(path.join(os.tmpdir(), 'kairo-nosecret-'));
+    fs.mkdirSync(path.join(pdir, 'tenants'), { recursive: true });
+    const plain = await startKairo({ dataDir: pdir, env: { KAIRO_MULTI_TENANT: '1', KAIRO_BASE_DOMAIN: DOMAIN } });
+    tenantCli(pdir, ['create', 'alpha', '--name', 'Alpha Salon', '--email', 'a@alpha.test', '--password', 'alpha-pw-123']);
+    assert.equal((await plain.api('GET', '/api/public/info', { host: `alpha.${DOMAIN}` })).status, 200, 'alpha really is there to be reached');
+    try {
+      for (const headers of [
+        { 'x-kairo-host': `alpha.${DOMAIN}` },
+        { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': '' },
+        { 'x-kairo-host': `alpha.${DOMAIN}`, 'x-kairo-forward-secret': SECRET },
+      ]) {
+        const r = await plain.api('GET', '/api/public/info', { host: 'kairo-shard.onrender.test', headers });
+        assert.equal(r.status, 404, `the mechanism is off until a secret is configured: ${JSON.stringify(headers)}`);
+      }
+    } finally { await plain.stop(); fs.rmSync(pdir, { recursive: true, force: true }); }
+  });
 });

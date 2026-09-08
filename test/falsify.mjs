@@ -83,6 +83,16 @@ const MUTATIONS = {
     find: "const clientId = ('client_id' in a.b || a.b.new_client) ? a.clientId : before.client_id;",
     replace: 'const clientId = a.clientId;',
   },
+  'forwarded-host-trusted-without-the-secret': {
+    file: 'src/tenant.js', suites: ['tenants'],
+    find: "  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return headers.host;",
+    replace: '',
+  },
+  'front-door-on-without-a-secret': {
+    file: 'src/tenant.js', suites: ['tenants'],
+    find: '  if (!want || !real) return headers.host;',
+    replace: '  if (!real) return headers.host;',
+  },
   'host-routing-picks-first-tenant': {
     file: 'src/tenant.js', suites: ['tenants'],
     find: "    if (slug.includes('.')) return null;   // one label only: a.b.<domain> is nobody\n    return getTenant(slug);",
