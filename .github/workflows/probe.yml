@@ -1,0 +1,28 @@
+# A clean-network probe of the wildcard domain.
+#
+# The session that runs the move sits behind an egress proxy with its own DNS
+# cache, which makes "does demo.kairobookings.com route to the shard?" hard to
+# answer honestly from there. A hosted runner has ordinary DNS. This prints
+# what the world sees, and nothing else; it changes nothing.
+name: probe
+on:
+  push:
+    paths: ['.github/workflows/probe.yml']
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: DNS as the world sees it
+        run: |
+          for h in demo.kairobookings.com nosuchsalon.kairobookings.com horahaircutz.kairobookings.com; do
+            echo "== $h"; dig +short "$h" | sed 's/^/   /'
+          done
+      - name: HTTP through the wildcard
+        run: |
+          for u in https://demo.kairobookings.com/api/version https://demo.kairobookings.com/api/public/info https://demo.kairobookings.com/book https://nosuchsalon.kairobookings.com/api/public/info; do
+            code=$(curl -s -m 25 -o /tmp/body -w '%{http_code}' "$u" || echo 000)
+            echo "== $u -> $code"
+            head -c 200 /tmp/body | tr -d '\n' | sed 's/<!doctype.*<title>\([^<]*\).*/[cloudflare: \1]/'; echo
+          done
