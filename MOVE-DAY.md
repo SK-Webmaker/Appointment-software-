@@ -52,25 +52,6 @@ from it directly.
 > Kai lineage is already inside the working branch (v1.58.0), so nothing is lost
 > by leaving the default branch where it is.
 
----|---|
-| `kairo-shard-au` (Singapore, starter) | **Live**, v1.57.0, multi-tenant, holds no salons |
-| Its persistent disk | **NOT ADDED** — must be done before any import |
-| Its health check path | **NOT SET** — should be `/api/version` |
-| `*.kairobookings.com` DNS | **NOT POINTED** at the shard |
-| `hairbysha-booking` (Oregon) | Untouched, old code, branch `claude/appointment-booking-software-xqoy4f` |
-| `horahaircutz-booking` (Singapore) | Untouched, old code, same branch |
-| Rehearsal tool | Proven end to end: 39 verify checks, 51 compare checks |
-| Off-Render backups | **NOT TAKEN** |
-
-The working branch is `claude/markdown-file-analysis-a5ppnf`. The shard
-deploys from it directly.
-
-> **Never merge the working branch into
-> `claude/appointment-booking-software-xqoy4f`.** Both live services
-> auto-deploy from it on every commit, so a merge puts new code onto Sha and
-> Hora within a minute, unrehearsed and with no window. There is no reason to
-> merge; the shard reads the working branch.
-
 ---
 
 ## Part 1 — Setup (browser only, ~25 min)
@@ -93,7 +74,7 @@ Render → `kairo-shard-au` → **Settings → Disks → Add Disk**
 
 It redeploys itself, about a minute.
 
-**Check:** `curl https://kairo-shard-au.onrender.com/api/version` → `{"version":"1.57.0"}`
+**Check:** `curl https://kairo-shard-au.onrender.com/api/version` → `{"version":"1.58.0"}`
 
 ### 1.2 Health check path
 
