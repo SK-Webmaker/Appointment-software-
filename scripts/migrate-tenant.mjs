@@ -10,8 +10,13 @@
 //             download the salon's own backup snapshot (the authenticated endpoint the app uses)
 //   import    --slug hairbysha --from sha.db.gz --public-url https://hairbysha.kairobookings.com [--muted] [--apply]
 //             dry run by default: prints what would happen. --apply copies the file in and writes tenant.json
-//   verify    --slug hairbysha --from sha.db.gz
+//   verify    --slug hairbysha --from sha.db.gz [--across-versions]
 //             every table's row count, every cent, every setting, the owner's login row, file size — identical or it fails
+//             --across-versions: the shard is newer than the salon's old service, so opening the
+//             database ran migrations. Differences that are provably additive — tables added and
+//             empty, settings added at their defaults, the version stamp — are explained and
+//             printed with the reason. A removed table, a changed value, a moved row count or a
+//             moved cent is never explained away.
 //   compare   --old https://hairbysha.kairobookings.com --new http://127.0.0.1:10000 [--new-host hairbysha.kairobookings.com]
 //             the booking page's data and the next fortnight's availability, side by side
 //   since     --slug hairbysha --since "2026-09-08 11:00:00"   (UTC, seconds optional)
@@ -112,6 +117,72 @@ function profile(d) {
   return { tables, counts, money, newest, settings, users };
 }
 
+/**
+ * Settings that a running Kairo rewrites on its own schedule.
+ *
+ * A moved salon is opened by a newer shard, which runs its automations pass and
+ * stamps the date. That is not the move losing data, but it is also not a thing
+ * to wave through by pattern-matching on the key name: a typo'd allowlist entry
+ * would hide a real change. Each key is listed deliberately, and the value must
+ * still look like the stamp it claims to be.
+ */
+const SELF_UPDATING = new Set(['automations_last_pass']);
+const looksLikeStamp = (v) => /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?Z?$/.test(String(v ?? ''));
+
+/** A setting a migration adds is benign only if it arrives switched off. */
+const isDefault = (v) => v === '' || v === '0';
+
+/**
+ * Explain the differences a cross-version move always produces — or refuse to.
+ *
+ * `verify` compares a snapshot against the tenant the shard wrote. When the
+ * shard is newer than the salon's old service, opening the database runs
+ * migrations, so it legitimately gains tables and settings and the comparison
+ * fails on four rows every time. Waving those away by hand at 1am is how a real
+ * difference gets waved away with them — it nearly happened on the first move.
+ *
+ * So each failing row is judged, and a row is only downgraded to benign when it
+ * is provably additive: tables added and empty, settings added at their default,
+ * a version stamp, a date stamp on the short list above. A removed table, a
+ * changed value, a row count that moved, a cent that moved — none of those can
+ * be explained by a migration, and they stay failures.
+ *
+ * Returns the rows with benign ones marked, so they are still printed with the
+ * reason rather than disappearing.
+ */
+function explainCrossVersion(rows, a, b) {
+  const addedTables = b.tables.filter((t) => !a.tables.includes(t));
+  const removedTables = a.tables.filter((t) => !b.tables.includes(t));
+  const addedTablesEmpty = addedTables.every((t) => b.counts[t] === 0);
+
+  const aKeys = Object.keys(a.settings), bKeys = Object.keys(b.settings);
+  const addedKeys = bKeys.filter((k) => !(k in a.settings));
+  const removedKeys = aKeys.filter((k) => !(k in b.settings));
+  const addedKeysDefault = addedKeys.every((k) => isDefault(b.settings[k]));
+  const settingsAdditive = removedKeys.length === 0 && addedKeysDefault;
+
+  return rows.map((r) => {
+    if (r.pass) return r;
+    if (r.label === 'tables present') {
+      if (removedTables.length === 0 && addedTables.length > 0 && addedTablesEmpty) {
+        return { ...r, pass: true, benign: `migration added ${addedTables.join(', ')}, empty` };
+      }
+      return r;
+    }
+    if (r.label === 'settings: count' || r.label === 'rows: settings') {
+      if (settingsAdditive && addedKeys.length > 0) {
+        return { ...r, pass: true, benign: `migration added ${addedKeys.join(', ')}, all at defaults` };
+      }
+      return r;
+    }
+    const m = /^setting: (.+)$/.exec(r.label);
+    if (m && SELF_UPDATING.has(m[1]) && looksLikeStamp(r.a) && looksLikeStamp(r.b)) {
+      return { ...r, pass: true, benign: 'stamp the shard rewrites on its own schedule' };
+    }
+    return r;
+  });
+}
+
 function diffProfiles(a, b) {
   const rows = [];
   const check = (label, x, y) => rows.push({ label, pass: JSON.stringify(x) === JSON.stringify(y), a: x, b: y });
@@ -132,9 +203,12 @@ function printRows(rows, { showPass = false } = {}) {
   let fails = 0;
   for (const r of rows) {
     if (!r.pass) fails++;
-    if (r.pass && !showPass) continue;
+    if (r.pass && !showPass && !r.benign) continue;
     const mark = r.pass ? c.ok('✓') : c.bad('✗');
-    console.log(`  ${mark} ${r.label}${r.pass ? '' : c.dim(`  source=${JSON.stringify(r.a)} tenant=${JSON.stringify(r.b)}`)}`);
+    const detail = r.pass
+      ? (r.benign ? c.dim(`  ${JSON.stringify(r.a)} → ${JSON.stringify(r.b)} — ${r.benign}`) : '')
+      : c.dim(`  source=${JSON.stringify(r.a)} tenant=${JSON.stringify(r.b)}`);
+    console.log(`  ${mark} ${r.label}${detail}`);
   }
   return fails;
 }
@@ -196,13 +270,22 @@ function verify() {
   const dst = new DatabaseSync(target, { readOnly: true });
   console.log('');
   console.log(c.b(`Verify ${slug}`), c.dim(`${src.path} vs ${target}`));
-  const rows = diffProfiles(profile(src.db), profile(dst));
+  const pa = profile(src.db), pb = profile(dst);
+  let rows = diffProfiles(pa, pb);
   const sb = fs.statSync(src.path).size, tb = fs.statSync(target).size;
   rows.push({ label: `file size within 1% (${sb} vs ${tb})`, pass: Math.abs(sb - tb) <= Math.max(4096, sb * 0.01), a: sb, b: tb });
   const ic = dst.prepare('PRAGMA integrity_check').get();
   rows.push({ label: 'tenant integrity check', pass: ic?.integrity_check === 'ok', a: 'ok', b: ic?.integrity_check });
+  // Moving to a newer shard runs migrations, so the copy legitimately gains
+  // tables and settings. --across-versions judges those rather than hiding
+  // them: only provably additive differences are downgraded, each printed with
+  // its reason, and anything else still fails.
+  if (flag('across-versions')) rows = explainCrossVersion(rows, pa, pb);
+  const benign = rows.filter((r) => r.benign).length;
   const fails = printRows(rows, { showPass: flag('verbose') });
-  console.log(fails ? c.bad(`\n  ${fails} check${fails === 1 ? '' : 's'} FAILED — do not switch.\n`) : c.ok(`\n  All ${rows.length} checks passed.\n`));
+  if (fails) console.log(c.bad(`\n  ${fails} check${fails === 1 ? '' : 's'} FAILED — do not switch.\n`));
+  else if (benign) console.log(c.ok(`\n  All ${rows.length} checks passed — ${benign} explained by the version change, shown above.\n`));
+  else console.log(c.ok(`\n  All ${rows.length} checks passed.\n`));
   src.db.close(); dst.close();
   process.exit(fails ? 1 : 0);
 }

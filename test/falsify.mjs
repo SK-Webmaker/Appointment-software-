@@ -118,6 +118,39 @@ const MUTATIONS = {
     find: "  for (const t of a.tables) check(`rows: ${t}`, a.counts[t], b.counts[t]);",
     replace: '',
   },
+  // --across-versions is the one place that is allowed to turn a red check
+  // green, so each of its guards gets its own mutation. A survivor here means
+  // the move could wave a real difference through at one in the morning.
+  'across-versions-explains-everything': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: '  return rows.map((r) => {\n    if (r.pass) return r;',
+    replace: "  return rows.map((r) => {\n    if (r.pass) return r;\n    return { ...r, pass: true, benign: 'version change' };",
+  },
+  'across-versions-allows-a-removed-table': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: '      if (removedTables.length === 0 && addedTables.length > 0 && addedTablesEmpty) {',
+    replace: '      if (addedTables.length > 0 && addedTablesEmpty) {',
+  },
+  'across-versions-allows-a-populated-new-table': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: '  const addedTablesEmpty = addedTables.every((t) => b.counts[t] === 0);',
+    replace: '  const addedTablesEmpty = true;',
+  },
+  'across-versions-allows-a-removed-setting': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: '  const settingsAdditive = removedKeys.length === 0 && addedKeysDefault;',
+    replace: '  const settingsAdditive = addedKeysDefault;',
+  },
+  'across-versions-allows-a-non-default-setting': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: "const isDefault = (v) => v === '' || v === '0';",
+    replace: 'const isDefault = () => true;',
+  },
+  'across-versions-stamp-value-unchecked': {
+    file: 'scripts/migrate-tenant.mjs', suites: ['migrate'],
+    find: '    if (m && SELF_UPDATING.has(m[1]) && looksLikeStamp(r.a) && looksLikeStamp(r.b)) {',
+    replace: '    if (m && SELF_UPDATING.has(m[1])) {',
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",

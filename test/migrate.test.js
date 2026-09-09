@@ -134,3 +134,70 @@ test('verify FAILS when the copy is not faithful — a lost client, a changed pa
   const ok = migrate(['verify', '--slug', 'hairbytest', '--from', snap2]);
   assert.equal(ok.status, 0, 'restored copy passes again');
 });
+
+// Moving to a newer shard is the normal case, not the exception: the salon runs
+// whatever it was last deployed, the shard runs the current code, and opening
+// the database migrates it. That makes `verify` fail every time on the same
+// handful of rows — which is exactly how a real difference gets waved away with
+// the harmless ones at one in the morning. --across-versions judges them
+// instead, and this is the test that it judges rather than just permits.
+test('--across-versions explains an additive migration and refuses to explain anything else', () => {
+  const dbPath = path.join(shardDir, 'tenants', 'hairbytest', 'kairo.db');
+  const snap3 = path.join(work, 'snap3.db');
+  const d0 = new DatabaseSync(dbPath); d0.exec('PRAGMA wal_checkpoint(TRUNCATE)'); d0.exec(`VACUUM INTO '${snap3}'`); d0.close();
+  const backup = fs.readFileSync(dbPath);
+  const restore = () => { fs.writeFileSync(dbPath, backup); for (const ext of ['-wal', '-shm']) fs.rmSync(dbPath + ext, { force: true }); };
+  const mutate = (sql) => { const d = new DatabaseSync(dbPath); d.exec('PRAGMA busy_timeout=5000'); d.exec(sql); d.close(); };
+
+  // What a newer shard legitimately does to the file it just opened.
+  const MIGRATION = `
+    CREATE TABLE future_widgets (id INTEGER PRIMARY KEY, name TEXT);
+    INSERT INTO settings (key, value) VALUES ('future_flag_off', '0');
+    INSERT INTO settings (key, value) VALUES ('future_link_blank', '');
+    INSERT OR REPLACE INTO settings (key, value) VALUES ('automations_last_pass', '2099-01-01');
+  `;
+
+  try {
+    mutate(MIGRATION);
+    const strict = migrate(['verify', '--slug', 'hairbytest', '--from', snap3]);
+    assert.equal(strict.status, 1, 'a cross-version move must still fail the strict check');
+
+    const across = migrate(['verify', '--slug', 'hairbytest', '--from', snap3, '--across-versions']);
+    assert.equal(across.status, 0, across.stdout + across.stderr);
+    assert.match(across.stdout, /explained by the version change/);
+    // Explained, not hidden: the reason for each is on the screen.
+    assert.match(across.stdout, /migration added future_widgets, empty/);
+    assert.match(across.stdout, /all at defaults/);
+    assert.match(across.stdout, /stamp the shard rewrites/);
+    restore();
+
+    // Everything a migration cannot account for stays a failure.
+    //
+    // Exit code alone is too blunt here: several of these trip a second,
+    // unrelated check as well, so the run would be red even if the guard being
+    // tested had been removed. Each case therefore also names the excuse that
+    // must NOT appear, which is what pins the individual guard.
+    const mustStillFail = [
+      ['a setting given a new value', "UPDATE settings SET value = 'Hair By Someone Else' WHERE key = 'business_name'", null],
+      ['a new setting that is not a default', "INSERT INTO settings (key, value) VALUES ('smuggled', 'payload')", /all at defaults/],
+      ['a setting removed', "DELETE FROM settings WHERE key = 'notif_from_email'", /all at defaults/],
+      ['a table removed', 'DROP TABLE waitlist', /migration added .*, empty/],
+      ['a new table with rows in it', 'CREATE TABLE smuggled_t (id INTEGER PRIMARY KEY); INSERT INTO smuggled_t (id) VALUES (1)', /migration added .*, empty/],
+      ['a client lost', "DELETE FROM clients WHERE email = 'moved@example.com'", null],
+      ['a cent moved', 'UPDATE payments SET amount_cents = amount_cents + 1', null],
+      ['the owner row changed', "UPDATE users SET email = 'attacker@example.com'", null],
+      ['a stamp set to something that is not a stamp', "UPDATE settings SET value = 'whatever' WHERE key = 'automations_last_pass'", /stamp the shard rewrites/],
+    ];
+    for (const [what, sql, mustNotSay] of mustStillFail) {
+      mutate(MIGRATION);   // the benign difference is present too, so the real one must be found alongside it
+      mutate(sql);
+      const r = migrate(['verify', '--slug', 'hairbytest', '--from', snap3, '--across-versions']);
+      assert.equal(r.status, 1, `--across-versions must not explain away: ${what}\n${r.stdout}`);
+      if (mustNotSay) assert.doesNotMatch(r.stdout, mustNotSay, `${what}: the migration excuse must not be offered for this\n${r.stdout}`);
+      restore();
+    }
+  } finally { restore(); }
+
+  const ok = migrate(['verify', '--slug', 'hairbytest', '--from', snap3]);
+  assert.equal(ok.status, 0, 'restored copy passes strictly again');
+});

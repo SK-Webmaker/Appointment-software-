@@ -376,9 +376,28 @@ same two clicks in reverse.
 1.55.0 → 1.58.0 reported four failures: one extra table (`devices`), four extra
 settings rows, the settings count, and the file size. Every row count, every
 money total and the newest ids matched. Of her 105 settings **exactly one
-changed** — `app_version`. Do not wave this away: diff the settings key by key
-and confirm the only differences are new keys with default values and the
-version stamp. If any of her own settings changed value, stop.
+changed** — `app_version`.
+
+That diff was done by hand, at one in the morning, on a live salon — which is
+precisely how a real difference gets waved through along with the harmless
+ones. So it is no longer done by hand. `verify --across-versions` judges each
+failure and only downgrades what is provably additive:
+
+```bash
+node scripts/migrate-tenant.mjs verify --slug hairbysha --from sha.db.gz --across-versions
+```
+
+A table **added and empty**, settings **added at their defaults**, the version
+stamp, and a date stamp on a short explicit allowlist are explained — and
+printed with the reason, so nothing disappears. A removed table, a removed
+setting, a changed value, a row count that moved or a cent that moved is never
+explained away; the run stays red. Thirteen deliberate corruptions were tried
+against it and all thirteen were refused, and six mutations of its own guards
+are in the falsifier.
+
+**Run the plain `verify` first and read it.** `--across-versions` is for the
+second run, once you have seen what it is being asked to explain. If it reports
+anything beyond the four known rows, stop.
 
 **3. Turning online booking off is a good enough freeze.** It is the only thing
 that writes without a person present, and it works on the old code, so no
@@ -389,6 +408,73 @@ so the `compare` step has to be run with booking briefly back on.
 auto-deploys from it, and a redeploy mid-import answers 502. One import failed
 that way; nothing was written, because the import checks everything before it
 creates the folder.
+
+Confirmed on the service: `autoDeploy: yes`, `autoDeployTrigger: commit`,
+branch `claude/markdown-file-analysis-a5ppnf`. So **every push redeploys the
+shard**, including a docs-only one — a commit on 8 September restarted Hora's
+salon for exactly that reason. Render's zero-downtime swap covered it, and it
+was harmless because the code was identical, which is luck rather than design.
+Before Sha joins Hora on the shard, turn auto-deploy off (Render → the service
+→ Settings) and make deploys deliberate. One toggle; it makes a documentation
+commit incapable of touching two live businesses.
+
+---
+
+## Hair By Sha: rehearsed on the code she will actually land on
+
+Re-rehearsed **9 September** against `hairbysha-booking.onrender.com`, from her
+own backup, on the merged v1.58.0 code — not the older code her first rehearsal
+used. Read-only throughout; nothing about her service was touched.
+
+| Step | Result |
+|---|---|
+| Import into a scratch shard | 645 clients · 103 appointments · 5 invoices · 250 messages |
+| `verify` (before the shard opens it) | **38/38 passed** |
+| `compare` booking page + fortnight | **37/37 identical** |
+| `verify --across-versions` (after migration) | **39/39, 4 explained** |
+
+### What her move will report, agreed in advance
+
+Her database migrates 1.55.0 → 1.58.0 exactly as Hora's did. These four rows
+**will** fail the plain `verify`, and these are the only four that may:
+
+| Row | Why |
+|---|---|
+| `tables present` | gains `devices`, empty |
+| `rows: settings` · `settings: count` | 105 → 109 |
+| `setting: automations_last_pass` | a date stamp the shard rewrites |
+
+The four new settings, all at their defaults: `acma_registered=0`,
+`checklist_app_installed=0`, `checklist_link_shared=0`, `pos_payment_link=""`.
+Nothing removed. `app_version` 1.55.0 → 1.58.0.
+
+**Anything else in that list means stop.**
+
+### What must be identical, and was
+
+Every row and every cent reconciled across the version bump, including the two
+things that are hers alone and would be quietly expensive to lose:
+
+| | |
+|---|---|
+| Her sending address | `bookings@mail.hairbyshacamberwell.com` — unchanged |
+| Her SMS sender | `0452611799` — unchanged |
+| Owner login | `shamalkaskiridena@gmail.com`, hash and salt byte-identical |
+| Money | 5 invoices · 6 line items · $785.00 · 1 payment · $45.00 |
+| Diary | 103 appointments, `booked` and `cancelled` only, 645 clients |
+| Timezone | `business_tz = Australia/Melbourne` |
+
+The comparison used to check all this was itself falsified — a deliberately
+mismatched query was run through it to confirm it reports a difference when one
+exists. Two of its checks were silently passing on a *SQLite error* before that
+(both sides erroring identically counted as equal), which is exactly the failure
+mode this discipline exists to catch.
+
+### The one difference from Hora's move
+
+Her snapshot here is from **8 September** and she is live, so the real move
+takes a fresh one at the freeze. The rehearsal proves the mechanism, not the
+final bytes.
 
 ---
 
