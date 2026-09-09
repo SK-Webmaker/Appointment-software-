@@ -20,9 +20,10 @@ It is live. Two real businesses run their diaries on it today:
 | Horahaircutz | `horahaircutz.kairobookings.com` | `horahaircutz-booking` / `srv-dac10jou01pc73fe99ug` | Singapore |
 
 Currently on **v1.59.0**. Horahaircutz has been moved onto the shard and
-deploys from this branch; Hair By Sha still deploys from
-`claude/appointment-booking-software-xqoy4f`, which carries the same code at
-the same version — see §7. Render workspace
+deploys from this branch. Hair By Sha still deploys from
+`claude/appointment-booking-software-xqoy4f`, also at v1.59.0 — the same Kai,
+but **without** the shard and front-door work, because moving Sha is its own
+job and has not been done. Same number, different code; see §7. Render workspace
 `tea-d98ovh3eo5us73fgj8n0`. Cloudflare holds the zone `kairobookings.com`.
 
 **These two businesses take real bookings from real customers every day. They
@@ -273,6 +274,10 @@ survives is your question to answer, not a given.
   and this commit brings them together. The number jumped to 1.59.0 because
   1.56.0 and 1.57.0 were already spent over here on different work, and two
   releases sharing a number is a debugging session nobody needs.
+- **Sha has not been moved to the shard.** Her branch carries the same Kai at
+  the same version and none of the shard work, so "v1.59.0" means two things
+  depending on which salon you are looking at. Moving her — or fast-forwarding
+  that branch to this one — is the next job, and it is a deliberate one.
 - Kai's own suite is `test/kai.test.js`, with thirteen mutations in
   `test/falsify.mjs`. It was written against the harness that was already
   here rather than alongside it.
