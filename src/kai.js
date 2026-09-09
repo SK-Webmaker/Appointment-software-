@@ -30,6 +30,7 @@ import { clientRhythms } from './opportunities.js';
 import { tokenise, scoreIntent, readPeriod, readWeekdays } from './kai-language.js';
 import { readActions, previewCompound } from './kai-actions.js';
 import { readNav, matchPlaces } from './kai-nav.js';
+import { readBooking } from './kai-booking.js';
 
 const money = (cents) => `${getSetting('currency', '$')}${((cents || 0) / 100).toFixed(2)}`;
 const clock = (min) => {
@@ -392,6 +393,21 @@ export function ask(query, { today }) {
     // Somewhere to go counts as a preview too: an owner typing "calendar in two
     // days" should see "Calendar — Friday 18 September" before they commit to
     // the keystroke, the same as any change.
+    // A booking Kai would fill in, previewed while it is still being typed —
+    // the same courtesy every change gets. Only when the reading is
+    // unambiguous: two Sarahs is a question, and a question is not a preview.
+    const ready = readBooking(raw, { today });
+    if (ready.length === 1) {
+      out.push(answer({
+        kind: 'goto',
+        title: ready[0].title,
+        detail: ready[0].detail,
+        matched: 'a booking to fill in',
+        href: ready[0].href,
+        score: ready[0].score,
+      }));
+    }
+
     const nav = readNav(raw, { today });
     if (nav) {
       out.push(answer({

@@ -310,6 +310,87 @@ const MUTATIONS = {
     find: "details: [{ appID: appId, paths: ['/book', '/book/*', '/r/*'] }],",
     replace: "details: [{ appID: appId, paths: ['*'] }],",
   },
+  // ── Kai ────────────────────────────────────────────────────────────────
+  //
+  // Kai is the only place in Kairo that changes a setting from a sentence, so
+  // the mutations that matter are the ones that make it act when it should not.
+  'kai-question-is-a-command': {
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: 'if (!asked || (ASKING.test(asked) && !NEGATED_ORDER.test(asked))) {',
+    replace: 'if (!asked) {',
+  },
+  'kai-guesses-between-readings': {
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: '  if (plans[0].score - plans[1].score >= 8) return { plan: plans[0], options: [] };',
+    replace: '  return { plan: plans[0], options: [] };',
+  },
+  'kai-undo-restores-nothing': {
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: '  for (const step of [...steps].reverse()) {',
+    replace: '  for (const step of []) {',
+  },
+  'kai-undo-restores-everything': {
+    // The prior value of only the keys a change WROTE goes back. Restoring a
+    // blob of settings would quietly undo whatever somebody else changed in
+    // another tab in between.
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: '      for (const [k, v] of Object.entries(step.before)) setSetting(k, v);',
+    replace: '      for (const [k, v] of Object.entries(step.before)) setSetting(k, v);\n      setSetting(\'business_name\', \'Glow Bar\');',
+  },
+  'kai-looking-is-trading': {
+    // "Open my calendar on Saturday" must not start opening the salon on
+    // Saturdays. One word apart from "open on Saturday", opposite meanings.
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: '    if (VIEWING.test(ctx.raw)) return [];',
+    replace: '    if (false) return [];',
+  },
+  'kai-navigates-away-from-an-answer': {
+    file: 'src/kai-nav.js', suites: ['kai'],
+    find: '  const bare = said.size > 0 && [...said].every((w) => vocab.has(w)) && !asking;',
+    replace: '  const bare = true;',
+  },
+  'kai-drops-the-day': {
+    file: 'src/kai-nav.js', suites: ['kai'],
+    find: '  const href = best.dated && date ? `${best.href}?date=${date}` : best.href;',
+    replace: '  const href = best.href;',
+  },
+  'kai-settings-cards-unreachable': {
+    file: 'src/kai-nav.js', suites: ['kai'],
+    find: '      href: `#/settings?open=${s.id}`,',
+    replace: "      href: '#/settings',",
+  },
+  'kai-books-without-being-asked': {
+    // The line the whole assistant is built to stay on the safe side of: a
+    // booking texts a real person and there is no undo for that.
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: '  return people.slice(0, 3).map(build);',
+    replace: '  return [build(people[0])];',
+  },
+  'kai-booking-eats-a-setting': {
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: '  if (!raw || !BOOKS.test(raw) || NOT_A_BOOKING.test(raw)) return [];',
+    replace: '  if (!raw || !BOOKS.test(raw)) return [];',
+  },
+  'kai-booking-loses-the-client': {
+    // Deleting the line outright leaves a dangling `else` and the suite fails
+    // to parse, which is a mutation the tests "catch" without testing
+    // anything. This one has to be valid code that behaves wrongly.
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: "    if (client) params.set('client', String(client.id));",
+    replace: '    if (false) params.set(\'client\', String(client.id));',
+  },
+  'kai-booking-hides-the-clash': {
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: '    warnings: warnFor(client),',
+    replace: '    warnings: [],',
+  },
+  'kai-voice-edits-the-receipt': {
+    // The personality is a prefix and nothing else: `warm` must always end
+    // with `said`, character for character.
+    file: 'src/kai-voice.js', suites: ['kai'],
+    find: '  return opener ? `${opener} ${fact}` : fact;',
+    replace: '  return opener ? `${opener} ${fact.toLowerCase()}` : fact;',
+  },
 };
 
 const only = process.argv.slice(2);

@@ -96,11 +96,13 @@ function warningsHtml(warnings) {
 function turnHtml(t, i) {
   const r = t.reply || {};
   const done = r.kind === 'done' || r.kind === 'undone';
-  const went = r.kind === 'went';
+  const went = r.kind === 'went' || r.kind === 'prepare';
   const tone = done ? 'ok' : went ? 'went' : r.kind === 'ambiguous' ? 'ask'
     : r.kind === 'unknown' ? 'no' : '';
-  const mark = done ? icon('check', 13) : went ? icon('chevR', 13)
-    : r.kind === 'ambiguous' ? icon('alert', 13) : icon('zap', 13);
+  const mark = done ? icon('check', 13)
+    : r.kind === 'prepare' ? icon('calendar', 13)
+      : went ? icon('chevR', 13)
+        : r.kind === 'ambiguous' ? icon('alert', 13) : icon('zap', 13);
   // The sentence is revealed a character at a time on its first paint. `full`
   // carries the whole thing so a repaint — an undo further down, a new turn —
   // redraws it complete instead of typing it out all over again.
@@ -289,13 +291,20 @@ async function submit(text, { spoken = false } = {}) {
     turn.reply = r;
     turn.pending = false;
     turn.typed = false;
-    if (r.kind === 'went') {
+    if (r.kind === 'went' || r.kind === 'prepare') {
       // Moving the screen is not a change — there is nothing to undo and
-      // nothing to refresh. The panel stays open so the next sentence can
-      // follow straight on, which is what makes a hands-free run of them work.
+      // nothing to refresh. A screen leaves the console open so the next
+      // sentence can follow straight on, which is what makes a hands-free run
+      // of them work.
+      //
+      // A prepared booking is the exception: it opens a form the owner has to
+      // press a button in, and the console's own scrim sits on top of that
+      // form. Handing somebody a Book button they cannot reach is worse than
+      // not opening the form at all.
       acted = true;
       el.querySelector('#kai-q').value = '';
       location.hash = r.href;
+      if (r.kind === 'prepare') setTimeout(close, 260);
     } else if (r.kind === 'done' || r.kind === 'undone') {
       acted = true;
       // Said out loud, "undo" takes the top of the stack — the server names
@@ -368,6 +377,25 @@ async function pickOption(turnIndex, optionIndex) {
   const t = turns[turnIndex];
   const opt = t?.reply?.options?.[optionIndex];
   if (!opt || busy) return;
+  // A reading that resolves to a screen rather than a setting — which of two
+  // Sarahs to fill the booking form in for. There is nothing to apply: the
+  // choice IS the destination.
+  if (opt.href) {
+    t.reply = { ...t.reply, options: [] };
+    turns.push({
+      you: opt.title,
+      reply: { kind: 'prepare', said: opt.detail || 'Opening that one.', warm: opt.detail || 'Opening that one.', warnings: opt.warnings },
+      typed: false,
+    });
+    el.querySelector('#kai-q').value = '';
+    location.hash = opt.href;
+    paint();
+    reveal();
+    load('');
+    // Same reason as above: the form it just opened needs to be reachable.
+    setTimeout(close, 260);
+    return;
+  }
   busy = true;
   setState('thinking', 'Working on that…');
   try {

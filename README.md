@@ -489,7 +489,7 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - scrypt password hashing, HMAC-signed HttpOnly cookies, parameterized SQL,
   escaped output, path-traversal-safe static serving
 
-### ⌘K Kai — the assistant that runs the salon while your hands are full (v1.55.0)
+### ⌘K Kai — the assistant that runs the salon while your hands are full (v1.59.0)
 Press **⌘K** (Ctrl+K), or **/**, or the **Ask Kai** button. A console with a
 face, a conversation and a composer — not a search box.
 
@@ -526,6 +526,26 @@ and any service's price or length.
 - *"don't let clients cancel online"* · *"set GST to 10%"* · *"back up daily"*
 - *"close Mondays and open Saturday 10 to 3"* — two in one breath, one **Undo** for both
 
+**It fills in a booking, and stops.** *"Book Sarah in for a cut on Friday at 2"*
+opens the booking form on that Friday with the client, the service, the time and
+the length already chosen — and a **Book** button:
+
+> **I've filled it in — Sarah Wilson, Cut & Finish, 2pm, Friday 18 September.
+> Check it and press Book.**
+
+It does **not** make the booking. Every other thing Kai changes is a setting:
+reversible, internal, undoable by one word. A booking puts a real person in a
+real chair and texts them a confirmation, and there is no undo for a message
+that has already arrived on somebody's phone. So Kai gets you to the last step
+and leaves the last step to you — which is where the value was anyway: the four
+fields you didn't have to find and the day you didn't have to scroll to.
+
+It tells you what's wrong with it *before* you press: closed that day, outside
+your hours, or somebody already in that slot (by name). **Two Sarahs on the book
+means it asks which** — turning up to the wrong Sarah's appointment is a real
+morning lost and no undo repairs it. A name it can't place is typed into the
+form as you said it, ready to add, rather than quietly dropped.
+
 **It still answers questions** — takings, who owes you, who hasn't been in,
 what's on today, anyone by name or number.
 
@@ -556,9 +576,10 @@ The lines that have not moved:
   shows you Saturday; *"open on Saturday"* opens the salon. One word apart, and
   getting it backwards is the worse of the two mistakes by a wide margin.
 - **It never guesses.** Where two readings are close it hands both back and asks.
-- **Nothing that reaches a client happens here.** Settings are reversible; a text
-  to four hundred people is not. Booking, cancelling, refunding and messaging
-  stay deliberate acts on their own screens.
+- **Nothing that reaches a client happens on its own.** Settings are reversible;
+  a text to four hundred people is not. A booking is *prepared* and handed to
+  you with a button; cancelling, refunding and messaging stay deliberate acts on
+  their own screens.
 - **Already-true is said, not mistaken for not-understood.**
 
 **Hands free, both ways.** The 🎤 uses your browser's own dictation — no account,

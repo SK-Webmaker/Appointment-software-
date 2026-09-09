@@ -19,8 +19,10 @@ It is live. Two real businesses run their diaries on it today:
 | Hair By Sha (Camberwell, Melbourne) | `hairbysha.kairobookings.com` | `hairbysha-booking` / `srv-d9945q67r5hc73aoeb20` | Oregon |
 | Horahaircutz | `horahaircutz.kairobookings.com` | `horahaircutz-booking` / `srv-dac10jou01pc73fe99ug` | Singapore |
 
-Currently on **v1.55.0**. Both auto-deploy from branch
-`claude/appointment-booking-software-xqoy4f`. Render workspace
+Currently on **v1.59.0**. Horahaircutz has been moved onto the shard and
+deploys from this branch; Hair By Sha still deploys from
+`claude/appointment-booking-software-xqoy4f`, which carries the same code at
+the same version — see §7. Render workspace
 `tea-d98ovh3eo5us73fgj8n0`. Cloudflare holds the zone `kairobookings.com`.
 
 **These two businesses take real bookings from real customers every day. They
@@ -46,9 +48,10 @@ propose changing it:
   channels, the booking page's palette, service prices — most of what an owner
   can click), and takes them to any screen or settings card on any day they
   name — all of it by voice if they want, using the browser's own dictation.
-  Four files: `kai.js` (the questions), `kai-actions.js` (the changes),
-  `kai-nav.js` (the destinations), `kai-voice.js` (the personality). Read them
-  before you touch anything near it. The rules are the design rather than
+  Five files: `kai.js` (the questions), `kai-actions.js` (the changes),
+  `kai-nav.js` (the destinations), `kai-booking.js` (a booking filled in but
+  never made), `kai-voice.js` (the personality). Read them before you touch
+  anything near it. The rules are the design rather than
   decoration: do-then-undo rather than confirm-before, a question is never a
   command, looking at a day is not trading on it, it asks rather than guessing
   between close readings, the warm opener always ends with the plain fact
@@ -263,7 +266,16 @@ survives is your question to answer, not a given.
 
 ## 7. Where things stand
 
-- v1.55.0, live on both businesses, 2,134 checks across 60 suites, 0 failures.
+- **v1.59.0. Two lineages, now merged here.** The shard, the front door and
+  Hora's move onto it were built on this branch; Kai's agent work was built on
+  `claude/appointment-booking-software-xqoy4f`. They ran side by side for a
+  while — Hora on this one at v1.58.0, Hair By Sha on the other at v1.55.0 —
+  and this commit brings them together. The number jumped to 1.59.0 because
+  1.56.0 and 1.57.0 were already spent over here on different work, and two
+  releases sharing a number is a debugging session nobody needs.
+- Kai's own suite is `test/kai.test.js`, with thirteen mutations in
+  `test/falsify.mjs`. It was written against the harness that was already
+  here rather than alongside it.
 - `README.md` is long and current — architecture, features, deployment, the lot.
 - `ONBOARDING.md` is the manual runbook you are being asked to make obsolete.
 - Open items unrelated to this work, so you do not trip over them: a stale

@@ -58,6 +58,7 @@ import {
   readCompound as kaiCompound,
 } from './kai-actions.js';
 import { readNav as kaiNav, closedOn as kaiClosedOn } from './kai-nav.js';
+import { readBooking as kaiReadBooking } from './kai-booking.js';
 import { speak as kaiSpeak } from './kai-voice.js';
 import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
@@ -2607,6 +2608,34 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
       ok: true, kind: 'undone', said: undone.said,
       did: undone.title, undone_token: undone.token, settings: getSettings(),
     });
+  }
+
+  // A booking, filled in but never made.
+  //
+  // Read before the change catalogue, because "book Sarah in for a cut on
+  // Friday" is about a person rather than a setting; and before navigation,
+  // because it names a day and would otherwise be taken as a request to look at
+  // one. Nothing here creates an appointment — see the header of
+  // src/kai-booking.js for why that line is where it is.
+  const bookings = kaiReadBooking(q, { today: bizToday() });
+  if (bookings.length) {
+    const { plan: ready, options: whichOne } = kaiDecide(bookings);
+    if (!ready && whichOne.length) {
+      return dress({
+        ok: false, kind: 'ambiguous',
+        said: 'More than one of them matches that name — which did you mean?',
+        options: whichOne.map((p) => ({
+          title: p.title, detail: p.detail, changes: p.changes,
+          warnings: p.warnings, fingerprint: p.fingerprint, href: p.href,
+        })),
+      });
+    }
+    if (ready) {
+      return dress({
+        ok: true, kind: 'prepare', said: ready.said, did: ready.title,
+        href: ready.href, date: ready.date, warnings: ready.warnings,
+      });
+    }
   }
 
   // Two things in one breath, done in order. Only taken when each half is a
