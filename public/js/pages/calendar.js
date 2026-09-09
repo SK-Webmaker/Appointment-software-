@@ -100,6 +100,44 @@ function weekStart(dateStr) {
 export async function renderCalendar(container, params) {
   if (params?.get('date')) cal.date = params.get('date');
   await loadAndDraw(container);
+  openPrefilled(container, params);
+}
+
+/**
+ * A booking Kai has filled in, waiting for one press.
+ *
+ * Kai will not create an appointment from a sentence — a booking sends a
+ * confirmation to a real person, and that is the line everything else in the
+ * assistant is built to stay on the safe side of. What it does instead is get
+ * the owner to the last step: the right day, the right client, the right
+ * service, the right time, and a Book button. Everything is still editable and
+ * nothing has happened until they press it.
+ *
+ * Reached only through ?new=1 on the calendar, so nothing here fires on an
+ * ordinary visit.
+ */
+function openPrefilled(container, params) {
+  if (params?.get('new') !== '1') return;
+  const num = (k) => {
+    const v = Number(params.get(k));
+    return Number.isFinite(v) && v > 0 ? v : undefined;
+  };
+  openAppointmentModal({
+    date: params.get('date') || cal.date,
+    staff_id: num('staff'),
+    start_min: Number.isFinite(Number(params.get('start'))) && params.get('start') !== ''
+      ? Number(params.get('start')) : undefined,
+    client_id: num('client'),
+    // When Kai could not match the name to anybody on the book, it hands the
+    // name over as typed so the owner can add them without retyping it.
+    client_name: params.get('name') || '',
+    service_ids: String(params.get('service') || '').split(',').map(Number).filter(Boolean),
+    onSaved: () => loadAndDraw(container),
+  });
+  // Take the instruction out of the address bar. Left there, a refresh — or the
+  // browser's back button — re-opens a booking form the owner has already dealt
+  // with, which is how somebody ends up booking the same person twice.
+  history.replaceState(null, '', `#/calendar?date=${encodeURIComponent(params.get('date') || cal.date)}`);
 }
 
 async function loadAndDraw(container) {
@@ -617,13 +655,20 @@ function wireGrid(container, staffList) {
 // Appointment modal (create / edit) — also used by the topbar quick action.
 // ---------------------------------------------------------------------------
 
-export async function openAppointmentModal({ appointment = null, date, staff_id, start_min, onSaved } = {}) {
+export async function openAppointmentModal({
+  appointment = null, date, staff_id, start_min, onSaved,
+  // Filled in from somewhere else — today only Kai, which parses a sentence
+  // like "book Sarah in for a cut on Friday at 2" and gets the owner to this
+  // form with everything already chosen. Ignored when editing an existing
+  // appointment: what is on the booking always wins over a suggestion.
+  client_id, client_name = '', service_ids = [],
+} = {}) {
   if (!state.staff.length || !state.services.length) await refreshLookups();
   const clients = await api.get('/api/clients');
   const a = appointment;
   const initialServiceIds = a?.service_ids_csv
     ? String(a.service_ids_csv).split(',').map(Number).filter(Boolean)
-    : (a?.service_id ? [a.service_id] : []);
+    : (a?.service_id ? [a.service_id] : (a ? [] : service_ids.filter(Boolean)));
   const selStaff = a?.staff_id || staff_id || state.staff[0]?.id;
   const selStart = a?.start_min ?? start_min ?? 600;
   const duration = a ? a.end_min - a.start_min : (state.services.find((s) => s.id === initialServiceIds[0])?.duration_min || 60);
@@ -768,10 +813,17 @@ export async function openAppointmentModal({ appointment = null, date, staff_id,
       <div class="cn-body">${esc(notes)}</div>`;
   };
 
-  if (a?.client_id) {
-    const c = clients.find((x) => x.id === a.client_id);
-    if (c) { searchInp.value = nameOf(c); clearBtn.hidden = false; }
-    showClientNote(a.client_id);
+  const preClient = a ? a.client_id : client_id;
+  if (preClient) {
+    const c = clients.find((x) => x.id === Number(preClient));
+    if (c) { searchInp.value = nameOf(c); clearBtn.hidden = false; hidden.value = c.id; }
+    showClientNote(preClient);
+  } else if (!a && client_name) {
+    // A name Kai heard but could not match to anybody on the book. Typed in
+    // rather than guessed at, so the owner sees "no client matches" and the
+    // Add-new-client option with the name already in it.
+    searchInp.value = client_name;
+    clearBtn.hidden = false;
   }
 
   const renderMenu = (q = '') => {
