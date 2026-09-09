@@ -100,12 +100,35 @@ if (bp) {
     missing.length === 0, missing.join(', '));
 }
 
+// ── 4b. The support address can actually receive mail ──────────────────────
+// A support address is published in the App Store listing and in the policies,
+// where it cannot be quietly changed later. "It is typed in the HTML" is not
+// the same as "mail sent to it arrives" — a domain with no MX records accepts
+// nothing, silently, and the sender gets a bounce nobody sees.
+const supportSrc = read('platform/public/support.html') || '';
+const addr = (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.exec(supportSrc) || [])[0] || '';
+check('a support address is published', Boolean(addr), addr);
+
 // ── 5. The App Store listing's own URLs ────────────────────────────────────
 const listing = read('docs/app-store/07-phase-7-launch.md') || '';
 const listed = [...new Set([...listing.matchAll(/https:\/\/kairobookings\.com(\/[a-z-]*)/g)].map((m) => m[1]))]
   .filter((p) => p && p !== '/');
 
 async function main() {
+  // Mail exchangers for the support domain. Cloudflare Email Routing publishes
+  // route*.mx.cloudflare.net; a Workspace mailbox publishes Google's. Either is
+  // fine — none at all means mail to that address goes nowhere.
+  if (addr) {
+    const domain = addr.split('@')[1];
+    let mx = [];
+    try {
+      const dns = await import('node:dns/promises');
+      mx = await dns.resolveMx(domain);
+    } catch { mx = []; }
+    check(`${domain} can receive mail`, mx.length > 0,
+      mx.length ? mx.map((m) => m.exchange).join(', ') : 'no MX records — mail to this address will bounce');
+  }
+
   if (origin) {
     for (const p of [...new Set([...listed, '/privacy', '/support', '/terms', '/refunds', '/start'])]) {
       let status = 0;
@@ -136,6 +159,8 @@ async function main() {
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
     'Stripe live keys and the webhook secret on the platform service',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
+    'Cloudflare → Email Routing → add the support@ rule (MX is already live; the address just needs a destination)',
+    'The seller name in the Terms — the one remaining blocker. See docs/app-store/LEGAL-TODO.md',
   ]) console.log(`  ${c.dim('·')} ${line}`);
 
   console.log('');

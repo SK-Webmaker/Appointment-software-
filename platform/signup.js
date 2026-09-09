@@ -280,7 +280,14 @@ export async function provision(businessId) {
         business_tz: b.tz,
         currency: '$',
         currency_code: 'aud',
-        tax_rate: '10',
+        // NOT 10. GST registration is only compulsory above $75k turnover, and
+        // a good share of the salons Kairo is sold to are sole traders under
+        // it. Provisioning them at 10% put GST on invoices they are not
+        // registered to collect — their problem with the ATO, caused by a
+        // default they never chose and would likely never question, because
+        // the setup wizard shows the number already filled in.
+        // Kairo's own default is 0 (src/db.js) and the wizard asks. Let it.
+        tax_rate: '0',
         public_url: url,
       },
     });

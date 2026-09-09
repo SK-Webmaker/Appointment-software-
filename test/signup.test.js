@@ -240,7 +240,10 @@ test('the whole thing, end to end: form → codes → payment → a salon taking
   assert.equal(me.json.settings.business_name, 'ABC Hair Studio');
   assert.equal(me.json.settings.business_tz, 'Australia/Melbourne');
   assert.equal(me.json.settings.currency_code, 'aud');
-  assert.equal(me.json.settings.tax_rate, '10');
+  // 0, not 10: GST is compulsory only above $75k turnover, and a sole trader
+  // under it must not be handed invoices charging tax they cannot collect.
+  // The setup wizard asks; provisioning does not decide.
+  assert.equal(me.json.settings.tax_rate, '0');
   assert.equal(me.json.settings.plan_price_cents, '41000');
   assert.equal(me.json.settings.sms_notifications_enabled, '0', 'nothing that costs money is on');
   assert.equal(me.json.settings.public_url_effective, `https://abchair.${DOMAIN}`);
@@ -484,3 +487,4 @@ test('“send another” tells the truth when the code could not be sent', async
   assert.ok(task, 'an undeliverable code must open a task for the operator');
   assert.match(task.detail, /could not be sent/i);
 });
+

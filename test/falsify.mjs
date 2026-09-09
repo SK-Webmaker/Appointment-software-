@@ -168,6 +168,11 @@ const MUTATIONS = {
     find: "    if (POLICY_PAGES.has(p.slice(1))) return serveStatic(res, `${p.slice(1)}.html`);",
     replace: '',
   },
+  'provisioning-assumes-gst-registered': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "        tax_rate: '0',",
+    replace: "        tax_rate: '10',",
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",
