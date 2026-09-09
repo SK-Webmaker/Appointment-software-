@@ -1,7 +1,8 @@
 # In plain terms: what the owner pays, and how "Business ABC" gets Kairo
 
-*Written 2026-09-05 for the owner's confirmation before Phase 5. Everything
-here follows from the approved documents; nothing new is decided.*
+*Written 2026-09-05. Corrected 2026-09-09: two decisions went the other way
+after this was drafted, and both cost real money if followed — the in-app
+purchase door, and the D-U-N-S number. Both are struck out below.*
 
 ---
 
@@ -12,7 +13,7 @@ here follows from the approved documents; nothing new is decided.*
 | What | How much | Why |
 |---|---|---|
 | Apple Developer Program | US$99 a year (≈ A$150) | Without it there is no App Store listing. Renews yearly. |
-| D-U-N-S number for the company | free | Apple asks for it when a business enrols. Takes a few days. |
+| ~~D-U-N-S number for the company~~ | **not needed** | Only an *organisation* enrolment needs one. You are enrolling as an **individual / sole proprietor** — no D-U-N-S, no company, no ASIC fee, and days rather than weeks. Converting to a company later keeps the same Apple ID, Team ID, certificates and apps. See `07-apple-account-plan.md`. |
 | Prepaid credit in *your* ClickSend account | A$20 | Sends the one verification text per new signup (≈ 6¢ each). Lasts ~300 signups. |
 | Stripe account | free | Takes the A$410 on the website. |
 | Everything else — Cloudflare, ABN lookup, Apple push, GitHub build machines, Codemagic | free | Free tiers, and none of them stop a salon working if they change. |
@@ -38,9 +39,13 @@ their money).
 
 | Door | Customer pays | You receive | Who kept the rest |
 |---|---|---|---|
-| Website | A$410 | ≈ A$402.70 | Stripe (1.7% + 30¢) |
-| App | A$519.99 | ≈ A$401.80 | Apple (GST first, then 15%) |
-| Any door | | − 6¢ | the verification text |
+| Website — the only door | A$410 | ≈ A$402.70 | Stripe (1.7% + 30¢) |
+| Every sale | | − 6¢ | the verification text |
+
+~~The App Store door at A$519.99 was removed on 5 September 2026.~~ Selling
+through the app would hand Apple 15% and force the price up by A$110 to earn
+the same, for a product a salon buys once on a website. The app is free and
+sign-in only, and there is no StoreKit code in `ios/`.
 
 A refund inside 14 days returns the customer's money in full; on the web door
 Stripe keeps its ≈ A$7 fee, so a refund costs you that.
@@ -86,27 +91,30 @@ same place.
   weekly, marketing automations off, no demo data.
 - Records ABC in the directory: address, plan *paid in full*, door *web*,
   date.
-- Their address works instantly, because `*.kairobookings.com` was pointed at
-  the shared service once, months ago, with its certificate already issued.
+- Their address works instantly, because a Cloudflare Worker sits in front of
+  every `*.kairobookings.com` address and forwards it to the shard, carrying
+  the real hostname in a signed header. (The wildcard *custom domain* this
+  line once credited never worked on this account — the diagnosis is in
+  `MOVE-DAY.md`. The Worker replaced it, and lifted the cap on how many
+  salons can exist at all.)
 - Sends the welcome email with the booking link, the policies, and *"your
   confirmations start sending once you connect your email — 2 minutes."*
 
 **You do: nothing.** You get a push: *"ABC Hair Studio just joined — A$410."*
 
-### Door 2 — the App Store
+### The App Store is not a second door
 
-**ABC does:** searches "Kairo" on the App Store, downloads the free app, taps
-*Create your Kairo*, fills in the same form, types the same two codes, and
-Apple's payment sheet appears: **A$519.99**, Face ID, done. The app signs
-them straight in.
+ABC can find Kairo on the App Store and download it free, but the app only
+ever shows **Sign in**. There is no *Create your Kairo* in it, no price, and
+no link to the website's purchase — deliberately, and it is what
+`ios/Kairo/RootView.swift` does today: three states, and buying is not one
+of them.
 
-**Kairo does:** verifies the purchase with Apple's servers, screens exactly
-as above, creates the same folder and file, and the app is live on their
-phone.
+So an owner who arrives via the App Store first downloads the app, finds they
+need an account, and goes to the website to buy one. That is the intended
+path, not a gap.
 
-**You do: nothing.** Same push.
-
-### Their first sign-in (either door)
+### Their first sign-in
 
 The existing setup wizard runs: business details and hours, the team, the
 service menu, deposits (optional), "put Kairo on your phone". Then the
@@ -189,16 +197,23 @@ platform, and downloadable from Settings any time.
 
 These are one-time, and Phase 6 walks through each with you:
 
-1. Enrol in the Apple Developer Program (D-U-N-S first).
-2. Create the app record in App Store Connect and the A$519.99 in-app
-   purchase; generate the App Store Connect API key for the build machines.
-3. Point `*.kairobookings.com` at the shared Render service and let Render
-   issue its certificate. Done once, never again.
-4. A Cloudflare API token scoped to the zone (the old one expired), a
-   Stripe account with its webhook, your ClickSend account for verification
-   texts, an ABN Lookup key, and a free off-site backup bucket — each pasted
-   once into the platform's environment.
+1. Enrol in the Apple Developer Program **as an individual** — no D-U-N-S,
+   no company. About A$149 and one to two days.
+2. Create the app record in App Store Connect and generate the API key for
+   the build machines. **No in-app purchase** — the app sells nothing.
+3. ~~Point `*.kairobookings.com` at the shared Render service.~~ **Already
+   done, and not the way this said.** The wildcard custom domain does not
+   work on this account; a Cloudflare Worker forwards every salon address to
+   the shard instead. It is deployed and live.
+4. Deploy the platform service (`platform/render.yaml`) and give it its
+   environment: Stripe key and webhook secret, the shard's control-API key,
+   Resend key and sending address, ClickSend username and key, and a
+   Cloudflare token scoped to the zone. Miss the sending credentials and
+   signups stall at the code screen — the server now says so at boot.
 5. Fill in the bracketed bits of the policies (legal name, ABN, support
-   email).
+   email). `node scripts/launch-check.mjs` fails until you do.
+
+Run `node scripts/launch-check.mjs` at any point to see which of these are
+still outstanding, rather than trusting this list to stay current.
 
 After that, the only things you ever do are in Part 2's "You" column.

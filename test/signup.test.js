@@ -108,7 +108,11 @@ after(async () => {
 });
 
 test('the signup page and its policies are served, with the strict headers', async () => {
-  for (const p of ['/start', '/terms.html', '/refunds.html', '/privacy.html', '/operator']) {
+  // The bare paths matter as much as the .html ones: the App Store listing
+  // names https://kairobookings.com/privacy and /support, and those two URLs
+  // cannot be edited once the app is submitted.
+  for (const p of ['/start', '/terms.html', '/refunds.html', '/privacy.html', '/operator',
+                   '/privacy', '/terms', '/refunds', '/support']) {
     const r = await platform.api('GET', p);
     assert.equal(r.status, 200, p);
     assert.match(r.headers.get('content-security-policy') || '', /script-src 'self'/, p);
@@ -447,4 +451,36 @@ test('an unpaid signup holds its address for a week, then lets it go', async () 
   assert.match(swept.stdout, /"expired":1/);
   assert.equal((await platform.api('GET', '/api/slug?slug=ghosted')).json.ok, true, 'the address is free again');
   assert.equal((await platform.api('GET', `/api/status?token=${token}`)).json.state, 'expired');
+});
+
+// "Send another" was the one button in the purchase funnel with no test behind
+// it, and it showed: it returned success whether or not anything was sent. On
+// a platform deployed without sending credentials — which is every platform
+// until somebody sets four environment variables — a customer would create
+// their account, be asked for a code that was never sent, tap "send another",
+// be told it had been sent, and be stuck there with their details handed over.
+test('“send another” tells the truth when the code could not be sent', async () => {
+  const r = await platform.api('POST', '/api/signup', {
+    body: { ...PERSON, email: 'undeliverable@abchair.example', slug: 'undeliverable' },
+    headers: { 'cf-connecting-ip': `203.0.113.${++ipCounter}` },
+  });
+  assert.equal(r.status, 200, r.text);
+  const { token } = r.json;
+
+  // This platform has no sending credentials, so neither code can go anywhere.
+  const again = await platform.api('POST', '/api/resend', { body: { token, kind: 'email' } });
+  assert.equal(again.status, 502, `expected a refusal, got ${again.status}: ${again.text}`);
+  assert.match(again.json.error, /could not send/i);
+  assert.match(again.json.error, /support/i, 'it must say what to do next, not just that it failed');
+
+  const sms = await platform.api('POST', '/api/resend', { body: { token, kind: 'phone' } });
+  assert.equal(sms.status, 502);
+
+  // And the operator is told, because a platform that cannot send at all is
+  // not one customer's problem — it is every customer's, silently.
+  const d = platform.platformDb();
+  const task = d.prepare("SELECT kind, detail FROM tasks WHERE kind LIKE 'code:%:undeliverable' AND state = 'open'").get();
+  d.close();
+  assert.ok(task, 'an undeliverable code must open a task for the operator');
+  assert.match(task.detail, /could not be sent/i);
 });

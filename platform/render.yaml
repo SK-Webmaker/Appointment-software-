@@ -1,0 +1,112 @@
+# Render Blueprint — the Kairo platform.
+#
+# This is the service that SELLS Kairo. There is exactly one of it, ever,
+# unlike render.yaml at the repo root (one per business) and render-shard.yaml
+# (one per region). It holds no salon's client data: owners, businesses, codes
+# and the audit trail only.
+#
+# To create it:
+#   Render → New → Blueprint → this repo → set "Blueprint file" to
+#   platform/render.yaml → Apply. Then add the environment variables marked
+#   sync:false below, and point kairobookings.com at it.
+#
+# READ THIS BEFORE POINTING THE DOMAIN. The apex kairobookings.com currently
+# serves the marketing site. Moving it here replaces that site. The safe order
+# is the reverse of what feels natural:
+#
+#   1. Deploy this service and test it on its own onrender.com address.
+#   2. Add get.kairobookings.com to it and prove the whole purchase there.
+#   3. Only then decide what the apex should serve — either move the marketing
+#      site's files in here, or leave the apex alone and sell from get.*.
+#
+# The App Store listing names https://kairobookings.com/privacy and /support,
+# so whichever host ends up on the apex has to answer those two paths.
+services:
+  - type: web
+    name: kairo-platform
+    runtime: node
+    plan: starter          # a disk cannot be attached to the free plan
+    region: singapore      # same region as the shard it provisions onto
+    branch: claude/markdown-file-analysis-a5ppnf
+    rootDir: platform
+    buildCommand: echo "no build step — Kairo has no dependencies"
+    startCommand: node --disable-warning=ExperimentalWarning server.js
+    healthCheckPath: /health
+
+    # Deploys are deliberate, not automatic. The shard learned this the hard
+    # way: auto-deploy meant a documentation commit restarted a live salon.
+    autoDeploy: false
+
+    # The platform's own SQLite lives here. Without this disk every signup,
+    # every payment record and the whole audit trail is destroyed on the next
+    # deploy — silently, because SQLite will happily create a new empty file.
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22.22.0"
+      - key: PLATFORM_HOST
+        value: 0.0.0.0
+      - key: PLATFORM_PORT
+        value: "10000"
+      - key: PLATFORM_DATA_DIR
+        value: /var/data
+      - key: KAIRO_BASE_DOMAIN
+        value: kairobookings.com
+
+      # ---- set by hand in the dashboard; never in the repo ----------------
+      # The address this service answers on. Stripe redirects back here, so a
+      # wrong value sends a paying customer to a page that does not exist.
+      - key: PLATFORM_ORIGIN
+        sync: false
+      # Opens /operator, the queue of flagged signups. Without it nobody can
+      # approve one, and a flagged signup waits forever.
+      - key: PLATFORM_OPERATOR_PASSWORD
+        sync: false
+      # Live money. Until both are set nobody can pay and nothing provisions.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Signs calls to the shard's control API. Must equal KAIRO_PLATFORM_KEY
+      # on kairo-shard-au, or every provisioning call is refused.
+      - key: KAIRO_PLATFORM_KEY
+        sync: false
+      - key: KAIRO_SHARD_URL
+        sync: false
+      # Sends the two messages the platform itself sends: the verification
+      # codes and "your Kairo is ready".
+      #
+      # These four are as load-bearing as the Stripe keys, and less obviously
+      # so. Step 2 of the signup sends a code to an inbox AND a handset, and
+      # nobody can reach the payment step without entering both. Miss any of
+      # them and a customer creates their account, stares at a code box, taps
+      # "send another", is told it was sent, and is stuck — with their details
+      # already handed over. The server now says so at boot.
+      - key: RESEND_API_KEY
+        sync: false
+      # The address the codes come FROM. A verified Resend sender.
+      - key: PLATFORM_FROM_EMAIL
+        sync: false
+      - key: CLICKSEND_USERNAME
+        sync: false
+      - key: CLICKSEND_API_KEY
+        sync: false
+      # The sender ID texts arrive from. ACMA has rules about this one.
+      - key: CLICKSEND_FROM
+        value: Kairo
+      # Where "get the app" points a new owner. Until the App Store listing is
+      # live this can stay as the store's front page.
+      - key: KAIRO_APP_URL
+        sync: false
+      # Connects a salon's own sending domain. Optional — without it the
+      # salon still works, it just cannot send from its own address yet.
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      # What Kairo costs, in cents. Here rather than in code so a price change
+      # is a dashboard edit, not a deploy.
+      - key: KAIRO_PRICE_CENTS
+        value: "41000"

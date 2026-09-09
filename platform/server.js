@@ -18,6 +18,8 @@ import * as connect from './connect.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
+/** Served both with and without .html — the App Store listing names them bare. */
+const POLICY_PAGES = new Set(['privacy', 'terms', 'refunds', 'support']);
 const PORT = Number(process.env.PLATFORM_PORT || 4830);
 const HOST = process.env.PLATFORM_HOST || '0.0.0.0';
 const ORIGIN = () => String(process.env.PLATFORM_ORIGIN || `http://127.0.0.1:${PORT}`).replace(/\/+$/, '');
@@ -116,7 +118,22 @@ function serveStatic(res, rel) {
   });
 }
 
-const CSP = ["default-src 'self'", "base-uri 'self'", "object-src 'none'", "frame-ancestors 'none'", "img-src 'self' data:", "style-src 'self' 'unsafe-inline'", "script-src 'self'", "connect-src 'self'", "form-action 'self'"].join('; ');
+// The brand faces come from Google Fonts, so the stylesheet host and the font
+// host are named explicitly. Without these two the pages still render — in the
+// system font, silently, which is the failure that looks like a design choice.
+// Nothing else is widened: scripts stay same-origin only.
+const CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "img-src 'self' data:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "script-src 'self'",
+  "connect-src 'self'",
+  "form-action 'self'",
+].join('; ');
 
 // ── routes ─────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
@@ -141,6 +158,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/operator') return serveStatic(res, 'operator.html');
     if (p === '/connect') return serveStatic(res, 'connect.html');
     if (p === '/health') return json(res, 200, { ok: true });
+    // The policies answer without the .html, because that is how they are
+    // written down in places that cannot be edited later: the App Store
+    // listing names https://kairobookings.com/privacy and /support, and a
+    // 404 on either is a rejected submission. The .html paths keep working,
+    // so links already sent out do not break.
+    if (POLICY_PAGES.has(p.slice(1))) return serveStatic(res, `${p.slice(1)}.html`);
     if (!p.startsWith('/api/')) return serveStatic(res, p === '/' ? 'start.html' : p);
     return await api(req, res, url, ip);
   } catch (err) {
@@ -380,6 +403,17 @@ server.listen(PORT, HOST, () => {
   if (!process.env.KAIRO_PLATFORM_KEY) console.log('    !  KAIRO_PLATFORM_KEY is not set — the shard will refuse every call');
   if (!process.env.CLOUDFLARE_API_TOKEN) console.log('    !  CLOUDFLARE_API_TOKEN is not set — salon email cannot be connected');
   if (!operatorPassword()) console.log('    !  PLATFORM_OPERATOR_PASSWORD is not set — the queue cannot be opened');
+  // Step 2 of the signup sends a code to an inbox AND a handset, and a signup
+  // cannot advance without both. Missing credentials here do not fail loudly
+  // on their own — the send is skipped, the audit trail records it, and the
+  // customer sits in front of a code box waiting for something that was never
+  // sent. So they are named at boot, in the same breath as the money.
+  if (!process.env.RESEND_API_KEY || !process.env.PLATFORM_FROM_EMAIL) {
+    console.log('    !  RESEND_API_KEY / PLATFORM_FROM_EMAIL not set — email codes cannot send, so nobody can finish signing up');
+  }
+  if (!process.env.CLICKSEND_USERNAME || !process.env.CLICKSEND_API_KEY) {
+    console.log('    !  CLICKSEND_USERNAME / CLICKSEND_API_KEY not set — SMS codes cannot send, so nobody can finish signing up');
+  }
   console.log('');
 });
 

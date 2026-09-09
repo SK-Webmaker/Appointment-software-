@@ -24,12 +24,23 @@ async function call(method, path, body) {
   return data;
 }
 
+// Four named steps, not three anonymous dots. Someone spending A$410 on a
+// phone at the counter should be able to see how much is left before they
+// start, and what the thing they are in the middle of is called.
+const STEP_NAMES = ['Your details', 'Confirm it\'s you', 'Payment', 'Setting up'];
 const header = (step) => `
-  <div class="brand"><span class="mark">K</span><b>Kairo</b></div>
-  ${step ? `<div class="steps">${[1, 2, 3].map((i) => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}</div>` : ''}`;
+  <div class="brand"><a href="/" style="display:flex;align-items:center;gap:10px;color:inherit"><span class="mark">K</span><b>Kairo</b></a></div>
+  ${step ? `
+    <div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="${step}"
+         aria-label="Step ${step} of 4: ${STEP_NAMES[step - 1]}">
+      ${[1, 2, 3, 4].map((i) => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}
+    </div>
+    <div class="hint" style="margin:-16px 0 22px;display:flex;justify-content:space-between">
+      <span>Step ${step} of 4</span><span>${esc(STEP_NAMES[step - 1])}</span>
+    </div>` : ''}`;
 
 const foot = `<div class="foot">
-  <a href="/terms.html">Terms</a> · <a href="/refunds.html">Refunds</a> · <a href="/privacy.html">Privacy</a><br>
+  <a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="/privacy">Privacy</a> · <a href="/support">Support</a><br>
   Kairo — booking software for appointment businesses.
 </div>`;
 
@@ -79,7 +90,7 @@ function renderForm(prefill = {}, error = '') {
         <div class="hint">At least 10 characters. This is how you'll sign in to Kairo.</div>
 
         <label class="check"><input type="checkbox" id="agree" required>
-          <span>I agree to the <a href="/terms.html" target="_blank">Terms</a>, <a href="/refunds.html" target="_blank">Refund Policy</a> and <a href="/privacy.html" target="_blank">Privacy Policy</a>.</span></label>
+          <span>I agree to the <a href="/terms" target="_blank">Terms</a>, <a href="/refunds" target="_blank">Refund Policy</a> and <a href="/privacy" target="_blank">Privacy Policy</a>.</span></label>
 
         ${error ? `<div class="err">${esc(error)}</div>` : ''}
         <button class="primary" type="submit" id="go">Create my Kairo</button>
@@ -209,7 +220,7 @@ async function renderStatus() {
   if (st.state === 'payment_pending') return renderPay();
   if (['refunded', 'expired'].includes(st.state)) { localStorage.removeItem(KEY); return renderForm({}, st.message); }
 
-  app.innerHTML = `${header(0)}
+  app.innerHTML = `${header(4)}
     <div class="card" style="text-align:center">
       <div class="big">${st.state === 'flagged' ? '🔎' : '<span class="spin"></span>'}</div>
       <h2>${st.state === 'flagged' ? 'Just checking a couple of details' : 'Setting up your Kairo'}</h2>

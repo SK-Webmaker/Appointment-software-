@@ -151,6 +151,23 @@ const MUTATIONS = {
     find: '    if (m && SELF_UPDATING.has(m[1]) && looksLikeStamp(r.a) && looksLikeStamp(r.b)) {',
     replace: '    if (m && SELF_UPDATING.has(m[1])) {',
   },
+  // The purchase funnel's silent failure: a code that never sent, reported as
+  // sent. Three guards, three mutations.
+  'resend-claims-success-when-it-failed': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: '  if (!r.ok) {',
+    replace: '  if (false) {',
+  },
+  'undeliverable-code-tells-nobody': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "    openTask(b.id, `code:${kind}:undeliverable`, `A ${kind} code could not be sent: ${r.detail}`);",
+    replace: '',
+  },
+  'policies-only-answer-with-dot-html': {
+    file: 'platform/server.js', suites: ['signup'],
+    find: "    if (POLICY_PAGES.has(p.slice(1))) return serveStatic(res, `${p.slice(1)}.html`);",
+    replace: '',
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",

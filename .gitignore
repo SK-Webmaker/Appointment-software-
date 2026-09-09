@@ -4,6 +4,14 @@ node_modules/
 # does. Committing one gives yarn something to "resolve" on every deploy.
 package-lock.json
 yarn.lock
+# Any depth: the product writes data/kairo.db, and the platform defaults to
+# data/platform/platform.db when PLATFORM_DATA_DIR is not set — which is what
+# happens the first time somebody runs it locally. A single-level pattern let
+# that second one through.
+data/**/*.db
+data/**/*.db-journal
+data/**/*.db-wal
+data/**/*.db-shm
 data/*.db
 data/*.db-journal
 data/*.db-wal

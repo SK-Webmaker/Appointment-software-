@@ -10,11 +10,16 @@ const FROM = () => String(process.env.PLATFORM_FROM_EMAIL || '').trim();
 const CS_USER = () => String(process.env.CLICKSEND_USERNAME || '').trim();
 const CS_KEY = () => String(process.env.CLICKSEND_API_KEY || '').trim();
 const CS_FROM = () => String(process.env.CLICKSEND_FROM || 'Kairo').trim();
+// Same override the salon side uses (src/notify.js), so the platform's own
+// sending can be pointed at a stand-in and actually tested. Until now it could
+// not be, which is how "Send another" shipped claiming success without sending.
+const RESEND_API = () => process.env.RESEND_API_BASE || 'https://api.resend.com';
+const CLICKSEND_API = () => process.env.CLICKSEND_API_BASE || 'https://rest.clicksend.com/v3';
 
 export async function sendEmail(to, subject, text, html = '') {
   if (!RESEND_KEY() || !FROM()) return { ok: false, skipped: true, detail: 'platform email not configured (RESEND_API_KEY, PLATFORM_FROM_EMAIL)' };
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(`${RESEND_API()}/emails`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_KEY()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: FROM(), to: [to], subject, text, ...(html ? { html } : {}) }),
@@ -30,7 +35,7 @@ export async function sendEmail(to, subject, text, html = '') {
 export async function sendSms(to, body) {
   if (!CS_USER() || !CS_KEY()) return { ok: false, skipped: true, detail: 'platform SMS not configured (CLICKSEND_USERNAME, CLICKSEND_API_KEY)' };
   try {
-    const res = await fetch('https://rest.clicksend.com/v3/sms/send', {
+    const res = await fetch(`${CLICKSEND_API()}/sms/send`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${Buffer.from(`${CS_USER()}:${CS_KEY()}`).toString('base64')}`,

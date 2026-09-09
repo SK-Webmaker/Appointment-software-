@@ -1,8 +1,17 @@
 # Phase 4 — The onboarding flow, end to end
 
-*Status: draft for the owner's approval. Assumes the Phase 2b architecture
-(one shard, one file per salon). Every step says who does it: **auto**,
-**business**, or **owner**.*
+*Every step says who does it: **auto**, **business**, or **owner**.*
+
+> **Status, 9 September 2026 — mostly built, not yet deployed.**
+> The whole state machine below exists in `platform/` and is covered end to
+> end by `test/signup.test.js` (19 tests, form → codes → payment → a salon
+> taking bookings). What is missing is not code: the platform service is not
+> deployed, so `kairobookings.com/start` does not answer yet. See
+> `platform/render.yaml` and `node scripts/launch-check.mjs`.
+>
+> Three things in this document were written before decisions that later went
+> the other way, and have been corrected in place: the in-app purchase door
+> (§1, §5, §7), and the wildcard domain (§6).
 
 ---
 
@@ -30,8 +39,12 @@ Two doors, one product (Phase 2 §2).
   Resend, ClickSend and Stripe accounts, which are free or pay-as-you-go and
   theirs), and a live demo link. One button: *Create your Kairo*.
 - **App Store:** the listing describes the same product. The app is free to
-  download; opening it shows *Sign in* and *Create your Kairo*. Nothing in
-  the app mentions the website's price.
+  download and is **sign-in only** — it shows *Sign in* and nothing else.
+  There is no *Create your Kairo* in the app, no price, and no link to the
+  purchase. That is D2, reversed and settled on 5 September 2026, and it is
+  what `ios/Kairo/RootView.swift` actually does: three states, and buying is
+  not one of them. See `07-phase-7-launch.md` §6 for why deviating from this
+  is the single easiest way to fail App Review.
 
 ## 2–3. Creating the account (auto)
 
@@ -67,17 +80,18 @@ browser, 3-D Secure when Stripe asks. Receipt from Stripe. The platform acts
 only on the `checkout.session.completed` webhook (signed), never on the
 browser's return.
 
-**App door:** StoreKit 2 purchase of the non-consumable "Kairo — one salon,
-for good" at A$519.99. The app sends the signed transaction to the platform,
-which verifies it with the App Store Server API and also listens to App
-Store Server Notifications for refunds. Apple emails the receipt.
+**There is no app door.** This section once described a StoreKit 2
+non-consumable at A$519.99; that decision was reversed on 5 September 2026 and
+no StoreKit code exists in `ios/`. Every purchase is the web door above. An
+owner who finds Kairo through the App Store signs in to a Kairo they already
+bought on the website.
 
 **Screening, immediately after payment confirms** — all automatic, each
 producing a pass or a flag, never a refusal:
 
 | Check | Pass | Flag |
 |---|---|---|
-| Payment risk | Stripe Radar normal / Apple verified | Radar "elevated" or "highest" |
+| Payment risk | Stripe Radar normal | Radar "elevated" or "highest" |
 | ABN | active; entity name shares a word with the business name, or the trading name matches | cancelled ABN, or no overlap at all |
 | Duplicates | no other business with this ABN | same ABN already has a Kairo; same business name in the same suburb |
 | Velocity | first signup from this IP/device today | third or more |
@@ -101,14 +115,23 @@ weekly, automations off). **Skip the demo seed**: a real business starts
 empty and meets the wizard, exactly as the existing "start fresh" path does.
 Insert the registry row. State → `ready`.
 
-The wildcard domain already resolves, the certificate already exists; the
-address works the moment the folder does.
+The address works the moment the folder does — but **not** because of a
+wildcard domain, which is what this line used to claim. Render's wildcard
+custom domain verifies, issues a certificate, and then never routes on this
+account (Cloudflare Error 1000; the whole diagnosis is in `MOVE-DAY.md`). A
+Cloudflare Worker is the front door instead: it forwards every
+`*.kairobookings.com` request to the shard's own address and carries the real
+hostname in a signed header. It is deployed and live, and it is what makes a
+brand-new salon's address answer within seconds of the folder existing —
+with no Render custom domain, and therefore no per-account cap on how many
+salons can exist. See `cloudflare/README.md`.
 
 ## 7. "Your Kairo is ready" (auto)
 
 - **Web door:** the page flips to a done screen with their address, a *Sign
   in* button, and *Get the app* (App Store link). Email with the same.
-- **App door:** the app signs them straight in.
+- **The app:** they download it and sign in with the same email and password.
+  It is not part of the purchase and never was.
 - The email also carries: the booking link, the policies, and *what happens
   next* — the setup checklist, and a plain line: *"Confirmations and
   reminders start sending once you connect your email (2 minutes)."*

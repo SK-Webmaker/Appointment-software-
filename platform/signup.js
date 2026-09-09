@@ -132,6 +132,16 @@ export async function resendCode(token, kind) {
   const code = newCode(owner.id, kind);
   const r = kind === 'phone' ? await notify.smsCode(owner.phone, code) : await notify.emailCode(owner.email, code);
   record(b.id, `code:${kind}:resend`, r.ok ? 'sent' : r.detail);
+  // Saying "sent" when nothing was sent leaves someone watching a code box
+  // for a message that does not exist, and the only trace is an audit row
+  // nobody reads at nine at night. Tell them instead — and open a task, so
+  // the operator finds out that the platform cannot send at all.
+  if (!r.ok) {
+    openTask(b.id, `code:${kind}:undeliverable`, `A ${kind} code could not be sent: ${r.detail}`);
+    throw err(502, kind === 'phone'
+      ? 'We could not send the text just now. Try again in a moment, or contact support and we will verify you by hand.'
+      : 'We could not send the email just now. Try again in a moment, or contact support and we will verify you by hand.');
+  }
   return { sent: true };
 }
 
