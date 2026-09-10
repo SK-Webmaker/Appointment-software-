@@ -161,10 +161,45 @@ try {
                 VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, staff.id, svc.id, friday);
     const clash = await say(`book Wilhelmina in for a ${svc.name} on Friday at 2`);
     ok('and somebody already in that slot',
-      (clash.warnings || []).some((w) => /already booked/i.test(w)), JSON.stringify(clash.warnings));
+      (clash.warnings || []).some((w) => /already has/i.test(w)), JSON.stringify(clash.warnings));
     ok('naming who', (clash.warnings || []).some((w) => /Sarah Wilson/.test(w)), JSON.stringify(clash.warnings));
+    // Whose diary it is, by name. "Sarah Wilson is already booked at that time"
+    // does not say whether Sarah is the person being booked or the person in
+    // the way, and those are opposite problems.
+    ok('and whose diary it is',
+      (clash.warnings || []).some((w) => w.includes(staff.name)), JSON.stringify(clash.warnings));
     ok('while still preparing it, because the owner may mean to double-book',
       clash.kind === 'prepare', clash.kind);
+  }
+
+  console.log('\n── 5b. a clash is about one diary, not the whole shop');
+  {
+    // A salon with three chairs nearly always has somebody in a chair. A check
+    // across the whole shop fires on almost every booking, and the client it
+    // names belongs to a stylist the owner is not booking into.
+    const first = (await json('GET', '/api/staff')).data[0];
+    const rowan = (await json('POST', '/api/staff', { name: 'Rowan', title: 'Colour' })).data;
+    const monday = param((await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`)).href, 'date');
+    db.prepare(`INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status)
+                VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, rowan.id, svc.id, monday);
+
+    const other = await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`);
+    ok('somebody in another stylist’s column is not a clash',
+      !(other.warnings || []).some((w) => /already has/i.test(w)), JSON.stringify(other.warnings));
+    // Which is only true because Kai and the form agree on who the booking is
+    // against. The form picks the first of the team when nobody is named, so
+    // Kai names that same person in the link rather than leaving it to chance.
+    ok('and the link says whose diary it is',
+      param(other.href, 'staff') === String(first.id), other.href);
+
+    const named = await say(`book Wilhelmina in with Rowan for a ${svc.name} on Monday at 2`);
+    ok('naming her makes it one',
+      (named.warnings || []).some((w) => /Rowan already has Sarah Wilson/.test(w)),
+      JSON.stringify(named.warnings));
+    // A clash is only half an answer. The other half is who could take them.
+    ok('and it says who is free instead',
+      (named.warnings || []).some((w) => w.includes(first.name) && /free\.$/.test(w)),
+      JSON.stringify(named.warnings));
   }
 
   console.log('\n── 6. it never creates an appointment');
