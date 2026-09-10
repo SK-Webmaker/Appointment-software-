@@ -450,8 +450,11 @@ used. Read-only throughout; nothing about her service was touched.
 
 ### What her move will report, agreed in advance
 
-Her database migrates 1.55.0 → 1.58.0 exactly as Hora's did. These four rows
-**will** fail the plain `verify`, and these are the only four that may:
+Her database migrates **1.55.0 → 1.60.0**. Re-measured on 10 September against
+the current code, after another session shipped Kai's agent work (1.59.0) and
+the clash fix (1.60.0): neither added a setting or a table, so the expected
+diff is exactly what it was. These four rows **will** fail the plain `verify`,
+and these are the only four that may:
 
 | Row | Why |
 |---|---|
@@ -461,7 +464,7 @@ Her database migrates 1.55.0 → 1.58.0 exactly as Hora's did. These four rows
 
 The four new settings, all at their defaults: `acma_registered=0`,
 `checklist_app_installed=0`, `checklist_link_shared=0`, `pos_payment_link=""`.
-Nothing removed. `app_version` 1.55.0 → 1.58.0.
+Nothing removed. `app_version` 1.55.0 → 1.60.0.
 
 **Anything else in that list means stop.**
 
@@ -484,6 +487,29 @@ mismatched query was run through it to confirm it reports a difference when one
 exists. Two of its checks were silently passing on a *SQLite error* before that
 (both sides erroring identically counted as equal), which is exactly the failure
 mode this discipline exists to catch.
+
+### The clash fix does not change her booking page — checked, not assumed
+
+Re-rehearsing on 10 September, the availability comparison failed on three
+days: 4 slots against 7, 0 against 24, 15 against 6. On the face of it that
+says v1.60.0's clash fix — *"a clash is one stylist's diary, not the whole
+shop"* — changes what her customers can book.
+
+It does not. The rehearsal compares her **live** salon against a copy of her
+**8 September** snapshot, so two days of real bookings sit between them. To
+separate the data from the code, the same snapshot was run on two local shards
+at once, one on 1.59.0 and one on 1.60.0, and compared against each other:
+
+```
+Compare 1.59.0 vs 1.60.0, identical data
+  Identical: 37 checks.
+```
+
+Same data, both versions, no difference. The three failures were staleness, and
+the real move takes a fresh snapshot at the freeze, so they cannot occur.
+
+Worth knowing separately: **the live shard is already on 1.60.0**, so Hora is
+already running the clash fix. It reached him without a cutover.
 
 ### The one difference from Hora's move
 
