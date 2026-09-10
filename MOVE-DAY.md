@@ -448,6 +448,31 @@ used. Read-only throughout; nothing about her service was touched.
 | `compare` booking page + fortnight | **37/37 identical** |
 | `verify --across-versions` (after migration) | **39/39, 4 explained** |
 
+### She is already on 1.60.0 — the move is no longer cross-version
+
+**Changed again on 10 September, 02:12 UTC.** `hairbysha-booking` auto-deploys
+from `claude/appointment-booking-software-xqoy4f`, and that branch moved, so
+her own service went 1.55.0 → 1.60.0 overnight without a cutover. Kairo
+migrates on open, so **her database already has the `devices` table and the
+four settings** listed below.
+
+That means Monday is a **same-version move**, 1.60.0 → 1.60.0, and the plain
+`verify` should pass outright. The four-row expectation below applied to a
+1.55.0 snapshot and is kept as the reference for what a cross-version move
+looks like — not as what to expect on the night.
+
+**On the night, expect either:**
+
+| | |
+|---|---|
+| `verify` passes cleanly | the normal case now. Carry on. |
+| `verify` fails on `automations_last_pass` only | a date stamp the shard rewrites. `--across-versions` explains it. |
+| anything else fails | **stop.** She is on the same version as the shard, so there is nothing left for a migration to explain. |
+
+Both live salons still have **auto-deploy on**, pointed at a branch that is
+being pushed to. That is how she moved three versions overnight. The shard's
+was turned off on 9 September for exactly this reason; theirs was not.
+
 ### What her move will report, agreed in advance
 
 Her database migrates **1.55.0 → 1.60.0**. Re-measured on 10 September against
