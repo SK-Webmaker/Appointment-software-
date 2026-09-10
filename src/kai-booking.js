@@ -105,6 +105,22 @@ function matchStaff(raw) {
     .filter((s) => s.norm.length > 2 && hay.includes(` ${s.norm} `));
 }
 
+/**
+ * The team, in the order the booking form shows it.
+ *
+ * `ORDER BY id` is not decoration: /api/staff hands the browser the same order,
+ * and the form selects the first one when no team member is chosen. Kai has to
+ * agree with the form about who the booking is against, or it warns about a
+ * diary the owner is not looking at.
+ */
+function activeStaff() {
+  try {
+    return db.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').all();
+  } catch {
+    return [];
+  }
+}
+
 const fullName = (c) => `${clean(c.first_name)} ${clean(c.last_name)}`.trim() || 'that client';
 
 /** What the salon does on one day, so a prepared booking can warn about it. */
@@ -124,16 +140,24 @@ function tradingOn(date) {
   };
 }
 
-/** Anybody already in that slot, so the owner is told before they press Book. */
+/**
+ * Anybody already in that slot, so the owner is told before they press Book.
+ *
+ * Always about ONE diary. A salon with three chairs nearly always has somebody
+ * in a chair, so a check across the whole shop fires on almost every booking —
+ * and the client it names belongs to a different stylist, which reads as though
+ * THEY are the person being booked. Without a staff id there is nothing
+ * meaningful to answer, so it answers nothing.
+ */
 function clashesAt(date, startMin, endMin, staffId) {
+  if (!staffId) return [];
   try {
     const rows = db.prepare(
       `SELECT a.start_min, a.end_min, a.staff_id, c.first_name, c.last_name
          FROM appointments a LEFT JOIN clients c ON c.id = a.client_id
-        WHERE a.date = ? AND a.status NOT IN ('cancelled', 'no_show')`
-    ).all(date);
-    return rows.filter((r) => (!staffId || r.staff_id === staffId)
-      && r.start_min < endMin && r.end_min > startMin);
+        WHERE a.date = ? AND a.staff_id = ? AND a.status NOT IN ('cancelled', 'no_show')`
+    ).all(date, staffId);
+    return rows.filter((r) => r.start_min < endMin && r.end_min > startMin);
   } catch {
     return [];
   }
@@ -170,7 +194,12 @@ export function readBooking(text, { today }) {
   if (!people.length && !services.length && !date && start === null) return [];
 
   const svc = services[0] || null;
-  const who = staff[0] || null;
+  const team = activeStaff();
+  // Who the booking is against. Named outright if the sentence named somebody;
+  // otherwise the one the form itself will pick, because that is the diary the
+  // owner is about to book into whether Kai mentions it or not. Kai then writes
+  // that choice into the link, so the form and the warning can never disagree.
+  const who = staff[0] || team[0] || null;
   const day = date || today;
   const mins = svc?.duration_min || 60;
   const trading = tradingOn(day);
@@ -181,12 +210,19 @@ export function readBooking(text, { today }) {
     else if (start !== null && (start < trading.open_min || start + mins > trading.close_min)) {
       out.push(`That's outside ${DAY_NAMES[trading.dow]}'s hours (${clockLabel(trading.open_min)}–${clockLabel(trading.close_min)}).`);
     }
-    if (start !== null) {
-      const clash = clashesAt(day, start, start + mins, who?.id);
+    if (start !== null && who) {
+      const clash = clashesAt(day, start, start + mins, who.id);
       if (clash.length) {
         const names = clash.map((c) => `${clean(c.first_name)} ${clean(c.last_name)}`.trim() || 'someone')
           .slice(0, 2).join(' and ');
-        out.push(`${names} ${clash.length === 1 ? 'is' : 'are'} already booked at that time.`);
+        // Whose diary, by name. "Grace Owusu is already booked at that time"
+        // does not say whether Grace is the person being booked or the person
+        // in the way, and those are opposite problems.
+        const free = team
+          .filter((s) => s.id !== who.id && !clashesAt(day, start, start + mins, s.id).length)
+          .map((s) => clean(s.name)).filter(Boolean).slice(0, 2);
+        out.push(`${clean(who.name) || 'That team member'} already has ${names} at that time.${
+          free.length ? ` ${free.join(' and ')} ${free.length === 1 ? 'is' : 'are'} free.` : ''}`);
       }
     }
     if (!svc) out.push("I couldn't tell which service, so pick one before you book.");

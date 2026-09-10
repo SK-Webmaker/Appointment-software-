@@ -369,7 +369,9 @@ test('it says what is wrong with a booking before you press Book', async () => {
   await reset();
   const d = k.db();
   const svc = d.prepare('SELECT id, name FROM services WHERE active = 1 LIMIT 1').get();
-  const staff = d.prepare('SELECT id FROM staff LIMIT 1').get().id;
+  // The one the form itself will select when nobody is named — /api/staff
+  // orders by id, and the form takes the first.
+  const staff = d.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').get();
   const sarahW = d.prepare("SELECT id FROM clients WHERE last_name = 'Wilson'").get().id;
   d.close();
 
@@ -382,12 +384,51 @@ test('it says what is wrong with a booking before you press Book', async () => {
   const friday = param((await say(`book Wilhelmina in for a ${svc.name} on Friday at 2`)).href, 'date');
   const d2 = k.db();
   d2.prepare(`INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status)
-              VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, staff, svc.id, friday);
+              VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, staff.id, svc.id, friday);
   d2.close();
   const clash = await say(`book Wilhelmina in for a ${svc.name} on Friday at 2`);
-  assert.ok((clash.warnings || []).some((w) => /already booked/i.test(w)));
+  assert.ok((clash.warnings || []).some((w) => /already has/i.test(w)));
   assert.ok((clash.warnings || []).some((w) => /Sarah Wilson/.test(w)), 'naming who');
+  // Whose diary, by name. "Sarah Wilson is already booked at that time" does
+  // not say whether Sarah is the person being booked or the person in the way,
+  // and those are opposite problems.
+  assert.ok((clash.warnings || []).some((w) => w.includes(staff.name)), 'naming whose diary');
   assert.equal(clash.kind, 'prepare', 'still prepared — the owner may mean to double-book');
+});
+
+test('a clash is one stylist’s diary, not the whole shop', async () => {
+  await reset();
+  const d = k.db();
+  const svc = d.prepare('SELECT id, name FROM services WHERE active = 1 LIMIT 1').get();
+  const first = d.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').get();
+  const sarahW = d.prepare("SELECT id FROM clients WHERE last_name = 'Wilson'").get().id;
+  // A second chair, with a name nobody else on the team shares.
+  const rowan = Number(d.prepare("INSERT INTO staff (name, title, color) VALUES ('Rowan', 'Colour', '#199e70')")
+    .run().lastInsertRowid);
+  d.close();
+
+  const monday = param((await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`)).href, 'date');
+  const d2 = k.db();
+  d2.prepare(`INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status)
+              VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, rowan, svc.id, monday);
+  d2.close();
+
+  // A salon with three chairs nearly always has somebody in a chair. Checking
+  // the whole shop fires on almost every booking, and names a client who
+  // belongs to a stylist the owner is not booking into.
+  const other = await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`);
+  assert.ok(!(other.warnings || []).some((w) => /already has/i.test(w)),
+    `another stylist's client is not a clash: ${JSON.stringify(other.warnings)}`);
+  // Which is only true because Kai and the form agree on who the booking is
+  // against, and they only agree because Kai writes its choice into the link.
+  assert.equal(param(other.href, 'staff'), String(first.id), 'the link says whose diary');
+
+  const named = await say(`book Wilhelmina in with Rowan for a ${svc.name} on Monday at 2`);
+  assert.ok((named.warnings || []).some((w) => /Rowan already has Sarah Wilson/.test(w)),
+    `naming her makes it one: ${JSON.stringify(named.warnings)}`);
+  // A clash is only half an answer. The other half is who could take them.
+  assert.ok((named.warnings || []).some((w) => w.includes(first.name) && /free\.$/.test(w)),
+    `and who is free instead: ${JSON.stringify(named.warnings)}`);
 });
 
 test('it never creates an appointment', async () => {

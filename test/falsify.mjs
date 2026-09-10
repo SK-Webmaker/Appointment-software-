@@ -384,6 +384,21 @@ const MUTATIONS = {
     find: '    warnings: warnFor(client),',
     replace: '    warnings: [],',
   },
+  'kai-booking-checks-the-whole-shop': {
+    // A clash has to be about one stylist's diary. Across the whole salon it
+    // fires on almost every booking and names somebody else's client, which
+    // reads as though THEY are the person being booked.
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: "        WHERE a.date = ? AND a.staff_id = ? AND a.status NOT IN ('cancelled', 'no_show')`",
+    replace: "        WHERE a.date = ? AND (a.staff_id = ? OR 1) AND a.status NOT IN ('cancelled', 'no_show')`",
+  },
+  'kai-booking-picks-a-different-stylist-than-the-form': {
+    // The form selects the first of the team when nobody is named. Kai has to
+    // check that same diary, or it warns about a column nobody is looking at.
+    file: 'src/kai-booking.js', suites: ['kai'],
+    find: '  const who = staff[0] || team[0] || null;',
+    replace: '  const who = staff[0] || team[team.length - 1] || null;',
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.
