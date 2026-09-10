@@ -173,6 +173,19 @@ const MUTATIONS = {
     find: "        tax_rate: '0',",
     replace: "        tax_rate: '10',",
   },
+  // The cutover script must fall back to the judged comparison. Without it,
+  // every real cross-version move stops at step 3 — which is what happened on
+  // the first move, and why four rows got diffed by hand at one in the morning.
+  'cutover-stops-on-any-version-difference': {
+    file: 'scripts/move-tenant.mjs', suites: ['move-tenant'],
+    find: "  v = verify(['--across-versions']);",
+    replace: '',
+  },
+  'cutover-skips-the-strict-comparison': {
+    file: 'scripts/move-tenant.mjs', suites: ['move-tenant'],
+    find: 'let v = verify();',
+    replace: "let v = verify(['--across-versions']);",
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",

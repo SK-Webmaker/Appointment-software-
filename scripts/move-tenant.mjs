@@ -93,10 +93,31 @@ fs.writeFileSync(backGz, back);
 // export is unpacked into that shape and the ORIGINAL snapshot is the "from".
 const { gunzipSync } = await import('node:zlib');
 fs.writeFileSync(path.join(dataDir, 'tenants', slug, 'kairo.db'), gunzipSync(back));
-const v = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'scripts/migrate-tenant.mjs', 'verify', '--slug', slug, '--from', from],
-  { cwd: ROOT, stdio: 'inherit', env: { ...process.env, KAIRO_DATA_DIR: dataDir } });
-if (v.status !== 0) stop('what came back from the shard is not identical to what was sent');
-ok('the shard holds exactly what was sent');
+// The strict comparison first, because it is the one that must be read.
+const verify = (extra = []) => spawnSync(
+  process.execPath,
+  ['--disable-warning=ExperimentalWarning', 'scripts/migrate-tenant.mjs', 'verify', '--slug', slug, '--from', from, ...extra],
+  { cwd: ROOT, stdio: 'inherit', env: { ...process.env, KAIRO_DATA_DIR: dataDir } },
+);
+let v = verify();
+if (v.status !== 0) {
+  // Almost every real move is cross-version: the salon runs whatever it was
+  // last deployed and the shard runs the current code, so opening the database
+  // migrates it and the comparison legitimately fails on a handful of rows.
+  // On the first move those rows were diffed by hand, on a live salon, at one
+  // in the morning — which is exactly how a real difference gets waved through
+  // alongside the harmless ones.
+  //
+  // So they are judged rather than eyeballed. Only provably additive
+  // differences are downgraded, each printed with its reason; a removed table,
+  // a changed value, a moved row count or a moved cent still stops the move.
+  console.log(`\n   ${E}33m↑ the strict comparison found differences. Judging whether a version change explains them…${E}0m`);
+  v = verify(['--across-versions']);
+  if (v.status !== 0) stop('what came back from the shard is not identical to what was sent');
+  ok('every difference is explained by the version change, and nothing else differs');
+} else {
+  ok('the shard holds exactly what was sent');
+}
 
 step(4, 'Compare the booking page and the next fortnight, old salon vs new tenant');
 // The salon's own address still points at the OLD service until the DNS flip,
@@ -107,8 +128,14 @@ step(4, 'Compare the booking page and the next fortnight, old salon vs new tenan
 // use after the flip, with nothing pretended.
 const preview = `${slug}-preview.${base}`;
 try { await shard.patchTenant(slug, { domains: [preview] }); } catch (e) { stop(`could not add the preview address: ${e.message}`); }
+// Normally the preview address is reached over the public internet, which is
+// the point: it exercises the exact path a customer will use. `--via` reaches
+// the same tenant at a given base URL instead, carrying the preview hostname
+// as the Host header — how a test drives this against a local shard, and how
+// a real move can still be compared if the wildcard is ever not resolving.
+const via = arg('via');
 const c = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'scripts/migrate-tenant.mjs', 'compare',
-  '--old', oldUrl, '--new', `https://${preview}`],
+  '--old', oldUrl, '--new', via || `https://${preview}`, ...(via ? ['--new-host', preview] : [])],
   { cwd: ROOT, stdio: 'inherit', env: process.env });
 try { await shard.patchTenant(slug, { domains: [] }); } catch { /* the alias is harmless if it lingers; it serves the same salon */ }
 if (c.status !== 0) stop('the new tenant does not answer the same as the old salon');

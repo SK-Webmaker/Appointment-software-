@@ -395,9 +395,24 @@ explained away; the run stays red. Thirteen deliberate corruptions were tried
 against it and all thirteen were refused, and six mutations of its own guards
 are in the falsifier.
 
-**Run the plain `verify` first and read it.** `--across-versions` is for the
-second run, once you have seen what it is being asked to explain. If it reports
-anything beyond the four known rows, stop.
+**The cutover script now does both runs itself.** `move-tenant.mjs` runs the
+strict comparison first and shows it. If it fails, the script says so —
+*"the strict comparison found differences. Judging whether a version change
+explains them…"* — and runs the judged pass. Only if that also fails does the
+move stop.
+
+This was wired in on 10 September, and it was missing: the classifier existed
+but the cutover script still called the plain `verify` and stopped on its
+first failure. Sha's move would have halted at step 3, on the night, with four
+failures on screen and no next step — the exact situation the classifier was
+built to prevent.
+
+`scripts/move-tenant.mjs` had **no test at all** until then, which is how that
+survived. It has four now (`test/move-tenant.test.js`), driving the real script
+against a real shard: the signed-request refusal, the whole cutover, a genuine
+cross-version move (the snapshot is aged so the shard really does re-add a
+table and three settings on open), and a changed business name that must still
+stop everything. Two mutations of the fallback are in the falsifier.
 
 **3. Turning online booking off is a good enough freeze.** It is the only thing
 that writes without a person present, and it works on the old code, so no
