@@ -753,6 +753,43 @@ export function replyToAddress() {
     .find(looksLikeEmail) || '';
 }
 
+/**
+ * The platform's own sender — one account, every salon that has not brought its
+ * own. Set on the shard, never in a salon's settings, because it is not theirs
+ * and must not appear on a screen they can edit.
+ */
+const SHARED_RESEND_KEY = () => String(process.env.KAIRO_SHARED_RESEND_KEY || '').trim();
+const SHARED_RESEND_FROM = () => String(process.env.KAIRO_SHARED_FROM || '').trim();
+
+/**
+ * Which credentials this salon actually sends email with, or null for neither.
+ *
+ * A salon that brought its own Resend account keeps using it — checked first,
+ * deliberately, so nothing changes for a business already set up. Everyone
+ * else falls through to the platform's account, which is what lets a salon
+ * send from the moment it is created rather than after somebody pastes an API
+ * key into a dashboard they have never seen.
+ *
+ * The client cannot tell the difference: the From display name is the salon's
+ * name either way, and replies go to the salon's own inbox either way.
+ *
+ * Lives here rather than in notify.js because the checklist and the dashboard
+ * both need to ask the same question, and neither should have to import the
+ * sender to find out whether sending works.
+ */
+export function emailSender() {
+  const own = String(getSetting('resend_api_key', '') || '').trim();
+  const ownFrom = String(getSetting('notif_from_email', '') || '').trim();
+  if (own && ownFrom) return { key: own, from: ownFrom, shared: false };
+  if (SHARED_RESEND_KEY() && SHARED_RESEND_FROM()) {
+    return { key: SHARED_RESEND_KEY(), from: SHARED_RESEND_FROM(), shared: true };
+  }
+  return null;
+}
+
+/** True when this salon can send email at all, by whichever route. */
+export const canSendEmail = () => emailSender() !== null;
+
 /** True when the owner typed something in the reply-to box that isn't an address. */
 export function replyToLooksWrong() {
   const typed = String(getSetting('notif_reply_to', '') || '').trim();
@@ -811,6 +848,12 @@ export function getSettings() {
   // because neither is in EDITABLE_SETTINGS.
   out.operator_mode = operatorMode() ? '1' : '0';
   out.public_url_effective = publicUrl();
+  // How this salon sends email, so no screen has to infer it from whether a key
+  // happens to be present. 'own' — their own Resend account. 'kairo' — the
+  // platform's, with their name on the message and replies to their inbox.
+  // 'none' — a Kairo running outside the platform with nothing set up.
+  const sender = emailSender();
+  out.email_sending = sender ? (sender.shared ? 'kairo' : 'own') : 'none';
   out.public_url_from_env = publicUrlFromEnv() ? '1' : '0';
   out.public_url_is_raw = publicUrlIsRaw() ? '1' : '0';
   out.reply_to_effective = replyToAddress();

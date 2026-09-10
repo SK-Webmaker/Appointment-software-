@@ -7,7 +7,7 @@
 //
 // It disappears entirely once everything required is done. A checklist that
 // never goes away is furniture.
-import { db, getSetting, publicUrl, platformHandles } from './db.js';
+import { db, getSetting, publicUrl, platformHandles, canSendEmail } from './db.js';
 
 const on = (k, d = '0') => getSetting(k, d) === '1';
 const set = (k) => String(getSetting(k, '') || '').trim() !== '';
@@ -24,17 +24,28 @@ export function checklist() {
   const onlineBookings = db.prepare("SELECT COUNT(*) AS n FROM appointments WHERE source = 'online'").get().n;
   const items = [];
 
+  // Sending works out of the box now: a salon with no Resend account of its own
+  // sends through Kairo's, with its own name on the message and replies going
+  // to its own inbox. So this stopped being a blocker and became an upgrade —
+  // worth doing for a salon that wants mail from its own domain, and worth
+  // nobody's evening otherwise.
+  const ownSender = set('resend_api_key') && set('notif_from_email');
+  const sendingWorks = canSendEmail();
   items.push({
     id: 'email',
-    title: 'Connect your email',
-    why: 'Confirmations, reminders and receipts cannot send until this is done.',
-    required: true,
-    done: set('resend_api_key') && set('notif_from_email'),
-    action: connectUrl ? { label: 'Set up my email', url: connectUrl, external: true }
+    title: ownSender ? 'Send from your own address' : 'Emails are sending',
+    why: sendingWorks
+      ? 'Confirmations, reminders and receipts go out under your business name, and replies come to you.'
+      : 'Confirmations, reminders and receipts cannot send until this is done.',
+    required: !sendingWorks,
+    done: sendingWorks,
+    action: connectUrl ? { label: ownSender ? 'Manage sending' : 'Use my own address', url: connectUrl, external: true }
       : { label: 'Open Notifications', hash: '#/settings' },
-    note: connectUrl
-      ? 'Two minutes. We do the technical part for you.'
-      : 'Paste your Resend API key and From address in Settings → Notifications.',
+    note: ownSender
+      ? 'Mail is sent from your own domain.'
+      : sendingWorks
+        ? 'Sending from Kairo for you. You can move to your own domain any time — it takes about two minutes.'
+        : 'Paste your Resend API key and From address in Settings → Notifications.',
   });
 
   const smsReady = on('sms_notifications_enabled') && set('clicksend_username') && set('clicksend_api_key') && set('clicksend_from');

@@ -186,7 +186,7 @@ export async function mockResend({ dns = null } = {}) {
     if (url.pathname === '/emails' && req.method === 'POST') {
       const k = [...keys.values()].find((x) => x.token === token);
       if (!k && !full) return send(401, { message: 'API key is invalid' });
-      sent.push({ from: body.from, to: body.to, subject: body.subject, key: token });
+      sent.push({ from: body.from, to: body.to, subject: body.subject, key: token, reply_to: body.reply_to });
       return send(200, { id: `e_${++n}` });
     }
     return send(404, { message: `not mocked: ${req.method} ${url.pathname}` });

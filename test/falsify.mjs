@@ -186,6 +186,29 @@ const MUTATIONS = {
     find: 'let v = verify();',
     replace: "let v = verify(['--across-versions']);",
   },
+  // Shared sending. The two ways this quietly ruins a salon: moving one that
+  // has its own account onto Kairo's, and dropping the reply-to so a client's
+  // "can I move to 3pm?" lands in Kairo's inbox instead of theirs.
+  'shared-sender-overrides-their-own': {
+    file: 'src/db.js', suites: ['shared-sender'],
+    find: "  if (own && ownFrom) return { key: own, from: ownFrom, shared: false };",
+    replace: '',
+  },
+  'shared-send-drops-the-reply-to': {
+    file: 'src/notify.js', suites: ['shared-sender'],
+    find: '      ...(replyTo ? { reply_to: replyTo } : {}),',
+    replace: '',
+  },
+  'shared-send-uses-kairos-name-not-theirs': {
+    file: 'src/notify.js', suites: ['shared-sender'],
+    find: "      from: fromHeader(getSetting('business_name', 'Bookings'), from),",
+    replace: '      from,',
+  },
+  'checklist-still-blocks-when-sending-works': {
+    file: 'src/checklist.js', suites: ['shared-sender'],
+    find: '    required: !sendingWorks,',
+    replace: '    required: true,',
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",

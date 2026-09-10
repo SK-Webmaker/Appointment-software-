@@ -14,7 +14,7 @@
 // `sms_notifications_enabled` (default off) in addition to having a provider
 // configured — a business opts in deliberately.
 import crypto from 'node:crypto';
-import { db, getSetting, setSetting, replyToAddress, publicUrl } from './db.js';
+import { db, getSetting, setSetting, replyToAddress, publicUrl, emailSender } from './db.js';
 import { forEachTenant, isMuted } from './tenant.js';
 import { renderEmail } from './email-html.js';
 
@@ -663,15 +663,24 @@ export function fromHeader(name, address) {
 }
 
 export async function sendEmail(to, subject, body, html = '', { attachments = [] } = {}) {
-  const key = getSetting('resend_api_key');
-  const from = String(getSetting('notif_from_email') || '').trim();
-  if (!key || !from) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
+  const sender = emailSender();
+  if (!sender) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
+  const { key, from, shared } = sender;
   // Catch a malformed address here rather than letting Resend answer with a
   // 422 that names no setting and tells the owner nothing they can act on.
   if (!looksLikeEmail(from)) {
-    return { ok: false, detail: `The From address in Settings → Notifications is not a valid email address: "${from}"` };
+    return shared
+      ? { ok: false, detail: `The platform's shared From address is not a valid email address: "${from}" (KAIRO_SHARED_FROM)` }
+      : { ok: false, detail: `The From address in Settings → Notifications is not a valid email address: "${from}"` };
   }
   const replyTo = replyToAddress();
+  // On the shared sender the reply-to is not a nicety. The From address is
+  // Kairo's, so without one a client hitting Reply — "can I move to 3pm?" —
+  // reaches Kairo's inbox instead of the salon's, and the salon never learns
+  // the message existed. Provisioning always sets business_email, so this is
+  // effectively always present; if it ever is not, say so on the message
+  // rather than letting it fail silently.
+  const misroutable = shared && !replyTo;
   const res = await fetch(`${RESEND_API()}/emails`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -690,7 +699,10 @@ export async function sendEmail(to, subject, body, html = '', { attachments = []
       } : {}),
     }),
   });
-  if (res.ok) return { ok: true, detail: 'Delivered via Resend' };
+  if (res.ok) {
+    if (misroutable) return { ok: true, detail: 'Delivered via Resend — but no reply-to is set, so replies reach Kairo, not you. Add your email in Settings → Business.' };
+    return { ok: true, detail: shared ? 'Delivered via Resend (Kairo sending address)' : 'Delivered via Resend' };
+  }
   const err = await res.text().catch(() => '');
   return { ok: false, detail: `Resend ${res.status}: ${err.slice(0, 300)}` };
 }

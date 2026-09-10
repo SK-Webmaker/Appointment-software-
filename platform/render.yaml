@@ -102,6 +102,7 @@ services:
       # live this can stay as the store's front page.
       - key: KAIRO_APP_URL
         sync: false
+
       # Connects a salon's own sending domain. Optional — without it the
       # salon still works, it just cannot send from its own address yet.
       - key: CLOUDFLARE_API_TOKEN
@@ -110,3 +111,12 @@ services:
       # is a dashboard edit, not a deploy.
       - key: KAIRO_PRICE_CENTS
         value: "41000"
+
+      # NOTE: the two shared-sending variables below go on the SHARD
+      # (kairo-shard-au), not here — they are read by each salon's own Kairo
+      # when it sends, not by the platform. They are named here so the pair is
+      # not forgotten:
+      #   KAIRO_SHARED_RESEND_KEY  the platform's own Resend key
+      #   KAIRO_SHARED_FROM        e.g. bookings@kairobookings.com
+      # Without them a salon with no Resend account of its own cannot send at
+      # all, which is every salon bought after this change.

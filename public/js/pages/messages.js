@@ -51,8 +51,11 @@ export async function renderMessages(container) {
   // that fails to load must not take the message log down with it.
   const since = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
   const att = await api.get(`/api/attribution?since=${since}`).catch(() => null);
-  // Secret values never reach the browser; the API sends `<key>_set` flags instead.
-  const configuredEmail = Boolean(state.settings.resend_api_key_set === '1' && state.settings.notif_from_email);
+  // Ask whether email actually sends, not whether this salon happens to hold a
+  // key of its own. A salon sending through Kairo's account has no key here and
+  // sends perfectly well — the same mistake the SMS check below already made
+  // once, telling every ClickSend salon its texts were off.
+  const configuredEmail = (state.settings.email_sending || 'none') !== 'none';
   // SMS is configured when the CHOSEN provider's own credentials are filled in.
   // Checking Twilio alone told every salon on ClickSend — the default — that its
   // texting wasn't set up, while the texts were going out perfectly well.

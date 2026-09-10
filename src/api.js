@@ -2,7 +2,7 @@
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
   db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
-  dbFileBytes, publicUrl, publicUrlFromEnv, platformHandles,
+  dbFileBytes, publicUrl, publicUrlFromEnv, platformHandles, canSendEmail, emailSender,
 } from './db.js';
 import {
   readJson, readBody, sendJson, sendText, httpError, parseCookies, addDaysStr, nowParts, isDateStr, clampInt, toCsv,
@@ -310,7 +310,7 @@ route('GET', '/api/account', async ({ user }) => {
       version: VERSION,
       booking_url: publicUrl() ? `${publicUrl()}/book` : '/book',
       online_booking: getSetting('booking_enabled', '1') === '1',
-      email_ready: Boolean(getSetting('resend_api_key') && getSetting('notif_from_email')),
+      email_ready: canSendEmail(),
       sms_ready: getSetting('sms_notifications_enabled', '1') === '1',
       db_bytes: dbFileBytes(),
     },
