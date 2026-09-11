@@ -209,6 +209,19 @@ const MUTATIONS = {
     find: '    required: !sendingWorks,',
     replace: '    required: true,',
   },
+  // The operator queue is only useful if what lands in it needs a person. A
+  // task opened for every salon regardless is noise, and an operator who learns
+  // to scroll past noise misses the one that matters.
+  'email-task-opens-for-everyone': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  if (sending === 'none') {",
+    replace: '  if (true) {',
+  },
+  'shard-never-reports-how-it-sends': {
+    file: 'src/platform.js', suites: ['control-api'],
+    find: '    email_sending: emailSending(),',
+    replace: '',
+  },
   'control-api-signature-ignored': {
     file: 'src/platform.js', suites: ['control-api'],
     find: "  if (!m) return 'missing or malformed signature';",

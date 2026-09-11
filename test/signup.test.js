@@ -362,14 +362,14 @@ test('no ABN at all is not a flag — plenty of salons are sole traders', async 
   assert.equal(st.state, 'ready');
 });
 
-test('the operator queue needs the password, and carries the email-setup task for every new salon', async () => {
+test('the operator queue needs the password, and carries the email-setup task when a salon cannot send', async () => {
   assert.equal((await platform.api('GET', '/api/operator/queue')).status, 401);
   assert.equal((await platform.api('POST', '/api/operator/login', { body: { password: 'wrong' } })).status, 401);
   const op = await platform.api('POST', '/api/operator/login', { body: { password: 'operator-pass-2026!!' } });
   const cookie = /kairo_operator=[^;]+/.exec(op.headers.get('set-cookie'))[0];
   const queue = await platform.api('GET', '/api/operator/queue', { cookie });
   const emailTasks = queue.json.tasks.filter((t) => t.kind === 'email_setup');
-  assert.ok(emailTasks.length >= 3, 'one per provisioned salon');
+  assert.ok(emailTasks.length >= 3, 'one per provisioned salon — this shard has no sending account, so none of them can send');
   assert.match(emailTasks[0].detail, new RegExp(DOMAIN));
   assert.equal(queue.json.totals.ready_n >= 3, true);
   const detail = await platform.api(`GET`, `/api/operator/business/${emailTasks[0].business_id}`, { cookie });
@@ -488,3 +488,80 @@ test('“send another” tells the truth when the code could not be sent', async
   assert.match(task.detail, /could not be sent/i);
 });
 
+
+// The same signup against a shard that CAN send must not create busywork.
+//
+// Until sending worked out of the box, every new salon arrived unable to send
+// and the operator queue carried one task each — correctly. Now that a shard
+// with its own account makes a salon send from the moment it exists, a task
+// that still opens for everyone is noise, and an operator who learns to scroll
+// past noise is how the task that matters gets missed.
+test('a salon that can send from the start makes no work for the operator', async () => {
+  const sendingShardDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kairo-shard-sending-'));
+  fs.mkdirSync(path.join(sendingShardDir, 'tenants'), { recursive: true });
+  const shard2 = await startKairo({
+    dataDir: sendingShardDir,
+    env: {
+      KAIRO_MULTI_TENANT: '1', KAIRO_BASE_DOMAIN: DOMAIN, KAIRO_PLATFORM_KEY: KEY,
+      KAIRO_SHARED_RESEND_KEY: 're_platform_account', KAIRO_SHARED_FROM: 'bookings@kairobookings.test',
+    },
+  });
+  const platform2 = await startPlatform({
+    shardUrl: shard2.base,
+    platformKey: KEY,
+    env: {
+      KAIRO_BASE_DOMAIN: DOMAIN,
+      STRIPE_API_BASE: stripe.base, STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: stripe.webhookSecret,
+      ABR_API_BASE: abr.base, ABR_GUID: 'test-guid',
+    },
+  });
+  try {
+    const r = await platform2.api('POST', '/api/signup', {
+      body: { ...PERSON, business_name: 'Can Send Salon', email: 'cansend@abchair.example', slug: 'cansendsalon' },
+      headers: { 'cf-connecting-ip': '203.0.113.250' },
+    });
+    assert.equal(r.status, 200, r.text);
+    const { token } = r.json;
+    await platform2.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform2.latestCode('email') } });
+    await platform2.api('POST', '/api/verify', { body: { token, kind: 'phone', code: platform2.latestCode('phone') } });
+    const co = await platform2.api('POST', '/api/checkout', { body: { token } });
+    assert.equal(co.status, 200, co.text);
+    const sessionId = [...stripe.sessions.keys()].pop();
+    const { raw, header } = stripe.sign(stripe.pay(sessionId));
+    const hook = await platform2.api('POST', '/api/stripe/webhook', {
+      body: raw, headers: { 'content-type': 'application/json', 'stripe-signature': header },
+    });
+    assert.equal(hook.status, 200, hook.text);
+
+    // The webhook answers Stripe immediately and provisions afterwards, so the
+    // database is not settled when it returns. The first version of this test
+    // read straight after and found no task — which is also what a salon that
+    // never provisioned looks like, so it passed for entirely the wrong reason.
+    const deadline = Date.now() + 15000;
+    let state = '';
+    while (Date.now() < deadline) {
+      state = (await platform2.api('GET', `/api/status?token=${token}`)).json?.state;
+      if (state === 'ready' || state === 'flagged') break;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    assert.equal(state, 'ready', `the salon must provision before this test means anything (stuck at "${state}")`);
+
+    const d = platform2.platformDb();
+    // Prove it actually got there first: "no task" is also what a failed
+    // provision looks like, and that would pass the assertion below for
+    // entirely the wrong reason.
+    const biz = d.prepare("SELECT state, slug FROM businesses WHERE slug = 'cansendsalon'").get();
+    const task = d.prepare("SELECT id FROM tasks WHERE kind = 'email_setup' AND state = 'open'").get();
+    const note = d.prepare("SELECT detail FROM events WHERE kind = 'email:sending' ORDER BY id DESC LIMIT 1").get();
+    const trail = d.prepare("SELECT kind, detail FROM events ORDER BY id DESC LIMIT 8").all();
+    d.close();
+    assert.equal(biz?.state, 'ready', `the salon must have provisioned: ${JSON.stringify(trail)}\n--- platform log ---\n${platform2.log()}`);
+    assert.ok(!task, 'no email-setup task may open for a salon that can already send');
+    assert.ok(note, 'and the audit trail must still record how it sends');
+    assert.match(note.detail, /platform account/i);
+  } finally {
+    await platform2.stop();
+    await shard2.stop();
+    fs.rmSync(sendingShardDir, { recursive: true, force: true });
+  }
+});

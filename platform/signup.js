@@ -262,9 +262,12 @@ export async function provision(businessId) {
     db.prepare('UPDATE businesses SET connect_token = ? WHERE id = ?').run(connectToken, b.id);
   }
   const host = `${b.slug}.${BASE_DOMAIN()}`;
+  // What the shard says about the salon it just built, including how it will
+  // send. Null on the retry path, where the tenant already existed.
+  let created = null;
   try {
     if (!b.pass_hash) throw new Error('the owner credential was already cleared — cannot re-provision');
-    await shard.createTenant({
+    created = await shard.createTenant({
       slug: b.slug,
       name: b.name,
       public_url: url,
@@ -330,9 +333,25 @@ export async function provision(businessId) {
   db.prepare("UPDATE businesses SET pass_hash = '', salt = '', last_error = '', ready_at = datetime('now') WHERE id = ?").run(b.id);
   setState(b.id, 'ready', url);
   db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'provisioned' WHERE business_id = ? AND kind IN ('flagged','provision_failed') AND state = 'open'").run(b.id);
-  // Email setup is the one thing left, and the owner's queue carries it unless
-  // the business chooses to do it themselves in Settings.
-  openTask(b.id, 'email_setup', `${b.name} — connect Resend for ${b.slug}.${BASE_DOMAIN()}`);
+  // Only ask for help when the salon genuinely cannot send.
+  //
+  // This used to open for EVERY new salon, because every new salon arrived
+  // unable to send anything until somebody pasted a Resend key. A shard with
+  // its own sending account makes that untrue, and a task that opens for
+  // everyone regardless is noise the operator learns to scroll past — which is
+  // how the one that matters gets missed. The shard is asked rather than
+  // assumed, since whether sending works is its configuration, not this one's.
+  // How this salon ends up sending — from the shard's own answer when it built
+  // it, so there is no second call to fail and no guess to get wrong. On the
+  // retry path the tenant already existed and there is no fresh answer, so it
+  // falls back to 'none' and the task opens: one unnecessary glance costs
+  // nothing, a salon that cannot send and nobody knows costs a customer.
+  const sending = String(created?.email_sending || 'none').trim() || 'none';
+  if (sending === 'none') {
+    openTask(b.id, 'email_setup', `${b.name} — connect Resend for ${b.slug}.${BASE_DOMAIN()}`);
+  } else {
+    record(b.id, 'email:sending', sending === 'own' ? 'its own Resend account' : 'the platform account');
+  }
   const sent = await notify.emailReady(owner.email, { businessName: b.name, url, appUrl: APP_URL() });
   record(b.id, 'email:ready', sent.ok ? 'sent' : sent.detail);
   return { state: 'ready', url };

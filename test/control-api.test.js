@@ -282,3 +282,27 @@ test('delete stops the address serving and keeps the file', async () => {
   assert.ok(fs.existsSync(path.join(dataDir, 'tenants', 'abchair', 'kairo.db')), 'the data is kept');
   assert.equal((await signed('GET', '/api/platform/tenants/abchair')).status, 404);
 });
+
+// The platform has to know whether a new salon can send before deciding to ask
+// a human for help, and that answer lives in the SHARD's configuration — not
+// in the platform's own environment, which cannot see it. So the shard says.
+test('the shard reports how a tenant sends, so the platform never has to guess', async () => {
+  const slug = 'sendingreport';
+  const { salt, pass_hash } = hash('a-good-long-passphrase-26');
+  const made = await signed('POST', '/api/platform/tenants', {
+    slug, name: 'Sending Report', owner: { name: 'O', email: 'o@sending.example', pass_hash, salt },
+  });
+  assert.equal(made.status, 200, made.text);
+
+  // This shard has no sending account of its own, and nor does the tenant.
+  const bare = await signed('GET', `/api/platform/tenants/${slug}`);
+  assert.equal(bare.json.email_sending, 'none');
+
+  // Give the tenant its own account and it reports that instead.
+  const put = await signed('PUT', `/api/platform/tenants/${slug}/settings`, {
+    resend_api_key: 're_a_real_looking_key', notif_from_email: 'hello@theirown.example',
+  });
+  assert.equal(put.status, 200, put.text);
+  const own = await signed('GET', `/api/platform/tenants/${slug}`);
+  assert.equal(own.json.email_sending, 'own');
+});

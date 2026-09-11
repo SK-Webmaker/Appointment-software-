@@ -26,7 +26,7 @@ import {
   MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, withLegacyTenant,
   SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
 } from './tenant.js';
-import { db, getSetting, setSetting } from './db.js';
+import { db, getSetting, setSetting, emailSender } from './db.js';
 import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
 import { snapshot } from './backup.js';
 import { VERSION } from './version.js';
@@ -54,6 +54,8 @@ function verify(req, path, rawBody) {
 }
 
 /** A tenant's public state — counts only, never a row of anybody's data. */
+const emailSending = () => { const s = emailSender(); return s ? (s.shared ? 'kairo' : 'own') : 'none'; };
+
 function tenantStatus(slug) {
   const t = getTenant(slug);
   if (!t) return null;
@@ -72,6 +74,11 @@ function tenantStatus(slug) {
       messages: db.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
     },
     setup_complete: getSetting('setup_complete', '') === '1',
+    // How this salon sends: 'own' its own Resend account, 'kairo' the
+    // platform's shared one, 'none' neither. The platform asks rather than
+    // assumes, because whether a new salon can send depends on the SHARD's
+    // configuration, which the platform cannot see from its own environment.
+    email_sending: emailSending(),
     created_at: t.config.created_at || '',
   }));
 }
