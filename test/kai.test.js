@@ -409,6 +409,14 @@ test('a clash is one stylist’s diary, not the whole shop', async () => {
 
   const monday = param((await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`)).href, 'date');
   const d2 = k.db();
+  // The demo seed fills today-30 to today+13 with appointments at random times
+  // from a list that includes 2pm, spread across whoever is on the team. So on
+  // roughly one calendar date in three, the first stylist already has somebody
+  // at 2pm next Monday and this test failed on a real clash it had created
+  // itself — a red suite that says nothing about the code. The default
+  // stylist's 2pm is cleared so the only clash in play is the one below.
+  d2.prepare('DELETE FROM appointments WHERE staff_id = ? AND date = ? AND start_min < 900 AND end_min > 840')
+    .run(first.id, monday);
   d2.prepare(`INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status)
               VALUES (?, ?, ?, ?, 840, 900, 'booked')`).run(sarahW, rowan, svc.id, monday);
   d2.close();

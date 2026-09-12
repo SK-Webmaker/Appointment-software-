@@ -1,5 +1,19 @@
 # Move day
 
+> ## DO NOT FOLLOW THIS FILE FOR HAIR BY SHA — read `MOVE-SHA.md`
+>
+> This is the record of Hora's move on 8 September and the plan that was written
+> *before* the Cloudflare Worker went live later that same day. Two of its
+> instructions are now wrong for a salon moving onto the shard:
+>
+> - the cutover here swaps a Render **custom domain**; it is now a **Worker
+>   deploy**, and moving her domain would take her offline for no reason
+> - it says nothing about the old service continuing to **send** afterwards,
+>   which it does, to the salon's real clients
+>
+> Everything below is kept because it is the honest record of what happened and
+> why, and Part 1 and Part 2 are still accurate about the shard itself.
+
 > ## HORAHAIRCUTZ IS MOVED — 8 September, 13:57 UTC (23:57 Melbourne)
 >
 > She is live on the shard at `horahaircutz.kairobookings.com`, running v1.58.0,

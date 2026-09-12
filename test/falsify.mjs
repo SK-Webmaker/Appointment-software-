@@ -186,6 +186,30 @@ const MUTATIONS = {
     find: 'let v = verify();',
     replace: "let v = verify(['--across-versions']);",
   },
+  // The cutover unmute. A salon left muted serves perfectly and sends nothing
+  // — no confirmations, no reminders — and no screen says so, so the only
+  // thing standing between that and a silent salon is this script actually
+  // asking the shard afterwards rather than trusting its own PATCH.
+  'unmute-trusts-the-patch-instead-of-asking-again': {
+    file: 'scripts/shard-mute.mjs', suites: ['shard-mute'],
+    find: 't = await state();\nif (t.muted !== want) {',
+    replace: 'if (t.muted !== want) {',
+  },
+  'unmute-waves-through-a-salon-that-cannot-send-at-all': {
+    file: 'scripts/shard-mute.mjs', suites: ['shard-mute'],
+    find: "  if (t.email_sending === 'none') {",
+    replace: '  if (false) {',
+  },
+  'unmute-reassures-with-undefined-on-a-shard-that-cannot-answer': {
+    file: 'scripts/shard-mute.mjs', suites: ['shard-mute'],
+    find: '  if (!t.email_sending) {',
+    replace: '  if (false) {',
+  },
+  'reporting-the-state-quietly-changes-it': {
+    file: 'scripts/shard-mute.mjs', suites: ['shard-mute'],
+    find: "if (!on && !off) { console.log(''); process.exit(0); }",
+    replace: '',
+  },
   // Shared sending. The two ways this quietly ruins a salon: moving one that
   // has its own account onto Kairo's, and dropping the reply-to so a client's
   // "can I move to 3pm?" lands in Kairo's inbox instead of theirs.

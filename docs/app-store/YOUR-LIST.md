@@ -1,7 +1,8 @@
 # Everything that needs you — decisions and actions
 
-*Written 11 September 2026. Every line below was checked against the live
-services, the repo and the accounts on the day, not taken from memory.*
+*Written 11 September 2026, revised 12 September. Every line below was checked
+against the live services, the repo and the accounts on the day, not taken from
+memory.*
 
 Nothing here requires you to read code. Each item is a decision, a form, a
 dashboard, or a phone call.
@@ -228,33 +229,30 @@ ones reading cannot.
 
 ---
 
-## Part E — Sha's move · Monday 14 September
+## Part E — Sha's move · **Tuesday 16 September**
 
-The only hard date. Unchanged from the runbook, and now easier than planned:
-she auto-deployed up to v1.60.0 overnight, so this is a same-version move
-rather than a version jump. Her rehearsal has passed twice on exactly the code
-she will land on.
+Moved from Monday at your request. The full runsheet is `MOVE-SHA.md` — read
+that on the night, not this summary. Three things changed on 12 September after
+a full rehearsal, and two of them change what you click:
 
-1. **Tell her and pick a time** — roughly fifteen minutes off, when nobody is
-   booking. Midnight worked for Hora. Ask her not to change anything in Kairo
-   during the window.
-2. **On the night:** Settings → Online booking → **Off**. Then Settings →
-   Backup → **Download**, and send me the file. In that order.
-3. **Wait for me to say the copy is verified** — every client, every
-   appointment, every cent, checked against the original. If I have not said
-   it in plain words, do not do step 4.
-4. **The cutover, two clicks:** remove `hairbysha.kairobookings.com` from
-   `hairbysha-booking`; add it to `kairo-shard-au`. No DNS change is needed and
-   none should be made.
-5. **Prove it works:** book yourself through her public page, check it lands in
-   her calendar and the confirmation arrives, cancel it, remove the test
-   client, turn Online booking back on.
+1. **It is not a same-version move.** Her service and the shard are both
+   v1.60.0 and are 1,623 lines of runtime code apart. Tested rather than
+   assumed: the same snapshot on both versions compares **identical across 37
+   checks**, and the comparison was falsified to prove it can fail.
+2. **The cutover is a Worker deploy, not a custom-domain swap.** Deleting one
+   line from `cloudflare/salon-router.js` and deploying is the whole switch.
+   **Do not** move her custom domain off `hairbysha-booking` — that
+   registration is the rollback.
+3. **Her old service keeps sending after the move** unless it is suspended, and
+   must be suspended the moment the Worker flips.
 
-**Rollback:** putting her custom domain back on `hairbysha-booking` undoes the
-entire move in two clicks. Her old service keeps running with her data
-untouched the whole time.
+### E1. Suspend `horahaircutz-booking` · 1 min · do this now, not Tuesday
 
----
+Hora moved on 8 September and his old service is still running with his data.
+By the same mechanism as (3) it has been able to text and email his clients for
+a week. Whether it has actually done so could not be established from here.
+Suspending it keeps the disk, so his rollback survives, and his move is six
+days proven.
 
 ## Part F — Submit
 
@@ -272,7 +270,7 @@ A3 and B2 have to be settled first. Then review, typically a few days.
 2. **B3** — start Apple today. It is a queue and you are not in control of it.
 3. **B1, B2** — ten minutes between them, and B1 removes a real Monday risk.
 4. **A3, A4** — then Part D can start.
-5. **Monday: Part E.**
+5. **Tuesday: Part E** — and **E1 today**, not Tuesday.
 6. **A2, A5** — before the first stranger pays, not before the submission.
 
 Re-run `node scripts/launch-check.mjs` after A1. It should then report nothing
