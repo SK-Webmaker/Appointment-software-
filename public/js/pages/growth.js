@@ -22,13 +22,64 @@ function step(label, value, of) {
     </div>`;
 }
 
+/**
+ * One step of the plan.
+ *
+ * A step that checks itself says so, because "done" meaning two different
+ * things on one list is how a checklist stops being believed: most of these
+ * are true because the setting is on, and the handful that happen on Google or
+ * at the counter are ticked by hand and admit it.
+ */
+function planStep(s) {
+  return `
+    <div class="gp-step ${s.done ? 'done' : ''}" data-step="${esc(s.id)}">
+      <button type="button" class="gp-tick" data-tick="${esc(s.id)}"
+              aria-label="${s.done ? 'Mark as not done' : 'Mark as done'}">
+        ${s.done ? icon('check', 14) : ''}
+      </button>
+      <div class="gp-body">
+        <div class="gp-title">${esc(s.title)}</div>
+        <div class="gp-why">${esc(s.why)}</div>
+        ${s.how ? `<div class="gp-how"><b>How:</b> ${esc(s.how)}</div>` : ''}
+        ${s.manual ? `<div class="gp-manual">${icon('alert', 12)} ${esc(s.manual)}</div>` : ''}
+      </div>
+      ${s.goto ? `<a class="btn small" href="${esc(s.goto)}">Open</a>` : ''}
+    </div>`;
+}
+
+/** One idea: why it is being suggested, then the thing to copy. */
+function ideaCard(i, n) {
+  return `
+    <div class="gc-idea" data-idea="${esc(i.id)}">
+      <div class="gc-top">
+        <span class="gc-kind ${i.kind === 'campaign' ? 'send' : ''}">${i.kind === 'campaign' ? 'Send it' : 'Post it'}</span>
+        <span class="gc-channel">${esc(i.channel || '')}</span>
+      </div>
+      <div class="gc-title">${esc(i.title)}</div>
+      <div class="gc-reason">${icon('trendUp', 12)} ${esc(i.reason)}</div>
+      ${i.photo ? `<div class="gc-photo"><b>Photo:</b> ${esc(i.photo)}</div>` : ''}
+      ${i.caption ? `
+        <div class="gc-caption" id="gc-cap-${n}">${esc(i.caption)}</div>
+        <button type="button" class="btn small" data-copy="${n}">${icon('share', 13)} Copy the caption</button>` : ''}
+      ${i.doing ? `<div class="gc-doing">${esc(i.doing)}</div>` : ''}
+      ${i.goto ? `<a class="btn small primary" href="${esc(i.goto)}">Do it</a>` : ''}
+    </div>`;
+}
+
 export async function renderGrowth(container) {
   const since = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
   // Guarded rather than trusted. A reply with no body — a request abandoned
   // because the owner navigated away mid-load — resolves as null, and reading
   // a field off it throws a TypeError on a line that has nothing to do with the
   // cause. The page says so instead.
-  const d = await api.get(`/api/growth?since=${since}`);
+  // Three requests, in parallel, because the plan and the content ideas are
+  // separate concerns that happen to share a screen — and a page that waits for
+  // them one after another feels slow on a phone in a shop.
+  const [d, plan, content] = await Promise.all([
+    api.get(`/api/growth?since=${since}`),
+    api.get('/api/growth/plan').catch(() => null),
+    api.get('/api/growth/content').catch(() => null),
+  ]);
   if (!d || !d.referral) {
     container.innerHTML = `
       <div class="page-head">
@@ -69,6 +120,62 @@ export async function renderGrowth(container) {
         <div class="st-foot">Google, socials, walking past</div>
       </div>
     </div>
+
+    ${plan ? `
+    <div class="card gp-card">
+      <div class="card-title">Your growth plan</div>
+      <div class="card-sub">Five stages, in the order the money arrives. Most of it ticks itself off —
+        a step is done because the setting is actually on, not because somebody said so.</div>
+
+      <div class="gp-progress">
+        <div class="gp-bar"><span style="width:${Math.round((plan.done / Math.max(1, plan.total)) * 100)}%"></span></div>
+        <div class="gp-count"><b>${plan.done}</b> of ${plan.total} done</div>
+      </div>
+
+      ${plan.next.length ? `
+        <div class="mini-label" style="margin:18px 0 8px">Do these three next</div>
+        <div class="gp-next">${plan.next.map(planStep).join('')}</div>`
+    : `<div class="gr-empty">${icon('check', 15)}
+          <span>Every step is done. Keep the habits — rebooking at the counter and answering reviews
+          are the two that quietly stop happening.</span></div>`}
+
+      <details class="gp-all">
+        <summary>See all five stages</summary>
+        ${plan.stages.map((st) => `
+          <div class="gp-stage">
+            <div class="gp-stage-head">
+              <span class="gp-stage-n ${st.done === st.total ? 'done' : ''}">${st.done}/${st.total}</span>
+              <span><b>${esc(st.title)}</b><span class="gp-stage-why">${esc(st.why)}</span></span>
+            </div>
+            ${st.steps.map(planStep).join('')}
+          </div>`).join('')}
+      </details>
+    </div>` : ''}
+
+    ${content && content.ideas?.length ? `
+    <div class="card gc-card">
+      <div class="card-title">What to post this month</div>
+      <div class="card-sub">Worked out from your own numbers rather than a blank page. Every idea says
+        why it is being suggested, and the caption is yours to copy — Kairo writes it, you post it.
+        Nothing here is invented: every figure comes out of your bookings.</div>
+      <div class="gc-grid">
+        ${content.ideas.slice(0, 6).map((i, n) => ideaCard(i, n)).join('')}
+      </div>
+      ${content.calendar?.weeks?.length ? `
+        <details class="gp-all">
+          <summary>Lay it out over four weeks</summary>
+          ${content.calendar.weeks.map((w) => `
+            <div class="gc-week">
+              <div class="mini-label">Week ${w.week}</div>
+              ${w.ideas.map((i) => `<div class="gc-week-row">
+                <span class="gc-kind ${i.kind === 'campaign' ? 'send' : ''}">${i.kind === 'campaign' ? 'Send' : 'Post'}</span>
+                <span>${esc(i.title)}</span></div>`).join('')}
+            </div>`).join('')}
+          <div class="gr-note">${icon('alert', 13)}
+            <span>Twice a week is the cadence a working owner actually keeps. A plan that asks for
+            daily posts gets abandoned in nine days and takes the rest of the plan with it.</span></div>
+        </details>` : ''}
+    </div>` : ''}
 
     <div class="card">
       <div class="card-title">Referrals</div>
@@ -174,6 +281,35 @@ export async function renderGrowth(container) {
           by everyone who comes after, and it is worth more than the review cost you.</li>
       </ol>
     </div>`;
+
+  // Ticking a step. Optimistic, because the round trip is one setting and the
+  // list redraws from the server's answer anyway — but put back if it fails,
+  // so a checklist never shows a step as done that the server does not agree is
+  // done.
+  container.querySelectorAll('[data-tick]').forEach((b) => {
+    b.onclick = async () => {
+      const step = b.getAttribute('data-tick');
+      const row = b.closest('.gp-step');
+      const was = row.classList.contains('done');
+      row.classList.toggle('done', !was);
+      try {
+        await api.put(`/api/growth/plan/${encodeURIComponent(step)}`, { done: !was });
+        renderGrowth(container);
+      } catch (err) {
+        row.classList.toggle('done', was);
+        toast(err.message, 'err');
+      }
+    };
+  });
+
+  container.querySelectorAll('[data-copy]').forEach((b) => {
+    b.onclick = () => {
+      const box = container.querySelector(`#gc-cap-${b.getAttribute('data-copy')}`);
+      if (!box) return;
+      copyText(box.textContent);
+      toast('Caption copied — paste it straight into the app', 'ok');
+    };
+  });
 
   // Saved on the spot rather than behind a Save button: it is one switch, and
   // the number it fills sits directly underneath it.

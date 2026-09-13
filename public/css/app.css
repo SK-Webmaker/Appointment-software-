@@ -2665,3 +2665,119 @@ button.kai-open span { flex: 1; text-align: left; }
   .kc-arrow { display: none; }
   .kc-to { grid-column: 2; }
 }
+
+/* ---------------------------------------------------------------------------
+   Growth plan and the content ideas
+   ---------------------------------------------------------------------------
+   Two lists that must not read like one. The plan is a checklist — flat rows,
+   a tick, and a strikethrough that makes progress visible at a glance. The
+   ideas are cards, because each one is a separate thing to pick up and act on.
+*/
+.gp-progress { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.gp-bar {
+  flex: 1; height: 8px; border-radius: 99px; overflow: hidden;
+  background: var(--surface-3, rgba(255, 255, 255, .07));
+}
+.gp-bar span {
+  display: block; height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent, #3987e5), var(--green, #199e70));
+  transition: width .35s ease;
+}
+.gp-count { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+.gp-count b { color: var(--text-1); font-size: 15px; }
+
+.gp-step {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0; border-top: 1px solid var(--line, rgba(255, 255, 255, .06));
+}
+.gp-next .gp-step:first-child, .gp-stage .gp-step:first-child { border-top: 0; }
+.gp-tick {
+  flex: none; width: 22px; height: 22px; margin-top: 1px; padding: 0;
+  border-radius: 6px; cursor: pointer;
+  border: 1.5px solid var(--line-2, rgba(255, 255, 255, .18));
+  background: transparent; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.gp-tick:hover { border-color: var(--accent, #3987e5); }
+.gp-step.done .gp-tick { background: var(--green, #199e70); border-color: var(--green, #199e70); }
+.gp-body { flex: 1; min-width: 0; }
+.gp-title { font-weight: 600; font-size: 14px; }
+.gp-step.done .gp-title { text-decoration: line-through; color: var(--text-2); }
+.gp-why { font-size: 13px; color: var(--text-2); margin-top: 3px; line-height: 1.5; }
+.gp-how { font-size: 12.5px; color: var(--text-3, var(--text-2)); margin-top: 5px; line-height: 1.5; }
+.gp-manual {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--amber, #d9a441); margin-top: 5px;
+}
+.gp-all { margin-top: 16px; }
+.gp-all > summary {
+  cursor: pointer; font-size: 13px; color: var(--accent, #3987e5);
+  padding: 8px 0; list-style: none;
+}
+.gp-all > summary::-webkit-details-marker { display: none; }
+.gp-all > summary::before { content: '▸ '; }
+.gp-all[open] > summary::before { content: '▾ '; }
+.gp-stage { margin: 14px 0 4px; }
+.gp-stage-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.gp-stage-n {
+  flex: none; font-size: 11.5px; font-weight: 600; padding: 3px 7px; border-radius: 6px;
+  background: var(--surface-3, rgba(255, 255, 255, .07)); color: var(--text-2);
+}
+.gp-stage-n.done { background: rgba(25, 158, 112, .18); color: var(--green, #199e70); }
+.gp-stage-why { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.5; }
+
+.gc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+@media (max-width: 820px) { .gc-grid { grid-template-columns: 1fr; } }
+.gc-idea {
+  border: 1px solid var(--line, rgba(255, 255, 255, .07)); border-radius: 12px;
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--surface-2, rgba(255, 255, 255, .02));
+}
+.gc-top { display: flex; align-items: center; gap: 8px; }
+.gc-kind {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 5px;
+  background: rgba(57, 135, 229, .16); color: var(--accent, #3987e5);
+}
+.gc-kind.send { background: rgba(25, 158, 112, .16); color: var(--green, #199e70); }
+.gc-channel { font-size: 12px; color: var(--text-2); }
+.gc-title { font-weight: 600; font-size: 14.5px; }
+.gc-reason {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 12.5px; color: var(--text-2); line-height: 1.5;
+}
+.gc-reason svg { flex: none; margin-top: 3px; color: var(--green, #199e70); }
+.gc-photo, .gc-doing { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.gc-caption {
+  white-space: pre-wrap; font-size: 13px; line-height: 1.55;
+  padding: 10px 12px; border-radius: 9px;
+  background: var(--surface-3, rgba(255, 255, 255, .05));
+  border: 1px solid var(--line, rgba(255, 255, 255, .06));
+}
+.gc-idea .btn { align-self: flex-start; }
+.gc-week { margin: 12px 0; }
+.gc-week-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 0; font-size: 13px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, .06));
+}
+
+/* A pathway Kai has laid out: numbered steps, each one a link to go and do it. */
+.kai-steps { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.kai-step {
+  display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px;
+  border-radius: 10px; text-decoration: none; color: inherit;
+  background: var(--surface-3, rgba(255, 255, 255, .05));
+  border: 1px solid var(--line, rgba(255, 255, 255, .06));
+}
+.kai-step:hover { border-color: var(--accent, #3987e5); }
+.kai-step-n {
+  flex: none; width: 20px; height: 20px; border-radius: 6px; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700;
+  background: rgba(57, 135, 229, .18); color: var(--accent, #3987e5);
+}
+.kai-step-b { flex: 1; min-width: 0; }
+.kai-step-t { display: block; font-size: 13.5px; font-weight: 600; }
+.kai-step-d { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.5; }
+.kai-step svg { flex: none; margin-top: 3px; color: var(--text-2); }
