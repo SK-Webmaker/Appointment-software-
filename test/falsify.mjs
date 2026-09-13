@@ -93,10 +93,13 @@ const MUTATIONS = {
     find: '  if (!want || !real) return headers.host;',
     replace: '  if (!real) return headers.host;',
   },
+  // An address that names nobody must get nobody. Falling back to "some"
+  // tenant is how one salon ends up served another salon's client list. The
+  // parse moved into slugForHost on 13 September; the property did not.
   'host-routing-picks-first-tenant': {
     file: 'src/tenant.js', suites: ['tenants'],
-    find: "    if (slug.includes('.')) return null;   // one label only: a.b.<domain> is nobody\n    return getTenant(slug);",
-    replace: "    if (slug.includes('.')) return null;\n    return getTenant(listTenantSlugs()[0]);",
+    find: '  const slug = slugForHost(hostHeader);\n  return slug ? getTenant(slug) : null;',
+    replace: '  const slug = slugForHost(hostHeader);\n  return getTenant(slug || listTenantSlugs()[0]);',
   },
   'read-only-not-enforced': {
     file: 'server.js', suites: ['tenants'],
@@ -185,6 +188,38 @@ const MUTATIONS = {
     file: 'scripts/move-tenant.mjs', suites: ['move-tenant'],
     find: 'let v = verify();',
     replace: "let v = verify(['--across-versions']);",
+  },
+  // Updating a shard safely. Each of these was the real behaviour until
+  // 13 September, and the first one ended the process for every salon at once.
+  'one-salons-bad-database-takes-the-shard-down': {
+    file: 'src/tenant.js', suites: ['shard-updates'],
+    find: '  } catch (err) {',
+    replace: '  } catch (err) { throw err;',
+  },
+  'a-request-that-throws-ends-the-process': {
+    file: 'server.js', suites: ['shard-updates'],
+    find: '    console.error(`request ${req.method} ${req.url}:`, err?.stack || err?.message || err);',
+    replace: '    throw err;',
+  },
+  'a-broken-salon-is-told-it-does-not-exist': {
+    file: 'server.js', suites: ['shard-updates'],
+    find: '    if (MULTI && tenantFault(slugForHost(host))) { salonUnavailable(res, url.pathname); return; }',
+    replace: '',
+  },
+  'readiness-only-reports-salons-something-already-opened': {
+    file: 'server.js', suites: ['shard-updates'],
+    find: '  if (MULTI) for (const slug of listTenantSlugs()) getTenant(slug);',
+    replace: '',
+  },
+  'readiness-always-says-ok': {
+    file: 'server.js', suites: ['shard-updates'],
+    find: '    ok: degraded.length === 0,',
+    replace: '    ok: true,',
+  },
+  'readiness-never-reports-a-shard-serving-nobody': {
+    file: 'server.js', suites: ['shard-updates'],
+    find: '  sendJson(res, serving > 0 || salons === 0 ? 200 : 503, {',
+    replace: '  sendJson(res, 200, {',
   },
   // The cutover unmute. A salon left muted serves perfectly and sends nothing
   // — no confirmations, no reminders — and no screen says so, so the only

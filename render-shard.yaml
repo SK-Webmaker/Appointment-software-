@@ -23,8 +23,28 @@ services:
     branch: claude/markdown-file-analysis-a5ppnf
     buildCommand: echo "no build step — Kairo has no dependencies"
     startCommand: npm start
-    healthCheckPath: /api/version
-    autoDeploy: true
+    # /api/ready, not /api/version. The latter returns a constant and never
+    # touches a database, so it answers 200 from a shard on which no salon can
+    # be opened — Render promotes that deploy and destroys the instance that
+    # was working. /api/ready opens every salon at boot and reports what
+    # happened.
+    #
+    # ORDER MATTERS when changing this on a service that is already running:
+    # deploy the code that serves /api/ready FIRST, then point the health check
+    # at it. Pointing it at a path the running code does not serve makes every
+    # health check fail, and Render answers a failing health check by
+    # restarting — which is a loop, on a live salon.
+    healthCheckPath: /api/ready
+
+    # Deploys are deliberate. Auto-deploy meant a documentation commit
+    # restarted a live salon, and this service has a persistent disk, so a
+    # deploy is not a seamless hand-over: the disk can only be mounted by one
+    # instance, so there is a real gap while the new one starts.
+    #
+    # Run scripts/verify-deploy.mjs after every deploy. It waits for the new
+    # process before judging anything, which is the mistake that is otherwise
+    # very easy to make.
+    autoDeploy: false
 
     # Every salon on this shard lives here. Losing it loses every salon at
     # once, which is why the nightly off-site copy in Phase 3 is not optional.

@@ -141,27 +141,70 @@ export function effectiveHost(headers = {}) {
 
 export function withTenant(record, fn) { return als.run(record, fn); }
 
-/** Look a tenant up by slug; opens it on first use. null if it does not exist or is deleted. */
+/**
+ * Salons that exist but could not be opened, and why.
+ *
+ * One salon must never be able to take the others down. Before this, a tenant
+ * whose database would not open threw out of the request handler, and since
+ * nothing above it catches, Node exited — every salon on the shard went with
+ * it, triggered by one stranger loading one booking page. A corrupt file after
+ * a bad update is exactly when that would happen, and exactly when the other
+ * salons most need to keep trading.
+ */
+const faults = new Map();   // slug → { message, at }
+
+/** Why this salon would not open, or null. */
+export const tenantFault = (slug) => faults.get(slug) || null;
+/** Every salon that will not open right now — what a readiness check reports. */
+export const tenantFaults = () => [...faults.entries()].map(([slug, f]) => ({ slug, ...f }));
+
+/** Look a tenant up by slug; opens it on first use. null if it does not exist, is deleted, or will not open. */
 export function getTenant(slug) {
   if (!SLUG_RE.test(String(slug || ''))) return null;
-  let rec = open.get(slug);
-  if (!rec) {
-    const dir = path.join(TENANTS_DIR, slug);
-    if (!fs.existsSync(dir)) return null;
-    const { config, mtime } = readConfig(dir);
-    rec = { slug, legacy: false, dir, dbPath: path.join(dir, 'kairo.db'), config, configMtime: mtime, state: {}, db: null, booted: false };
-    rec.db = openDb(rec.dbPath);
-    open.set(slug, rec);
+  try {
+    let rec = open.get(slug);
+    if (!rec) {
+      const dir = path.join(TENANTS_DIR, slug);
+      if (!fs.existsSync(dir)) return null;
+      const { config, mtime } = readConfig(dir);
+      rec = { slug, legacy: false, dir, dbPath: path.join(dir, 'kairo.db'), config, configMtime: mtime, state: {}, db: null, booted: false };
+      rec.db = openDb(rec.dbPath);
+      open.set(slug, rec);
+    }
+    refresh(rec);
+    if (rec.config.deleted) return null;
+    rec.lastUsed = Date.now();
+    const ready = boot(rec);
+    // Recovered: a salon that failed to open and now does is no longer a fault.
+    if (faults.delete(slug)) console.log(`  ↳ salon "${slug}" opened again`);
+    return ready;
+  } catch (err) {
+    // The readiness endpoint is unauthenticated, because Render has to be able
+    // to reach it, and this message is published there. A SQLite error is
+    // harmless to show; a filesystem error carries the server's absolute paths,
+    // which is free reconnaissance for anyone who asks. The salon's own name is
+    // already public — it is the hostname — so only the path is worth hiding.
+    const message = String(err?.message || err).replaceAll(TENANTS_DIR, '<tenants>');
+    // Log the first time and whenever the reason changes, not on every request
+    // — a broken salon being hit by a crawler must not bury the other salons'
+    // logs, and the readiness endpoint is where the standing state belongs.
+    if (faults.get(slug)?.message !== message) {
+      console.error(`  ↳ salon "${slug}" will not open: ${message}`);
+    }
+    faults.set(slug, { message, at: new Date().toISOString() });
+    // Drop the handle so the next request retries from scratch. A salon that
+    // failed because something else held the file must be able to recover on
+    // its own, without a deploy.
+    const rec = open.get(slug);
+    if (rec) { try { rec.db?.close(); } catch { /* already gone */ } }
+    open.delete(slug);
+    return null;
   }
-  refresh(rec);
-  if (rec.config.deleted) return null;
-  rec.lastUsed = Date.now();
-  return boot(rec);
 }
 
 /** Own booking domains (a salon that wants book.theirsalon.com): tenant.json { "domains": [...] }. */
 let domainIndex = { at: 0, map: new Map() };
-function tenantForDomain(host) {
+function slugForDomain(host) {
   if (Date.now() - domainIndex.at > 30_000) {
     const map = new Map();
     for (const slug of listTenantSlugs()) {
@@ -170,8 +213,30 @@ function tenantForDomain(host) {
     }
     domainIndex = { at: Date.now(), map };
   }
-  const slug = domainIndex.map.get(host);
-  return slug ? getTenant(slug) : null;
+  return domainIndex.map.get(host) || '';
+}
+
+/**
+ * Host header → slug, or '' for an address that names nobody.
+ *
+ * Split out from resolveHost so that "which salon is this?" and "is that salon
+ * broken?" cannot answer about different salons. Two copies of this parse would
+ * drift, and the day they drifted a working salon would be told it does not
+ * exist.
+ */
+export function slugForHost(hostHeader) {
+  const host = String(hostHeader || '').trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
+  if (!host) return '';
+  const suffix = `.${BASE_DOMAIN}`;
+  if (host.endsWith(suffix)) {
+    const slug = host.slice(0, -suffix.length);
+    // One label only: a.b.<domain> is nobody. Belt and braces — SLUG_RE
+    // rejects a dot anyway, so removing this changes no behaviour, which is
+    // why there is no mutation for it. It stays because it says the intent at
+    // the point the decision is made.
+    return slug.includes('.') ? '' : slug;
+  }
+  return slugForDomain(host);
 }
 
 /**
@@ -181,15 +246,8 @@ function tenantForDomain(host) {
  */
 export function resolveHost(hostHeader) {
   if (!MULTI) return boot(legacyTenant());
-  const host = String(hostHeader || '').trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
-  if (!host) return null;
-  const suffix = `.${BASE_DOMAIN}`;
-  if (host.endsWith(suffix)) {
-    const slug = host.slice(0, -suffix.length);
-    if (slug.includes('.')) return null;   // one label only: a.b.<domain> is nobody
-    return getTenant(slug);
-  }
-  return tenantForDomain(host);
+  const slug = slugForHost(hostHeader);
+  return slug ? getTenant(slug) : null;
 }
 
 export function listTenantSlugs() {

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
-import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN } from './src/tenant.js';
+import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN, getTenant, tenantFault, tenantFaults, slugForHost } from './src/tenant.js';
 import { sendJson } from './src/util.js';
 import { handleApi } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
@@ -21,9 +21,16 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const PORT = Number(process.env.PORT || 4820);
 const HOST = process.env.HOST || '0.0.0.0';
 
+const STARTED_AT = new Date().toISOString();
+
 // Open (and bootstrap: schema, migrations, defaults) the one business of a
 // single-tenant install now, so a broken database fails the boot rather than
-// the first request. Multi-tenant installs open each salon on first use.
+// the first request.
+//
+// A shard needs no equivalent here: the scheduler's first tick already walks
+// every salon, and /api/ready opens any it has not reached. An explicit loop in
+// this spot was tried and deleted — it could not be made to fail a test,
+// because the two mechanisms above had always got there first.
 if (!MULTI) current();
 // Delivers queued confirmations & reminders every minute, posts a backup off
 // the machine when one is due, and makes the marketing automations' daily pass.
@@ -156,6 +163,65 @@ function noSuchSalon(res, pathname) {
     + '<p>Check the link you were given.</p></body>');
 }
 
+/** A salon that exists but will not open. Its own fault, not the visitor's. */
+function salonUnavailable(res, pathname) {
+  res.setHeader('Retry-After', '60');
+  if (pathname.startsWith('/api/')) {
+    sendJson(res, 503, { error: 'This salon is temporarily unavailable' });
+    return;
+  }
+  res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '60' });
+  res.end('<!doctype html><meta charset="utf-8"><title>Kairo</title>'
+    + '<body style="font:16px system-ui;padding:3rem;color:#333"><h1 style="font-weight:600">Temporarily unavailable</h1>'
+    + '<p>This booking page is having trouble. Please try again in a minute.</p></body>');
+}
+
+/**
+ * Is this shard fit to serve? The question a deploy has to answer.
+ *
+ * /api/version says only that Node is running — it reads a constant and never
+ * touches a database, so it answered 200 while a salon on the same process was
+ * unopenable. Render promotes a deploy on the strength of that answer and kills
+ * the instance that was working, which is how a bad migration reaches every
+ * customer at once.
+ *
+ * This reports what was actually tried: every salon opened, and its schema
+ * migrated, at boot. `degraded` names any that would not open.
+ *
+ * It answers 200 while at least one salon is serving, and 503 only when none
+ * is. Being stricter is tempting and wrong: Render restarts a service whose
+ * health check fails, so 503-ing for one broken salon would take the healthy
+ * ones down and then loop. Use `scripts/verify-deploy.mjs` for the strict
+ * check — a deploy should refuse to be called finished while anything is
+ * degraded, which is a decision for the person deploying, not for a supervisor
+ * that can only respond by restarting.
+ */
+function sendReadiness(res) {
+  // Ask about every salon that exists right now, rather than reporting on
+  // whichever ones something happened to have opened already. Boot does not do
+  // this and the scheduler's tick only gets there within the minute, so a
+  // salon provisioned thirty seconds ago — or one nothing has visited since the
+  // deploy — would otherwise be counted as fine because nobody had looked.
+  // A deploy gate that depends on who got there first is not a gate.
+  //
+  // getTenant on an already-open salon is a map lookup, so the cost of this is
+  // one open attempt per salon per deploy, not per health check.
+  if (MULTI) for (const slug of listTenantSlugs()) getTenant(slug);
+  const degraded = MULTI ? tenantFaults() : [];
+  const salons = MULTI ? listTenantSlugs().length : 1;
+  const serving = salons - degraded.length;
+  res.setHeader('Cache-Control', 'no-store');
+  sendJson(res, serving > 0 || salons === 0 ? 200 : 503, {
+    ok: degraded.length === 0,
+    version: VERSION,
+    multi_tenant: MULTI,
+    salons,
+    serving,
+    started_at: STARTED_AT,
+    degraded: degraded.map((d) => ({ salon: d.slug, why: d.message, since: d.at })),
+  });
+}
+
 /** Writes an owner or a customer would make, refused while a salon is in maintenance. */
 function refuseReadOnly(res) {
   res.setHeader('Retry-After', '120');
@@ -166,6 +232,21 @@ function refuseReadOnly(res) {
 }
 
 const server = http.createServer(async (req, res) => {
+  try {
+    await route(req, res);
+  } catch (err) {
+    // Nothing above this catches, and an uncaught throw here does not fail one
+    // request — it ends the process, and on a shard that is every salon at
+    // once. One request must only ever be able to ruin itself.
+    console.error(`request ${req.method} ${req.url}:`, err?.stack || err?.message || err);
+    if (!res.headersSent) {
+      try { sendJson(res, 500, { error: 'Something went wrong' }); return; } catch { /* socket gone */ }
+    }
+    try { res.end(); } catch { /* socket gone */ }
+  }
+});
+
+async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   // The platform's control API is addressed to the shard itself, not to any
   // salon, so it is answered before a Host is turned into a tenant. It is
@@ -178,14 +259,21 @@ const server = http.createServer(async (req, res) => {
   // Which salon? The Host header decides, and nothing else. The health check
   // answers for any host because Render pings the raw hostname, and a shard
   // that looks down because its health check named no salon restarts forever.
-  const tenant = resolveHost(effectiveHost(req.headers));
+  const host = effectiveHost(req.headers);
+  const tenant = resolveHost(host);
   if (!tenant) {
     if (url.pathname === '/api/version') { sendJson(res, 200, { version: VERSION }); return; }
+    if (url.pathname === '/api/ready') { sendReadiness(res); return; }
+    // A salon that exists but will not open is not the same as an address that
+    // names nobody, and telling its customers to "check the link" would send
+    // them looking for a mistake they did not make.
+    if (MULTI && tenantFault(slugForHost(host))) { salonUnavailable(res, url.pathname); return; }
     noSuchSalon(res, url.pathname);
     return;
   }
+  if (url.pathname === '/api/ready') { sendReadiness(res); return; }
   await withTenant(tenant, () => handle(req, res, url, tenant));
-});
+}
 
 async function handle(req, res, url, tenant) {
   if (MULTI) res.setHeader('X-Kairo-Tenant', tenant.slug);

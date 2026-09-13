@@ -123,11 +123,40 @@ The same check confirmed the shard is ready for her:
 | `hairbysha` | **not taken** — the import will not be refused |
 | Hora | unmuted, not read-only, serving at his own address |
 
-**Leave the shard alone.** It is pinned at `2d68cfb`, auto-deploy is already
-off, and that is the code Hora has been live on since 10 September without
-incident. Do not deploy the shard before Tuesday. A move onto code that has
-served a real salon for six days is a much better bet than a move onto code
-whose first customer is Sha.
+**The shard's code — this advice changed on 13 September.**
+
+On 12 September this file said: leave the shard pinned at `2d68cfb`, do not
+deploy before Tuesday. That was right on what was known then. It is no longer
+what I would do, and the reason is a bug found the next day.
+
+A salon whose database would not open threw out of the request handler, which
+nothing wrapped, and **ended the process — every salon on the shard at once**,
+triggered by one person loading one booking page. That is fixed
+(`UPDATING.md`), along with a health check that answered 200 from a shard on
+which nothing could be served.
+
+The shard today still has the bug. Adding Sha makes three salons exposed to it
+instead of two.
+
+**What I would now do, and it needs your say-so because it restarts Hora:**
+
+1. Deploy the fix to the shard **tonight or Monday, at a quiet hour** — there is
+   real downtime, because a Render service with a disk cannot hand over
+   seamlessly.
+2. Verify it with `scripts/verify-deploy.mjs`.
+3. Move the health check to `/api/ready` **after** that deploy, never before
+   (`UPDATING.md` explains why that order is not optional).
+4. Let it run Monday with Hora, then move Sha on Tuesday.
+
+That gives Sha a shard that has served a live salon for two days *and* cannot
+be taken down by one bad database. The alternative — moving her onto `2d68cfb`
+and deploying afterwards — means doing the deploy with three salons on it
+instead of two, and leaving the crash in place for her move.
+
+**One thing I owe you if the shard moves off `2d68cfb`:** the "Identical: 37
+checks" result in correction 1 was measured against `2d68cfb` specifically. I
+will re-run that comparison against whatever commit the shard ends up on, and
+it must come back identical again before Tuesday.
 
 **Yours to have open:** the Cloudflare dashboard (Workers) and the Render
 dashboard. The Cloudflare API tokens were deleted on 9 September, correctly, so
