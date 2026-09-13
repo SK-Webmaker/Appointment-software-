@@ -87,6 +87,28 @@ function changesHtml(changes) {
     </div>`).join('');
 }
 
+/**
+ * A pathway: the next few things worth doing, each one a place to go and do it.
+ *
+ * Rendered as steps rather than as prose, because advice an owner has to
+ * re-read to extract a to-do list from is advice they will not act on. Nothing
+ * here changed anything — the link is the action, and pressing it is theirs.
+ */
+function stepsHtml(steps) {
+  return (steps || []).length ? `
+    <div class="kai-steps">
+      ${steps.map((s, n) => `
+        <a class="kai-step" href="${esc(s.href || '#/growth')}">
+          <span class="kai-step-n">${n + 1}</span>
+          <span class="kai-step-b">
+            <span class="kai-step-t">${esc(s.title)}</span>
+            ${s.detail ? `<span class="kai-step-d">${esc(s.detail)}</span>` : ''}
+          </span>
+          ${icon('chevR', 14)}
+        </a>`).join('')}
+    </div>` : '';
+}
+
 function warningsHtml(warnings) {
   return (warnings || []).filter(Boolean).map((w) => `
     <div class="kai-warn">${icon('alert', 13)} <span>${esc(w)}</span></div>`).join('');
@@ -98,11 +120,13 @@ function turnHtml(t, i) {
   const done = r.kind === 'done' || r.kind === 'undone';
   const went = r.kind === 'went' || r.kind === 'prepare';
   const tone = done ? 'ok' : went ? 'went' : r.kind === 'ambiguous' ? 'ask'
-    : r.kind === 'unknown' ? 'no' : '';
+    : r.kind === 'pathway' ? 'went'
+      : r.kind === 'unknown' ? 'no' : '';
   const mark = done ? icon('check', 13)
     : r.kind === 'prepare' ? icon('calendar', 13)
-      : went ? icon('chevR', 13)
-        : r.kind === 'ambiguous' ? icon('alert', 13) : icon('zap', 13);
+      : r.kind === 'pathway' ? icon('trendUp', 13)
+        : went ? icon('chevR', 13)
+          : r.kind === 'ambiguous' ? icon('alert', 13) : icon('zap', 13);
   // The sentence is revealed a character at a time on its first paint. `full`
   // carries the whole thing so a repaint — an undo further down, a new turn —
   // redraws it complete instead of typing it out all over again.
@@ -116,6 +140,7 @@ function turnHtml(t, i) {
           <div class="kai-said" data-full="${esc(r.warm || r.said || '')}">${esc(text)}${
   t.pending ? '<i class="kai-dots"><b></b><b></b><b></b></i>' : ''}</div>
           ${changesHtml(r.changes)}
+          ${stepsHtml(r.steps)}
           ${warningsHtml(r.warnings)}
           ${(r.options || []).length ? `
             <div class="kai-options">
@@ -278,8 +303,14 @@ async function submit(text, { spoken = false } = {}) {
   const q = String(text || '').trim();
   if (!q || busy) return false;
   busy = true;
-  const turn = { you: q, reply: { warm: acknowledge() }, pending: true };
+  const opener = acknowledge();
+  const turn = { you: q, reply: { warm: opener }, pending: true };
   turns.push(turn);
+  // Spoken to, Kai answers out loud before it starts — "no worries, one sec" —
+  // which is the whole difference between talking to something and typing at
+  // it. Typed at a keyboard it stays quiet: an assistant that talks back
+  // unprompted is a nuisance.
+  if (spoken) speak(opener);
   setState('thinking', 'Working on that…');
   paint();
   scrollDown();
@@ -315,6 +346,12 @@ async function submit(text, { spoken = false } = {}) {
       // The rest of the workspace is showing settings that just changed.
       const { refreshAll } = await import('./app.js');
       refreshAll().catch(() => { /* the panel already said what happened */ });
+    } else if (r.kind === 'pathway') {
+      // Advice. Nothing moved and nothing changed, so the console stays open
+      // with the steps in it — but the box is cleared and the answer is read
+      // out, because it IS the answer rather than a step towards one.
+      acted = true;
+      el.querySelector('#kai-q').value = '';
     } else if (r.kind === 'unknown') {
       // Not a change. Leave the search results and let Enter open a row.
       turns.pop();
@@ -330,7 +367,10 @@ async function submit(text, { spoken = false } = {}) {
   paint();
   reveal();
   if (acted) load(el.querySelector('#kai-q').value.trim());
-  if (acted && spoken) speak(turns[turns.length - 1]?.reply?.said);
+  // The speakable rendering the server made, not the one written for a screen.
+  // "Sunday is 2pm–6pm now" read literally becomes "2 p m en dash 6 p m".
+  const reply = turns[turns.length - 1]?.reply;
+  if (acted && spoken) speak(reply?.speech || reply?.said);
   return handled;
 }
 

@@ -51,6 +51,8 @@ import {
   referralSettings, rewardCents, referralTokenFor, referralLinkFor, referrerFor,
   referralSummary, heardFromSummary, HEARD_OPTIONS,
 } from './referrals.js';
+import { growthPlan, setManualTick } from './growth-plan.js';
+import { contentIdeas, contentCalendar, businessFacts } from './growth-content.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
 import {
   planFor as kaiPlanFor, readActions as kaiReadActions, decide as kaiDecide,
@@ -59,7 +61,8 @@ import {
 } from './kai-actions.js';
 import { readNav as kaiNav, closedOn as kaiClosedOn } from './kai-nav.js';
 import { readBooking as kaiReadBooking } from './kai-booking.js';
-import { speak as kaiSpeak } from './kai-voice.js';
+import { speak as kaiSpeak, forSpeech as kaiForSpeech } from './kai-voice.js';
+import { readGrowth as kaiGrowth } from './kai-growth.js';
 import {
   safetySettings, patchService, requirementsFor, publicRequirements, patchStatusFor,
   safetyGateFor, recordConsent, expiringPatchTests, safetyRecord, dataUriBytes, addMonthsStr,
@@ -119,6 +122,10 @@ const routes = [];
 const PARAM_PATTERN = {
   date: '(\\d{4}-\\d{2}-\\d{2})',
   kind: '([a-z][a-z0-9_]{0,40})',
+  // A growth-plan step id: a slug, not a row id. Named `step` rather than `id`
+  // precisely so it cannot widen `:id`, which is digits-only everywhere else
+  // and is what stops /api/clients/../../ ever reaching a handler.
+  step: '([a-z][a-z0-9-]{0,40})',
 };
 function route(method, pattern, handler, { auth = true } = {}) {
   const names = [];
@@ -2525,6 +2532,37 @@ route('GET', '/api/growth', async ({ query }) => {
 });
 
 /**
+ * The growth plan, as it stands for this business.
+ *
+ * Read-only and computed fresh: a step is done because the setting is on right
+ * now, not because a row somewhere remembers it once was.
+ */
+route('GET', '/api/growth/plan', async () => growthPlan());
+
+/**
+ * Ticking a step that happens outside Kairo.
+ *
+ * Only the manual steps — claiming a Google listing, rebooking at the counter.
+ * A step that checks itself may also be ticked, for an owner who did it another
+ * way, but it can never be un-ticked into looking undone when the setting says
+ * otherwise: growthPlan() ORs the two.
+ */
+route('PUT', '/api/growth/plan/:step', async ({ req, params }) => {
+  const b = checkBody(await readJson(req), { done: s.bool() });
+  const known = growthPlan().stages.some((st) => st.steps.some((x) => x.id === params.step));
+  if (!known) throw httpError(404, 'No such step');
+  setManualTick(params.step, !!b.done);
+  return growthPlan();
+});
+
+/** What to post and what to send this month, worked out from the business. */
+route('GET', '/api/growth/content', async () => ({
+  facts: businessFacts({ today: bizToday() }),
+  ideas: contentIdeas({ today: bizToday() }),
+  calendar: contentCalendar({ today: bizToday() }),
+}));
+
+/**
  * Kai — one question, answered from the owner's own data.
  *
  * No model, no side effects. Every answer is a read, and every one of them
@@ -2599,7 +2637,16 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
   // `said` is the fact and never changes. `warm` is the same sentence with a
   // greeting on the front — see the header of src/kai-voice.js for why those
   // are two fields and not one.
-  const dress = (r) => ({ ...r, warm: kaiSpeak(r.kind, r.said, turn) });
+  // Three renderings of one sentence, and they are not interchangeable:
+  //   said   — the fact, the receipt, never touched.
+  //   warm   — the same fact with a greeting in front of it, for the screen.
+  //   speech — the same fact with its punctuation made sayable, for the voice.
+  // See the header of src/kai-voice.js for why these are separate fields.
+  const dress = (r) => ({
+    ...r,
+    warm: kaiSpeak(r.kind, r.said, turn),
+    speech: kaiForSpeech(r.said),
+  });
 
   if (kaiIsUndo(q)) {
     const undone = kaiUndo('');
@@ -2684,9 +2731,23 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
     // and saying it twice in different words reads like a stutter.
     if (noops.length) return dress({ ok: true, kind: 'already', said: noops[0] });
 
-    // Nothing to change, so: somewhere to go? Read last on purpose. A sentence
-    // that changes something is never a request to visit the screen that would
-    // have changed it by hand.
+    // "How do I get more clients?" — a question with no setting in it, and no
+    // destination either. Read BEFORE navigation, because the sentence names a
+    // topic rather than a screen: "how do I get more clients" was being taken
+    // as a request to open the Clients list, which is the one answer nobody
+    // asking that question wants. The patterns are deliberately narrow — see
+    // src/kai-growth.js — so "show me my clients" still navigates.
+    const path = kaiGrowth(q);
+    if (path) {
+      return dress({
+        ok: true, kind: 'pathway', said: path.said, did: path.title,
+        href: path.href, steps: path.steps,
+      });
+    }
+
+    // Nothing to change, so: somewhere to go? Read after a change and after a
+    // growth question. A sentence that changes something is never a request to
+    // visit the screen that would have changed it by hand.
     const nav = kaiNav(q, { today: bizToday() });
     if (nav) {
       return dress({

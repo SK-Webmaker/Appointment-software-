@@ -472,6 +472,34 @@ const MUTATIONS = {
     find: '  const who = staff[0] || team[0] || null;',
     replace: '  const who = staff[0] || team[team.length - 1] || null;',
   },
+  'growth-plan-stops-checking-itself': {
+    // The plan's whole claim: a step is done because the setting is on, not
+    // because somebody ticked a box to feel productive.
+    file: 'src/growth-plan.js', suites: ['growth'],
+    find: '      isDone = auto ? !!s.done() : !!ticks[s.id];',
+    replace: '      isDone = !!ticks[s.id];',
+  },
+  'growth-ideas-drop-their-reason': {
+    // "Post a before-and-after" is advice. "Braids earned you $2,000, more
+    // than anything else" is a reason, and an owner acts on the second.
+    file: 'src/growth-content.js', suites: ['growth'],
+    find: '  return [...out, ...evergreen].sort((a, b) => b.score - a.score);',
+    replace: "  return [...out, ...evergreen].map((i) => ({ ...i, reason: '' })).sort((a, b) => b.score - a.score);",
+  },
+  'kai-growth-read-after-navigation': {
+    // "How do I get more clients" answered by opening the Clients list, which
+    // is the one response nobody asking that question wants.
+    file: 'src/api.js', suites: ['growth'],
+    find: '    const path = kaiGrowth(q);',
+    replace: '    const path = kaiNav(q, { today: bizToday() }) ? null : kaiGrowth(q);',
+  },
+  'kai-voice-eats-a-date': {
+    // A hyphen is not an en dash. With one in the range rule, a patch-test
+    // record reads out as "2026 to 08 to 29".
+    file: 'src/kai-voice.js', suites: ['growth'],
+    find: "    .replace(/(\\d(?::\\d\\d)?\\s*(?:am|pm)?)\\s*[–—]\\s*(\\d)/gi, '$1 to $2')",
+    replace: "    .replace(/(\\d(?::\\d\\d)?\\s*(?:am|pm)?)\\s*[–—-]\\s*(\\d)/gi, '$1 to $2')",
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.
