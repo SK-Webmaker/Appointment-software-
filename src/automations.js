@@ -366,8 +366,13 @@ export function candidatesFor(kind, { today = dayOf(), limit = 0 } = {}) {
   const found = def.find({ today });
   const done = alreadySent(kind);
   const cooled = recentlyMessagedSet();
+  // Opted out — and the samples, which is the same problem wearing a different
+  // hat: a client who must not be messaged. A salon that switches an automation
+  // on before clearing the demo would otherwise spend its first send on
+  // fourteen people who do not exist, burning the daily cap and bouncing every
+  // address.
   const optedOut = new Set(
-    db.prepare('SELECT id FROM clients WHERE marketing_opt_out = 1').all().map((r) => r.id)
+    db.prepare('SELECT id FROM clients WHERE marketing_opt_out = 1 OR is_demo = 1').all().map((r) => r.id)
   );
 
   const blocked = { already_sent: 0, opted_out: 0, cooling_off: 0, no_contact: 0 };

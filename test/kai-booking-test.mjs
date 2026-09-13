@@ -63,11 +63,15 @@ const countAppts = async () =>
   (await json('GET', '/api/appointments?from=2000-01-01&to=2099-01-01')).data.length;
 const param = (href, k) => new URLSearchParams(String(href || '').split('?')[1] || '').get(k);
 
-const { db } = await import(`${ROOT}/src/db.js`);
+const { db, seedDemo } = await import(`${ROOT}/src/db.js`);
 
 try {
   await json('POST', '/api/auth/login', { email: 'admin@kairo.local', password: 'admin123' });
+  // Skipping setup now clears the sample salon, which is the point of it —
+  // so this suite, which needs services and a team to book against, puts a
+  // dataset back deliberately rather than inheriting one by accident.
   await json('POST', '/api/setup/skip', {});
+  seedDemo();
   await json('PUT', '/api/settings', {
     business_name: 'Glow Bar', business_tz: 'Australia/Melbourne',
     open_days: '1,2,3,4,5', open_min: '540', close_min: '1020', day_rules: '{}',

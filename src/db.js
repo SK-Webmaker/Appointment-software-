@@ -586,6 +586,24 @@ function migrate() {
   // would be a worse promise than none.
   addColumn('clients', 'unsub_token', "unsub_token TEXT NOT NULL DEFAULT ''");
 
+  // Sample data, marked as sample.
+  //
+  // A fresh Kairo seeds a demo salon so the screens are not empty on the first
+  // login — fourteen clients with names, phone numbers and a year of history.
+  // That is genuinely useful for looking around and genuinely dangerous the
+  // moment a real business starts using it: the owner cannot tell their first
+  // real client from Jeanen Brooks, the dashboard reports revenue that never
+  // happened, and an automation switched on in week one tries to text people
+  // who do not exist.
+  //
+  // A flag per row is what makes all three answerable. Every sample row can be
+  // labelled on screen, removed in one press, and excluded from anything that
+  // sends — and REAL rows are never touched by any of it, because the delete is
+  // scoped to the flag rather than to "everything, probably".
+  for (const t of ['clients', 'appointments', 'services', 'staff', 'products']) {
+    addColumn(t, 'is_demo', 'is_demo INTEGER NOT NULL DEFAULT 0');
+  }
+
   // ── The patch test and the treatment it clears ────────────────────────────
   //
   // Set on the PATCH TEST appointment, naming the colour it was booked for.
@@ -1222,6 +1240,82 @@ export function seedDemo() {
     insReview.run(appt.id, appt.clientId, appt.staffId, rating, comment, response, `${appt.date} 19:00:00`);
     reviewCount++;
   }
+
+  // Everything above this line is a sample, and every row says so.
+  //
+  // Marked in one pass at the end rather than on each insert, because the seed
+  // is the ONLY thing that runs between the tables being empty and this line:
+  // whatever is in them now, it put there. Doing it here means a row added to
+  // the seed later cannot be forgotten — the commonest way a flag like this
+  // ends up lying about a handful of rows.
+  for (const t of ['clients', 'appointments', 'services', 'staff', 'products']) {
+    db.prepare(`UPDATE ${t} SET is_demo = 1`).run();
+  }
+}
+
+/**
+ * Is this still somebody else's fake salon?
+ *
+ * True only while sample clients exist. Used to decide whether to offer the
+ * "remove the samples" banner, and to keep a skipped setup from leaving a real
+ * business looking at fourteen invented people.
+ */
+export function hasDemoData() {
+  try {
+    return db.prepare('SELECT COUNT(*) AS n FROM clients WHERE is_demo = 1').get().n > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Remove the samples, and only the samples.
+ *
+ * Scoped to the flag at every step, never to "delete everything and hope the
+ * owner had not started". An owner who added three real clients while looking
+ * around keeps all three; the fourteen invented ones go, and so does everything
+ * hanging off them — otherwise the dashboard keeps reporting revenue from
+ * invoices belonging to people who no longer exist.
+ *
+ * Order matters: children before parents, because the schema is not relying on
+ * cascades to be correct.
+ */
+export function clearDemoData() {
+  db.exec(`
+    DELETE FROM messages WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1)
+       OR appointment_id IN (SELECT id FROM appointments WHERE is_demo = 1
+            OR client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM reviews WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1)
+       OR appointment_id IN (SELECT id FROM appointments WHERE is_demo = 1
+            OR client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM payments WHERE invoice_id IN
+      (SELECT id FROM invoices WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM invoice_items WHERE invoice_id IN
+      (SELECT id FROM invoices WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM invoices WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1);
+    -- Treatment records by name, for the same reason clearBusinessData does it:
+    -- health information is never left to a cascade somebody else wrote.
+    DELETE FROM treatment_photos WHERE appointment_id IN
+      (SELECT id FROM appointments WHERE is_demo = 1
+         OR client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM consents WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1);
+    DELETE FROM patch_tests WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1);
+    DELETE FROM client_safety WHERE client_id IN (SELECT id FROM clients WHERE is_demo = 1);
+    -- An appointment belonging to a sample client goes too, whatever its own
+    -- flag says. An owner who books a real-looking appointment against Jeanen
+    -- Brooks while exploring would otherwise leave a row pointing at somebody
+    -- who no longer exists — which the foreign key refuses, so the whole
+    -- removal fails and nothing is cleaned up at all.
+    DELETE FROM appointment_services WHERE appointment_id IN
+      (SELECT id FROM appointments WHERE is_demo = 1
+         OR client_id IN (SELECT id FROM clients WHERE is_demo = 1));
+    DELETE FROM appointments WHERE is_demo = 1
+      OR client_id IN (SELECT id FROM clients WHERE is_demo = 1);
+    DELETE FROM clients WHERE is_demo = 1;
+    DELETE FROM products WHERE is_demo = 1;
+    DELETE FROM services WHERE is_demo = 1;
+    DELETE FROM staff WHERE is_demo = 1;
+  `);
 }
 
 /** Wipe all business data (staff, services, clients, appointments, billing). */

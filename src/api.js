@@ -1,7 +1,8 @@
 // REST API. All routes live under /api. Handlers may return a value (sent as
 // JSON 200), send the response themselves, or throw httpError(status, msg).
 import {
-  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData, SECRET_SETTINGS,
+  db, getSetting, setSetting, getSettings, nextInvoiceNumber, resetDemo, clearBusinessData,
+  clearDemoData, hasDemoData, SECRET_SETTINGS,
   dbFileBytes, publicUrl, publicUrlFromEnv,
 } from './db.js';
 import {
@@ -247,7 +248,10 @@ route('POST', '/api/auth/logout', async ({ req, res }) => {
 
 route('GET', '/api/auth/me', async ({ user }) => {
   const { token_version, ...safeUser } = user; // don't expose the session epoch
-  return { user: safeUser, settings: getSettings(), version: VERSION };
+  // Whether this workspace is still showing somebody else's fake salon, so the
+  // clients list can say so rather than leaving an owner to work out which of
+  // these people are real.
+  return { user: safeUser, settings: getSettings(), version: VERSION, has_demo_data: hasDemoData() };
 });
 
 route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
@@ -620,9 +624,34 @@ route('POST', '/api/settings/reset-demo', async ({ user }) => {
 // Guided setup wizard (owner-facing, first login)
 // ---------------------------------------------------------------------------
 
+/**
+ * "Skip for now".
+ *
+ * Skipping the wizard used to mean keeping the demo salon — a real owner
+ * pressed one button and was left running a business called Luxe Hair Studio
+ * with fourteen invented clients, a year of revenue that never happened, and
+ * phone numbers that would be texted the moment they switched an automation on.
+ *
+ * Skipping now means starting empty, which is what the word means. Only the
+ * SAMPLES go: an owner who added a real client while looking around keeps it.
+ */
 route('POST', '/api/setup/skip', async () => {
+  clearDemoData();
   setSetting('setup_complete', '1');
-  return { ok: true };
+  return { ok: true, demo_cleared: true };
+});
+
+/**
+ * Remove the samples, later.
+ *
+ * The banner on the clients list points here. Separate from setup so an owner
+ * who skipped, explored for a week and then got serious has the same one press
+ * available — and so the destructive thing is a route of its own rather than a
+ * side effect of something that sounds harmless.
+ */
+route('POST', '/api/demo/clear', async () => {
+  clearDemoData();
+  return { ok: true, has_demo_data: hasDemoData() };
 });
 
 route('POST', '/api/setup/apply', async ({ req }) => {
@@ -670,6 +699,10 @@ route('POST', '/api/setup/apply', async ({ req }) => {
   }
 
   if (b.settings) applySettings(b.settings);
+  // Whether or not they asked for a clean slate, the samples go. Un-ticking
+  // "start fresh" means "keep what I have already added", not "keep somebody
+  // else's demo salon mixed in with my real clients".
+  clearDemoData();
   setSetting('setup_complete', '1');
   return { ok: true, services_added: servicesAdded, booking_path: '/book' };
 });
