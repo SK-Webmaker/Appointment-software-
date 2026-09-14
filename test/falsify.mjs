@@ -221,6 +221,20 @@ const MUTATIONS = {
     find: '  sendJson(res, serving > 0 || salons === 0 ? 200 : 503, {',
     replace: '  sendJson(res, 200, {',
   },
+  // Reaching the new tenant before its address points at the shard. The old
+  // way — a <slug>-preview alias in tenant.json domains — passed its tests and
+  // could never work in production, because the domains index is only
+  // consulted for a host OUTSIDE the base domain and the alias was inside it.
+  'cutover-compares-without-forwarding-the-real-hostname': {
+    file: 'scripts/move-tenant.mjs', suites: ['move-tenant'],
+    find: "  ...(via ? [] : ['--forward-secret', secret])],",
+    replace: '  ],',
+  },
+  'cutover-sends-the-salon-before-knowing-it-can-check-it': {
+    file: 'scripts/move-tenant.mjs', suites: ['move-tenant'],
+    find: 'if (!via && !secret) {',
+    replace: 'if (false) {',
+  },
   // The cutover unmute. A salon left muted serves perfectly and sends nothing
   // — no confirmations, no reminders — and no screen says so, so the only
   // thing standing between that and a silent salon is this script actually

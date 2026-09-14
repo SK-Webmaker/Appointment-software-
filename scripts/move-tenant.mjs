@@ -36,7 +36,11 @@ const has = (n) => argv.includes(`--${n}`);
 const slug = arg('slug');
 const from = arg('from');
 const oldUrl = arg('old').replace(/\/+$/, '');
-const base = arg('base-domain', 'kairobookings.com');
+// Default to the shard's own base domain rather than a hardcoded one: the
+// address a tenant answers at is <slug>.<the shard's BASE_DOMAIN>, and a script
+// that disagrees with the shard about that builds a hostname the shard will
+// not recognise.
+const base = arg('base-domain', process.env.KAIRO_BASE_DOMAIN || 'kairobookings.com');
 const publicUrl = arg('public-url', `https://${slug}.${base}`);
 
 if (!slug || !from || !oldUrl || !process.env.KAIRO_PLATFORM_KEY || !process.env.KAIRO_SHARD_URL) {
@@ -58,6 +62,28 @@ const step = (n, s) => console.log(`\n${E}1m── ${n}. ${s}${E}0m`);
 const ok = (s) => console.log(`   ${E}32m✓${E}0m ${s}`);
 const bad = (s) => console.log(`   ${E}31m✗${E}0m ${s}`);
 const stop = (why) => { bad(why); console.log(`\n  ${E}31mStopped. The old salon is untouched.${E}0m\n`); process.exit(1); };
+
+// How the new tenant will be reached for the comparison in step 4. Settled
+// BEFORE anything is sent, because discovering it at step 4 means the salon has
+// already been written to the shard and the run stops half-done.
+const host = new URL(publicUrl).host;
+const secret = String(process.env.KAIRO_FORWARD_SECRET || '').trim();
+// `--via` addresses a shard directly and sets Host — how a test drives this
+// against a local shard, with no Render in front routing on Host.
+const via = arg('via');
+if (!via && !secret) {
+  console.error(`
+  Nothing was sent. The new tenant has to be reachable before ${host} points at
+  it, and there is no way to reach it:
+
+    KAIRO_FORWARD_SECRET   the value the Worker holds, so the comparison can
+                           forward the real hostname exactly as the front door
+                           does — this is what a real move uses
+    --via <url>            address a shard directly instead, for a shard with
+                           nothing in front of it
+`);
+  process.exit(2);
+}
 
 const gz = fs.readFileSync(from);
 console.log(`\n  Moving ${slug} → ${process.env.KAIRO_SHARD_URL} as ${publicUrl}`);
@@ -120,26 +146,29 @@ if (v.status !== 0) {
 }
 
 step(4, 'Compare the booking page and the next fortnight, old salon vs new tenant');
-// The salon's own address still points at the OLD service until the DNS flip,
-// and the shard sits behind Cloudflare, which refuses a Host header that does
-// not match the connection. So the new tenant is given a temporary preview
-// address under the wildcard — <slug>-preview.<base> — compared through that,
-// and the alias is removed again. It exercises exactly the path customers will
-// use after the flip, with nothing pretended.
-const preview = `${slug}-preview.${base}`;
-try { await shard.patchTenant(slug, { domains: [preview] }); } catch (e) { stop(`could not add the preview address: ${e.message}`); }
-// Normally the preview address is reached over the public internet, which is
-// the point: it exercises the exact path a customer will use. `--via` reaches
-// the same tenant at a given base URL instead, carrying the preview hostname
-// as the Host header — how a test drives this against a local shard, and how
-// a real move can still be compared if the wildcard is ever not resolving.
-const via = arg('via');
+// The salon's own address still points at the OLD service, so the new tenant
+// has to be reached some other way — and the obvious ways do not work.
+//
+// This used to give the tenant a temporary alias, <slug>-preview.<base>, in
+// its tenant.json `domains` and compare through that. It could never have
+// worked, and it failed on Hair By Sha's move with a 404: resolveHost takes
+// the subdomain label AS the slug for any host under the base domain, and only
+// consults the `domains` index for a host OUTSIDE it. So the alias asked the
+// shard for a salon called "<slug>-preview", which does not exist.
+//
+// Overriding the Host header is no better: the request still arrives at the
+// shard's own onrender.com address, Render routes on Host, and a salon
+// hostname it has not been told about is refused before the shard sees it.
+//
+// The front door already solved this, so do what it does — carry the real
+// hostname in X-Kairo-Host with the secret the shard checks. That exercises
+// the exact path a customer will use after the flip, with nothing pretended.
 const c = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', 'scripts/migrate-tenant.mjs', 'compare',
-  '--old', oldUrl, '--new', via || `https://${preview}`, ...(via ? ['--new-host', preview] : [])],
+  '--old', oldUrl, '--new', via || process.env.KAIRO_SHARD_URL, '--new-host', host,
+  ...(via ? [] : ['--forward-secret', secret])],
   { cwd: ROOT, stdio: 'inherit', env: process.env });
-try { await shard.patchTenant(slug, { domains: [] }); } catch { /* the alias is harmless if it lingers; it serves the same salon */ }
 if (c.status !== 0) stop('the new tenant does not answer the same as the old salon');
-ok('booking page and availability match, via the wildcard');
+ok(`booking page and availability match, as ${host}`);
 
 fs.rmSync(work, { recursive: true, force: true });
 console.log(`\n  ${E}32m${slug} is on the shard and proven identical.${E}0m`);

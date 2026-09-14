@@ -1,5 +1,31 @@
 # Hair By Sha — the runsheet
 
+> ## MOVED — 15 September 2026, 07:15 Melbourne (21:15 UTC 14 Sep)
+>
+> She is live on the shard at `hairbysha.kairobookings.com`, v1.63.0, with all
+> 647 clients, 111 appointments, 5 invoices and 281 messages intact. A real
+> booking was made through her public page and **its confirmation was
+> delivered** from her own sending domain, then cancelled and cleaned up.
+>
+> **Verified before the cutover:** 38 checks against her live salon — booking
+> page, public info, and the next fortnight of availability, staff by staff.
+> The three row differences were the expected migration ones (`devices` added
+> empty; `acma_registered`, `checklist_app_installed`, `checklist_link_shared`,
+> `pos_payment_link` added at defaults) and nothing else.
+>
+> **Nothing was lost in the window.** Online booking was deliberately left ON
+> during the move, so the old service was compared against the shard afterwards:
+> identical on all 38 checks, so no booking landed on the copy nobody would have
+> been reading.
+>
+> **Her old service `hairbysha-booking` is suspended**, with its 1 GB disk
+> retained. That is the rollback: resume it, put her line back in the Worker,
+> deploy, and re-mute the shard copy — in that order. Keep it until at least
+> 29 September.
+>
+> What follows is the runsheet as written beforehand, kept because the reasoning
+> is what matters next time.
+
 **Tuesday 16 September 2026.** One salon, already trading, moving from her own
 Render service onto the shard. Written 12 September, after a full rehearsal on
 the exact code she will land on.

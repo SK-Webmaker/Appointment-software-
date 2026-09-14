@@ -229,7 +229,7 @@ ones reading cannot.
 
 ---
 
-## Part E — Sha's move · **Tuesday 16 September**
+## Part E — Sha's move · ✅ **DONE, 15 September**
 
 Moved from Monday at your request. The full runsheet is `MOVE-SHA.md` — read
 that on the night, not this summary. Three things changed on 12 September after
