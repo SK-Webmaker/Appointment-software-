@@ -63,6 +63,46 @@ export async function createDepositCheckout({ appointmentId, serviceName, deposi
   return { url: session.url, session_id: session.id };
 }
 
+/**
+ * A Checkout Session for a whole booking, one line item per service.
+ *
+ * The deposit version above sends a single line reading "Booking deposit —
+ * Haircut + Beard trim", which is right for a deposit and wrong for a full
+ * payment: somebody paying $65 should see the $45 and the $20 that make it up,
+ * or the first thing they do is ring and ask what they were charged for.
+ */
+export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken }) {
+  const cur = String(currency || getSetting('currency_code', 'aud') || 'aud').toLowerCase();
+  const biz = getSetting('business_name', 'Booking');
+  const params = {
+    mode: 'payment',
+    success_url: `${origin}/book?paid=success&appt=${appointmentId}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/book?paid=cancelled&appt=${appointmentId}`,
+    'metadata[appointment_id]': String(appointmentId),
+  };
+  items.forEach((it, i) => {
+    params[`line_items[${i}][price_data][currency]`] = cur;
+    params[`line_items[${i}][price_data][unit_amount]`] = String(Math.round(it.cents));
+    params[`line_items[${i}][price_data][product_data][name]`] = it.name;
+    params[`line_items[${i}][price_data][product_data][description]`] = biz;
+    params[`line_items[${i}][quantity]`] = '1';
+  });
+  const session = await stripeRequest('/checkout/sessions', params,
+    idemToken ? `kairo-appt-${appointmentId}-${idemToken}` : '');
+  return { url: session.url, session_id: session.id, provider: 'stripe' };
+}
+
+/** Was a booking payment actually taken? Same answer shape as Square's. */
+export async function verifyBookingPayment(sessionId) {
+  if (!sessionId) return { paid: false, amount_cents: 0 };
+  const session = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`);
+  return {
+    paid: session.payment_status === 'paid',
+    amount_cents: session.amount_total || 0,
+    payment_ref: String(session.payment_intent || session.id || ''),
+  };
+}
+
 /** Verify a Checkout Session actually got paid (called on the success return). */
 export async function verifyDepositSession(sessionId) {
   const session = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`);

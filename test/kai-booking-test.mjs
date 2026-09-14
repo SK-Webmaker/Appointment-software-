@@ -181,6 +181,11 @@ try {
     // A salon with three chairs nearly always has somebody in a chair. A check
     // across the whole shop fires on almost every booking, and the client it
     // names belongs to a stylist the owner is not booking into.
+    // Clear the diary first. This block asserts that somebody in ANOTHER
+    // stylist's column is not a clash, which only means anything if the only
+    // appointments that day are the ones it puts there — the sample dataset's
+    // own bookings move with the calendar and would drift into the slot.
+    db.prepare("DELETE FROM appointments").run();
     const first = (await json('GET', '/api/staff')).data[0];
     const rowan = (await json('POST', '/api/staff', { name: 'Rowan', title: 'Colour' })).data;
     const monday = param((await say(`book Wilhelmina in for a ${svc.name} on Monday at 2`)).href, 'date');

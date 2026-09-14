@@ -489,13 +489,38 @@ export async function renderSettings(container, params) {
       </div>
 
       <div class="card" data-sec="payments">
-        <div class="card-title">Online deposits (Stripe)</div>
-        <div class="card-sub" style="margin-bottom:16px">Take a card deposit when clients book online. The single biggest no-show killer.
-          Get a secret key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe</a>;
-          deposits are credited automatically when you bill the visit.</div>
+        <div class="card-title">Taking payments online</div>
+        <div class="card-sub" style="margin-bottom:16px">Connect <b>Stripe</b> or <b>Square</b> — whichever you
+          already use. The money goes straight into your own account: Kairo never holds it and takes no
+          commission. Customers can pay for every service they booked in one payment.</div>
         <form id="set-payments" style="display:flex;flex-direction:column;gap:13px">
+          <div class="form-grid">
+            <div class="field"><label>Who processes the card</label>
+              <select name="pay_provider">
+                <option value="stripe" ${s.pay_provider !== 'square' ? 'selected' : ''}>Stripe</option>
+                <option value="square" ${s.pay_provider === 'square' ? 'selected' : ''}>Square</option>
+              </select></div>
+            <div class="field"><label>What customers are asked for</label>
+              <select name="pay_mode">
+                <option value="none" ${s.pay_mode === 'none' ? 'selected' : ''}>Nothing — pay in person</option>
+                <option value="deposit" ${(s.pay_mode || 'deposit') === 'deposit' ? 'selected' : ''}>A deposit</option>
+                <option value="choice" ${s.pay_mode === 'choice' ? 'selected' : ''}>Their choice — pay now or in person</option>
+                <option value="full" ${s.pay_mode === 'full' ? 'selected' : ''}>The full amount, up front</option>
+              </select>
+              <div class="hint">"Their choice" is what most shops want: card for the people who prefer it,
+                cash at the counter for the people who don't.</div></div>
+          </div>
           <div class="field"><label>Stripe secret key${keySaved(s.stripe_secret_key_set)}</label>
-            <input name="stripe_secret_key" type="password" value="" placeholder="${keyPlaceholder(s.stripe_secret_key_set, 'sk_live_… (or sk_test_… to try it)')}" autocomplete="off"></div>
+            <input name="stripe_secret_key" type="password" value="" placeholder="${keyPlaceholder(s.stripe_secret_key_set, 'sk_live_… (or sk_test_… to try it)')}" autocomplete="off">
+            <div class="hint">From <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noreferrer">Stripe → Developers → API keys</a>.</div></div>
+          <div class="form-grid">
+            <div class="field"><label>Square access token${keySaved(s.square_access_token_set)}</label>
+              <input name="square_access_token" type="password" value="" placeholder="${keyPlaceholder(s.square_access_token_set, 'EAAA…')}" autocomplete="off">
+              <div class="hint">Square Developer → your application → Production access token.</div></div>
+            <div class="field"><label>Square location ID</label>
+              <input name="square_location_id" value="${esc(s.square_location_id || '')}" placeholder="L1A2B3C4D5E6F" autocomplete="off">
+              <div class="hint">Square Dashboard → Locations.</div></div>
+          </div>
           <div class="form-grid">
             <div class="field"><label>Deposit</label>
               <select name="deposit_type">
@@ -1275,7 +1300,8 @@ export async function renderSettings(container, params) {
 
   container.querySelector('#set-payments').addEventListener('submit', (e) => {
     e.preventDefault();
-    saveSettings(e.target, ['stripe_secret_key', 'deposit_type', 'deposit_value', 'currency_code']);
+    saveSettings(e.target, ['stripe_secret_key', 'deposit_type', 'deposit_value', 'currency_code',
+      'pay_provider', 'pay_mode', 'square_access_token', 'square_location_id']);
   });
   const posCardForm = container.querySelector('#set-poscard');
   posCardForm.addEventListener('change', () => {
