@@ -2820,3 +2820,32 @@ button.kai-open span { flex: 1; text-align: left; }
 .kai-step-t { display: block; font-size: 13.5px; font-weight: 600; }
 .kai-step-d { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 2px; line-height: 1.5; }
 .kai-step svg { flex: none; margin-top: 3px; color: var(--text-2); }
+
+/* ---------------------------------------------------------------------------
+   Sample data, labelled
+   ---------------------------------------------------------------------------
+   Amber rather than red. A demo client is not an error — it is a thing the
+   owner has not got round to yet — but it must never be mistaken for a real
+   person, so it is never quiet either.
+*/
+.demo-chip {
+  display: inline-block; margin-left: 8px; vertical-align: 1px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 5px;
+  background: rgba(217, 164, 65, .16); color: var(--amber, #d9a441);
+}
+.demo-banner {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; margin-bottom: 14px; border-radius: 12px;
+  background: rgba(217, 164, 65, .07);
+  border: 1px solid rgba(217, 164, 65, .3);
+  font-size: 13px; line-height: 1.55; color: var(--text-2);
+}
+.demo-banner svg { flex: none; margin-top: 2px; color: var(--amber, #d9a441); }
+.demo-banner > div { flex: 1; min-width: 0; }
+.demo-banner b { color: var(--text-1); }
+.demo-banner .btn { flex: none; align-self: center; }
+@media (max-width: 620px) {
+  .demo-banner { flex-wrap: wrap; }
+  .demo-banner .btn { width: 100%; justify-content: center; }
+}

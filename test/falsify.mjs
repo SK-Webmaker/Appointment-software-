@@ -535,6 +535,32 @@ const MUTATIONS = {
     find: "    .replace(/(\\d(?::\\d\\d)?\\s*(?:am|pm)?)\\s*[–—]\\s*(\\d)/gi, '$1 to $2')",
     replace: "    .replace(/(\\d(?::\\d\\d)?\\s*(?:am|pm)?)\\s*[–—-]\\s*(\\d)/gi, '$1 to $2')",
   },
+  'demo-removal-ignores-the-flag': {
+    // Scoped to the flag, never "delete everything and hope they had not
+    // started". An owner who added real clients while looking around keeps them.
+    file: 'src/db.js', suites: ['demo-data'],
+    find: 'export function clearDemoData() {\n  db.exec(`',
+    replace: 'export function clearDemoData() {\n  if (true) { clearBusinessData(); return; }\n  db.exec(`',
+  },
+  'demo-skip-keeps-the-fake-salon': {
+    // "Skip for now" used to hand a real business fourteen invented clients.
+    file: 'src/api.js', suites: ['demo-data'],
+    find: "route('POST', '/api/setup/skip', async () => {\n  clearDemoData();",
+    replace: "route('POST', '/api/setup/skip', async () => {",
+  },
+  'demo-rows-go-unflagged': {
+    // An unflagged seed row is invisible to the label AND to the delete.
+    file: 'src/db.js', suites: ['demo-data'],
+    find: "  for (const t of ['clients', 'appointments', 'services', 'staff', 'products']) {\n    db.prepare(`UPDATE ${t} SET is_demo = 1`).run();",
+    replace: "  for (const t of ['appointments', 'services', 'staff', 'products']) {\n    db.prepare(`UPDATE ${t} SET is_demo = 1`).run();",
+  },
+  'demo-clients-become-messageable': {
+    // A salon that switches an automation on before clearing the demo would
+    // spend its first send on people who do not exist.
+    file: 'src/automations.js', suites: ['demo-data'],
+    find: "WHERE marketing_opt_out = 1 OR is_demo = 1",
+    replace: "WHERE marketing_opt_out = 1",
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.

@@ -44,10 +44,15 @@ async function drawList(container, q = '') {
   const optionsFor = (map, current) => Object.entries(map)
     .map(([k, v]) => `<option value="${k}" ${k === current ? 'selected' : ''}>${v.label}</option>`).join('');
 
+  // How many of these people are not real. Said out loud, because the one
+  // thing worse than sample data is sample data an owner has started to trust.
+  const demo = clients.filter((c) => c.is_demo).length;
+
   container.innerHTML = `
     <div class="page-head">
       <div class="ph-icon">${icon('users', 20)}</div>
-      <div><h1>Clients</h1><div class="ph-sub" id="cl-count">${clients.length} client${clients.length === 1 ? '' : 's'} in your book</div></div>
+      <div><h1>Clients</h1><div class="ph-sub" id="cl-count">${clients.length} client${clients.length === 1 ? '' : 's'} in your book${
+  demo ? ` · ${demo} of them samples` : ''}</div></div>
       <div class="ph-actions">
         <button class="btn" id="cl-merge">${icon('link')} Merge duplicates</button>
         <button class="btn" id="cl-contacts">${icon('phone')} Update contacts</button>
@@ -56,6 +61,15 @@ async function drawList(container, q = '') {
         <button class="btn primary" id="cl-new">${icon('plus')} New client</button>
       </div>
     </div>
+    ${demo ? `
+      <div class="demo-banner">
+        ${icon('alert', 16)}
+        <div><b>${demo} of these are examples, not real people.</b>
+          Kairo ships with a sample salon so the screens are not empty while you look around.
+          They are never messaged and they are not counted as real clients — but they are in your
+          reports until you take them out.</div>
+        <button class="btn" id="cl-demo-clear">${icon('trash', 13)} Remove the samples</button>
+      </div>` : ''}
     <div class="toolbar" style="gap:10px;flex-wrap:wrap">
       <div class="search-box" style="flex:0 1 320px">${icon('search')}
         <input id="cl-search" placeholder="Search name, email or phone…" value="${esc(q)}"></div>
@@ -82,9 +96,12 @@ async function drawList(container, q = '') {
       ? view.map(rowHtml).join('')
       : `<tr><td colspan="6"><div class="empty">${icon('users')}<div>No clients${
           q || showBy !== 'all' ? ' match your search or filter' : ' yet — add one or import a CSV'}.</div></div></td></tr>`;
+    // The sample count belongs here rather than only in the template: this
+    // line runs on every filter change and would otherwise quietly wipe it.
     container.querySelector('#cl-count').textContent =
       showBy === 'all' && !q
-        ? `${clients.length} client${clients.length === 1 ? '' : 's'} in your book`
+        ? `${clients.length} client${clients.length === 1 ? '' : 's'} in your book${
+  demo ? ` · ${demo} of them samples` : ''}`
         : `${view.length} of ${clients.length} shown`;
   };
   renderRows();
@@ -105,6 +122,28 @@ async function drawList(container, q = '') {
 
   container.querySelector('#cl-show').addEventListener('change', (e) => { showBy = e.target.value; renderRows(); });
   container.querySelector('#cl-sort').addEventListener('change', (e) => { sortBy = e.target.value; renderRows(); });
+
+  // Removing the samples deletes rows, so it asks — and it says what it will
+  // NOT touch, because "remove the samples" from a system that also holds your
+  // real clients is a sentence worth being sure about.
+  const clearDemo = container.querySelector('#cl-demo-clear');
+  if (clearDemo) {
+    clearDemo.onclick = async () => {
+      const yes = await confirmDialog('Remove the samples',
+        `This deletes the ${demo} example client${demo === 1 ? '' : 's'} and the sample services, `
+        + 'team and appointments that came with them. Anything you have added yourself stays exactly '
+        + 'as it is. It cannot be undone.',
+        { okText: 'Remove them', danger: true });
+      if (!yes) return;
+      try {
+        await api.post('/api/demo/clear', {});
+        toast('Samples removed — this is your business now', 'ok');
+        const { refreshAll } = await import('../app.js');
+        refreshAll().catch(() => { /* the list below is already redrawing */ });
+        drawList(container, q);
+      } catch (err) { toast(err.message, 'err'); }
+    };
+  }
 
   container.querySelector('#cl-new').onclick = () => openClientModal({ onSaved: () => drawList(container, q) });
   container.querySelector('#cl-export').onclick = async () => {
@@ -164,7 +203,8 @@ function rowHtml(c) {
     <tr data-id="${c.id}">
       <td class="rf-head"><div class="row-flex">
         <div class="avatar-sm" style="background:${esc(avatarColor(name))}">${esc(initials(name))}</div>
-        <div><div class="cell-main">${esc(name)}</div>
+        <div><div class="cell-main">${esc(name)}${
+  c.is_demo ? '<span class="demo-chip">Sample</span>' : ''}</div>
         ${c.notes ? `<div class="cell-sub">${esc(c.notes.slice(0, 48))}${c.notes.length > 48 ? '…' : ''}</div>` : ''}</div>
       </div></td>
       <td data-th="Contact"><div class="rf-val"><div>${esc(c.phone || '—')}</div><div class="cell-sub">${esc(c.email || '')}</div></div></td>
