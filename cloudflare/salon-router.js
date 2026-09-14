@@ -37,7 +37,10 @@
  * sends her customers to a copy nobody is reading.
  */
 const STILL_ON_THEIR_OWN_SERVICE = {
-  'hairbysha.kairobookings.com': 'hairbysha-booking.onrender.com',
+  // Empty: every salon is on the shard. Hair By Sha moved 15 September 2026;
+  // Horahaircutz on 8 September. A line here is added when a salon is
+  // provisioned on its own service and deleted the moment it moves — leaving
+  // one in after a move sends that salon's customers to a copy nobody reads.
 };
 
 export default {

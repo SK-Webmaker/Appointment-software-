@@ -294,9 +294,23 @@ async function compareLive() {
   const oldUrl = str('old').replace(/\/+$/, ''), newUrl = str('new').replace(/\/+$/, '');
   if (!oldUrl || !newUrl) usage();
   const newHost = str('new-host');
+  // Reaching a salon on the shard BEFORE its address points there.
+  //
+  // Overriding the Host header does not work: the request still arrives at the
+  // shard's own onrender.com address, and Render routes on Host, so a salon
+  // hostname it has never been told about is refused before the shard sees it.
+  // The front door has the same problem and solves it by carrying the real
+  // hostname in a header that the shard only believes when it comes with a
+  // secret. With --forward-secret this does exactly what the Worker does, so
+  // the comparison exercises the path customers will use rather than a
+  // pretend one.
+  const forwardSecret = str('forward-secret');
   const get = async (base, p, host) => {
-    const r = await request('GET', base + p, { host });
-    if (!r.ok) throw new Error(`${base}${p}${host ? ` (Host: ${host})` : ''} → ${r.status}`);
+    const opts = host && forwardSecret
+      ? { headers: { 'x-kairo-host': host, 'x-kairo-forward-secret': forwardSecret } }
+      : { host };
+    const r = await request('GET', base + p, opts);
+    if (!r.ok) throw new Error(`${base}${p}${host ? ` (as ${host})` : ''} → ${r.status}`);
     return asJson(r);
   };
   const strip = (info) => { const { read_only, ...rest } = info; return rest; };
