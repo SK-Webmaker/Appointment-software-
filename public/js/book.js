@@ -279,7 +279,7 @@ async function boot() {
     } catch { state.referral = null; }
 
     // Returning from Stripe after a deposit?
-    if (params.get('deposit') && params.get('appt')) {
+    if ((params.get('deposit') || params.get('paid')) && params.get('appt')) {
       history.replaceState(null, '', '/book');
       await handleDepositReturn(params);
       return;
@@ -397,6 +397,20 @@ async function openOnOffer(offer) {
 
 async function handleDepositReturn(params) {
   const apptId = Number(params.get('appt'));
+  // Back from a full-payment checkout — Stripe or Square. Verified with the
+  // provider server-side; "?paid=success" in the address bar proves nothing on
+  // its own, and a customer could type it.
+  if (params.get('paid') === 'success') {
+    try {
+      const res = await getJson('/api/public/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointment_id: apptId, session_id: params.get('session_id') || '' }),
+      });
+      renderConfirmed(res, { depositPaid: res.paid, depositCents: res.deposit_cents });
+      return;
+    } catch { /* fall through to the held-booking message */ }
+  }
   if (params.get('deposit') === 'success' && params.get('session_id')) {
     try {
       const res = await getJson('/api/public/confirm-deposit', {
@@ -839,6 +853,8 @@ function renderDetailsStep() {
     </div>
     ${requirementNoticeHtml()}
     ${depositNoteHtml()}
+    ${payFullNoteHtml()}
+    ${payChoiceHtml()}
     ${cancelPolicyHtml()}
     <div class="bk-section-title">Your details</div>
     <form id="bk-form" class="form-grid">
@@ -863,7 +879,7 @@ function renderDetailsStep() {
         </div>` : ''}
       ${state.info.turnstile_site_key ? '<div class="span2" id="bk-turnstile" style="display:flex;justify-content:center"></div>' : ''}
       <div class="span2" style="text-align:right">
-        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} ${depositCents() > 0 ? 'Continue to deposit' : 'Confirm booking'}</button>
+        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">${icon('check')} ${payButtonLabel()}</button>
       </div>
       <div class="span2" id="bk-error" style="color:var(--red);font-size:13px;text-align:center"></div>
     </form>
@@ -973,6 +989,9 @@ async function submitBooking(details) {
         reschedule_token: fromStore('kairo_reschedule'),
         referral_token: fromStore('kairo_referral'),
         heard_from: details.heard_from || '',
+        // Only meaningful when the salon offers the choice; the server ignores
+        // it otherwise, so it is always safe to send.
+        pay_choice: document.querySelector('input[name="pay_choice"]:checked')?.value || undefined,
         consents: details.consents?.length ? details.consents : undefined,
         patch: state.patch
           ? { date: state.patch.date, start_min: state.patch.start_min, staff_id: state.patch.staff_id }
@@ -1161,6 +1180,52 @@ function depositCents() {
   return 0;
 }
 
+/**
+ * Paying now, or paying in person.
+ *
+ * Only drawn when the business has actually connected a processor AND asked for
+ * the choice — a booking page that offers a card the salon cannot take is worse
+ * than one that never mentions it.
+ *
+ * The whole basket is one payment. A haircut and a beard trim is a single
+ * total with both lines on the checkout, not two transactions in a row.
+ */
+function payChoiceHtml() {
+  const p = state.info?.payment;
+  if (!p?.configured || p.mode !== 'choice' || !state.services.length) return '';
+  const total = cartTotalCents();
+  if (total <= 0) return '';
+  return `
+    <div class="bk-pay">
+      <div class="bk-pay-h">How would you like to pay?</div>
+      <label class="bk-pay-opt">
+        <input type="radio" name="pay_choice" value="now" checked>
+        <span><b>Pay now — ${money(total)}</b>
+          <span>Card, on the next screen. Covers ${state.services.length === 1
+    ? 'your appointment' : `all ${state.services.length} services`} in one payment.</span></span>
+      </label>
+      <label class="bk-pay-opt">
+        <input type="radio" name="pay_choice" value="in_person">
+        <span><b>Pay in person</b>
+          <span>Settle up when you arrive. Your booking is confirmed either way.</span></span>
+      </label>
+    </div>`;
+}
+
+/** The whole basket, due online, when the salon requires it. */
+function payFullNoteHtml() {
+  const p = state.info?.payment;
+  if (!p?.configured || p.mode !== 'full' || !state.services.length) return '';
+  const total = cartTotalCents();
+  if (total <= 0) return '';
+  return `
+    <div class="bk-summary" style="border-color:color-mix(in srgb, var(--accent) 40%, transparent)">
+      <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('card')}</span>
+      <div>You'll pay <b>${money(total)}</b> by card on the next screen${state.services.length > 1
+    ? `, covering all ${state.services.length} services in one payment` : ''}.</div>
+    </div>`;
+}
+
 function depositNoteHtml() {
   const cents = depositCents();
   if (!cents) return '';
@@ -1170,6 +1235,22 @@ function depositNoteHtml() {
       <div>A <b>${money(cents)} deposit</b> secures your booking. You'll pay it by card on the next screen.
         <span style="color:var(--text-2)">It comes off your bill on the day.</span></div>
     </div>`;
+}
+
+/**
+ * What the button should say.
+ *
+ * It must not promise a payment screen that is not coming, or hide one that is.
+ * Under 'choice' the label follows whichever option is currently selected.
+ */
+function payButtonLabel() {
+  const p = state.info?.payment;
+  if (p?.configured && p.mode === 'full' && cartTotalCents() > 0) return 'Continue to payment';
+  if (p?.configured && p.mode === 'choice' && cartTotalCents() > 0) {
+    const picked = document.querySelector('input[name="pay_choice"]:checked')?.value || 'now';
+    return picked === 'now' ? 'Continue to payment' : 'Confirm booking';
+  }
+  return depositCents() > 0 ? 'Continue to deposit' : 'Confirm booking';
 }
 
 /** "12 hours" / "24 hours" / "2 days" — reads naturally mid-sentence. */

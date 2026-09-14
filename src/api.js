@@ -26,6 +26,10 @@ import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
   createPosCheckout, verifyPosSession, createStripeRefund,
 } from './stripe.js';
+import {
+  payProvider, payMode, paymentInfo, amountDueCents, paymentsConfigured, paymentRequired,
+  createCheckout as createPayCheckout, verifyPayment as verifyPayPayment,
+} from './payments.js';
 import { VERSION } from './version.js';
 import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
 import {
@@ -481,6 +485,7 @@ export const EDITABLE_SETTINGS = new Set([
   'telnyx_api_key', 'telnyx_from', 'telnyx_profile_id',
   'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
+  'pay_provider', 'pay_mode', 'square_access_token', 'square_location_id',
   'pos_card_method', 'pos_payment_link',
   'checklist_link_shared', 'checklist_app_installed', 'acma_registered',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
@@ -4179,6 +4184,11 @@ route('GET', '/api/public/info', async () => {
       type: getSetting('deposit_type', 'none'),
       value: Number(getSetting('deposit_value', '0')) || 0,
     },
+    // Paying for the booking itself: who processes the card, and whether the
+    // customer is asked for it now, offered the choice, or left to pay in
+    // person. The page cannot offer a card the business cannot take, so this is
+    // computed from what is actually connected rather than from a tick box.
+    payment: paymentInfo(),
     // What each service needs before it can happen — the salon's own policy,
     // and nothing about any client. The same sentence printed on the wall of
     // every colour bar in the country, so it discloses nothing, and having it
@@ -4553,6 +4563,8 @@ route('POST', '/api/public/book', async ({ req }) => {
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
     notes: s.str(1000), origin: s.str(300), turnstile_token: s.str(2048),
     from_message: s.str(64), reschedule_token: s.str(64),
+    // 'now' or 'in_person' — only meaningful when the salon offers the choice.
+    pay_choice: s.oneOf(['now', 'in_person']),
     referral_token: s.str(32), heard_from: s.str(20),
     // What they have just agreed to, and the patch-test slot they picked when
     // the gate asked for one. Both arrive on the second attempt: the first is
@@ -4786,9 +4798,45 @@ route('POST', '/api/public/book', async ({ req }) => {
   const depositCents = rule.deposit_required
     ? Math.max(standing, ruleDepositCents(totalPriceCents))
     : standing;
-  if (depositCents > 0 && stripeConfigured()) {
+  //
+  // Three ways this can go, decided by the salon's pay_mode:
+  //
+  //   deposit — the original behaviour, unchanged: one line, part of the total.
+  //   full    — the whole basket, online, before the booking is confirmed.
+  //   choice  — the whole basket, online, only if the customer picked "pay now".
+  //             Otherwise they pay in person and the booking is simply made.
+  //
+  // Under 'full' and 'choice' the charge is ONE payment covering EVERY service:
+  // a haircut and a beard trim are a single $65 checkout with two lines on it,
+  // not two transactions the customer has to complete in a row.
+  const mode = payMode();
+  const payChoice = str(b.pay_choice, 12); // 'now' | 'in_person' | ''
+  // Decided in one place — src/payments.js — so the booking route and the
+  // booking page can never disagree about whether a card is wanted.
+  const wantsToPayNow = (mode === 'full' || mode === 'choice') && paymentRequired({ payChoice });
+  const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
+
+  if (wantsToPayNow && paymentsConfigured()) {
     try {
-      const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
+      // One line per service, so the customer can see what the total is made of.
+      const items = svc.services.map((x) => ({ name: x.name, cents: x.price_cents }));
+      const due = amountDueCents(totalPriceCents, depositCents);
+      if (due > 0 && items.length) {
+        const session = await createPayCheckout({
+          appointmentId: apptId, items, origin, idemToken: String(apptId),
+        });
+        db.prepare(`UPDATE appointments SET deposit_cents = ?, deposit_status = 'pending',
+                    stripe_session_id = ?, pay_provider = ? WHERE id = ?`)
+          .run(due, session.session_id, session.provider || payProvider(), apptId);
+        checkoutUrl = session.url;
+      }
+    } catch (err) {
+      // The booking is never lost to a payment problem. They can pay when they
+      // arrive, and the salon still has the appointment in the diary.
+      console.error('Checkout failed, booking continues unpaid:', err.message);
+    }
+  } else if (!wantsToPayNow && mode === 'deposit' && depositCents > 0 && stripeConfigured()) {
+    try {
       const session = await createDepositCheckout({
         appointmentId: apptId, serviceName: serviceLabel, depositCents, origin,
       });
@@ -4863,6 +4911,57 @@ route('POST', '/api/public/book', async ({ req }) => {
     // appointments. Somebody who thinks they booked one thing and turns up to
     // find they booked two has been tricked, however helpfully.
     patch_appointment: patchAppt,
+  };
+}, { auth: false });
+
+/**
+ * Back from a hosted checkout — did it actually get paid?
+ *
+ * Verified with the PROVIDER, never taken from the URL. A customer who edits
+ * "?paid=success" into their address bar has told us nothing, and a booking
+ * marked paid on the strength of a query string is a booking the salon cannot
+ * collect on.
+ *
+ * The provider is read off the appointment rather than off settings, so an
+ * owner who switches from Stripe to Square today can still verify yesterday's
+ * pending payment.
+ */
+route('POST', '/api/public/confirm-payment', async ({ req }) => {
+  const { appointment_id, session_id } = checkBody(await readJson(req), {
+    appointment_id: s.num({ required: true }), session_id: s.str(300) ,
+  });
+  const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(Number(appointment_id));
+  if (!appt) throw httpError(404, 'Booking not found');
+  const ref = str(session_id, 300) || appt.stripe_session_id;
+  // The reference has to be the one this booking was issued, or anybody could
+  // attach somebody else's completed payment to their own appointment.
+  if (!appt.stripe_session_id || appt.stripe_session_id !== ref) {
+    throw httpError(400, 'That payment does not match this booking');
+  }
+
+  let paid = appt.deposit_status === 'paid';
+  let cents = appt.deposit_cents;
+  if (!paid) {
+    const check = await verifyPayPayment(ref, appt.pay_provider || '');
+    paid = check.paid;
+    if (paid) {
+      cents = check.amount_cents || appt.deposit_cents;
+      db.prepare("UPDATE appointments SET deposit_status = 'paid', deposit_cents = ?, status = 'confirmed' WHERE id = ?")
+        .run(cents, appt.id);
+      queueDepositReceipt(appt.id, cents);
+      processQueue().catch(() => {});
+    }
+  }
+  const full = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(appt.id);
+  return {
+    paid, deposit_cents: cents,
+    provider: appt.pay_provider || '',
+    reference: `BK-${String(full.id).padStart(5, '0')}`,
+    appointment_id: full.id,
+    ics_url: `/api/public/ics/${full.id}?t=${recordToken('ics', full.id, getSetting('session_secret'))}`,
+    date: full.date, start_min: full.start_min, end_min: full.end_min,
+    service: full.service_name, staff: full.staff_name,
+    business_name: getSetting('business_name'),
   };
 }, { auth: false });
 

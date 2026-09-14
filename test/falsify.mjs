@@ -561,6 +561,31 @@ const MUTATIONS = {
     find: "WHERE marketing_opt_out = 1 OR is_demo = 1",
     replace: "WHERE marketing_opt_out = 1",
   },
+  'payment-charges-only-one-service': {
+    // A haircut and a beard trim is ONE payment for the combined total. This
+    // mutation charges for the haircut and lets the customer walk on the rest.
+    file: 'src/api.js', suites: ['payments'],
+    find: '      const items = svc.services.map((x) => ({ name: x.name, cents: x.price_cents }));',
+    replace: '      const items = svc.services.slice(0, 1).map((x) => ({ name: x.name, cents: x.price_cents }));',
+  },
+  'payment-ignores-pay-in-person': {
+    // Choosing to pay at the counter must not open a checkout.
+    file: 'src/payments.js', suites: ['payments'],
+    find: "  if (mode === 'choice') return payChoice === 'now';",
+    replace: "  if (mode === 'choice') return true;",
+  },
+  'payment-offers-a-card-it-cannot-take': {
+    // A booking page that offers a card the business has not connected.
+    file: 'src/payments.js', suites: ['payments'],
+    find: "  if (mode !== 'none' && !paymentsConfigured()) return 'none';",
+    replace: "  if (false) return 'none';",
+  },
+  'payment-trusts-the-return-url': {
+    // "?paid=success" is a claim by whoever typed it.
+    file: 'src/api.js', suites: ['payments'],
+    find: "    const check = await verifyPayPayment(ref, appt.pay_provider || '');\n    paid = check.paid;",
+    replace: "    const check = await verifyPayPayment(ref, appt.pay_provider || '');\n    paid = true;",
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.

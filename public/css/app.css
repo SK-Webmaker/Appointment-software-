@@ -2849,3 +2849,21 @@ button.kai-open span { flex: 1; text-align: left; }
   .demo-banner { flex-wrap: wrap; }
   .demo-banner .btn { width: 100%; justify-content: center; }
 }
+
+/* Pay now or pay in person, on the booking page. */
+.bk-pay { margin: 14px 0; display: flex; flex-direction: column; gap: 8px; }
+.bk-pay-h { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+.bk-pay-opt {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  padding: 12px 14px; border-radius: 11px;
+  border: 1px solid var(--line, rgba(255,255,255,.1));
+  background: var(--surface-2, rgba(255,255,255,.02));
+}
+.bk-pay-opt:has(input:checked) {
+  border-color: var(--accent, #3987e5);
+  background: color-mix(in srgb, var(--accent, #3987e5) 8%, transparent);
+}
+.bk-pay-opt input { margin-top: 3px; flex: none; }
+.bk-pay-opt > span { display: flex; flex-direction: column; gap: 2px; }
+.bk-pay-opt b { font-size: 14px; }
+.bk-pay-opt span span { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }

@@ -605,6 +605,10 @@ function migrate() {
   // means all of them, and a token that only worked for the email it came in
   // would be a worse promise than none.
   addColumn('clients', 'unsub_token', "unsub_token TEXT NOT NULL DEFAULT ''");
+  // Which processor took the money for this booking. Kept per appointment
+  // rather than read from settings at verify time: an owner who switches from
+  // Stripe to Square must not make yesterday's pending payments unverifiable.
+  addColumn('appointments', 'pay_provider', "pay_provider TEXT NOT NULL DEFAULT ''");
 
   // Sample data, marked as sample.
   //
@@ -664,7 +668,9 @@ export function setSetting(key, value) {
 // each with an empty string plus a `<key>_set` boolean, so the UI can show
 // "configured — leave blank to keep" without the value ever reaching a browser.
 export const SECRET_SETTINGS = new Set([
-  'session_secret', 'resend_api_key', 'stripe_secret_key',
+  // A Square access token charges cards on the business's own account. It is
+  // exactly as dangerous as the Stripe key sitting beside it.
+  'session_secret', 'resend_api_key', 'stripe_secret_key', 'square_access_token',
   'twilio_token', 'clicksend_api_key', 'telnyx_api_key',
   // Shared with Cloudflare, never with the browser.
   'cf_origin_secret', 'turnstile_secret_key',
