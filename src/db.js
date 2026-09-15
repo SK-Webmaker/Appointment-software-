@@ -1008,7 +1008,7 @@ const DEFAULT_SETTINGS = {
   // recover from, and a backup nobody switched on is no backup at all. Costs
   // one email a week and sends nothing until an email provider is configured.
   backup_email_enabled: '1',
-  backup_frequency: 'weekly',      // off | daily | weekly | fortnightly
+  backup_frequency: 'weekly',      // see FREQUENCIES in src/backup.js
   backup_email_to: '',             // blank = the business email
   // The edge. Both off until deliberately configured — a half-set-up origin
   // lock that started enforcing would shut the owner out of their own salon.

@@ -296,6 +296,13 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // Apple's reviewer opens the Support and Privacy URLs and clicks what is on
+  // them, and those two addresses cannot be edited once the app is submitted.
+  'a-policy-page-links-somewhere-dead': {
+    file: 'platform/public/support.html', suites: ['signup'],
+    find: 'see the <a href="/refunds">Refund Policy</a>',
+    replace: 'see the <a href="/refund-policy">Refund Policy</a>',
+  },
   // The cutover unmute. A salon left muted serves perfectly and sends nothing
   // — no confirmations, no reminders — and no screen says so, so the only
   // thing standing between that and a silent salon is this script actually

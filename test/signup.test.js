@@ -123,6 +123,39 @@ test('the signup page and its policies are served, with the strict headers', asy
   assert.equal(price.json.base_domain, DOMAIN);
 });
 
+test('every link on the policy pages goes somewhere real', async () => {
+  // Apple's reviewer opens the Support and Privacy URLs and clicks what is on
+  // them. A dead link there reads as an abandoned product, and the two URLs in
+  // the listing cannot be edited once the app is submitted. This walks every
+  // internal href on all four pages rather than trusting that they were typed
+  // correctly.
+  const pages = ['/support', '/privacy', '/terms', '/refunds'];
+  const seen = new Set();
+  for (const page of pages) {
+    const r = await platform.api('GET', page);
+    assert.equal(r.status, 200, page);
+    const hrefs = [...r.text.matchAll(/href="([^"]+)"/g)].map((m) => m[1])
+      .filter((h) => h.startsWith('/') && !h.startsWith('//'));
+    assert.ok(hrefs.length >= 4, `${page} should link to its siblings, found ${hrefs.length}`);
+    for (const h of hrefs) {
+      if (seen.has(h)) continue;
+      seen.add(h);
+      const link = await platform.api('GET', h);
+      assert.equal(link.status, 200, `${page} links to ${h}, which answers ${link.status}`);
+    }
+  }
+});
+
+test('the support page says how to reach a person, because that is what it is for', async () => {
+  const r = await platform.api('GET', '/support');
+  assert.match(r.text, /support@kairobookings\.com/, 'a contact address is the whole point of the page');
+  // Claims it used to make that the product does not do: backups "daily" when
+  // the default is weekly, and an old booking address that "keeps working and
+  // forwards" when nothing anywhere implements that.
+  assert.doesNotMatch(r.text, /backed up daily/i, 'backups are weekly by default, not daily');
+  assert.doesNotMatch(r.text, /keeps working and forwards/i, 'no old-address forwarding exists');
+});
+
 test('the address is suggested from the business name and checked as it is typed', async () => {
   const suggest = await platform.api('GET', `/api/slug?slug=&from=${encodeURIComponent('ABC Hair Studio')}`);
   assert.equal(suggest.json.slug, 'abchairstudio');
