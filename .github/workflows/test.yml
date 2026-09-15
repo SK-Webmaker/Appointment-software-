@@ -2,10 +2,27 @@ name: test
 on:
   push:
   pull_request:
+
+# Two jobs, not one, and the split is load-bearing.
+#
+# Until 15 September this was a single job with timeout-minutes: 30. It ran
+# `npm test` and then `npm run test:falsify` in sequence, and as the falsifier
+# grew — 94 mutations on 13 September, 119 today — the pair crossed thirty
+# minutes and GitHub started cancelling the run. Nine consecutive commits were
+# cancelled, including the one the live shard is running.
+#
+# That is worse than a red build. UPDATING.md tells you to gate a shard deploy
+# on CI being green for the commit you are deploying, and a cancelled run is
+# neither green nor red — it is a gate that quietly stopped being a gate.
+#
+# Split, the two report separately: `tests` answers in a few minutes and is the
+# signal you actually wait on, and `mutations` gets a budget that fits it.
+# Neither can hide behind the other's clock.
 jobs:
-  test:
+  tests:
+    name: tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,4 +31,17 @@ jobs:
       - run: node --version
       # No install step: Kairo has no dependencies, and the tests use node:test.
       - run: npm test
+
+  mutations:
+    name: mutations
+    runs-on: ubuntu-latest
+    # Deliberately generous. This job breaks the code on purpose 119 times and
+    # runs a suite against each one; it is minutes of work, not seconds, and
+    # the failure mode being avoided is a timeout masquerading as a result.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: npm run test:falsify

@@ -153,10 +153,18 @@ Three consequences, and they are not negotiable:
 
 ## Before you deploy
 
-CI already runs `npm test` and `npm run test:falsify` on every push
-(`.github/workflows/test.yml`). **Check it is green for the commit you are
-about to deploy** — not for the branch, for the commit. That is the gate, and
-it is free.
+CI runs `npm test` and `npm run test:falsify` on every push
+(`.github/workflows/test.yml`), as two separate jobs — **tests** and
+**mutations**. **Check both are green for the commit you are about to deploy**
+— not for the branch, for the commit. That is the gate, and it is free.
+
+> **A cancelled run is not a pass.** On 15 September nine consecutive runs were
+> found cancelled at exactly thirty minutes, the shard's own deployed commit
+> among them: the two commands shared one 30-minute budget and the falsifier had
+> grown past it. A cancelled run is neither green nor red, and it had been read
+> as "not red" for two days. If a run shows anything other than a green tick on
+> both jobs, treat the gate as unavailable and run the two commands locally
+> before deploying.
 
 Locally, the same two commands:
 
