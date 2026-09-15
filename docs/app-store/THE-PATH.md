@@ -141,8 +141,10 @@ use into something a stranger can buy at 11pm.**
 
 | Step | |
 |---|---|
-| **Kairo's own Resend account** | Not Sha's. Verify `kairobookings.com`, upgrade to **Pro, US$20/mo** — the free tier's 100-a-day cap is shared across every salon you ever sell to. |
-| **Two variables on the shard** | `KAIRO_SHARED_RESEND_KEY`, `KAIRO_SHARED_FROM`. Every future salon can then send email without configuring anything. Sha and Hora are unaffected — the code prefers a salon's own account, and a test fails if that stops being true. |
+| **Kairo's own Resend account** | ✅ **Done, and proven.** `kairobookings.com` is verified in its own Resend team, separate from Sha's — DKIM and both return-path records all verified, Tokyo region. Two test sends on 15 September, one as the platform and one as a salon, both **delivered**. |
+| **Two sending-only keys** | Create them in the Resend dashboard, **Sending access**, scoped to `kairobookings.com` — never a full-access key on a server, which is the same rule `platform/resend.js` already follows for salons' own accounts. One becomes `RESEND_API_KEY` on the platform, the other `KAIRO_SHARED_RESEND_KEY` on the shard. Separate keys so revoking one does not take down the other. |
+| **Two addresses** | `PLATFORM_FROM_EMAIL` takes a display name: `Kairo <support@kairobookings.com>`. `KAIRO_SHARED_FROM` must be a **bare address** — `bookings@kairobookings.com` — because the code puts the *salon's* name in front of it and sets `reply_to` to the salon's own inbox. Sha and Hora are unaffected either way: the code prefers a salon's own account, and `test/shared-sender.test.js` fails if that stops being true. |
+| **Resend Pro — not yet** | Free is 100 emails a day, and this workspace has sent 11 in its life. Pro is needed **before the second salon on shared sending**, not before the first sale: one busy salon's confirmations and reminders can use 100 a day by itself. |
 | **Stripe live keys** | `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` on the platform. Without the webhook secret a customer pays and Kairo never hears — charged A$410, nothing built. |
 | **Deploy** | Render → New → Blueprint → `platform/render.yaml`. Test on its own `onrender.com` address first. |
 | **Buy it yourself** | With a real card. The whole path: signup, email code, SMS code, A$410, the wait, "your Kairo is ready", first login. Then refund yourself. |
