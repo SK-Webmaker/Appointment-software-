@@ -296,6 +296,36 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // ── The whole business model, end to end ────────────────────────────────
+  // journey.test.js walks a stranger from the shop front to a paid invoice.
+  // These four break one link each, because a six-act story that cannot fail
+  // is a very long way of asserting nothing.
+
+  // A client hits Reply on their confirmation — "can I move to 3pm?" — and on
+  // the shared sender the From address is Kairo's. Without the reply-to that
+  // message reaches US and the salon never learns it was asked. A lost client,
+  // silently, which is the worst shape a bug can have.
+  'confirmation-reply-goes-to-kairo-not-the-salon': {
+    file: 'src/notify.js', suites: ['journey'],
+    find: '      ...(replyTo ? { reply_to: replyTo } : {}),',
+    replace: '      ...(false ? { reply_to: replyTo } : {}),',
+  },
+  // The invoice must be the price of the service that was booked. Billing a
+  // different number than the one on the menu is the single most damaging
+  // thing this software could do quietly.
+  'invoice-bills-a-different-price-than-the-menu': {
+    file: 'src/api.js', suites: ['journey'],
+    find: '    for (const svc of services) lineItem.run(invId, svc.name, svc.price_cents || 0);',
+    replace: '    for (const svc of services) lineItem.run(invId, svc.name, 0);',
+  },
+  // The platform keeps the owner's password hash only long enough to create
+  // her salon with it. Holding it afterwards is a credential Kairo has no
+  // reason to have and every reason not to.
+  'platform-keeps-the-owners-password-after-provisioning': {
+    file: 'platform/signup.js', suites: ['journey', 'signup'],
+    find: `db.prepare("UPDATE businesses SET pass_hash = '', salt = '', last_error = '', ready_at = datetime('now') WHERE id = ?").run(b.id);`,
+    replace: `db.prepare("UPDATE businesses SET last_error = '', ready_at = datetime('now') WHERE id = ?").run(b.id);`,
+  },
   // The reviewer's sign-in. Their own launch doc calls a broken demo login the
   // most common avoidable rejection there is, so the check that guards it has
   // to be able to fail.
