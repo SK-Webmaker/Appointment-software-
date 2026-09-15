@@ -127,10 +127,14 @@ lifted straight across.
 
 Either works. Neither can be skipped.
 
-**Also: `support@kairobookings.com` needs a destination.** The MX records are
-live and answering, so mail is accepted and then goes nowhere. Cloudflare →
-Email Routing → forward it to an inbox you read. Free, two minutes, and Apple
-will email it.
+**`support@kairobookings.com` — probably already works, confirm it.** On
+15 September a real message sent to it came back **delivered**, not bounced.
+Cloudflare Email Routing rejects a recipient it has no rule for, so a rule
+almost certainly exists. What that does not prove is that it lands in an inbox
+somebody reads — only opening the inbox proves that, and Apple emails this
+address during review. If it is not there: Cloudflare → Email Routing →
+Destination addresses (verify one), then Routing rules → support → send to it,
+and set the catch-all while you are there.
 
 ---
 

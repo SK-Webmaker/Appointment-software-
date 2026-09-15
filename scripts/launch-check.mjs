@@ -171,7 +171,7 @@ async function main() {
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
     'Stripe live keys and the webhook secret on the platform service',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
-    'Cloudflare → Email Routing → add the support@ rule (MX is already live; the address just needs a destination)',
+    'Confirm support@kairobookings.com reaches an inbox somebody reads. This script can see the MX records answer, which is NOT the same as a routing rule existing — the only proof is mail arriving. Apple emails this address during review.',
     'The live marketing Terms at kairobookings.com/legal/terms still say A$410 "including GST" and name no seller — see docs/app-store/LEGAL-TODO.md §1b',
   ]) console.log(`  ${c.dim('·')} ${line}`);
 
