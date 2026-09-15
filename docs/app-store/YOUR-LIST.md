@@ -286,6 +286,47 @@ state — before that it says so rather than guessing.
 
 ---
 
+## Part A2 — The live site, which nobody had checked
+
+*Found 15 September. `launch-check` had only ever been run against the repo,
+where it reported one blocker. Run against `https://kairobookings.com` it
+reports six.*
+
+| Address the App Store listing publishes | |
+|---|---|
+| `kairobookings.com/privacy` | **404** |
+| `kairobookings.com/support` | **404** |
+| `kairobookings.com/terms` | **404** |
+| `kairobookings.com/refunds` | **404** |
+| `kairobookings.com/start` | **404** |
+
+The policies do exist — at `/legal/privacy`, `/legal/terms`, `/legal/refunds`,
+which all answer 200. They are simply not where the listing points.
+
+**Apple opens the Privacy and Support URLs during review.** Both 404 today,
+which is a rejection rather than a delay.
+
+**And there is no support page at all.** `/support`, `/legal/support`,
+`/contact` and `/help` are all 404. Privacy can be repointed at a page that
+exists; Support has nothing to point at, so one has to be written.
+
+Two ways to fix it, and they are the same decision as A3:
+
+1. **Deploy the platform and give it the apex.** It already serves `/privacy`,
+   `/terms`, `/refunds`, `/support` and `/start` — that is what
+   `platform/public/` is. This replaces the marketing site, so read the warning
+   at the top of `platform/render.yaml` first.
+2. **Add the pages to the marketing site** at the paths the listing uses, and
+   sell from `get.kairobookings.com`.
+
+Either works. What does not work is submitting to Apple before one of them is
+done.
+
+See also `LEGAL-TODO.md` §1b: the live Terms say the $410 **includes GST**,
+which the checkout does not charge — live and public right now.
+
+---
+
 ## Part F — Submit
 
 ### F1. App Store submission · needs A1, B3, C1–C3

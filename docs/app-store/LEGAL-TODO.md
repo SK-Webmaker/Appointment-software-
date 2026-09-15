@@ -45,6 +45,46 @@ well beyond this file, and it needs settling first.
 
 ---
 
+## 1b. The live site already says the price includes GST — and two Terms exist
+
+*Found 15 September by running `launch-check --origin https://kairobookings.com`
+for the first time, instead of against the repo alone.*
+
+**The public Terms at `kairobookings.com/legal/terms` say:**
+
+> "A one-off setup fee of AUD $410 **including GST**, payable before we set you
+> up."
+
+`platform/stripe.js` adds no GST, and §3 below records why that is right for
+someone not registered. So the page a customer reads today states the price is
+GST-inclusive while the checkout treats it as GST-free.
+
+A business that is not registered for GST **cannot represent a price as
+including GST** — there is no GST in it to include. This is the one item on
+this page that is live and public right now rather than waiting on a decision,
+and it is **worth an accountant's ten minutes** before the next sale, not
+before the first stranger's.
+
+Three ways out, and they are the same three as §2: register for GST and mean
+it; change the wording to drop "including GST"; or decide the price is
+GST-inclusive *because* you are registering. They are not interchangeable —
+the middle one is a wording fix, the other two are decisions about the
+business.
+
+**There are also two different Terms documents.**
+
+| | |
+|---|---|
+| `kairobookings.com/legal/terms` | "Customer Terms", live, last updated 21 August. Names **no seller**. |
+| `platform/public/terms.html` | What the platform serves at `/terms` when it is deployed. Names `[legal name, ABN]` — §1. |
+
+Both describe the agreement between Kairo and the business buying it. Only one
+can be the contract. Whichever it is, the other should point at it rather than
+restate it differently, because the day that matters is the day somebody
+disputes a charge and produces the version that suits them.
+
+---
+
 ## 2. Do you need an ABN yet?
 
 **Not to sell Kairo, no.** You can trade as a sole trader without one. What
