@@ -296,6 +296,23 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // ── Motion ───────────────────────────────────────────────────────────────
+  // Somebody tidying the reduced-motion guard will reach for `animation: none`,
+  // because it reads as obviously correct. It strands every to-only keyframe at
+  // its hidden starting frame — the launch sequence never appears and the app
+  // looks broken to the one person who asked for less movement.
+  'reduced-motion-removes-animations-instead-of-finishing-them': {
+    file: 'public/css/app.css', suites: ['motion'],
+    find: '    animation-duration: 0.01ms !important;',
+    replace: '    animation: none !important;',
+  },
+  // An infinite pulse with a 0.01ms duration does not stop; it loops
+  // imperceptibly fast and burns a phone battery doing it.
+  'reduced-motion-lets-infinite-animations-keep-looping': {
+    file: 'public/css/app.css', suites: ['motion'],
+    find: '    animation-iteration-count: 1 !important;',
+    replace: '    animation-fill-mode: both !important;',
+  },
   // ── The whole business model, end to end ────────────────────────────────
   // journey.test.js walks a stranger from the shop front to a paid invoice.
   // These four break one link each, because a six-act story that cannot fail
