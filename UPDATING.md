@@ -161,8 +161,8 @@ it is free.
 Locally, the same two commands:
 
 ```
-npm test              # 225 checks
-npm run test:falsify  # 94 deliberate breakages, all of which must be caught
+npm test              # 258 checks
+npm run test:falsify  # 119 deliberate breakages, all of which must be caught
 ```
 
 ---

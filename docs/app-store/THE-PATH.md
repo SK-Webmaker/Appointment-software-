@@ -127,14 +127,27 @@ lifted straight across.
 
 Either works. Neither can be skipped.
 
-**`support@kairobookings.com` — probably already works, confirm it.** On
-15 September a real message sent to it came back **delivered**, not bounced.
-Cloudflare Email Routing rejects a recipient it has no rule for, so a rule
-almost certainly exists. What that does not prove is that it lands in an inbox
-somebody reads — only opening the inbox proves that, and Apple emails this
-address during review. If it is not there: Cloudflare → Email Routing →
-Destination addresses (verify one), then Routing rules → support → send to it,
-and set the catch-all while you are there.
+**`support@kairobookings.com` is accepting mail and binning it.** Proven on
+15 September, and worth understanding because the evidence lies. A message sent
+to it comes back **delivered** — and never arrives. So does a message to
+`no-such-mailbox-9f3k2@kairobookings.com`, an address that certainly has no
+rule. An address with no rule should be *rejected*.
+
+That is Email Routing enabled with its catch-all set to **Drop**: Cloudflare
+answers 250 to everything at the domain, then discards whatever no rule
+matches. The sender records a delivery that never happened, so **"delivered" is
+not proof a forwarded address works** — only opening the destination inbox is.
+
+The fix, and Apple emails this address during review:
+
+1. Cloudflare → `kairobookings.com` → **Email** → **Email Routing**.
+2. **Destination addresses** → add the inbox → **click the verification link
+   Cloudflare emails you.** An unverified destination delivers nothing.
+3. **Routing rules** → Create address → `support` → Send to an email → that
+   destination.
+4. Set the **catch-all** to the same destination rather than Drop, so
+   `hello@`, `billing@` and `privacy@` stop vanishing too.
+5. Send a real message and **open the inbox.** Nothing short of that is proof.
 
 ---
 
