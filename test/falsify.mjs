@@ -296,6 +296,31 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // The seller is the party to the contract. A blank is caught by the launch
+  // check; two pages naming two DIFFERENT sellers is the failure that looks
+  // like nothing at all, so the name lives in platform/seller.js and the pages
+  // are read back against it.
+  'terms-names-a-different-seller': {
+    file: 'platform/public/terms.html', suites: ['signup'],
+    find: 'sold by <b>Shamalka Kiridena</b>',
+    replace: 'sold by <b>Kairo Pty Ltd</b>',
+  },
+  // "Kairo Bookings" is a trading name with no ABN behind it, so ASIC has not
+  // registered it and it is not an entity that can sell anything. Naming it in
+  // a contract names nobody — which is exactly as weak as the blank was.
+  'terms-names-an-unregistered-entity': {
+    file: 'platform/public/terms.html', suites: ['signup'],
+    find: 'sold by <b>Shamalka Kiridena</b>',
+    replace: 'sold by <b>Kairo Bookings</b>',
+  },
+  // The Privacy Policy has to say who holds the data, not just what is held —
+  // it is the page Apple's reviewer opens and the page a salon's own client
+  // ends up on when they ask where their details went.
+  'privacy-stops-saying-who-holds-the-data': {
+    file: 'platform/public/privacy.html', suites: ['signup'],
+    find: 'Kairo is operated by <b>Shamalka Kiridena</b>, Australia.',
+    replace: 'Kairo is operated by our team.',
+  },
   // Apple's reviewer opens the Support and Privacy URLs and clicks what is on
   // them, and those two addresses cannot be edited once the app is submitted.
   'a-policy-page-links-somewhere-dead': {

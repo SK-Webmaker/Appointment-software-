@@ -57,7 +57,7 @@ Better than it feels, and worse in one specific place.
 | The front door | a Cloudflare Worker routing every salon |
 | The thing that sells Kairo | **built, never deployed** |
 | The iPhone app | **builds, never submitted** |
-| Blocking launch | **6 things**, five of them found on 15 September |
+| Blocking launch | **5 things** — the seller name was settled 15 September |
 
 The five that were invisible: `kairobookings.com/privacy`, `/support`,
 `/terms`, `/refunds` and `/start` all **404**. The policies exist at
@@ -87,27 +87,25 @@ you are doing, so **start it today whatever else happens.**
 
 ---
 
-## Phase 1 — Who sells Kairo
+## Phase 1 — Who sells Kairo — **done 15 September**
 
-**The single launch blocker, and a fifteen-minute decision.**
+The seller is **Shamalka Kiridena**, Australia, no ABN. The same name goes on
+the Apple Developer account.
 
-`platform/public/terms.html` says the seller is `[legal name, ABN]`. Until that
-is a real name the contract names nobody, which weakens the whole document
-including the liability cap.
+The Terms and the Privacy Policy now say so, and the name lives in one file —
+`platform/seller.js` — with `npm test` and `launch-check` reading both pages
+back against it, so they cannot drift apart. Three mutations prove those checks
+can fail. `launch-check` reports nothing blocking in the repo.
 
-**Recommended: your legal name, trading as Kairo Bookings.** It is what most
-Australian sole traders do before registering, it is accurate, and it still
-shows the customer the brand they bought from.
+If ownership ever changes, four of the five places that name a seller are
+outside this repository (Stripe's receipt, the App Store listing, the Apple
+Developer account holder, the marketing site). `docs/app-store/OWNERSHIP.md`
+lists them with the order to work them in.
 
-Two things to settle at the same time, both in `LEGAL-TODO.md`:
-
-- **The live Terms say the $410 "includes GST"** and the checkout charges no
-  GST. If you are not registered for GST you cannot represent a price as
-  including it. This is live and public right now. (§1b)
-- **There are two different Terms documents** — the live one at `/legal/terms`
-  and `platform/public/terms.html`. Only one can be the contract.
-
-Then: `node scripts/launch-check.mjs` should stop reporting the blocker.
+**What is still open, and it is live right now:** `kairobookings.com/legal/terms`
+says A$410 "including GST". A business not registered for GST cannot represent
+a price as including it, and there is no ABN. That page also names no seller at
+all. It is in a different repository from this one. (`LEGAL-TODO.md` §1b)
 
 ---
 
@@ -251,8 +249,8 @@ the pitch work.
 
 ## The shortest honest version
 
-1. **Today:** start Apple enrolment (queue), decide the seller name (15 min),
-   point `support@` at an inbox (2 min).
+1. **Today:** start Apple enrolment (queue) in the name Shamalka Kiridena, and
+   point `support@` at an inbox (2 min). ~~Decide the seller name~~ — done.
 2. **This week:** settle what serves the apex, publish the four policy pages.
 3. **Then:** Resend account, Stripe keys, deploy the platform, buy Kairo
    yourself with a real card.
@@ -261,4 +259,5 @@ the pitch work.
    website cannot.
 
 Everything in 1 can be done today, and 1 is the only step that is currently
-stopping the rest.
+stopping the rest. Separately and not blocking anything: the live marketing
+Terms say the price includes GST, which is not true and is public.

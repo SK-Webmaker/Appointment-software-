@@ -13,35 +13,30 @@ get right and awkward to unwind.
 
 ---
 
-## 1. Who sells Kairo — the one launch blocker
+## 1. Who sells Kairo — SETTLED 15 September 2026
 
-`platform/public/terms.html` currently reads:
+**The seller is `Shamalka Kiridena`, Australia. No ABN.** Decided by the owner
+on 15 September; the same name goes on the Apple Developer account.
 
-> Kairo is booking, payments and client-management software sold by
-> **[legal name, ABN]**, Australia.
+`platform/public/terms.html` and `platform/public/privacy.html` now say so, and
+the name lives in **`platform/seller.js`** so that the two pages cannot drift
+apart from each other. `npm test` and `node scripts/launch-check.mjs` both read
+the pages back against that constant, and three mutations in `test/falsify.mjs`
+prove those checks can fail.
 
-`node scripts/launch-check.mjs` fails until that is filled in, and it is the
-only thing it still fails on.
+`launch-check` no longer reports a blocker.
 
-**The situation as it stands.** You have no ABN and do not need one yet. A
-business name cannot be registered with ASIC without one, so **"Kairo
-Bookings" is not a legal entity** — it is a trading name with nothing behind
-it. A contract naming it as the seller names nobody, which weakens the whole
-document including the liability cap in it.
+**What the decision rules out.** "Kairo Bookings" is a trading name with no ABN
+behind it, so ASIC has not registered it and it is not an entity that can sell
+anything — naming it in a contract names nobody, which is exactly as weak as
+the blank was. Kairo is the name of the *product*. The seller is the *person*.
+A test enforces the distinction. (A sole trader may trade under their own name
+without registering anything, which is what is happening here.)
 
-**The three ways out:**
-
-| Option | Reads as | Notes |
-|---|---|---|
-| Your legal name, trading as Kairo Bookings | *"…sold by Jane Smith, trading as Kairo Bookings, Australia."* | What most Australian sole traders do before registering. Legally accurate and still shows the brand the customer bought from. |
-| Your legal name only | *"…sold by Jane Smith, Australia."* | Most conservative. A customer who bought from "Kairo" then sees an unfamiliar name on the contract, which can read as a scam signal. |
-| Kairo Bookings only | *"…sold by Kairo Bookings, Australia."* | Names an entity that does not exist. Avoid. |
-
-**One spelling check before this is written down anywhere.** The product is
-**Kairo** — the domain, the code, the app, the App Store listing. On
-9 September the owner wrote "Kario Bookings". If the intended trading name is
-genuinely *Kario* and not *Kairo*, that is a brand decision with consequences
-well beyond this file, and it needs settling first.
+**If ownership ever changes**, four of the five places that name a seller are
+outside this repository — Stripe's business name on the receipt, the App Store
+listing, the Apple Developer account holder, and the marketing site's Terms.
+They are listed with the order to work them in **`OWNERSHIP.md`**.
 
 ---
 
@@ -183,13 +178,15 @@ Nothing to decide. Listed so it is visibly not forgotten.
 
 ## What to do, in order
 
-1. **Decide the seller name** (§1) — the only launch blocker, and needed
-   before the App Store submission because the Terms are linked from the
-   listing.
-2. Confirm the **Kairo / Kario** spelling if there is any doubt (§1).
+1. ~~Decide the seller name~~ — **done 15 September**: Shamalka Kiridena (§1).
+   `launch-check` reports nothing blocking in the repo.
+2. **Fix the live marketing Terms** (§1b) — they say A$410 "including GST",
+   which a business not registered for GST cannot represent, and they name no
+   seller at all. This is the only item on this page that is **live and public
+   right now**, and it is in a different repository.
 3. Decide whether to get an **ABN** now or later (§2), and if now, handle the
-   GST-on-A$410 consequence at the same time (§3).
+   GST-on-A$410 consequence on the same day (§3).
 4. Before the first non-friend salon, spend ten minutes on **privacy** (§6).
 
-Re-run `node scripts/launch-check.mjs` after §1 — it should then report
-nothing blocking.
+`node scripts/launch-check.mjs` covers §1 and will keep covering it. Nothing
+checks §1b automatically, because the page is not in this repository.

@@ -22,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SELLER, SELLER_NAMED_IN } from '../platform/seller.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -53,6 +54,17 @@ for (const f of POLICY_FILES) {
   if (src === null) { check(`${f} exists`, false, 'missing'); continue; }
   const found = [...new Set((src.match(PLACEHOLDER) || []))];
   check(`${path.basename(f)} has no unfilled blanks`, found.length === 0, found.join(', '));
+}
+
+// ── 1b. Every document that names a seller names the same one ──────────────
+// An empty blank is caught above. Two documents naming two different sellers
+// is worse and looks like nothing at all — so the name lives in one file and
+// each page is checked against it. See docs/app-store/OWNERSHIP.md for the
+// places outside this repository that have to move with it.
+for (const f of SELLER_NAMED_IN) {
+  const src = read(f);
+  if (src === null) { check(`${f} exists`, false, 'missing'); continue; }
+  check(`${path.basename(f)} names ${SELLER} as the seller`, src.includes(SELLER), src.includes(SELLER) ? '' : 'names somebody else, or nobody');
 }
 
 // ── 2. The identifiers that must agree, or the build will not sign ─────────
@@ -160,7 +172,7 @@ async function main() {
     'Stripe live keys and the webhook secret on the platform service',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
     'Cloudflare → Email Routing → add the support@ rule (MX is already live; the address just needs a destination)',
-    'The seller name in the Terms — the one remaining blocker. See docs/app-store/LEGAL-TODO.md',
+    'The live marketing Terms at kairobookings.com/legal/terms still say A$410 "including GST" and name no seller — see docs/app-store/LEGAL-TODO.md §1b',
   ]) console.log(`  ${c.dim('·')} ${line}`);
 
   console.log('');

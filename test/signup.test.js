@@ -12,6 +12,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { startKairo, startPlatform, openDateAhead, ROOT } from './helpers/kairo.js';
 import { mockStripe, mockAbr } from './helpers/mocks.js';
+import { SELLER, SELLER_COUNTRY, SELLER_NAMED_IN } from '../platform/seller.js';
 
 const KEY = 'platform-key-for-tests-0123456789';
 const DOMAIN = 'kairobookings.test';
@@ -143,6 +144,29 @@ test('every link on the policy pages goes somewhere real', async () => {
       const link = await platform.api('GET', h);
       assert.equal(link.status, 200, `${page} links to ${h}, which answers ${link.status}`);
     }
+  }
+});
+
+test('every page that names a seller names the same one, and it is a real name', async () => {
+  // The seller is the party to the contract a customer agrees to when they pay
+  // A$410. Two pages naming two different sellers is worse than a blank,
+  // because a blank is obvious and a contradiction is not — and the day it
+  // matters is the day somebody disputes a charge and produces whichever
+  // version suits them. So the name lives in platform/seller.js and every page
+  // is read back against it.
+  assert.ok(SELLER_NAMED_IN.length >= 2, 'at least the Terms and the Privacy Policy say who we are');
+  for (const file of SELLER_NAMED_IN) {
+    const page = `/${path.basename(file, '.html')}`;
+    const r = await platform.api('GET', page);
+    assert.equal(r.status, 200, page);
+    assert.ok(r.text.includes(SELLER), `${page} does not name ${SELLER} as the seller`);
+    assert.ok(r.text.includes(SELLER_COUNTRY), `${page} does not say where ${SELLER} trades`);
+    // The blank this replaced, and the entity that does not exist. "Kairo
+    // Bookings" cannot be the seller: a business name needs an ABN to
+    // register, there is no ABN, and naming an unregistered entity in a
+    // contract names nobody.
+    assert.doesNotMatch(r.text, /\[legal name[^\]]*\]/i, `${page} still has the blank in it`);
+    assert.doesNotMatch(r.text, /sold by[^.]*Kairo Bookings/i, `${page} names an entity that is not registered`);
   }
 });
 
