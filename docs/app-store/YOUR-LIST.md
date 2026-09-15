@@ -254,6 +254,38 @@ a week. Whether it has actually done so could not be established from here.
 Suspending it keeps the disk, so his rollback survives, and his move is six
 days proven.
 
+## Keeping it running — the weekly check
+
+Now that every salon shares one disk, one question matters more than any other:
+**does each owner still have a current copy of their own business?** The copies
+Kairo keeps beside each database are for a bad upgrade — same disk, so losing
+the disk loses both. What survives is the backup emailed to each owner.
+
+```
+KAIRO_SHARD_URL=… KAIRO_PLATFORM_KEY=… node scripts/backup-check.mjs
+```
+
+Exit 0 means every salon has one. Exit 1 names the salon and the reason. It
+tells apart a backup that is merely *due* (the scheduler will reach it within
+the minute) from one that cannot happen, failed, or whose schedule has plainly
+stopped.
+
+It needs the shard deployed with the control-API change that reports backup
+state — before that it says so rather than guessing.
+
+**Two things it already found, on 15 September:**
+
+- **Horahaircutz's last successful backup was 2 September** — before he moved
+  onto the shard on the 8th. Nothing had failed; it simply had not run since.
+  His is fortnightly, so the next is due 16 September: worth confirming it
+  actually fires, because that is the proof the scheduler works for a moved
+  salon.
+- **The demo salon's backup is failing** — no Resend account, so nowhere to
+  send it. Harmless, since it is not a real business, but it is what a real
+  salon in that state would look like.
+
+---
+
 ## Part F — Submit
 
 ### F1. App Store submission · needs A1, B3, C1–C3

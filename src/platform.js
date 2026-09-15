@@ -28,7 +28,7 @@ import {
 } from './tenant.js';
 import { db, getSetting, setSetting, emailSender } from './db.js';
 import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
-import { snapshot } from './backup.js';
+import { snapshot, backupStatus } from './backup.js';
 import { VERSION } from './version.js';
 import { sign as hmac } from './platform-sign.js';
 
@@ -79,6 +79,26 @@ function tenantStatus(slug) {
     // assumes, because whether a new salon can send depends on the SHARD's
     // configuration, which the platform cannot see from its own environment.
     email_sending: emailSending(),
+    // Whether this salon's off-site copy is current.
+    //
+    // Every salon on a shard shares one disk, so the emailed backup is the only
+    // thing standing between a lost disk and a lost business — and until this
+    // was here, there was no way to ask whether it was still happening. Hora's
+    // had not run since the day he moved, a week earlier, and finding that out
+    // meant exporting his entire database to read four settings.
+    //
+    // The recipient address is deliberately reduced to a yes/no. Whether a
+    // backup has somewhere to go is the operational question; the owner's
+    // address is theirs, and this response is not the place to republish it.
+    backup: (() => {
+      const { to, ...rest } = backupStatus();
+      // `to` is not the only place the address appears: a successful backup
+      // records "Emailed to <address> (567 KB)" as its detail, so dropping the
+      // field alone still publishes it. The detail is worth keeping — it is
+      // what explains a failure — so the addresses come out of it instead.
+      const withoutAddresses = String(rest.last_detail || '').replace(/[^\s@]+@[^\s@]+\.[^\s@,)]+/g, '(the owner)');
+      return { ...rest, last_detail: withoutAddresses, to_set: Boolean(to) };
+    })(),
     created_at: t.config.created_at || '',
   }));
 }

@@ -235,6 +235,34 @@ const MUTATIONS = {
     find: 'if (!via && !secret) {',
     replace: 'if (false) {',
   },
+  // Whether a salon still has an off-site copy. Every salon on a shard shares
+  // one disk, so this is the only thing between a lost disk and a lost
+  // business — and it is the kind of thing that fails in silence.
+  'backup-check-calls-a-stopped-schedule-healthy': {
+    file: 'scripts/backup-check.mjs', suites: ['backup-check'],
+    find: '  if (ageDays > every * 2) {',
+    replace: '  if (false) {',
+  },
+  'backup-check-ignores-a-failed-attempt': {
+    file: 'scripts/backup-check.mjs', suites: ['backup-check'],
+    find: "  if (b.last_ok === false) return { fault: true, why: `last attempt FAILED — ${b.last_detail || 'no reason recorded'}` };",
+    replace: '',
+  },
+  'backup-check-accepts-having-nowhere-to-send-it': {
+    file: 'scripts/backup-check.mjs', suites: ['backup-check'],
+    find: "  if (!b.to_set) return { fault: true, why: 'no recipient — the backup has nowhere to go' };",
+    replace: '',
+  },
+  'backup-status-never-reaches-the-control-api': {
+    file: 'src/platform.js', suites: ['backup-check'],
+    find: '      return { ...rest, last_detail: withoutAddresses, to_set: Boolean(to) };',
+    replace: '      return undefined;',
+  },
+  'backup-status-republishes-the-owners-address': {
+    file: 'src/platform.js', suites: ['backup-check'],
+    find: "      const withoutAddresses = String(rest.last_detail || '').replace(/[^\\s@]+@[^\\s@]+\\.[^\\s@,)]+/g, '(the owner)');",
+    replace: '      const withoutAddresses = rest.last_detail;',
+  },
   // The cutover unmute. A salon left muted serves perfectly and sends nothing
   // — no confirmations, no reminders — and no screen says so, so the only
   // thing standing between that and a silent salon is this script actually
