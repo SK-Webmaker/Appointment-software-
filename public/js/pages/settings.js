@@ -659,12 +659,13 @@ export async function renderSettings(container, params) {
         <form id="set-backup" style="display:flex;flex-direction:column;gap:13px;margin-top:14px">
           <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
             <input type="checkbox" name="backup_email_enabled" ${s.backup_email_enabled !== '0' ? 'checked' : ''} class="chk">
-            <span><b>Email me a backup automatically</b><span class="co-hint">Sent to your business email as a small compressed file.</span></span>
+            <span><b>Email me a backup automatically</b><span class="co-hint">Sent to your business email as a small compressed file. Either this or choosing “Never” below turns it off.</span></span>
           </label>
           <div class="form-grid">
             <div class="field"><label>How often</label>
               <select name="backup_frequency" class="nice-select">
-                ${[['daily', 'Every day'], ['weekly', 'Every week'], ['fortnightly', 'Every fortnight']]
+                ${[['daily', 'Every day'], ['weekly', 'Every week'], ['fortnightly', 'Every fortnight'],
+                   ['monthly', 'Every month'], ['bimonthly', 'Every second month'], ['off', 'Never — I’ll download them myself']]
                   .map(([v, l]) => `<option value="${v}" ${(s.backup_frequency || 'weekly') === v ? 'selected' : ''}>${l}</option>`).join('')}
               </select></div>
             <div class="field"><label>Send to</label>

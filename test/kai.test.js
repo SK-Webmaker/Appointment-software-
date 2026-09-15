@@ -104,6 +104,12 @@ test('every capability, from a sentence somebody would say, checked in the datab
     ['brand_scheme', 'change my booking page colour to green', 'sage'],
     ['patch_valid_months', 'patch tests last 12 months', '12'],
     ['backup_frequency', 'back up daily', 'daily'],
+    // Every phrase Kai accepts must land on a frequency that exists. "monthly"
+    // was accepted for months while FREQUENCIES had no monthly, so the salon
+    // was told monthly and quietly kept backing up weekly.
+    ['backup_frequency', 'back up monthly', 'monthly'],
+    ['backup_frequency', 'back up every second month', 'bimonthly'],
+    ['backup_frequency', 'back up every fortnight', 'fortnightly'],
     ['cal_start_min', 'make the calendar start at 8am', '480'],
   ];
   for (const [key, q, want] of cases) {

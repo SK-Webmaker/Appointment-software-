@@ -30,12 +30,25 @@ test('SMS is off by default and a type set to SMS falls back to email until it i
 test('with SMS on and a provider chosen, the text is attempted and fails honestly without keys', async () => {
   await k.api('PUT', '/api/settings', { cookie, body: { sms_notifications_enabled: '1', chan_confirmation: 'both' } });
   const b = await bookFirstSlot(k, { date: openDateAhead(3), staffId: 2, serviceIds: [9], client: { first_name: 'Both', email: 'both@example.com', phone: '0400000010' } });
-  const d = k.db();
-  const rows = d.prepare("SELECT channel, status, detail FROM messages WHERE appointment_id = ? AND kind = 'confirmation' ORDER BY channel").all(b.json.appointment_id);
+  // Queueing and delivering are separate steps, so reading once immediately
+  // after booking is a race: under load the read wins and sees "queued". It
+  // failed exactly that way in a full-suite run on 15 September and passed on
+  // its own every time, which is the signature of a test that asserts on
+  // something that has not finished happening yet.
+  const settled = async () => {
+    for (let i = 0; i < 60; i++) {
+      const d = k.db();
+      const rows = d.prepare("SELECT channel, status, detail FROM messages WHERE appointment_id = ? AND kind = 'confirmation' ORDER BY channel").all(b.json.appointment_id);
+      d.close();
+      if (rows.length === 2 && rows.every((m) => m.status !== 'queued')) return rows;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error('the confirmation messages never left the queue');
+  };
+  const rows = await settled();
   assert.deepEqual(rows.map((m) => m.channel), ['email', 'sms']);
   assert.equal(rows[1].status, 'skipped');
   assert.match(rows[1].detail, /ClickSend/);
-  d.close();
   await k.api('PUT', '/api/settings', { cookie, body: { sms_notifications_enabled: '0', chan_confirmation: 'email' } });
 });
 

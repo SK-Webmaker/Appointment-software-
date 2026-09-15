@@ -42,6 +42,19 @@ import {
 import { VIEWING } from './kai-nav.js';
 
 /**
+ * How each frequency is said out loud. "Backups are emailed bimonthly now"
+ * is the kind of sentence that makes an owner check what it means; the plain
+ * words are always the receipt Kai reads back.
+ */
+const FREQUENCY_WORDS = {
+  daily: 'every day',
+  weekly: 'every week',
+  fortnightly: 'every fortnight',
+  monthly: 'every month',
+  bimonthly: 'every second month',
+};
+
+/**
  * Sentences that are asking, not instructing.
  *
  * Now that Kai acts rather than proposes, this is the difference between
@@ -869,15 +882,22 @@ const CAPABILITIES = [
 
   (ctx) => {
     if (!/back ?up/.test(ctx.raw)) return null;
-    const how = /\b(daily|every day|weekly|every week|monthly|every month)\b/.exec(ctx.raw);
+    // Every phrase here must map to a real key in FREQUENCIES (src/backup.js).
+    // "monthly" was offered long before that table had a monthly, so the salon
+    // was told monthly and kept backing up weekly. Longest patterns first, or
+    // "every second month" matches "every month".
+    const how = /\b(every second month|every two months|bi-?monthly|fortnightly|every fortnight|every two weeks|daily|every day|weekly|every week|monthly|every month)\b/.exec(ctx.raw);
     if (!how) return null;
-    const freq = /^(daily|every day)$/.test(how[1]) ? 'daily'
-      : /^(weekly|every week)$/.test(how[1]) ? 'weekly' : 'monthly';
+    const said = how[1];
+    const freq = /^(every second month|every two months|bi-?monthly)$/.test(said) ? 'bimonthly'
+      : /^(fortnightly|every fortnight|every two weeks)$/.test(said) ? 'fortnightly'
+      : /^(daily|every day)$/.test(said) ? 'daily'
+      : /^(weekly|every week)$/.test(said) ? 'weekly' : 'monthly';
     return makePlan({
       id: 'backup_frequency',
-      title: `Backups: ${freq}`,
-      said: `Backups are emailed ${freq} now.`,
-      already: `Backups are already emailed ${freq}.`,
+      title: `Backups: ${FREQUENCY_WORDS[freq]}`,
+      said: `Backups are emailed ${FREQUENCY_WORDS[freq]} now.`,
+      already: `Backups are already emailed ${FREQUENCY_WORDS[freq]}.`,
       changes: [{ label: 'Backups', from: getSetting('backup_frequency', 'weekly'), to: freq }],
       settings: { backup_frequency: freq, backup_email_enabled: '1' },
       score: 90,

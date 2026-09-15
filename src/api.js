@@ -35,7 +35,7 @@ import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile
 import {
   originStatus, resetOriginCounter, newOriginSecret, requestCameViaEdge, ORIGIN_HEADER, MODES,
 } from './origin.js';
-import { snapshot, emailBackup, backupStatus } from './backup.js';
+import { snapshot, emailBackup, backupStatus, FREQUENCIES } from './backup.js';
 // Shared with the calendar and the booking page (served from public/js), so all
 // three answer "is this date open, and between what times" identically.
 import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public/js/hours.js';
@@ -516,6 +516,37 @@ export function applySettings(body) {
         throw httpError(400, `"${val}" is not a valid email address. Use the full address on the domain you verified in Resend, e.g. hello@yourbusiness.kairobookings.com`);
       }
       setSetting(k, val);
+      continue;
+    }
+    // A frequency this build does not know is refused rather than stored. Left
+    // unchecked it does not fail — it silently becomes weekly, because
+    // backupDue falls back when the key is missing. That is how Kai came to
+    // promise an owner monthly backups while the salon kept doing weekly ones.
+    if (k === 'backup_frequency') {
+      const val = str(v, 40).trim().toLowerCase();
+      if (!Object.hasOwn(FREQUENCIES, val)) {
+        throw httpError(400, `"${val}" is not a backup frequency. Use one of: ${Object.keys(FREQUENCIES).join(', ')}`);
+      }
+      setSetting(k, val);
+      // Two controls, one meaning. The Settings screen has a tick-box AND a
+      // "Never" option, so without this an owner who chooses Never reopens the
+      // page to find "Email me a backup automatically" still ticked — two
+      // controls flatly contradicting each other about whether backups happen.
+      // Choosing Never switches it off; switching it back on while the stored
+      // frequency is Never has to pick something, and weekly is the default the
+      // rest of Kairo already assumes.
+      if (val === 'off') setSetting('backup_email_enabled', '0');
+      continue;
+    }
+    // Switching backups on while the frequency says Never would tick the box
+    // and still send nothing. The owner asked for backups; give them the
+    // default schedule rather than a switch that does nothing.
+    if (k === 'backup_email_enabled') {
+      const on = str(v, 10) === '1' || v === true;
+      setSetting(k, on ? '1' : '0');
+      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {
+        setSetting('backup_frequency', 'weekly');
+      }
       continue;
     }
     // Secrets are write-only: an empty value means "leave what's stored".

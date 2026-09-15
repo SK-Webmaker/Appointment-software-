@@ -263,6 +263,39 @@ const MUTATIONS = {
     find: "      const withoutAddresses = String(rest.last_detail || '').replace(/[^\\s@]+@[^\\s@]+\\.[^\\s@,)]+/g, '(the owner)');",
     replace: '      const withoutAddresses = rest.last_detail;',
   },
+  // How often a backup happens, and what happens when one fails. The live
+  // shard was retrying the demo salon's failed backup every 60 seconds,
+  // forever, because a failure never advanced the schedule marker.
+  'failed-backup-retries-every-minute-forever': {
+    file: 'src/backup.js', suites: ['backup-and-boot'],
+    find: "    setSetting('backup_retry_after', ok ? '' : new Date(Date.now() + RETRY_AFTER_MS).toISOString());",
+    replace: '',
+  },
+  'backup-ignores-its-own-backoff': {
+    file: 'src/backup.js', suites: ['backup-and-boot'],
+    find: '  if (now < retryAfter) return false;',
+    replace: '',
+  },
+  'an-unusable-backup-frequency-is-stored-anyway': {
+    file: 'src/api.js', suites: ['backup-and-boot'],
+    find: '      if (!Object.hasOwn(FREQUENCIES, val)) {',
+    replace: '      if (false) {',
+  },
+  'kai-promises-a-frequency-that-does-not-exist': {
+    file: 'src/kai-actions.js', suites: ['kai'],
+    find: "    const freq = /^(every second month|every two months|bi-?monthly)$/.test(said) ? 'bimonthly'",
+    replace: "    const freq = /^(never-matches-anything)$/.test(said) ? 'bimonthly'",
+  },
+  'never-leaves-the-tick-box-saying-backups-are-on': {
+    file: 'src/api.js', suites: ['backup-and-boot'],
+    find: "      if (val === 'off') setSetting('backup_email_enabled', '0');",
+    replace: '',
+  },
+  'switching-backups-on-leaves-them-scheduled-for-never': {
+    file: 'src/api.js', suites: ['backup-and-boot'],
+    find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
+    replace: '      if (false) {',
+  },
   // The cutover unmute. A salon left muted serves perfectly and sends nothing
   // — no confirmations, no reminders — and no screen says so, so the only
   // thing standing between that and a silent salon is this script actually

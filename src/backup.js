@@ -28,7 +28,39 @@ import { sendEmail } from './notify.js';
 /** Past this, an emailed attachment stops being reasonable — offer a download. */
 const MAX_EMAIL_BYTES = 20 * 1024 * 1024;
 
-const FREQUENCIES = { off: 0, daily: 1, weekly: 7, fortnightly: 14 };
+/**
+ * How often a backup is emailed, in days. The ONLY place the answer lives.
+ *
+ * It did not used to be. Kai has been able to set "monthly" from a sentence
+ * since the day it was written, nothing validated the value, and this object
+ * had no monthly — so `?? 7` turned it into weekly and told the owner monthly.
+ * Anything offered anywhere must be a key here, and src/api.js now refuses a
+ * value that is not.
+ */
+export const FREQUENCIES = {
+  off: 0,
+  daily: 1,
+  weekly: 7,
+  fortnightly: 14,
+  monthly: 30,
+  bimonthly: 60,          // every second month
+};
+
+/**
+ * How long to wait before trying again after a FAILED scheduled backup.
+ *
+ * Without this the retry was every minute, forever: a failed attempt never
+ * stamped backup_last_scheduled_at, so it stayed due and the scheduler tried
+ * again on the next tick. The demo salon on the live shard was doing exactly
+ * that — the same "Email not configured" line 1,440 times a day. For a real
+ * salon with a provider having a bad hour, it would be 1,440 send attempts.
+ *
+ * An hour is long enough that a transient outage costs 24 attempts a day
+ * instead of 1,440, and short enough that a salon is not a day behind once the
+ * problem is fixed. The failure is not hidden by waiting: it is recorded on the
+ * salon and reported by scripts/backup-check.mjs.
+ */
+const RETRY_AFTER_MS = 60 * 60 * 1000;
 
 /** A filename an owner can recognise a year later, in a folder full of them. */
 export function backupName(ext = 'db.gz') {
@@ -109,6 +141,12 @@ function record({ ok, detail, bytes = 0, manual = false }) {
   setSetting('backup_last_detail', String(detail || '').slice(0, 300));
   setSetting('backup_last_bytes', String(bytes));
   if (ok && !manual) setSetting('backup_last_scheduled_at', new Date().toISOString());
+  // A scheduled attempt that failed is held off rather than retried on the very
+  // next tick. A manual "send one now" is a person watching, so it is never
+  // held off and never sets the stamp.
+  if (!manual) {
+    setSetting('backup_retry_after', ok ? '' : new Date(Date.now() + RETRY_AFTER_MS).toISOString());
+  }
   if (!ok) console.error('backup:', detail);
   return { ok, detail, bytes };
 }
@@ -119,6 +157,10 @@ export function backupDue(now = Date.now()) {
   if (!every) return false;
   if (getSetting('backup_email_enabled', '1') !== '1') return false;
   if (!backupRecipient()) return false;
+  // Backing off after a failure. Checked before the schedule, because the whole
+  // point is to override "this is overdue" for a while.
+  const retryAfter = Date.parse(getSetting('backup_retry_after', '')) || 0;
+  if (now < retryAfter) return false;
   const last = Date.parse(getSetting('backup_last_scheduled_at', '')) || 0;
   return now - last >= every * 24 * 60 * 60 * 1000;
 }
@@ -141,9 +183,15 @@ export function backupStatus() {
       return fs.readdirSync(current().dir).filter((f) => f.startsWith('backup-') && f.endsWith('.db')).length;
     } catch { return 0; }
   })();
+  const frequency = getSetting('backup_frequency', 'weekly');
   return {
     enabled: getSetting('backup_email_enabled', '1') === '1',
-    frequency: getSetting('backup_frequency', 'weekly'),
+    frequency,
+    // What that frequency MEANS, so nothing downstream has to keep its own copy
+    // of the table and drift from it. undefined for a value this build does not
+    // recognise, which is itself worth reporting.
+    every_days: FREQUENCIES[frequency],
+    retry_after: getSetting('backup_retry_after', ''),
     to: backupRecipient(),
     last_at: lastAt,
     last_ok: getSetting('backup_last_ok', '') === '1',

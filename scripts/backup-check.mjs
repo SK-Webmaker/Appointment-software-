@@ -38,9 +38,6 @@ const ok = (s) => console.log(`  ${E}32m✓${E}0m ${s}`);
 const bad = (s) => console.log(`  ${E}31m✗${E}0m ${s}`);
 const dim = (s) => `${E}2m${s}${E}0m`;
 
-/** How many days each frequency means. Mirrors FREQUENCIES in src/backup.js. */
-const DAYS = { daily: 1, weekly: 7, fortnightly: 14, monthly: 30, off: 0 };
-
 /**
  * Judge one salon's backup.
  *
@@ -54,7 +51,12 @@ function judge(b) {
   if (!b) return { fault: true, why: 'this shard is too old to report backup state — deploy it first' };
   if (b.enabled === false) return { fault: true, why: 'backups are switched OFF for this salon' };
   if (!b.to_set) return { fault: true, why: 'no recipient — the backup has nowhere to go' };
-  const every = DAYS[b.frequency] ?? 7;
+  // The salon says how many days its own frequency means, rather than this
+  // script keeping a second copy of that table to drift from. A build that does
+  // not recognise the stored value reports undefined, which is a fault in
+  // itself — that is precisely the state "monthly" was in before it existed.
+  const every = b.every_days;
+  if (every === undefined) return { fault: true, why: `frequency is "${b.frequency}", which this salon does not recognise` };
   if (!every) return { fault: true, why: `frequency is "${b.frequency}" — nothing is scheduled` };
   if (!b.last_at) return { fault: true, why: 'never run' };
   if (b.last_ok === false) return { fault: true, why: `last attempt FAILED — ${b.last_detail || 'no reason recorded'}` };
