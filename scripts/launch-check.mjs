@@ -167,6 +167,7 @@ async function main() {
   console.log(`\n${c.b('  Needs a person, not this script')}`);
   for (const line of [
     'Apple Developer Program enrolment (A$149, 1–2 days) — everything iOS waits on it',
+    'Create review@kairobookings.com on the demo salon and set its password. It is named in the App Review notes and does not exist — a reviewer who cannot sign in rejects the build the same day. Verify with: KAIRO_REVIEW_URL=… KAIRO_REVIEW_EMAIL=… KAIRO_REVIEW_PASSWORD=… node scripts/review-login-check.mjs',
     'The four GitHub secrets, once Apple approves: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8',
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
     'Stripe live keys and the webhook secret on the platform service',

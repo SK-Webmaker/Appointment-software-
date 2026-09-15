@@ -296,6 +296,22 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // The reviewer's sign-in. Their own launch doc calls a broken demo login the
+  // most common avoidable rejection there is, so the check that guards it has
+  // to be able to fail.
+  'review-check-accepts-a-rejected-password': {
+    file: 'scripts/review-login-check.mjs', suites: ['review-login'],
+    find: "  } else if (r.status === 401) {",
+    replace: "  } else if (false) {",
+  },
+  // Signing in is not the same as having something to review. A reviewer who
+  // lands on a blank calendar with no clients is guideline 4.2, and every other
+  // assertion in this script passes in that state.
+  'review-check-passes-an-empty-salon': {
+    file: 'scripts/review-login-check.mjs', suites: ['review-login'],
+    find: "      if (r.json?.has_demo_data) ok(`there is sample data to look at ${dim('calendar, clients, invoices')}`);",
+    replace: "      if (true) ok(`there is sample data to look at ${dim('calendar, clients, invoices')}`);",
+  },
   // The seller is the party to the contract. A blank is caught by the launch
   // check; two pages naming two DIFFERENT sellers is the failure that looks
   // like nothing at all, so the name lives in platform/seller.js and the pages

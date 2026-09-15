@@ -185,7 +185,7 @@ HOW TO SIGN IN
    Password:  <filled in at submission>
 
 This is a full working salon with sample data. Nothing you do in it affects a
-real business, and it is reset weekly.
+real business.
 
 WHAT TO LOOK AT
 - Calendar: a week of appointments across two stylists. Tap an empty slot to
@@ -194,7 +194,7 @@ WHAT TO LOOK AT
 - Invoices: build one from an appointment and record a payment.
 - Settings > Account > Delete my account: account deletion, in the app, as
   required by 5.1.1(v). It asks for the password and the business name. On
-  the demo account it is safe to run — the account is recreated weekly.
+  the demo account it is safe to run — this is a demo, and we restore it.
 
 ABOUT THE PRICE
 Kairo is bought once on kairobookings.com and is not a subscription. The app
@@ -213,9 +213,43 @@ ClickSend) and card payments through their own Stripe or Square. Kairo never
 holds the money and never resells messaging.
 ```
 
-**Before submitting, make sure the demo salon actually works.** A reviewer who
-cannot sign in rejects the build the same day, and it is the most common
-avoidable rejection there is.
+### Before submitting — run the check, do not remember to
+
+A reviewer who cannot sign in rejects the build the same day, and it is the
+most common avoidable rejection there is. Asking a person to remember is how it
+gets missed, so it is a script:
+
+```bash
+KAIRO_REVIEW_URL=https://demo.kairobookings.com \
+KAIRO_REVIEW_EMAIL=review@kairobookings.com \
+KAIRO_REVIEW_PASSWORD=… \
+node scripts/review-login-check.mjs
+```
+
+It signs in the way the reviewer will and then asks the question a login test
+does not: **is there anything in there to look at?** An empty salon passes every
+credential check and fails review under guideline 4.2, so the script treats a
+blank calendar as a failure.
+
+**Three things must be done by hand first, and none of them is done yet:**
+
+- [ ] **Create `review@kairobookings.com` on the demo salon.** It does not
+      exist. The address appears in these notes and nowhere in the code — it
+      has never been created.
+- [ ] **Set its password** and paste it into the notes above at submission.
+      Keep it in the password manager, not in this repository.
+- [ ] **Re-seed the demo after any review that exercised account deletion.**
+      `Settings → Reset to demo data`, or `npm run reset-demo`. Nothing does
+      this on a schedule — see the note below.
+
+> **There is no automatic demo reset.** `resetDemo()` is called by one button in
+> Settings and by `npm run reset-demo`; no scheduler, cron job or Render service
+> runs it. An earlier draft of these notes told Apple the demo "is reset weekly"
+> and that a deleted account "is recreated weekly". Both were untrue, and the
+> second invited a reviewer to delete the one account the submission depends on.
+> If a reset that runs itself is wanted, it has to be built — and it is the most
+> dangerous thing in this codebase to schedule, because the function it calls
+> wipes a salon. It would need to refuse to run on any slug but the demo's.
 
 ---
 
