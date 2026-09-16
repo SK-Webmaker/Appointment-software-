@@ -123,11 +123,28 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       <div class="wiz-hero">${LOGO_SVG}</div>
       <h1>Welcome to Kairo</h1>
       <p class="wiz-lede">Let's set up your booking system. It takes about 5 minutes, and you can
-        change anything later in Settings.${firstRun ? ' This replaces the sample data with your real business.' : ''}</p>
+        change anything later in Settings.</p>
       <div class="wiz-checklist">
         ${['Your business details & hours', 'Your brand — colours, logo, photos', 'Your services & team', 'Reminders & deposits'].map((t) =>
           `<div class="wiz-check">${icon('check', 14)} ${t}</div>`).join('')}
-      </div>`,
+      </div>
+      ${firstRun ? `
+        <div class="wiz-samples">
+          <div class="wiz-samples-h">Kairo came with a sample salon — 14 example clients, some
+            services and a year of made-up history — so the screens are not empty while you look around.
+            What would you like done with it?</div>
+          <label class="wiz-sample-opt">
+            <input type="radio" name="wiz_samples" value="clear" ${data.fresh ? 'checked' : ''}>
+            <span><b>Clear it out — this is my real business</b>
+              <span>You start with an empty diary and the services you pick next. Recommended.</span></span>
+          </label>
+          <label class="wiz-sample-opt">
+            <input type="radio" name="wiz_samples" value="keep" ${data.fresh ? '' : 'checked'}>
+            <span><b>Leave the examples for now</b>
+              <span>Useful for having a look first. They stay clearly labelled
+                <em>Sample</em>, are never messaged, and you can remove them any time from Clients.</span></span>
+          </label>
+        </div>` : ''}`,
 
     type: () => `
       <h2>What kind of business are you?</h2>
@@ -376,9 +393,17 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
   }
 
   function wire(id) {
+    // The samples choice, on the welcome step. Kept on `data.fresh` because
+    // that is already what the server reads — one flag, not two that can drift.
+    overlay.querySelectorAll('input[name="wiz_samples"]').forEach((r) => {
+      r.addEventListener('change', () => { data.fresh = r.value === 'clear'; });
+    });
+
     overlay.querySelector('#w-back')?.addEventListener('click', () => { capture(); idx--; render(); });
     overlay.querySelector('#w-skip')?.addEventListener('click', async () => {
-      await api.post('/api/setup/skip', {});
+      // Skipping still honours the choice they just made. Somebody who said
+      // "leave the examples" and then skipped meant both things.
+      await api.post('/api/setup/skip', { keep_samples: !data.fresh });
       close(); onDone?.();
     });
     overlay.querySelector('#w-next')?.addEventListener('click', onNext);

@@ -764,6 +764,20 @@ const MUTATIONS = {
     find: "    const check = await verifyPayPayment(ref, appt.pay_provider || '');\n    paid = check.paid;",
     replace: "    const check = await verifyPayPayment(ref, appt.pay_provider || '');\n    paid = true;",
   },
+  'setup-ignores-keep-the-samples': {
+    // The welcome screen asks. Overriding the answer is not an option, it is a
+    // question with the reply thrown away.
+    file: 'src/api.js', suites: ['demo-data'],
+    find: '  if (!b.keep_samples) clearDemoData();',
+    replace: '  clearDemoData();',
+  },
+  'setup-default-flips-to-keeping': {
+    // Clearing is the safe default: a real business must never end up running
+    // on somebody else's fake salon by saying nothing.
+    file: 'src/api.js', suites: ['demo-data'],
+    find: '  if (!b.keep_samples) clearDemoData();',
+    replace: '  if (b.keep_samples === false) clearDemoData();',
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.

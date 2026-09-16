@@ -89,18 +89,43 @@ test('"Skip for now" means starting empty, not inheriting a fake salon', async (
   assert.equal((await staff()).length, 0, 'no team');
 });
 
-test('finishing the wizard clears them too, "start fresh" ticked or not', async () => {
+test('finishing the wizard the recommended way starts clean', async () => {
+  // The welcome screen asks outright, and "clear it out" is the default and the
+  // recommendation. The other answer is honoured too — that is the next test,
+  // and it is why this one no longer asserts "whatever they said".
   await reseed();
   const r = await api('POST', '/api/setup/apply', {
-    fresh: false, // the owner did NOT ask for a clean slate
+    fresh: true,
     settings: { business_name: 'Real Business' },
     team: [{ name: 'Owner', title: 'Stylist' }],
     services: [{ name: 'Consultation', duration_min: 15, price: 0, price_type: 'free' }],
   });
   assert.equal(r.status, 200);
-  assert.equal((await clients()).length, 0, 'the samples still go');
+  assert.equal((await clients()).length, 0, 'the samples go');
   assert.equal((await services()).length, 1, 'and what the owner typed is what is left');
   assert.equal((await staff()).length, 1);
+});
+
+test('the owner is asked what to do with the samples, and it is honoured', async () => {
+  // Clearing is the default, but "I would like a look around first" is a real
+  // way people use a new system and must be believed when they say it.
+  await reseed();
+  const keep = await api('POST', '/api/setup/skip', { keep_samples: true });
+  assert.equal(keep.status, 200);
+  assert.ok((await clients()).length > 0, 'the samples are still there');
+  assert.equal(keep.json.demo_cleared, false, 'and the server says it left them');
+
+  await reseed();
+  const silent = await api('POST', '/api/setup/skip', {});
+  assert.equal((await clients()).length, 0, 'no answer still clears — the safe default');
+  assert.equal(silent.json.demo_cleared, true);
+
+  // The same question, answered through the wizard rather than the skip link.
+  await reseed();
+  await api('POST', '/api/setup/apply', {
+    fresh: false, settings: { business_name: 'Looking Around' }, team: [], services: [],
+  });
+  assert.ok((await clients()).length > 0, 'finishing with "keep" leaves them');
 });
 
 test('a sample client is never messaged', async () => {
