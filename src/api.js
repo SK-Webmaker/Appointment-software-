@@ -640,10 +640,14 @@ route('POST', '/api/settings/reset-demo', async ({ user }) => {
  * Skipping now means starting empty, which is what the word means. Only the
  * SAMPLES go: an owner who added a real client while looking around keeps it.
  */
-route('POST', '/api/setup/skip', async () => {
-  clearDemoData();
+route('POST', '/api/setup/skip', async ({ req }) => {
+  const b = checkBody(await readJson(req).catch(() => ({})), { keep_samples: s.bool() });
+  // Clearing is the default, because a real business starting on somebody
+  // else's fake salon is the worse mistake by a distance. Keeping is a
+  // deliberate answer to a question the welcome screen asks out loud.
+  if (!b.keep_samples) clearDemoData();
   setSetting('setup_complete', '1');
-  return { ok: true, demo_cleared: true };
+  return { ok: true, demo_cleared: !b.keep_samples };
 });
 
 /**
@@ -704,10 +708,11 @@ route('POST', '/api/setup/apply', async ({ req }) => {
   }
 
   if (b.settings) applySettings(b.settings);
-  // Whether or not they asked for a clean slate, the samples go. Un-ticking
-  // "start fresh" means "keep what I have already added", not "keep somebody
-  // else's demo salon mixed in with my real clients".
-  clearDemoData();
+  // The welcome screen asks outright what to do with the samples, and `fresh`
+  // carries the answer. Clearing is the default and the recommendation; keeping
+  // them is allowed, because an owner having a look around first is a real way
+  // people use this — and they stay labelled and un-messageable meanwhile.
+  if (b.fresh !== false) clearDemoData();
   setSetting('setup_complete', '1');
   return { ok: true, services_added: servicesAdded, booking_path: '/book' };
 });

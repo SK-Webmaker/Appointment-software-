@@ -2828,3 +2828,22 @@ button.kai-open span { flex: 1; text-align: left; }
 .bk-pay-opt > span { display: flex; flex-direction: column; gap: 2px; }
 .bk-pay-opt b { font-size: 14px; }
 .bk-pay-opt span span { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+/* The samples question, on the wizard's welcome screen. */
+.wiz-samples { margin-top: 20px; display: flex; flex-direction: column; gap: 9px; text-align: left; }
+.wiz-samples-h { font-size: 13px; color: var(--text-2); line-height: 1.55; margin-bottom: 4px; }
+.wiz-sample-opt {
+  display: flex; align-items: flex-start; gap: 10px; cursor: pointer;
+  padding: 12px 14px; border-radius: 11px;
+  border: 1px solid var(--line, rgba(255,255,255,.1));
+  background: var(--surface-2, rgba(255,255,255,.02));
+}
+.wiz-sample-opt:has(input:checked) {
+  border-color: var(--accent, #3987e5);
+  background: color-mix(in srgb, var(--accent, #3987e5) 8%, transparent);
+}
+.wiz-sample-opt input { margin-top: 3px; flex: none; }
+.wiz-sample-opt > span { display: flex; flex-direction: column; gap: 3px; }
+.wiz-sample-opt b { font-size: 13.5px; }
+.wiz-sample-opt span span { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.wiz-sample-opt em { font-style: normal; color: var(--amber, #d9a441); font-weight: 600; }

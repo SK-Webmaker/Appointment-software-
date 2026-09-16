@@ -135,18 +135,21 @@ try {
     ok('and setup is marked done', (await json('GET', '/api/settings')).data.setup_complete === '1');
   }
 
-  console.log('\n── 4. finishing the wizard clears them too, fresh ticked or not');
+  console.log('\n── 4. finishing the wizard the recommended way starts clean');
   {
+    // The welcome screen asks outright, and "clear it out" is the default and
+    // the recommendation. The other answer is honoured too — that is section
+    // 5b, and it is the reason this one no longer asserts "whatever they said".
     reseed();
     const r = await json('POST', '/api/setup/apply', {
-      fresh: false, // the owner did NOT ask for a clean slate
+      fresh: true,
       settings: { business_name: 'Real Business' },
       team: [{ name: 'Owner', title: 'Stylist' }],
       services: [{ name: 'Consultation', duration_min: 15, price: 0, price_type: 'free' }],
     });
     ok('the wizard applies', r.status === 200, String(r.status));
     const after = await clients();
-    ok('the samples still go', after.length === 0, JSON.stringify(after.map((c) => c.first_name)));
+    ok('the samples go', after.length === 0, JSON.stringify(after.map((c) => c.first_name)));
     ok('and what the owner typed is what is left',
       (await services()).length === 1 && (await staff()).length === 1,
       `${(await services()).length} services, ${(await staff()).length} staff`);
@@ -184,6 +187,39 @@ try {
 
     db.prepare('UPDATE clients SET is_demo = 1 WHERE id = ?').run(lapsed);
     ok('the same person, flagged as a sample, is not', reachable() === false);
+  }
+
+  console.log('\n── 5b. the owner is given the choice, and it is honoured');
+  {
+    // Clearing is the default and the recommendation, but an owner who says
+    // "leave them for now" while they look around must be believed.
+    reseed();
+    const keep = await json('POST', '/api/setup/skip', { keep_samples: true });
+    ok('skipping with "keep" succeeds', keep.status === 200, String(keep.status));
+    ok('and the samples are still there', (await clients()).length > 0,
+      String((await clients()).length));
+    ok('the server says it did not clear them', keep.data.demo_cleared === false,
+      String(keep.data.demo_cleared));
+
+    reseed();
+    const clear = await json('POST', '/api/setup/skip', {});
+    ok('skipping with no answer still clears — the safe default',
+      (await clients()).length === 0 && clear.data.demo_cleared === true);
+
+    // And the same question through the wizard itself.
+    reseed();
+    await json('POST', '/api/setup/apply', {
+      fresh: false, settings: { business_name: 'Looking Around' },
+      team: [], services: [],
+    });
+    ok('finishing the wizard with "keep" leaves them', (await clients()).length > 0,
+      String((await clients()).length));
+
+    reseed();
+    await json('POST', '/api/setup/apply', {
+      fresh: true, settings: { business_name: 'Real Business' }, team: [], services: [],
+    });
+    ok('finishing it with "clear" removes them', (await clients()).length === 0);
   }
 
   console.log('\n── 6. removal is idempotent, and needs a session');
