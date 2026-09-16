@@ -158,3 +158,42 @@ test('the settings say how this salon sends, so no screen has to guess', async (
     assert.equal(s.json.email_sending, 'none');
   } finally { await bare.stop(); }
 });
+
+// ── The boot banner says whether shared sending is on ──────────────────────
+// Setting these two variables in production on 16 September, the only way to
+// confirm they had been picked up was to wait for a salon's backup to fail
+// with a particular message. The banner already announced the control API and
+// said nothing about the one setting that decides whether a brand-new salon
+// can send email at all.
+test('the boot banner says whether a salon with no account of its own can send', async () => {
+  const on = await startKairo({
+    env: {
+      KAIRO_MULTI_TENANT: '1',
+      KAIRO_SHARED_RESEND_KEY: 're_full_test_key',
+      KAIRO_SHARED_FROM: 'bookings@kairobookings.test',
+    },
+  });
+  try {
+    assert.match(on.log(), /Shared sender: on, from bookings@kairobookings\.test/,
+      'with both set the banner should say so, and print the address');
+  } finally { await on.stop(); }
+
+  const off = await startKairo({ env: { KAIRO_MULTI_TENANT: '1' } });
+  try {
+    assert.match(off.log(), /Shared sender: off/,
+      'with neither set the banner must say off, not stay silent');
+  } finally { await off.stop(); }
+});
+
+test('half-configured shared sending is called out, not reported as on', async () => {
+  // A key with no From address (or the reverse) is off, because emailSender()
+  // requires both — but it looks configured to anyone reading the dashboard.
+  const half = await startKairo({
+    env: { KAIRO_MULTI_TENANT: '1', KAIRO_SHARED_RESEND_KEY: 're_full_test_key' },
+  });
+  try {
+    assert.match(half.log(), /HALF SET/, 'a half-set pair must be named as such');
+    assert.match(half.log(), /KAIRO_SHARED_FROM/, 'and say which half is missing');
+    assert.doesNotMatch(half.log(), /Shared sender: on/, 'it must never read as working');
+  } finally { await half.stop(); }
+});

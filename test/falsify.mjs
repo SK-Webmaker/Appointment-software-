@@ -296,6 +296,14 @@ const MUTATIONS = {
     find: "      if (on && getSetting('backup_frequency', 'weekly') === 'off' && !Object.hasOwn(body, 'backup_frequency')) {",
     replace: '      if (false) {',
   },
+  // A half-set pair is OFF — emailSender() requires both — but it looks
+  // configured to anyone reading a dashboard. Reporting it as on is how a
+  // salon goes weeks sending nothing while every screen says it is fine.
+  'boot-banner-calls-half-set-shared-sending-on': {
+    file: 'server.js', suites: ['shared-sender'],
+    find: "    if (sharedKey && sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);",
+    replace: "    if (sharedKey || sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);",
+  },
   // ── Motion ───────────────────────────────────────────────────────────────
   // Somebody tidying the reduced-motion guard will reach for `animation: none`,
   // because it reads as obviously correct. It strands every to-only keyframe at

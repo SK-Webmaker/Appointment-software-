@@ -380,6 +380,23 @@ server.listen(PORT, HOST, () => {
     console.log(`    ${slugs.length} salon${slugs.length === 1 ? '' : 's'} under ${TENANTS_DIR}`);
     console.log(`    Addresses: https://<slug>.${BASE_DOMAIN}   (Host header decides the salon)`);
     if (platformEnabled()) console.log(`    Control API: on, key ${platformKeyFingerprint()}…`);
+    // Whether a salon that brought no Resend account of its own can send at
+    // all. This is the difference between a new salon working from the minute
+    // it is created and one that silently sends nothing until somebody pastes
+    // an API key into a dashboard they have never seen — and until now the
+    // only way to find out which was true in production was to wait for a
+    // backup to fail. The banner says which, at every boot.
+    //
+    // The From address is printed because its FORMAT is the trap: notify.js
+    // validates it with looksLikeEmail() and then puts the salon's own name in
+    // front of it, so "Kairo <bookings@…>" fails that check and every shared
+    // salon stops sending. A bare address here is correct; anything with a
+    // display name in it is the bug, visible on sight.
+    const sharedKey = String(process.env.KAIRO_SHARED_RESEND_KEY || '').trim();
+    const sharedFrom = String(process.env.KAIRO_SHARED_FROM || '').trim();
+    if (sharedKey && sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);
+    else if (sharedKey || sharedFrom) console.log(`    !  Shared sender: HALF SET — ${sharedKey ? 'KAIRO_SHARED_FROM' : 'KAIRO_SHARED_RESEND_KEY'} is missing, so it is off`);
+    else console.log('    Shared sender: off — a salon with no Resend account of its own cannot send');
     if (String(process.env.KAIRO_READ_ONLY || '') === '1') console.log('    !  KAIRO_READ_ONLY=1 — every salon is refusing writes');
     console.log('');
     return;
