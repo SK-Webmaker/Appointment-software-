@@ -69,12 +69,21 @@ const json = async (m, p, b) => {
 const countAppts = async () =>
   (await json('GET', '/api/appointments?from=2000-01-01&to=2099-01-01')).data.length;
 
-const { db } = await import(`${ROOT}/src/db.js`);
+const { db, seedDemo } = await import(`${ROOT}/src/db.js`);
 
 let browser;
 try {
   await json('POST', '/api/auth/login', { email: 'admin@kairo.local', password: 'admin123' });
+  // Skipping setup clears the sample salon, which is the point of it — so this
+  // suite, which needs services and a team to book against, puts a dataset back
+  // deliberately rather than inheriting one by accident.
   await json('POST', '/api/setup/skip', {});
+  seedDemo();
+  // The sample diary moves with the calendar, so whichever slot this suite
+  // books into is occupied on some days of the year and free on others. It
+  // needs the services and the team; it does not need a year of bookings, and
+  // keeping them makes the whole suite pass or fail by date.
+  db.prepare('DELETE FROM appointments').run();
   await json('PUT', '/api/settings', {
     business_name: 'Glow Bar', open_days: '1,2,3,4,5',
     open_min: '540', close_min: '1020', day_rules: '{}',
