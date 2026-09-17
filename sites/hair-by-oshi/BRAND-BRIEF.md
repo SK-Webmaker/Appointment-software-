@@ -83,10 +83,11 @@ healthy dark hair.
 |---|---|---|
 | `--ink` | `#0A0807` | page base |
 | `--ink-2` | `#13100E` | raised panels |
+| `--ink-3` | `#1C1714` | image wells |
 | `--bronze` | `#C0854F` | primary accent |
 | `--gold` | `#E8BE86` | highlights, shine sweep |
 | `--cream` | `#F4EDE4` | primary text |
-| `--mocha` | `#7A6656` | secondary text |
+| `--mocha` | `#9A8573` | secondary text — WCAG AA on both backgrounds |
 
 **Type**
 - Display: **Cormorant Garamond** — high-contrast editorial serif.
