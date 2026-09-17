@@ -1,0 +1,1359 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Hair by Oshi — Dark Hair Specialist | Oakleigh, Melbourne</title>
+<meta name="description" content="Oshi Dias is a dark hair specialist in Oakleigh South, Melbourne. Colour, nanoplasty and keratin for dense, high-pigment hair. Healthy hair, confident you. DM to book.">
+<meta name="theme-color" content="#0A0807">
+<link rel="canonical" href="https://hairbyoshi.com.au/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Hair by Oshi — Dark Hair Specialist, Oakleigh">
+<meta property="og:description" content="Colour, nanoplasty and keratin for dark hair. Healthy hair, confident you.">
+<meta property="og:image" content="assets/img/og-cover.jpg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   HAIR BY OSHI — obsidian & bronze
+   Concept: light moving across a dark surface.
+   ============================================================ */
+
+:root{
+  --ink:#0A0807;
+  --ink-2:#13100E;
+  --ink-3:#1C1714;
+  --bronze:#C0854F;
+  --gold:#E8BE86;
+  --cream:#F4EDE4;
+  --mocha:#9A8573;
+  --line:rgba(244,237,228,.12);
+
+  --f-display:"Cormorant Garamond",Georgia,serif;
+  --f-body:"Inter",system-ui,-apple-system,sans-serif;
+
+  --pad:clamp(20px,5vw,80px);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --ease-io:cubic-bezier(.65,0,.35,1);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--ink);color:var(--cream);
+  font-family:var(--f-body);font-weight:300;line-height:1.65;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+body.is-loading{overflow:hidden}
+body.menu-open{overflow:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+::selection{background:var(--bronze);color:var(--ink)}
+
+.skip{position:absolute;left:-9999px;z-index:999}
+.skip:focus{left:12px;top:12px;padding:10px 16px;background:var(--gold);color:var(--ink);border-radius:4px}
+
+/* ---------- type ---------- */
+.eyebrow{
+  font-size:11px;letter-spacing:.32em;text-transform:uppercase;
+  color:var(--mocha);font-weight:500;margin:0 0 20px;
+  display:flex;align-items:center;gap:12px;
+}
+.eyebrow.center{justify-content:center}
+.eyebrow i{display:block;width:34px;height:1px;background:var(--line)}
+
+.h2{
+  font-family:var(--f-display);font-weight:300;
+  font-size:clamp(38px,6.4vw,86px);line-height:1.02;
+  letter-spacing:-.02em;margin:0 0 28px;
+}
+.h2 em{font-style:italic;color:var(--gold)}
+.lede{color:var(--mocha);font-size:clamp(15px,1.5vw,18px);max-width:52ch;margin:0}
+
+/* ---------- buttons ---------- */
+.btn{
+  --bg:var(--gold);
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  padding:17px 34px;border-radius:100px;background:var(--bg);color:var(--ink);
+  font-size:13px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;
+  text-decoration:none;overflow:hidden;isolation:isolate;
+  transition:transform .5s var(--ease),color .4s var(--ease);
+  will-change:transform;
+}
+.btn span{position:relative;z-index:2}
+.btn::before{
+  content:"";position:absolute;inset:0;z-index:1;background:var(--cream);
+  transform:translateY(101%);transition:transform .55s var(--ease);
+}
+.btn:hover::before{transform:translateY(0)}
+.btn--ghost{--bg:transparent;color:var(--cream);box-shadow:inset 0 0 0 1px var(--line)}
+.btn--ghost::before{background:var(--gold)}
+.btn--ghost:hover{color:var(--ink)}
+.btn--sm{padding:12px 24px;font-size:11px}
+.btn--lg{padding:22px 52px;font-size:14px}
+
+/* ---------- preloader ---------- */
+.preloader{
+  position:fixed;inset:0;z-index:9000;background:var(--ink);
+  display:grid;place-items:center;
+  transition:opacity .8s var(--ease),visibility .8s;
+}
+.preloader.done{opacity:0;visibility:hidden}
+.preloader__inner{text-align:center;width:min(300px,70vw)}
+.preloader__mark{width:88px;height:88px;margin:0 auto 18px}
+.pl-strand{stroke-dasharray:260;stroke-dashoffset:260;animation:draw 2s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.preloader__word{
+  font-family:var(--f-display);font-size:24px;letter-spacing:.06em;
+  margin:0 0 20px;color:var(--cream);opacity:0;animation:fadeUp .9s .35s var(--ease) forwards;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.preloader__bar{height:1px;background:var(--line);overflow:hidden}
+.preloader__bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bronze),var(--gold))}
+
+/* ---------- cursor ---------- */
+.cursor{position:fixed;top:0;left:0;z-index:8000;pointer-events:none;mix-blend-mode:difference;
+  transform:translate3d(-100px,-100px,0);will-change:transform}
+.cursor__dot{
+  position:absolute;top:-4px;left:-4px;width:8px;height:8px;border-radius:50%;
+  background:var(--cream);transition:width .35s var(--ease),height .35s var(--ease),top .35s var(--ease),left .35s var(--ease),opacity .3s;
+}
+.cursor.is-big .cursor__dot{width:62px;height:62px;top:-31px;left:-31px;opacity:.18}
+.cursor__label{
+  position:absolute;top:-7px;left:-31px;width:62px;text-align:center;
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--cream);
+  opacity:0;transition:opacity .3s;
+}
+.cursor.is-big .cursor__label{opacity:1}
+@media (hover:none),(max-width:860px){.cursor{display:none}}
+
+/* ---------- scroll progress ---------- */
+.scrollbar{position:fixed;top:0;left:0;right:0;height:2px;z-index:7000;background:transparent}
+.scrollbar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bronze),var(--gold))}
+
+/* ---------- nav ---------- */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:6000;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  padding:22px var(--pad);
+  transition:background .5s var(--ease),padding .5s var(--ease),backdrop-filter .5s;
+}
+.nav.stuck{background:rgba(10,8,7,.82);backdrop-filter:blur(18px);padding:14px var(--pad);
+  box-shadow:0 1px 0 var(--line)}
+.nav.hide{transform:translateY(-110%);transition:transform .5s var(--ease)}
+.nav__brand{text-decoration:none;display:flex;flex-direction:column;line-height:1.1}
+.nav__brand-main{font-family:var(--f-display);font-size:21px;letter-spacing:.04em}
+.nav__brand-sub{font-size:9px;letter-spacing:.34em;text-transform:uppercase;color:var(--mocha)}
+.nav__links{display:flex;gap:30px}
+.nav__links a{
+  position:relative;text-decoration:none;font-size:12px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--mocha);transition:color .35s;padding:4px 0;
+}
+.nav__links a::after{
+  content:"";position:absolute;left:0;bottom:0;width:100%;height:1px;background:var(--gold);
+  transform:scaleX(0);transform-origin:right;transition:transform .45s var(--ease);
+}
+.nav__links a:hover{color:var(--cream)}
+.nav__links a:hover::after{transform:scaleX(1);transform-origin:left}
+.nav__burger{display:none;background:none;border:0;padding:10px;cursor:pointer}
+.nav__burger i{display:block;width:24px;height:1px;background:var(--cream);transition:transform .4s var(--ease),opacity .3s}
+.nav__burger i+i{margin-top:6px}
+.nav__burger[aria-expanded="true"] i:first-child{transform:translateY(3.5px) rotate(45deg)}
+.nav__burger[aria-expanded="true"] i:last-child{transform:translateY(-3.5px) rotate(-45deg)}
+
+@media(max-width:1000px){
+  .nav__links,.nav__cta{display:none}
+  .nav__burger{display:block}
+}
+
+/* ---------- mobile menu ---------- */
+.menu{
+  position:fixed;inset:0;z-index:5500;background:var(--ink-2);
+  display:flex;flex-direction:column;justify-content:center;gap:40px;
+  padding:110px var(--pad) 40px;
+  clip-path:circle(0% at 92% 4%);transition:clip-path .8s var(--ease);
+}
+.menu.open{clip-path:circle(150% at 92% 4%)}
+.menu__links{display:flex;flex-direction:column;gap:6px}
+.menu__links a{
+  text-decoration:none;font-family:var(--f-display);font-size:clamp(30px,8vw,46px);
+  display:flex;align-items:baseline;gap:16px;padding:8px 0;
+  opacity:0;transform:translateY(18px);transition:opacity .5s var(--ease),transform .5s var(--ease);
+}
+.menu.open .menu__links a{opacity:1;transform:none}
+.menu.open .menu__links a:nth-child(1){transition-delay:.22s}
+.menu.open .menu__links a:nth-child(2){transition-delay:.28s}
+.menu.open .menu__links a:nth-child(3){transition-delay:.34s}
+.menu.open .menu__links a:nth-child(4){transition-delay:.40s}
+.menu.open .menu__links a:nth-child(5){transition-delay:.46s}
+.menu.open .menu__links a:nth-child(6){transition-delay:.52s}
+.menu.open .menu__links a:nth-child(7){transition-delay:.58s}
+.menu__links em{font-family:var(--f-body);font-style:normal;font-size:11px;
+  letter-spacing:.2em;color:var(--bronze)}
+.menu__foot{color:var(--mocha);font-size:12px;letter-spacing:.06em}
+.menu__foot p{margin:4px 0}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{position:relative;min-height:100svh;display:flex;flex-direction:column;
+  justify-content:flex-end;padding:0 var(--pad) clamp(28px,5vh,56px);overflow:hidden}
+.hero__media{position:absolute;inset:0;z-index:0}
+.hero__media img{
+  width:100%;height:118%;object-fit:cover;object-position:50% 30%;
+  filter:grayscale(.28) contrast(1.06) brightness(.72);
+  will-change:transform;
+}
+.hero__veil{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(120% 80% at 50% 0%,transparent 20%,rgba(10,8,7,.55) 70%,var(--ink) 100%),
+    linear-gradient(to top,var(--ink) 4%,rgba(10,8,7,.78) 34%,rgba(10,8,7,.3) 70%,rgba(10,8,7,.6) 100%);
+}
+.hero__grain{
+  position:absolute;inset:0;opacity:.055;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.hero__inner{position:relative;z-index:2;max-width:1000px}
+.hero__eyebrow{margin-bottom:24px}
+.hero__title{
+  font-family:var(--f-display);font-weight:300;
+  font-size:clamp(52px,11.5vw,168px);line-height:.92;letter-spacing:-.035em;
+  margin:0 0 30px;
+}
+.hero__title .line{display:block;overflow:hidden}
+.hero__title .w{
+  display:inline-block;transform:translateY(105%);
+  transition:transform 1.15s var(--ease);
+}
+.hero__title .it{font-style:italic;color:var(--gold)}
+body:not(.is-loading) .hero__title .w{transform:translateY(0)}
+.hero__title .line:nth-child(1) .w:nth-child(1){transition-delay:.05s}
+.hero__title .line:nth-child(1) .w:nth-child(2){transition-delay:.12s}
+.hero__title .line:nth-child(2) .w:nth-child(1){transition-delay:.19s}
+.hero__title .line:nth-child(2) .w:nth-child(2){transition-delay:.26s}
+
+/* shine sweep across the italic words */
+.hero__title .it{
+  background:linear-gradient(100deg,var(--gold) 38%,#FFF7EA 50%,var(--gold) 62%);
+  background-size:280% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:shine 6.5s 2s var(--ease-io) infinite;
+}
+@keyframes shine{0%,72%{background-position:180% 0}88%,100%{background-position:-80% 0}}
+
+.hero__sub{max-width:47ch;color:var(--cream);opacity:0;font-size:clamp(15px,1.7vw,19px);
+  margin:0 0 38px;transform:translateY(16px);transition:opacity .9s .55s var(--ease),transform .9s .55s var(--ease)}
+.hero__actions{display:flex;flex-wrap:wrap;gap:14px;opacity:0;transform:translateY(16px);
+  transition:opacity .9s .7s var(--ease),transform .9s .7s var(--ease)}
+body:not(.is-loading) .hero__sub,body:not(.is-loading) .hero__actions{opacity:1;transform:none}
+.hero__sub{opacity:0}
+body:not(.is-loading) .hero__sub{opacity:.82}
+
+.hero__meta{
+  position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:clamp(24px,6vw,72px);
+  margin-top:clamp(36px,6vh,72px);padding-top:22px;border-top:1px solid var(--line);
+  opacity:0;transition:opacity 1s .9s var(--ease);
+}
+body:not(.is-loading) .hero__meta{opacity:1}
+.hero__meta div{display:flex;flex-direction:column;gap:5px}
+.hero__meta em{font-style:normal;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--mocha)}
+.hero__meta span{font-family:var(--f-display);font-size:19px}
+
+.hero__scroll{position:absolute;right:var(--pad);bottom:clamp(28px,5vh,56px);z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:10px}
+.hero__scroll span{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--mocha);
+  writing-mode:vertical-rl}
+.hero__scroll i{display:block;width:1px;height:54px;background:linear-gradient(var(--mocha),transparent);
+  position:relative;overflow:hidden}
+.hero__scroll i::after{content:"";position:absolute;inset:0;background:var(--gold);
+  animation:trickle 2.2s var(--ease-io) infinite}
+@keyframes trickle{0%{transform:translateY(-100%)}60%,100%{transform:translateY(100%)}}
+@media(max-width:860px){.hero__scroll{display:none}}
+
+/* ---------- marquee ---------- */
+.marquee{overflow:hidden;border-block:1px solid var(--line);padding:22px 0;background:var(--ink-2)}
+.marquee__track{display:flex;align-items:center;gap:36px;width:max-content;will-change:transform}
+.marquee__track span{font-family:var(--f-display);font-size:clamp(26px,4vw,52px);
+  font-style:italic;white-space:nowrap;color:var(--cream);opacity:.88}
+.marquee__track i{color:var(--bronze);font-size:14px;font-style:normal}
+
+/* ============================================================
+   REVEALS
+   ============================================================ */
+.reveal{opacity:0;transform:translateY(34px);
+  transition:opacity 1s var(--ease),transform 1s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+
+.sec-head{max-width:var(--maxw,900px);margin:0 auto clamp(48px,7vw,96px);padding:0 var(--pad);text-align:center}
+.sec-head .eyebrow{justify-content:center}
+.sec-head .lede{margin-inline:auto}
+
+/* ============================================================
+   CRAFT — scroll-linked word reveal
+   ============================================================ */
+.craft{height:230vh;position:relative}
+.craft__sticky{position:sticky;top:0;height:100svh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:0 var(--pad);text-align:center}
+.craft__text{
+  font-family:var(--f-display);font-weight:300;
+  font-size:clamp(28px,4.6vw,64px);line-height:1.22;letter-spacing:-.015em;
+  max-width:19ch;margin:0;
+}
+.craft__text .ch{color:rgba(244,237,228,.13);transition:color .35s linear}
+.craft__text .ch.lit{color:var(--cream)}
+
+/* ============================================================
+   SERVICES
+   ============================================================ */
+.services{padding:clamp(80px,12vw,160px) 0}
+.svc{display:flex;flex-direction:column;gap:clamp(60px,9vw,130px);padding:0 var(--pad)}
+.svc__item{
+  display:grid;gap:clamp(24px,4vw,64px);align-items:center;
+  grid-template-columns:auto 1.05fr .95fr;max-width:1320px;margin-inline:auto;width:100%;
+}
+.svc__item:nth-child(even){grid-template-columns:auto .95fr 1.05fr}
+.svc__item:nth-child(even) .svc__media{order:-1}
+.svc__num{font-family:var(--f-display);font-size:clamp(28px,3vw,46px);color:var(--bronze);
+  opacity:.5;line-height:1;align-self:start;padding-top:8px}
+.svc__body h3{font-family:var(--f-display);font-weight:300;font-size:clamp(32px,4.4vw,60px);
+  margin:0 0 12px;letter-spacing:-.02em;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.chip{font-family:var(--f-body);font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  padding:6px 12px;border-radius:100px;background:var(--bronze);color:var(--ink);font-weight:500}
+.svc__tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--bronze);margin:0 0 20px}
+.svc__copy{color:var(--mocha);margin:0 0 22px;max-width:46ch}
+.svc__copy em{color:var(--cream);font-style:italic}
+.svc__list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.svc__list li{position:relative;padding-left:22px;font-size:14px;color:var(--cream);opacity:.78}
+.svc__list li::before{content:"";position:absolute;left:0;top:10px;width:9px;height:1px;background:var(--bronze)}
+.svc__media{overflow:hidden;border-radius:2px;aspect-ratio:4/5;background:var(--ink-3)}
+.svc__media img{width:100%;height:100%;object-fit:cover;filter:grayscale(.2) brightness(.86);
+  transform:scale(1.02);transition:transform 1.3s var(--ease),filter .8s}
+.svc__item:hover .svc__media img{transform:scale(1.08);filter:grayscale(0) brightness(1)}
+.svc__note{max-width:56ch;margin:clamp(56px,8vw,96px) auto 0;padding:0 var(--pad);
+  text-align:center;color:var(--mocha);font-size:14px}
+
+@media(max-width:900px){
+  .svc__item,.svc__item:nth-child(even){grid-template-columns:1fr;gap:22px}
+  .svc__item:nth-child(even) .svc__media{order:0}
+  .svc__num{padding-top:0}
+}
+
+/* ============================================================
+   NANOPLASTY
+   ============================================================ */
+.nano{padding:clamp(80px,12vw,160px) var(--pad);background:var(--ink-2);
+  border-block:1px solid var(--line)}
+.nano__head{max-width:1320px;margin:0 auto clamp(48px,6vw,80px)}
+.nano__grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,5vw,80px);
+  max-width:1320px;margin-inline:auto;align-items:center}
+.nano__viz{background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:20px}
+.strand{width:100%;height:auto;display:block}
+.strand__lbl{fill:var(--mocha);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  font-family:"Inter",sans-serif}
+.strand__path{stroke-dasharray:1400;stroke-dashoffset:1400;transition:stroke-dashoffset 2.2s var(--ease)}
+.nano__viz.in .strand__path{stroke-dashoffset:0}
+.nano__viz.in #strandAfter{transition-delay:.45s}
+.strand__shine{opacity:0}
+.nano__viz.in .strand__shine{animation:shineRun 3.2s 2.2s var(--ease-io) infinite}
+@keyframes shineRun{0%{opacity:0;transform:translateX(0)}12%{opacity:1}
+  88%{opacity:1}100%{opacity:0;transform:translateX(360px)}}
+.nano__cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,3vw,40px)}
+.nano__col h4{font-family:var(--f-display);font-weight:400;font-size:22px;margin:0 0 10px;
+  color:var(--gold);letter-spacing:-.01em}
+.nano__col p{margin:0;color:var(--mocha);font-size:14.5px;line-height:1.7}
+.nano__col em{color:var(--cream);font-style:italic}
+@media(max-width:1000px){.nano__grid{grid-template-columns:1fr}}
+@media(max-width:560px){.nano__cols{grid-template-columns:1fr}}
+
+/* ============================================================
+   BEFORE / AFTER
+   ============================================================ */
+.ba{padding:clamp(80px,12vw,160px) 0}
+.ba__stage{
+  position:relative;max-width:1100px;margin:0 auto;padding:0;
+  aspect-ratio:16/10;overflow:hidden;border-radius:3px;background:var(--ink-3);
+  user-select:none;touch-action:pan-y;cursor:ew-resize;
+}
+.ba__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ba__clip{position:absolute;inset:0;width:50%;overflow:hidden;will-change:width}
+.ba__clip .ba__img{width:auto;min-width:100vw;max-width:none}
+.ba__handle{
+  position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--cream);
+  z-index:3;transform:translateX(-1px);will-change:left;
+  display:flex;align-items:center;justify-content:center;
+}
+.ba__handle i{position:absolute;width:56px;height:56px;border-radius:50%;
+  background:var(--cream);box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.ba__handle span{position:relative;z-index:2;color:var(--ink);font-size:13px;letter-spacing:.06em}
+.ba__handle:focus-visible{outline:2px solid var(--gold);outline-offset:6px}
+.ba__tag{position:absolute;bottom:18px;z-index:4;font-size:10px;letter-spacing:.24em;
+  text-transform:uppercase;padding:8px 14px;border-radius:100px;
+  background:rgba(10,8,7,.62);backdrop-filter:blur(8px);color:var(--cream)}
+.ba__tag--l{left:18px}
+.ba__tag--r{right:18px}
+@media(max-width:900px){.ba__stage{aspect-ratio:4/5;margin-inline:var(--pad)}}
+
+/* ============================================================
+   WORK — horizontal scroll
+   ============================================================ */
+.work{position:relative;height:340vh}
+.work__pin{position:sticky;top:0;height:100svh;display:flex;flex-direction:column;
+  justify-content:center;gap:clamp(24px,4vh,48px);overflow:hidden}
+.work__head{padding:0 var(--pad);flex:0 0 auto}
+.work__head .h2{margin-bottom:0}
+.work__track{display:flex;gap:clamp(16px,2.4vw,34px);padding:0 var(--pad);
+  width:max-content;will-change:transform}
+.work__card{margin:0;flex:0 0 auto;width:clamp(230px,27vw,400px)}
+.work__card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:2px;
+  filter:grayscale(.3) brightness(.85);transition:filter .7s var(--ease),transform 1s var(--ease)}
+.work__card:hover img{filter:grayscale(0) brightness(1);transform:scale(1.02)}
+.work__card figcaption{display:flex;gap:10px;align-items:baseline;margin-top:14px;
+  font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mocha)}
+.work__card figcaption em{font-style:normal;color:var(--bronze);font-size:10px}
+.work__hint{position:absolute;right:var(--pad);bottom:24px;margin:0;font-size:10px;
+  letter-spacing:.26em;text-transform:uppercase;color:var(--mocha)}
+@media(max-width:860px){
+  .work{height:auto}
+  .work__pin{position:static;height:auto;padding:clamp(70px,11vw,120px) 0}
+  .work__track{width:auto;overflow-x:auto;scroll-snap-type:x mandatory;
+    padding-bottom:16px;-webkit-overflow-scrolling:touch}
+  .work__card{scroll-snap-align:center;width:74vw}
+  .work__hint{position:static;padding:0 var(--pad);margin-top:10px}
+}
+
+/* ============================================================
+   OSHI
+   ============================================================ */
+.oshi{display:grid;grid-template-columns:.9fr 1.1fr;gap:clamp(36px,6vw,96px);
+  align-items:center;max-width:1320px;margin-inline:auto;
+  padding:clamp(80px,12vw,160px) var(--pad)}
+.oshi__portrait{position:relative;border-radius:3px;overflow:hidden;background:var(--ink-3)}
+.oshi__portrait img{width:100%;aspect-ratio:4/5;object-fit:cover;
+  filter:grayscale(.22) brightness(.9)}
+.oshi__badge{position:absolute;left:18px;bottom:18px;font-size:10px;letter-spacing:.26em;
+  text-transform:uppercase;padding:9px 16px;border-radius:100px;
+  background:rgba(10,8,7,.66);backdrop-filter:blur(8px)}
+.oshi__body p{color:var(--mocha);max-width:50ch;margin:0 0 20px}
+.oshi__body .h2{margin-bottom:26px}
+.pull{margin:34px 0;padding:22px 0 22px 26px;border-left:1px solid var(--bronze)}
+.pull p{font-family:var(--f-display);font-style:italic;font-size:clamp(22px,2.7vw,34px);
+  line-height:1.3;color:var(--cream);margin:0;max-width:24ch}
+.sig{font-family:var(--f-display);font-style:italic;font-size:clamp(20px,2.3vw,28px);
+  color:var(--gold)!important;margin-top:30px!important}
+@media(max-width:900px){.oshi{grid-template-columns:1fr}}
+
+/* ============================================================
+   STUDIO
+   ============================================================ */
+.studio{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(36px,6vw,96px);
+  align-items:center;max-width:1320px;margin-inline:auto;
+  padding:clamp(80px,12vw,160px) var(--pad);border-top:1px solid var(--line)}
+.studio__media{border-radius:3px;overflow:hidden;background:var(--ink-3)}
+.studio__media img{width:100%;aspect-ratio:5/4;object-fit:cover;filter:grayscale(.2) brightness(.88)}
+.studio__facts{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin:32px 0 36px}
+.studio__facts em{display:block;font-style:normal;font-size:10px;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--bronze);margin-bottom:8px}
+.studio__facts p{margin:0;font-size:14.5px;color:var(--cream);opacity:.8;line-height:1.7}
+.studio__facts a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--line)}
+@media(max-width:900px){.studio{grid-template-columns:1fr}.studio__media{order:-1}}
+@media(max-width:520px){.studio__facts{grid-template-columns:1fr}}
+
+/* ============================================================
+   FAQ
+   ============================================================ */
+.faq{padding:clamp(80px,12vw,160px) 0;background:var(--ink-2);border-block:1px solid var(--line)}
+.faq__list{max-width:840px;margin-inline:auto;padding:0 var(--pad)}
+.faq__item{border-bottom:1px solid var(--line)}
+.faq__item summary{
+  list-style:none;cursor:pointer;padding:26px 40px 26px 0;position:relative;
+  font-family:var(--f-display);font-size:clamp(19px,2.2vw,27px);font-weight:400;
+  transition:color .35s;
+}
+.faq__item summary::-webkit-details-marker{display:none}
+.faq__item summary:hover{color:var(--gold)}
+.faq__item summary i{position:absolute;right:0;top:50%;width:14px;height:14px;
+  transform:translateY(-50%)}
+.faq__item summary i::before,.faq__item summary i::after{
+  content:"";position:absolute;left:0;top:50%;width:14px;height:1px;background:var(--bronze);
+  transition:transform .4s var(--ease)}
+.faq__item summary i::after{transform:rotate(90deg)}
+.faq__item[open] summary i::after{transform:rotate(0)}
+.faq__item[open] summary{color:var(--gold)}
+.faq__item p{margin:0 0 26px;color:var(--mocha);max-width:62ch;font-size:15px}
+.faq__item a{color:var(--gold)}
+
+/* ============================================================
+   BOOK
+   ============================================================ */
+.book{position:relative;padding:clamp(100px,16vw,200px) var(--pad);text-align:center;
+  overflow:hidden}
+.book__glow{position:absolute;left:50%;top:50%;width:min(1000px,130vw);aspect-ratio:1;
+  transform:translate(-50%,-50%);pointer-events:none;
+  background:radial-gradient(circle,rgba(192,133,79,.2),transparent 62%);
+  animation:breathe 9s var(--ease-io) infinite}
+@keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.75}
+  50%{transform:translate(-50%,-50%) scale(1.14);opacity:1}}
+.book__inner{position:relative;z-index:2;max-width:760px;margin-inline:auto}
+.book__title{font-family:var(--f-display);font-weight:300;
+  font-size:clamp(44px,8.4vw,116px);line-height:.98;letter-spacing:-.03em;margin:0 0 26px}
+.book__title em{font-style:italic;color:var(--gold)}
+.book__sub{color:var(--mocha);max-width:46ch;margin:0 auto 42px;font-size:clamp(15px,1.6vw,17px)}
+.book__days{margin:32px 0 0;font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--mocha)}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.foot{border-top:1px solid var(--line);padding:clamp(56px,8vw,96px) var(--pad) 32px}
+.foot__top{text-align:center;margin-bottom:clamp(48px,7vw,80px)}
+.foot__mark{font-family:var(--f-display);font-size:clamp(40px,9vw,110px);font-weight:300;
+  letter-spacing:-.03em;margin:0;line-height:1;
+  background:linear-gradient(180deg,var(--cream),rgba(244,237,228,.22));
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.foot__tag{font-family:var(--f-display);font-style:italic;color:var(--gold);margin:10px 0 0;
+  font-size:clamp(15px,1.8vw,20px)}
+.foot__grid{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;
+  max-width:1100px;margin:0 auto;padding-bottom:40px;border-bottom:1px solid var(--line)}
+.foot__grid em{display:block;font-style:normal;font-size:10px;letter-spacing:.26em;
+  text-transform:uppercase;color:var(--bronze);margin-bottom:10px}
+.foot__grid p{margin:0;font-size:13.5px;color:var(--mocha);line-height:1.8}
+.foot__grid a{color:var(--cream);text-decoration:none;border-bottom:1px solid var(--line)}
+.foot__base{text-align:center;padding-top:28px}
+.foot__base p{margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mocha)}
+@media(max-width:760px){.foot__grid{grid-template-columns:1fr 1fr}}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+  .hero__title .w{transform:none}
+  .hero__sub,.hero__actions,.hero__meta{opacity:1;transform:none}
+  .craft__text .ch{color:var(--cream)}
+  .strand__path{stroke-dashoffset:0}
+  .work{height:auto}
+  .work__pin{position:static;height:auto;padding:90px 0}
+  .work__track{width:auto;overflow-x:auto}
+  .craft{height:auto}
+  .craft__sticky{position:static;height:auto;padding-block:clamp(80px,14vw,160px)}
+}
+
+/* ============================================================
+   PHOTO SLOTS — shown only while real photography is missing
+   ============================================================ */
+.slot{
+  position:relative;width:100%;height:100%;min-height:200px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:24px;text-align:center;border-radius:2px;overflow:hidden;
+  background:
+    linear-gradient(135deg,rgba(192,133,79,.13),transparent 46%),
+    linear-gradient(315deg,rgba(232,190,134,.09),transparent 52%),
+    var(--ink-3);
+  box-shadow:inset 0 0 0 1px var(--line);
+}
+.slot::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(100deg,transparent 38%,rgba(232,190,134,.09) 50%,transparent 62%);
+  background-size:280% 100%;animation:slotSheen 4.5s var(--ease-io) infinite;
+}
+@keyframes slotSheen{0%{background-position:180% 0}100%{background-position:-80% 0}}
+.slot__mark{font-family:var(--f-display);font-size:19px;font-style:italic;color:var(--bronze);opacity:.62}
+.slot__name{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);opacity:.9}
+.slot__alt{font-size:12px;color:var(--mocha);max-width:30ch;line-height:1.5}
+
+.hero__media .slot{min-height:100svh;border-radius:0;box-shadow:none}
+.svc__media .slot,.oshi__portrait .slot{aspect-ratio:4/5}
+.studio__media .slot{aspect-ratio:5/4}
+.work__card .slot{aspect-ratio:3/4}
+.ba__stage .slot{position:absolute;inset:0}
+.ba__clip .slot{background:
+    linear-gradient(135deg,rgba(122,102,86,.2),transparent 46%),var(--ink-2)}
+
+/* hero slot sits behind the headline — keep it whisper-quiet */
+.hero__media .slot::after{display:none}
+.hero__media .slot__mark,.hero__media .slot__name,.hero__media .slot__alt{opacity:.22}
+.ba__stage .slot__alt{display:none}
+.hero__media .slot{justify-content:flex-start;padding-top:22vh}
+
+</style>
+<script type="application/ld+json">
+{
+  "@context":"https://schema.org",
+  "@type":"HairSalon",
+  "name":"Hair by Oshi",
+  "description":"Dark hair specialist in Oakleigh South, Melbourne. Colour, nanoplasty and keratin.",
+  "image":"assets/img/og-cover.jpg",
+  "founder":{"@type":"Person","name":"Oshi Dias","jobTitle":"Hairdresser · Dark Hair Specialist"},
+  "address":{
+    "@type":"PostalAddress",
+    "streetAddress":"Freedom Suites, 350 Warrigal Rd",
+    "addressLocality":"Oakleigh South",
+    "addressRegion":"VIC",
+    "postalCode":"3167",
+    "addressCountry":"AU"
+  },
+  "areaServed":["Oakleigh","Oakleigh South","Clayton","Bentleigh","Melbourne"],
+  "sameAs":["https://www.instagram.com/hair_by_oshi_/"],
+  "openingHoursSpecification":[
+    {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Friday","Saturday"]}
+  ],
+  "makesOffer":[
+    {"@type":"Offer","itemOffered":{"@type":"Service","name":"Colour & colour correction"}},
+    {"@type":"Offer","itemOffered":{"@type":"Service","name":"Nanoplasty smoothing"}},
+    {"@type":"Offer","itemOffered":{"@type":"Service","name":"Keratin treatment"}}
+  ]
+}
+</script>
+</head>
+<body class="is-loading">
+
+<!-- ============ PRELOADER ============ -->
+<div class="preloader" id="preloader" aria-hidden="true">
+  <div class="preloader__inner">
+    <svg class="preloader__mark" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+      <path class="pl-strand" d="M20 100 C 20 40, 60 20, 60 60 S 100 80, 100 20" stroke="url(#plg)" stroke-width="1.25" stroke-linecap="round"/>
+      <defs>
+        <linearGradient id="plg" x1="0" y1="120" x2="120" y2="0">
+          <stop offset="0%" stop-color="#7A6656"/>
+          <stop offset="50%" stop-color="#E8BE86"/>
+          <stop offset="100%" stop-color="#C0854F"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <p class="preloader__word">Hair by Oshi</p>
+    <div class="preloader__bar"><span id="plBar"></span></div>
+  </div>
+</div>
+
+<!-- ============ CURSOR ============ -->
+<div class="cursor" id="cursor" aria-hidden="true"><span class="cursor__dot"></span><span class="cursor__label"></span></div>
+
+<!-- ============ SCROLL PROGRESS ============ -->
+<div class="scrollbar" aria-hidden="true"><span id="scrollBar"></span></div>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <a class="nav__brand" href="#top" data-cursor="home">
+    <span class="nav__brand-main">Hair by Oshi</span>
+    <span class="nav__brand-sub">Oakleigh</span>
+  </a>
+  <nav class="nav__links" aria-label="Primary">
+    <a href="#craft">The craft</a>
+    <a href="#services">Services</a>
+    <a href="#nanoplasty">Nanoplasty</a>
+    <a href="#work">Work</a>
+    <a href="#oshi">Oshi</a>
+    <a href="#studio">Studio</a>
+  </nav>
+  <a class="btn btn--sm nav__cta" href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener" data-magnetic data-cursor="book">
+    <span>DM to book</span>
+  </a>
+  <button class="nav__burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="menu"><i></i><i></i></button>
+</header>
+
+<!-- ============ MOBILE MENU ============ -->
+<div class="menu" id="menu" hidden>
+  <nav class="menu__links" aria-label="Mobile">
+    <a href="#craft"><em>01</em> The craft</a>
+    <a href="#services"><em>02</em> Services</a>
+    <a href="#nanoplasty"><em>03</em> Nanoplasty</a>
+    <a href="#work"><em>04</em> Work</a>
+    <a href="#oshi"><em>05</em> Oshi</a>
+    <a href="#studio"><em>06</em> Studio</a>
+    <a href="#book"><em>07</em> Book</a>
+  </nav>
+  <div class="menu__foot">
+    <p>350 Warrigal Rd, Oakleigh South</p>
+    <p>Mon · Tue · Fri · Sat</p>
+  </div>
+</div>
+
+<main id="main">
+<span id="top"></span>
+
+<!-- ============ 01 · HERO ============ -->
+<section class="hero" id="hero">
+  <div class="hero__media">
+    <img id="heroImg" src="assets/img/hero-oshi.jpg" alt="Oshi Dias at work in her Oakleigh studio" decoding="async">
+    <div class="hero__veil"></div>
+    <div class="hero__grain"></div>
+  </div>
+
+  <div class="hero__inner">
+    <p class="eyebrow hero__eyebrow"><span>Oakleigh&nbsp;South</span><i></i><span>Melbourne</span></p>
+
+    <h1 class="hero__title">
+      <span class="line"><span class="w">Healthy</span> <span class="w">hair.</span></span>
+      <span class="line"><span class="w it">Confident</span> <span class="w it">you.</span></span>
+    </h1>
+
+    <p class="hero__sub">
+      Colour, nanoplasty and keratin for dark hair — the dense, high&#8209;pigment,
+      hard&#8209;to&#8209;shift kind that most salons get wrong.
+    </p>
+
+    <div class="hero__actions">
+      <a class="btn" href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener" data-magnetic data-cursor="book"><span>DM to book</span></a>
+      <a class="btn btn--ghost" href="#services" data-magnetic><span>See the services</span></a>
+    </div>
+  </div>
+
+  <div class="hero__meta">
+    <div><em>Specialty</em><span>Dark hair</span></div>
+    <div><em>Studio</em><span>Private suite</span></div>
+    <div><em>Days</em><span>Mon Tue Fri Sat</span></div>
+  </div>
+
+  <div class="hero__scroll" aria-hidden="true"><span>Scroll</span><i></i></div>
+</section>
+
+<!-- ============ MARQUEE ============ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track" id="marquee">
+    <span>Colour</span><i>✦</i><span>Nanoplasty</span><i>✦</i><span>Keratin</span><i>✦</i><span>Colour correction</span><i>✦</i><span>Gloss &amp; tone</span><i>✦</i>
+    <span>Colour</span><i>✦</i><span>Nanoplasty</span><i>✦</i><span>Keratin</span><i>✦</i><span>Colour correction</span><i>✦</i><span>Gloss &amp; tone</span><i>✦</i>
+  </div>
+</div>
+
+<!-- ============ 02 · THE CRAFT (scroll-linked word reveal) ============ -->
+<section class="craft" id="craft">
+  <div class="craft__sticky">
+    <p class="eyebrow center">01 — The craft</p>
+    <p class="craft__text" id="craftText" data-split>
+      Dark hair is not the absence of colour. It is depth, weight and the way
+      light travels through it. Lifting it is easy. Keeping it healthy while you
+      do is the entire skill.
+    </p>
+  </div>
+</section>
+
+<!-- ============ 03 · SERVICES ============ -->
+<section class="services" id="services">
+  <div class="sec-head reveal">
+    <p class="eyebrow">02 — Services</p>
+    <h2 class="h2">Three things, <em>done properly</em></h2>
+    <p class="lede">
+      The menu is deliberately short. Everything here is built around one
+      question — what will still look good in eight weeks?
+    </p>
+  </div>
+
+  <div class="svc">
+    <article class="svc__item reveal" data-svc="colour">
+      <div class="svc__num">01</div>
+      <div class="svc__body">
+        <h3>Colour</h3>
+        <p class="svc__tag">Tonal brunette · Gloss · Grey blending · Correction</p>
+        <p class="svc__copy">
+          Rich, dimensional colour that reads expensive in daylight — not brassy,
+          not flat. Includes the honest conversation about what your hair can
+          take today versus what it can take over two appointments.
+        </p>
+        <ul class="svc__list">
+          <li>Root melt &amp; tonal refresh</li>
+          <li>Dimensional brunette &amp; soft balayage</li>
+          <li>Grey blending for under 40% grey</li>
+          <li>Colour correction — box dye, banding, hot roots</li>
+        </ul>
+      </div>
+      <div class="svc__media"><img src="assets/img/svc-colour.jpg" alt="Dimensional brunette colour result" loading="lazy" decoding="async"></div>
+    </article>
+
+    <article class="svc__item reveal" data-svc="nano">
+      <div class="svc__num">02</div>
+      <div class="svc__body">
+        <h3>Nanoplasty <span class="chip">Signature</span></h3>
+        <p class="svc__tag">Formaldehyde-free · Frizz-free · Keeps movement</p>
+        <p class="svc__copy">
+          The service Oshi is known for across Melbourne. Nanoplasty uses
+          low-molecular amino acids to smooth the cuticle without flattening your
+          hair into a sheet. You keep your body and your bend — you lose the
+          frizz and the fight.
+        </p>
+        <ul class="svc__list">
+          <li>Safe on coloured and previously treated hair</li>
+          <li>Cuts blow-dry time dramatically</li>
+          <li>Softens bulk in dense, coarse hair</li>
+          <li>Grows out soft — no harsh regrowth line</li>
+        </ul>
+      </div>
+      <div class="svc__media"><img src="assets/img/svc-nanoplasty.jpg" alt="Smooth, glossy hair after a nanoplasty treatment" loading="lazy" decoding="async"></div>
+    </article>
+
+    <article class="svc__item reveal" data-svc="keratin">
+      <div class="svc__num">03</div>
+      <div class="svc__body">
+        <h3>Keratin</h3>
+        <p class="svc__tag">Smoothing · Protein · Manageability</p>
+        <p class="svc__copy">
+          Keratin deposits protein into the hair to smooth and straighten. It is
+          <em>not</em> permanent and it does not change your curl pattern forever
+          — anyone telling you otherwise is selling something. Done right, it
+          buys you months of easy mornings.
+        </p>
+        <ul class="svc__list">
+          <li>Best for frizz-prone, humidity-reactive hair</li>
+          <li>Straighter finish than nanoplasty</li>
+          <li>Wears off gradually and evenly</li>
+          <li>Paired with the right home care, or it is wasted</li>
+        </ul>
+      </div>
+      <div class="svc__media"><img src="assets/img/svc-keratin.jpg" alt="Keratin smoothing treatment result" loading="lazy" decoding="async"></div>
+    </article>
+  </div>
+
+  <p class="svc__note reveal">
+    Every service starts with a consult. Pricing depends on length, density and
+    condition — which is why it is quoted in your DM, not guessed on a website.
+  </p>
+</section>
+
+<!-- ============ 04 · NANOPLASTY, EXPLAINED ============ -->
+<section class="nano" id="nanoplasty">
+  <div class="nano__head reveal">
+    <p class="eyebrow">03 — The signature</p>
+    <h2 class="h2">Nanoplasty, <em>actually explained</em></h2>
+  </div>
+
+  <div class="nano__grid">
+    <div class="nano__viz reveal">
+      <svg viewBox="0 0 400 300" class="strand" aria-label="Diagram of a hair cuticle before and after nanoplasty">
+        <defs>
+          <linearGradient id="sg" x1="0" x2="1">
+            <stop offset="0%" stop-color="#C0854F"/><stop offset="100%" stop-color="#E8BE86"/>
+          </linearGradient>
+        </defs>
+        <text x="20" y="26" class="strand__lbl">Before — lifted cuticle</text>
+        <path class="strand__path" id="strandBefore"
+          d="M20 80 q10 -18 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0"
+          stroke="#7A6656" fill="none" stroke-width="2"/>
+        <text x="20" y="196" class="strand__lbl">After — sealed &amp; smooth</text>
+        <path class="strand__path" id="strandAfter"
+          d="M20 250 q10 -2 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0"
+          stroke="url(#sg)" fill="none" stroke-width="2.5"/>
+        <circle class="strand__shine" id="strandShine" r="4" fill="#F4EDE4"/>
+      </svg>
+    </div>
+
+    <div class="nano__cols">
+      <div class="nano__col reveal">
+        <h4>What it is</h4>
+        <p>A formaldehyde-free smoothing treatment. Low-molecular amino acids
+        slip into the cuticle and seal it flat, so light bounces off one smooth
+        surface instead of scattering off a raised one. That is the shine.</p>
+      </div>
+      <div class="nano__col reveal">
+        <h4>What it is not</h4>
+        <p>It is not a permanent straightener and it is not a chemical relaxer.
+        It will not destroy your curl pattern. It softens and relaxes — it does
+        not erase.</p>
+      </div>
+      <div class="nano__col reveal">
+        <h4>Nanoplasty vs keratin</h4>
+        <p>Keratin gives a straighter, more uniform finish. Nanoplasty keeps more
+        of your natural movement and is gentler on already-coloured hair. Which
+        one you want depends on whether you want <em>straight</em> or
+        <em>easy</em>.</p>
+      </div>
+      <div class="nano__col reveal">
+        <h4>Who it is for</h4>
+        <p>Dense, coarse, frizz-prone hair that takes forever to dry. If your
+        blow-dry is a 45-minute event and Melbourne humidity undoes it in ten
+        minutes, this is the one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · BEFORE / AFTER ============ -->
+<section class="ba" id="transform">
+  <div class="sec-head reveal">
+    <p class="eyebrow">04 — Transformations</p>
+    <h2 class="h2">Drag to see <em>the difference</em></h2>
+  </div>
+  <div class="ba__stage reveal" id="baStage" data-cursor="drag">
+    <img class="ba__img ba__img--after" src="assets/img/ba-1-after.jpg" alt="After — smooth, glossy dark hair" loading="lazy" decoding="async">
+    <div class="ba__clip" id="baClip">
+      <img class="ba__img ba__img--before" src="assets/img/ba-1-before.jpg" alt="Before — frizzy, dull hair" loading="lazy" decoding="async">
+    </div>
+    <div class="ba__handle" id="baHandle" role="slider" tabindex="0"
+         aria-label="Reveal before and after" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+      <i></i><span>&#8592;&nbsp;&#8594;</span>
+    </div>
+    <span class="ba__tag ba__tag--l">Before</span>
+    <span class="ba__tag ba__tag--r">After</span>
+  </div>
+</section>
+
+<!-- ============ 06 · WORK (horizontal scroll) ============ -->
+<section class="work" id="work">
+  <div class="work__pin" id="workPin">
+    <div class="work__head">
+      <p class="eyebrow">05 — The work</p>
+      <h2 class="h2">Dark hair, <em>made to shine</em></h2>
+    </div>
+    <div class="work__track" id="workTrack">
+      <figure class="work__card"><img src="assets/img/work-1.jpg" alt="Glossy espresso brunette" loading="lazy" decoding="async"><figcaption><em>01</em> Espresso gloss</figcaption></figure>
+      <figure class="work__card"><img src="assets/img/work-2.jpg" alt="Nanoplasty smoothing result" loading="lazy" decoding="async"><figcaption><em>02</em> Nanoplasty</figcaption></figure>
+      <figure class="work__card"><img src="assets/img/work-3.jpg" alt="Soft brunette balayage" loading="lazy" decoding="async"><figcaption><em>03</em> Soft balayage</figcaption></figure>
+      <figure class="work__card"><img src="assets/img/work-4.jpg" alt="Colour correction from box dye" loading="lazy" decoding="async"><figcaption><em>04</em> Correction</figcaption></figure>
+      <figure class="work__card"><img src="assets/img/work-5.jpg" alt="Keratin smoothing result" loading="lazy" decoding="async"><figcaption><em>05</em> Keratin</figcaption></figure>
+      <figure class="work__card"><img src="assets/img/work-6.jpg" alt="Warm chocolate tone" loading="lazy" decoding="async"><figcaption><em>06</em> Warm chocolate</figcaption></figure>
+    </div>
+    <p class="work__hint" aria-hidden="true">Scroll &#8594;</p>
+  </div>
+</section>
+
+<!-- ============ 07 · OSHI ============ -->
+<section class="oshi" id="oshi">
+  <div class="oshi__portrait reveal">
+    <img src="assets/img/oshi-portrait.jpg" alt="Oshi Dias, dark hair specialist" loading="lazy" decoding="async">
+    <span class="oshi__badge">Oshi Dias</span>
+  </div>
+  <div class="oshi__body">
+    <p class="eyebrow reveal">06 — The girl behind the chair</p>
+    <h2 class="h2 reveal">Hi, I'm <em>Oshi</em></h2>
+    <p class="reveal">
+      I'm a hairdresser in Oakleigh South, and I specialise in the hair I grew up
+      with — dark, thick, strong-willed hair that most salons either bleach into
+      submission or turn away at the door.
+    </p>
+    <p class="reveal">
+      In 2025 I moved Hair by Oshi into its own permanent studio. It's a private
+      suite, which means when you're in the chair you're the only client in the
+      room. No shouting over three blow-dryers. No being handed off to someone
+      else halfway through your colour.
+    </p>
+    <blockquote class="pull reveal">
+      <p>Building my little dream, doing what I love.</p>
+    </blockquote>
+    <p class="reveal">
+      Most of what I post is teaching — what keratin actually does, why box dye
+      costs you more in the long run, why colour correction takes two visits.
+      Because a client who understands her hair looks after it, and hair that's
+      looked after is hair I'm proud to put my name on.
+    </p>
+    <p class="reveal sig">Healthy hair, confident you.</p>
+  </div>
+</section>
+
+<!-- ============ 08 · STUDIO ============ -->
+<section class="studio" id="studio">
+  <div class="studio__media reveal">
+    <img src="assets/img/studio.jpg" alt="Inside the Hair by Oshi private studio" loading="lazy" decoding="async">
+  </div>
+  <div class="studio__body">
+    <p class="eyebrow reveal">07 — The studio</p>
+    <h2 class="h2 reveal">A private suite, <em>not a salon floor</em></h2>
+    <div class="studio__facts">
+      <div class="reveal"><em>Where</em><p>Freedom Suites<br>350 Warrigal Rd<br>Oakleigh South VIC 3167</p></div>
+      <div class="reveal"><em>Days</em><p>Monday<br>Tuesday<br>Friday<br>Saturday</p></div>
+      <div class="reveal"><em>Parking</em><p>On-site parking at&nbsp;The&nbsp;Links — no meters, no circling the block.</p></div>
+      <div class="reveal"><em>Booking</em><p>DM <a href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener">@hair_by_oshi_</a> — Oshi answers them herself.</p></div>
+    </div>
+    <a class="btn btn--ghost reveal" href="https://maps.google.com/?q=350+Warrigal+Rd+Oakleigh+South+VIC+3167" target="_blank" rel="noopener" data-magnetic><span>Open in Maps</span></a>
+  </div>
+</section>
+
+<!-- ============ 09 · FAQ ============ -->
+<section class="faq" id="faq">
+  <div class="sec-head reveal">
+    <p class="eyebrow">08 — Before you book</p>
+    <h2 class="h2">The honest <em>answers</em></h2>
+  </div>
+  <div class="faq__list">
+    <details class="faq__item reveal"><summary>How much will my appointment cost?<i></i></summary>
+      <p>It depends on length, density and what your hair has been through. That's
+      not a dodge — quoting a flat price for hair this variable is how people end
+      up with surprise bills. Send a photo in a DM and you'll get a real number
+      before you commit.</p></details>
+
+    <details class="faq__item reveal"><summary>Nanoplasty or keratin — which one?<i></i></summary>
+      <p>Want it genuinely straighter and more uniform? Keratin. Want to keep your
+      movement and just lose the frizz and the drying time? Nanoplasty. If your
+      hair is already coloured, nanoplasty is usually the gentler choice.</p></details>
+
+    <details class="faq__item reveal"><summary>Will a smoothing treatment ruin my curls?<i></i></summary>
+      <p>No. Neither treatment is a permanent relaxer. They soften and relax the
+      cuticle, and they wear off gradually. Your curl pattern comes back.</p></details>
+
+    <details class="faq__item reveal"><summary>I've used box dye. Can you fix it?<i></i></summary>
+      <p>Usually, yes — but it takes time. Box dye deposits unpredictable pigment
+      that has to be lifted evenly without wrecking the hair. Colour correction is
+      often more expensive and slower than maintaining colour properly, and it's
+      frequently more than one appointment. Better to know that up front.</p></details>
+
+    <details class="faq__item reveal"><summary>I'm going grey. Do I need permanent colour?<i></i></summary>
+      <p>If you're under about 40% grey, permanent colour is usually overkill —
+      it commits you to a hard regrowth line forever. A blend or a demi-permanent
+      gloss looks softer and grows out far more kindly.</p></details>
+
+    <details class="faq__item reveal"><summary>How do I book?<i></i></summary>
+      <p>DM <a href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener">@hair_by_oshi_</a> on Instagram, or use the Book Now button on the
+      profile. Studio days are Monday, Tuesday, Friday and Saturday.</p></details>
+  </div>
+</section>
+
+<!-- ============ 10 · BOOK ============ -->
+<section class="book" id="book">
+  <div class="book__glow" aria-hidden="true"></div>
+  <div class="book__inner">
+    <p class="eyebrow center reveal">09 — Your turn</p>
+    <h2 class="book__title reveal">Let's talk about<br><em>your hair</em></h2>
+    <p class="book__sub reveal">
+      Send a photo and what you're hoping for. You'll get an honest answer about
+      what's possible, what it costs, and how long it'll take.
+    </p>
+    <a class="btn btn--lg reveal" href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener" data-magnetic data-cursor="book"><span>DM @hair_by_oshi_</span></a>
+    <p class="book__days reveal">Mon &nbsp;·&nbsp; Tue &nbsp;·&nbsp; Fri &nbsp;·&nbsp; Sat &nbsp;&nbsp;—&nbsp;&nbsp; Oakleigh South</p>
+  </div>
+</section>
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="foot">
+  <div class="foot__top">
+    <p class="foot__mark">Hair by Oshi</p>
+    <p class="foot__tag">Healthy hair, confident you.</p>
+  </div>
+  <div class="foot__grid">
+    <div><em>Studio</em><p>Freedom Suites<br>350 Warrigal Rd<br>Oakleigh South VIC 3167</p></div>
+    <div><em>Days</em><p>Mon · Tue · Fri · Sat</p></div>
+    <div><em>Follow</em><p><a href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener">@hair_by_oshi_</a></p></div>
+    <div><em>Services</em><p>Colour · Nanoplasty · Keratin</p></div>
+  </div>
+  <div class="foot__base"><p>&copy; <span id="yr"></span> Hair by Oshi · Oakleigh South, Melbourne</p></div>
+</footer>
+
+<script>
+/* ============================================================
+   HAIR BY OSHI — motion engine
+   Native scroll (keeps position:sticky, anchors and a11y intact);
+   every effect is scroll-LINKED and lerped on rAF for the
+   buttery feel, rather than hijacking the page scroll.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $  = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+  var lerp  = function (a, b, n) { return a + (b - a) * n; };
+  var clamp = function (v, a, b) { return Math.min(Math.max(v, a), b); };
+
+  /* ---------- 1. preloader ---------- */
+  (function preload() {
+    var pl = $('#preloader'), bar = $('#plBar');
+    if (!pl) { document.body.classList.remove('is-loading'); return; }
+    var p = 0, done = false;
+    var tick = setInterval(function () {
+      p = Math.min(p + Math.random() * 16, 92);
+      if (bar) bar.style.width = p + '%';
+    }, 140);
+
+    function finish() {
+      if (done) return;
+      done = true;
+      clearInterval(tick);
+      if (bar) bar.style.width = '100%';
+      setTimeout(function () {
+        pl.classList.add('done');
+        document.body.classList.remove('is-loading');
+        setTimeout(function () { pl.remove(); }, 900);
+      }, reduce ? 0 : 420);
+    }
+    window.addEventListener('load', finish);
+    setTimeout(finish, reduce ? 200 : 2600); // never trap the user
+  })();
+
+  /* ---------- 2. custom cursor + magnetic ---------- */
+  (function cursor() {
+    var el = $('#cursor');
+    if (!el || reduce || !window.matchMedia('(hover:hover)').matches) return;
+    var label = $('.cursor__label', el);
+    var tx = 0, ty = 0, cx = 0, cy = 0;
+
+    window.addEventListener('mousemove', function (e) { tx = e.clientX; ty = e.clientY; }, { passive: true });
+
+    (function run() {
+      cx = lerp(cx, tx, 0.18);
+      cy = lerp(cy, ty, 0.18);
+      el.style.transform = 'translate3d(' + cx + 'px,' + cy + 'px,0)';
+      requestAnimationFrame(run);
+    })();
+
+    $$('a,button,[data-cursor],summary,.ba__stage').forEach(function (n) {
+      n.addEventListener('mouseenter', function () {
+        el.classList.add('is-big');
+        if (label) label.textContent = n.getAttribute('data-cursor') || '';
+      });
+      n.addEventListener('mouseleave', function () {
+        el.classList.remove('is-big');
+        if (label) label.textContent = '';
+      });
+    });
+
+    /* magnetic buttons */
+    $$('[data-magnetic]').forEach(function (n) {
+      var mx = 0, my = 0, ax = 0, ay = 0, raf = null, active = false;
+      function loop() {
+        ax = lerp(ax, mx, 0.2); ay = lerp(ay, my, 0.2);
+        n.style.transform = 'translate3d(' + ax + 'px,' + ay + 'px,0)';
+        if (Math.abs(ax - mx) > 0.1 || Math.abs(ay - my) > 0.1 || active) {
+          raf = requestAnimationFrame(loop);
+        } else { n.style.transform = ''; raf = null; }
+      }
+      n.addEventListener('mousemove', function (e) {
+        var r = n.getBoundingClientRect();
+        mx = (e.clientX - (r.left + r.width / 2)) * 0.32;
+        my = (e.clientY - (r.top + r.height / 2)) * 0.42;
+        active = true;
+        if (!raf) raf = requestAnimationFrame(loop);
+      });
+      n.addEventListener('mouseleave', function () { mx = 0; my = 0; active = false; });
+    });
+  })();
+
+  /* ---------- 3. nav + scroll progress ---------- */
+  (function navBar() {
+    var nav = $('#nav'), bar = $('#scrollBar'), last = 0;
+    function onScroll() {
+      var y = window.scrollY;
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      if (bar) bar.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+      if (nav) {
+        nav.classList.toggle('stuck', y > 40);
+        nav.classList.toggle('hide', y > last && y > 400 && !document.body.classList.contains('menu-open'));
+      }
+      last = y;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+
+  /* ---------- 4. mobile menu ---------- */
+  (function menu() {
+    var b = $('#burger'), m = $('#menu');
+    if (!b || !m) return;
+    function set(open) {
+      m.hidden = false;
+      m.classList.toggle('open', open);
+      b.setAttribute('aria-expanded', String(open));
+      b.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      document.body.classList.toggle('menu-open', open);
+      if (!open) setTimeout(function () { if (!m.classList.contains('open')) m.hidden = true; }, 800);
+    }
+    b.addEventListener('click', function () { set(!m.classList.contains('open')); });
+    $$('a', m).forEach(function (a) { a.addEventListener('click', function () { set(false); }); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && m.classList.contains('open')) { set(false); b.focus(); }
+    });
+  })();
+
+  /* ---------- 5. reveal on enter ---------- */
+  (function reveals() {
+    var items = $$('.reveal, .nano__viz');
+    if (reduce || !('IntersectionObserver' in window)) {
+      items.forEach(function (n) { n.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en, i) {
+        if (!en.isIntersecting) return;
+        var n = en.target;
+        setTimeout(function () { n.classList.add('in'); }, i * 70);
+        io.unobserve(n);
+      });
+    }, { threshold: 0.14, rootMargin: '0px 0px -8% 0px' });
+    items.forEach(function (n) { io.observe(n); });
+  })();
+
+  /* ---------- 6. split the craft sentence into chars ---------- */
+  (function split() {
+    var el = $('#craftText');
+    if (!el) return;
+    var words = el.textContent.trim().split(/\s+/);
+    el.textContent = '';
+    words.forEach(function (w, wi) {
+      var span = document.createElement('span');
+      span.className = 'wd';
+      span.style.display = 'inline-block';
+      w.split('').forEach(function (ch) {
+        var c = document.createElement('span');
+        c.className = 'ch';
+        c.textContent = ch;
+        span.appendChild(c);
+      });
+      el.appendChild(span);
+      if (wi < words.length - 1) el.appendChild(document.createTextNode(' '));
+    });
+  })();
+
+  /* ---------- 7. scroll-linked effects (single rAF) ---------- */
+  (function scrollFX() {
+    var heroImg  = $('#heroImg');
+    var craft    = $('.craft');
+    var chars    = $$('#craftText .ch');
+    var workSec  = $('.work');
+    var workTrk  = $('#workTrack');
+    var marquee  = $('#marquee');
+
+    var mqX = 0, mqW = 0, trkX = 0, trkTarget = 0;
+    if (marquee) mqW = marquee.scrollWidth / 2;
+    window.addEventListener('resize', function () {
+      if (marquee) mqW = marquee.scrollWidth / 2;
+    });
+
+    function frame() {
+      var y  = window.scrollY;
+      var vh = window.innerHeight;
+
+      /* hero parallax */
+      if (heroImg && !reduce) {
+        var hp = clamp(y / vh, 0, 1.4);
+        heroImg.style.transform = 'translate3d(0,' + (hp * -9) + '%,0) scale(' + (1 + hp * 0.07) + ')';
+      }
+
+      /* craft — light each character as you scroll through */
+      if (craft && chars.length) {
+        var r = craft.getBoundingClientRect();
+        var total = craft.offsetHeight - vh;
+        var prog = clamp((-r.top) / (total > 0 ? total : 1), 0, 1);
+        var eased = clamp((prog - 0.08) / 0.68, 0, 1);
+        var upTo = Math.round(eased * chars.length);
+        for (var i = 0; i < chars.length; i++) {
+          var lit = i < upTo;
+          if (chars[i]._lit !== lit) { chars[i].classList.toggle('lit', lit); chars[i]._lit = lit; }
+        }
+      }
+
+      /* work — pin & translate horizontally */
+      if (workSec && workTrk && window.innerWidth > 860 && !reduce) {
+        var wr = workSec.getBoundingClientRect();
+        var wtotal = workSec.offsetHeight - vh;
+        var wp = clamp((-wr.top) / (wtotal > 0 ? wtotal : 1), 0, 1);
+        var dist = workTrk.scrollWidth - window.innerWidth + 80;
+        trkTarget = -wp * Math.max(dist, 0);
+        trkX = lerp(trkX, trkTarget, 0.1);
+        workTrk.style.transform = 'translate3d(' + trkX + 'px,0,0)';
+      }
+
+      /* marquee — constant drift */
+      if (marquee && mqW && !reduce) {
+        mqX -= 0.45;
+        if (mqX <= -mqW) mqX += mqW;
+        marquee.style.transform = 'translate3d(' + mqX + 'px,0,0)';
+      }
+
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+
+  /* ---------- 8. before / after slider ---------- */
+  (function beforeAfter() {
+    var stage  = $('#baStage'), clip = $('#baClip'), handle = $('#baHandle');
+    if (!stage || !clip || !handle) return;
+    var pct = 50, dragging = false;
+
+    function apply(p) {
+      pct = clamp(p, 2, 98);
+      clip.style.width = pct + '%';
+      handle.style.left = pct + '%';
+      handle.setAttribute('aria-valuenow', Math.round(pct));
+    }
+    function fromX(x) {
+      var r = stage.getBoundingClientRect();
+      apply(((x - r.left) / r.width) * 100);
+    }
+
+    stage.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      stage.setPointerCapture(e.pointerId);
+      fromX(e.clientX);
+    });
+    stage.addEventListener('pointermove', function (e) { if (dragging) fromX(e.clientX); });
+    ['pointerup', 'pointercancel'].forEach(function (ev) {
+      stage.addEventListener(ev, function () { dragging = false; });
+    });
+    stage.addEventListener('mousemove', function (e) { if (!dragging) fromX(e.clientX); });
+
+    handle.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft')  { apply(pct - 4); e.preventDefault(); }
+      if (e.key === 'ArrowRight') { apply(pct + 4); e.preventDefault(); }
+      if (e.key === 'Home')       { apply(2);  e.preventDefault(); }
+      if (e.key === 'End')        { apply(98); e.preventDefault(); }
+    });
+
+    apply(50);
+    /* gentle invitation to drag, once, when it first comes into view */
+    if (!reduce && 'IntersectionObserver' in window) {
+      var shown = false;
+      new IntersectionObserver(function (en, ob) {
+        if (!en[0].isIntersecting || shown) return;
+        shown = true; ob.disconnect();
+        var t0 = performance.now();
+        (function nudge(now) {
+          var t = (now - t0) / 1600;
+          if (t >= 1 || dragging) { if (!dragging) apply(50); return; }
+          apply(50 + Math.sin(t * Math.PI * 2) * 17);
+          requestAnimationFrame(nudge);
+        })(t0);
+      }, { threshold: 0.5 }).observe(stage);
+    }
+  })();
+
+
+  /* ---------- 10. photo slots ----------
+     Until real photography is dropped into assets/img/, any missing image
+     renders as a branded slot that names the file it is waiting for.
+     Add a correctly named file and it simply appears — no code change.     */
+  (function photoSlots() {
+    function slot(img) {
+      if (img.dataset.slotted) return;
+      img.dataset.slotted = '1';
+      var src  = img.getAttribute('src') || '';
+      var name = src.split('/').pop();
+      var box  = document.createElement('div');
+      box.className = 'slot';
+      box.setAttribute('aria-hidden', 'true');
+      box.innerHTML = '<span class="slot__mark">Hair by Oshi</span>' +
+                      '<span class="slot__name">' + name + '</span>' +
+                      '<span class="slot__alt">' + (img.getAttribute('alt') || '') + '</span>';
+      img.replaceWith(box);
+    }
+    $$('img').forEach(function (img) {
+      if (img.complete && img.naturalWidth === 0) slot(img);
+      else img.addEventListener('error', function () { slot(img); });
+    });
+  })();
+
+  /* ---------- 11. misc ---------- */
+  var yr = $('#yr');
+  if (yr) yr.textContent = new Date().getFullYear();
+
+  /* anchor links respect the fixed nav */
+  $$('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var id = a.getAttribute('href');
+      if (id.length < 2) return;
+      var t = document.querySelector(id);
+      if (!t) return;
+      e.preventDefault();
+      var top = t.getBoundingClientRect().top + window.scrollY - 70;
+      window.scrollTo({ top: top, behavior: reduce ? 'auto' : 'smooth' });
+    });
+  });
+})();
+
+</script>
+</body>
+</html>

@@ -48,3 +48,9 @@ shows immediately.
 2. Confirm the items marked **[VERIFY]** in `BRAND-BRIEF.md` with Oshi —
    principally her start/finish times and the exact suite number.
 3. Point the canonical URL and `og:image` at the real domain.
+
+## `hair-by-oshi-standalone.html`
+
+The same site inlined into one file — open it directly in a browser, no server
+needed. Keep it next to the `assets/` folder so the photography resolves once
+it's added. The multi-file version is the one to edit.
