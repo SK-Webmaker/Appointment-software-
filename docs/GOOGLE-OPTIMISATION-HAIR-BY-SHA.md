@@ -128,8 +128,9 @@ businesses out of "open now" and many "near me" searches.
 and both late evenings, which are the most bookable hours a working-client salon has. And Tuesday is
 overstated by an hour, which risks someone arriving to a locked door.
 
-> ⚠️ **Sha must confirm which set is correct before anything is changed.** I can see that the two
-> disagree; I cannot see which one is true.
+> ✅ **Confirmed: the website hours are the correct ones.** Google's are stale. The profile needs to be
+> updated to match: Mon closed · Tue 11am–4pm · Wed 11am–6pm · Thu 11am–7pm · Fri 11am–7pm ·
+> Sat 9am–5pm · Sun 11am–4pm.
 
 ### 3.2 The shared premises — an under-appreciated risk
 
@@ -190,7 +191,8 @@ The website is genuinely good — fast, well-structured, strong title tag, real 
 ### Tier 1 — this week. Free. Highest impact.
 
 **1. Correct the opening hours.** *(15 min)*
-GBP → Edit profile → Hours. Confirm the true hours first, then make Google match exactly.
+GBP → Edit profile → Hours. Set Google to match the website exactly — these are the confirmed correct
+hours: **Mon closed · Tue 11–4 · Wed 11–6 · Thu 11–7 · Fri 11–7 · Sat 9–5 · Sun 11–4.**
 **Why:** ranking factor #5, and it recovers ~12 hours a week of peak discoverability, including all
 of Sunday. This is the single biggest return on 15 minutes available anywhere in this document.
 
