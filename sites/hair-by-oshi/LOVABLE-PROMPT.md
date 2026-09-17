@@ -43,7 +43,7 @@ opposite skill.
 ## Design system
 
 - **Palette:** ink `#0A0807`, raised `#13100E`, bronze `#C0854F`,
-  gold `#E8BE86`, cream `#F4EDE4`, mocha `#8A7362`, hairline `rgba(244,237,228,.12)`
+  gold `#E8BE86`, cream `#F4EDE4`, mocha `#9A8573`, hairline `rgba(244,237,228,.12)`
 - **Type:** Cormorant Garamond (display, light weights, generous italics for
   accent words) + Inter (body, 300/400). Eyebrows are 11px uppercase with
   `.32em` tracking in mocha.
