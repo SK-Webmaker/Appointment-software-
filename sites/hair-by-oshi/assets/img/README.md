@@ -47,3 +47,29 @@ and rename per the table.
   make it that pair — matched framing is the difference between convincing and
   amateur.
 - If a file is missing, nothing breaks. The slot just keeps waiting.
+
+---
+
+## Bulk-downloading everything at once (recommended)
+
+Instagram no longer serves profiles or posts to anyone who isn't logged in —
+every public endpoint now returns a login wall, so the photos can't be fetched
+programmatically from here. The fastest route is Instagram's own export, which
+gives **every photo Oshi has ever posted, at original upload quality, in one
+ZIP**:
+
+On Oshi's phone, in the Instagram app:
+
+**Profile → ☰ → Accounts Centre → Your information and permissions →
+Download your information → Download or transfer information →
+her account → Some of your information → tick *Posts* →
+Download to device → Date range: All time → Media quality: High → Submit**
+
+It arrives by email in roughly 10 minutes to a few hours. Inside the ZIP,
+`media/posts/` holds the lot.
+
+Even better where they exist: the **originals from her camera roll**, since
+Instagram re-compresses everything on upload.
+
+Either way, rename the chosen shots per the table above and drop them into this
+folder. Missing files keep rendering as labelled placeholders until then.

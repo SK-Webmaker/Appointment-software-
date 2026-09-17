@@ -77,20 +77,24 @@ healthy dark hair.
 
 ## 3. Brand system
 
-**Palette — "obsidian & bronze"**
+**Palette — "warm sunlit"**
 
-| Token | Hex | Use |
-|---|---|---|
-| `--ink` | `#0A0807` | page base |
-| `--ink-2` | `#13100E` | raised panels |
-| `--ink-3` | `#1C1714` | image wells |
-| `--bronze` | `#C0854F` | primary accent |
-| `--gold` | `#E8BE86` | highlights, shine sweep |
-| `--cream` | `#F4EDE4` | primary text |
-| `--mocha` | `#9A8573` | secondary text — WCAG AA on both backgrounds |
+Light and warm rather than dark. Espresso type (the nod to dark hair) on
+porcelain, lit by cinnamon and honey. Every value below is contrast-checked.
+
+| Token | Hex | Use | On shell |
+|---|---|---|---|
+| `--shell` | `#FCF8F4` | page base | — |
+| `--sand` | `#F4EBE1` | raised panels | — |
+| `--linen` | `#EADCCD` | image wells | — |
+| `--ink` | `#2B1E17` | primary text | 15.3:1 |
+| `--cocoa` | `#6B5546` | secondary text | 6.6:1 |
+| `--clay` | `#9C4F36` | accent, safe for small text and buttons | 5.5:1 |
+| `--flame` | `#B4664A` | large display accents only | 4.0:1 |
+| `--honey` | `#D9A05B` | decorative only — never text | 2.2:1 |
 
 **Type**
-- Display: **Cormorant Garamond** — high-contrast editorial serif.
+- Display: **Fraunces** — warm, soft-contrast editorial serif.
 - Body: **Inter** — clean, quiet.
 - Eyebrow: Inter, uppercase, wide tracking.
 
