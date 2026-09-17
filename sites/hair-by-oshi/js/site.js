@@ -287,117 +287,17 @@
     return { open: open, close: close };
   })();
 
-  /* ---------- 10. booking — a working preview of the Kairo flow ---------- */
+  /* ---------- 10. booking — opens the Kairo notice ----------
+     Booking itself will live in Kairo, so this button explains that
+     rather than pretending to take an appointment.                    */
   (function booking() {
     var modal = $('#bookingModal');
     if (!modal) return;
-    var state = { service: '', day: '', time: '' };
-    var DAYS = [
-      { k: 'Mon', n: 'Monday' }, { k: 'Tue', n: 'Tuesday' },
-      { k: 'Fri', n: 'Friday' }, { k: 'Sat', n: 'Saturday' }
-    ];
-    var TIMES = ['9:00', '10:30', '12:00', '1:30', '3:00', '4:30'];
-    /* deterministic "already booked" slots so the demo looks like a real diary */
-    function taken(day, i) { return ((day.charCodeAt(0) + day.charCodeAt(1) + i * 7) % 5) === 0; }
-
-    function step(n) {
-      $$('.bk__pane', modal).forEach(function (p) {
-        p.classList.toggle('is-on', p.getAttribute('data-pane') === String(n));
-      });
-      $$('.bk__step', modal).forEach(function (s) {
-        s.classList.toggle('is-on', Number(s.getAttribute('data-step')) <= n);
-      });
-      var panel = $('.modal__panel', modal);
-      if (panel) panel.scrollTop = 0;
-    }
-
-    function drawDays() {
-      var wrap = $('#bkDays', modal);
-      wrap.innerHTML = '';
-      DAYS.forEach(function (d) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'bk__day' + (state.day === d.n ? ' is-on' : '');
-        b.innerHTML = '<em>' + d.k + '</em><strong>' + d.n.slice(0, 1) + '</strong>';
-        b.setAttribute('aria-label', d.n);
-        b.setAttribute('aria-pressed', String(state.day === d.n));
-        b.addEventListener('click', function () {
-          state.day = d.n; state.time = '';
-          drawDays(); drawSlots();
-        });
-        wrap.appendChild(b);
-      });
-    }
-
-    function drawSlots() {
-      var wrap = $('#bkSlots', modal);
-      wrap.innerHTML = '';
-      if (!state.day) {
-        wrap.innerHTML = '<p class="bk__fine" style="grid-column:1/-1">Pick a day to see times.</p>';
-        return;
-      }
-      TIMES.forEach(function (t, i) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        var gone = taken(state.day, i);
-        b.className = 'bk__slot' + (state.time === t ? ' is-on' : '');
-        b.textContent = t;
-        b.disabled = gone;
-        if (gone) b.setAttribute('aria-label', t + ' — already booked');
-        b.addEventListener('click', function () {
-          state.time = t;
-          drawSlots();
-          setTimeout(function () { summary(); step(3); }, 220);
-        });
-        wrap.appendChild(b);
-      });
-    }
-
-    function summary() {
-      var s = $('#bkSummary', modal);
-      s.innerHTML =
-        '<div><em>Service</em><strong>' + state.service + '</strong></div>' +
-        '<div><em>Day</em><strong>' + state.day + '</strong></div>' +
-        '<div><em>Time</em><strong>' + state.time + '</strong></div>' +
-        '<div><em>Where</em><strong>350 Warrigal Rd, Oakleigh South</strong></div>';
-    }
-
-    $$('[data-pick-service]', modal).forEach(function (b) {
-      b.addEventListener('click', function () {
-        state.service = b.getAttribute('data-pick-service');
-        $('#bkCtx', modal).textContent = state.service + ' — choose when suits you.';
-        drawDays(); drawSlots(); step(2);
-      });
-    });
-    $$('[data-goto]', modal).forEach(function (b) {
-      b.addEventListener('click', function () { step(Number(b.getAttribute('data-goto'))); });
-    });
-
-    var confirm = $('#bkConfirm', modal);
-    if (confirm) confirm.addEventListener('click', function () {
-      var name = ($('#bk-name', modal).value || '').trim();
-      $('#bkDoneSum', modal).textContent =
-        (name ? name + ', your ' : 'Your ') + state.service.toLowerCase() +
-        ' would be locked in for ' + state.day + ' at ' + state.time + '.';
-      step(4);
-    });
-
-    /* any [data-open="booking"] opens it; a data-service preselects and skips step 1 */
     document.addEventListener('click', function (e) {
       var t = e.target.closest('[data-open="booking"]');
       if (!t) return;
       e.preventDefault();
       menuApi.close();
-      state = { service: '', day: '', time: '' };
-      $('#bk-name', modal).value = ''; $('#bk-phone', modal).value = ''; $('#bk-notes', modal).value = '';
-      var pre = t.getAttribute('data-service');
-      if (pre) {
-        state.service = pre;
-        $('#bkCtx', modal).textContent = pre + ' — choose when suits you.';
-        drawDays(); drawSlots(); step(2);
-      } else {
-        step(1);
-      }
       modalApi.open(modal);
     });
   })();
@@ -458,6 +358,7 @@
     if (!t) return;
     e.preventDefault();
     menuApi.close();
+    modalApi.close();
     var sec = $('#consult');
     if (!sec) return;
     var top = sec.getBoundingClientRect().top + window.scrollY - 60;
@@ -468,18 +369,31 @@
     }, reduce ? 0 : 700);
   });
 
-  /* ---------- 13. photo slots ---------- */
+  /* ---------- 13. photo slots ----------
+     Until the real photography lands, each missing image renders as a
+     deliberate card: what the photo should be, the crop it wants, and a
+     short note. Better to look intentional than to look broken.        */
   (function photoSlots() {
+    function esc(t) {
+      return String(t || '').replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
     function slot(img) {
       if (img.dataset.slotted) return;
       img.dataset.slotted = '1';
-      var name = (img.getAttribute('src') || '').split('/').pop();
+      var file  = (img.getAttribute('src') || '').split('/').pop();
+      var title = img.getAttribute('data-title') || file;
+      var note  = img.getAttribute('data-note') || '';
       var box = document.createElement('div');
       box.className = 'slot';
-      box.setAttribute('aria-hidden', 'true');
-      box.innerHTML = '<span class="slot__mark">Hair by Oshi</span>' +
-                      '<span class="slot__name">' + name + '</span>' +
-                      '<span class="slot__alt">' + (img.getAttribute('alt') || '') + '</span>';
+      box.setAttribute('role', 'img');
+      box.setAttribute('aria-label', 'Photograph to come — ' + (img.getAttribute('alt') || title));
+      box.innerHTML =
+        '<span class="slot__tag">Photo to come</span>' +
+        '<span class="slot__title">' + esc(title) + '</span>' +
+        (note ? '<span class="slot__note">' + esc(note) + '</span>' : '') +
+        '<span class="slot__file">' + esc(file) + '</span>';
       img.replaceWith(box);
     }
     $$('img').forEach(function (img) {
