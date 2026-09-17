@@ -257,6 +257,21 @@ route('POST', '/api/auth/logout', async ({ req, res }) => {
   return { ok: true };
 }, { auth: false });
 
+/**
+ * Sign out of every device at once.
+ *
+ * Bumping token_version retires every session ever issued to this user,
+ * including the one asking. That is what makes it worth having separately from
+ * the ordinary sign-out: a phone left in a taxi, a shared iPad at the counter,
+ * a stylist who has left. Nothing else can reach those sessions.
+ */
+route('POST', '/api/auth/logout-everywhere', async ({ req, res, user }) => {
+  db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').run(user.id);
+  db.prepare('DELETE FROM devices WHERE user_id = ?').run(user.id);
+  res.setHeader('Set-Cookie', clearSessionCookie(secureForRequest(req)));
+  return { ok: true };
+});
+
 route('GET', '/api/auth/me', async ({ user }) => {
   const { token_version, ...safeUser } = user; // don't expose the session epoch
   // Whether this workspace is still showing somebody else's fake salon, so the
@@ -486,6 +501,8 @@ export const EDITABLE_SETTINGS = new Set([
   'twilio_sid', 'twilio_token', 'twilio_from',
   'stripe_secret_key', 'currency_code', 'deposit_type', 'deposit_value',
   'pay_provider', 'pay_mode', 'square_access_token', 'square_location_id',
+  'page_show_about', 'page_show_contact', 'page_show_location', 'page_show_hours',
+  'page_show_reviews', 'page_show_map', 'page_about_text',
   'pos_card_method', 'pos_payment_link',
   'checklist_link_shared', 'checklist_app_installed', 'acma_registered',
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
@@ -3062,6 +3079,79 @@ route('POST', '/api/account/delete', async ({ req, user }) => {
   };
 });
 
+/**
+ * The 14-day, no-reason guarantee, asked of the platform that owns the money.
+ *
+ * The salon's own Kairo has no idea what was paid or when — that lives on the
+ * platform, which took the card. So this asks, and answers honestly when it
+ * cannot: an owner is never shown a countdown invented locally, because a wrong
+ * number here is a promise about somebody's money.
+ *
+ * Read-only and best effort. A platform that is down must not break the
+ * account screen.
+ */
+route('GET', '/api/account/guarantee', async () => {
+  const { platform_url: platform, connect_token: token } = platformHandles();
+  if (!platform || !token) {
+    // A self-hosted or hand-installed Kairo has no platform behind it. Saying
+    // "unavailable" is honest; drawing a 14-day countdown would not be.
+    return { available: false, reason: 'not_platform' };
+  }
+  try {
+    const r = await fetch(`${platform}/api/connect/status?t=${encodeURIComponent(token)}`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) return { available: false, reason: 'unreachable' };
+    const d = await r.json();
+    return {
+      available: true,
+      days_left: Number(d.refund_days_left ?? 0),
+      refunded: Boolean(d.refunded),
+      paid_at: String(d.paid_at || ''),
+      price_cents: Number(d.price_cents || 0),
+      owner_email: String(d.owner_email || ''),
+      window_days: 14,
+    };
+  } catch {
+    return { available: false, reason: 'unreachable' };
+  }
+});
+
+/**
+ * Asking for that refund, from inside the app.
+ *
+ * Inside the window the platform refunds automatically — a policy that says
+ * "no reason needed" and then demands one is not the policy it claims to be.
+ * Outside it, the platform opens a task for a human rather than refusing:
+ * Australian consumer law may still require a refund, and that is a judgement.
+ *
+ * Deliberately NOT best-effort. Unlike deletion — where the salon is already
+ * shut and a silent failure is survivable — an owner told "refunded" who was
+ * not would find out from their bank statement.
+ */
+route('POST', '/api/account/refund', async ({ req, user }) => {
+  const b = checkBody(await readJson(req).catch(() => ({})), { reason: s.str(300) });
+  if (user?.role && user.role !== 'owner') {
+    throw httpError(403, 'Only the owner can ask for a refund.');
+  }
+  const { platform_url: platform, connect_token: token } = platformHandles();
+  if (!platform || !token) throw httpError(400, 'This Kairo was not bought through the store, so there is nothing to refund here.');
+  let r;
+  try {
+    r = await fetch(`${platform}/api/connect/refund`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ t: token, reason: str(b.reason, 300) }),
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch {
+    throw httpError(502, 'Could not reach the billing service. Nothing was charged or changed — please try again in a minute.');
+  }
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');
+  return out;
+});
+
 // ---------------------------------------------------------------------------
 // Texts: the salon's own ClickSend account, and their own number as the sender
 // ---------------------------------------------------------------------------
@@ -4147,6 +4237,86 @@ route('PUT', '/api/clients/:id/marketing', async ({ params, req }) => {
 // Public booking (no auth) — powers /book
 // ---------------------------------------------------------------------------
 
+const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * The trading week, one row per day.
+ *
+ * Starts on Monday because that is how an opening-hours sign reads, not because
+ * of anything in the data — Sunday is day 0 in every date library there is, and
+ * a list that opens on Sunday looks wrong to everybody who is not a programmer.
+ */
+function weekHours() {
+  const open = new Set(String(getSetting('open_days', '0,1,2,3,4,5,6'))
+    .split(',').map((d) => Number(String(d).trim())).filter(Number.isInteger));
+  const rules = parseDayRules(getSetting('day_rules', '{}'));
+  const baseOpen = Number(getSetting('open_min', '480'));
+  const baseClose = Number(getSetting('close_min', '1200'));
+  return [1, 2, 3, 4, 5, 6, 0].map((dow) => {
+    const closed = !open.has(dow);
+    const rule = rules[dow];
+    return {
+      dow,
+      label: DAY_NAMES_FULL[dow],
+      closed,
+      open_min: closed ? null : (rule?.open_min ?? baseOpen),
+      close_min: closed ? null : (rule?.close_min ?? baseClose),
+    };
+  });
+}
+
+/**
+ * The rating summary, and nothing that identifies anybody.
+ *
+ * The distribution is what makes an average believable — 5.0 from 48 people
+ * reads differently from 5.0 from two — so it is worth the extra query.
+ *
+ * EVERY review counts, including the bad ones. There is no "publish this one"
+ * flag and this is not the place to add one: an average computed from the
+ * reviews a business liked is not an average, and a booking page that shows a
+ * curated 5.0 is doing the thing this product exists not to do. The control the
+ * owner gets is whether the section appears at all.
+ */
+function publicReviewSummary() {
+  try {
+    const rows = db.prepare(
+      'SELECT rating, COUNT(*) AS n FROM reviews GROUP BY rating'
+    ).all();
+    const dist = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let count = 0;
+    let total = 0;
+    for (const r of rows) {
+      const k = Math.max(1, Math.min(5, Number(r.rating) || 0));
+      dist[k] += r.n;
+      count += r.n;
+      total += k * r.n;
+    }
+    return {
+      count,
+      average: count ? Math.round((total / count) * 10) / 10 : 0,
+      distribution: dist,
+    };
+  } catch {
+    return { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+  }
+}
+
+/** Which extra sections the booking page shows. Each one defaults to on only
+ *  when there is something real to put in it. */
+function pageSections() {
+  const on = (key, dflt) => getSetting(key, dflt) === '1';
+  const hasAddress = String(getSetting('business_address', '') || '').trim().length > 0;
+  return {
+    about: on('page_show_about', getSetting('brand_tagline', '') ? '1' : '0'),
+    contact: on('page_show_contact', '1'),
+    location: on('page_show_location', hasAddress ? '1' : '0'),
+    hours: on('page_show_hours', '1'),
+    reviews: on('page_show_reviews', '1'),
+    map: on('page_show_map', hasAddress ? '1' : '0'),
+    about_text: String(getSetting('page_about_text', '') || ''),
+  };
+}
+
 route('GET', '/api/public/info', async () => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   return {
@@ -4225,6 +4395,20 @@ route('GET', '/api/public/info', async () => {
     // person. The page cannot offer a card the business cannot take, so this is
     // computed from what is actually connected rather than from a tick box.
     payment: paymentInfo(),
+    // The week, as a table anybody can read: one row per day, in the salon's
+    // own order, with the days it is shut said plainly rather than left out.
+    // Built here rather than in the browser because the day rules are stored as
+    // JSON and the page should not have to know that.
+    hours: weekHours(),
+    // What people said afterwards. Only the reviews the salon chose to show,
+    // and only the shape a rating summary needs — never a client's name against
+    // a low score.
+    reviews: publicReviewSummary(),
+    // Which of the extra sections this business wants on its page. Off is a
+    // real answer: a mobile barber has no address worth a map, and an empty
+    // "Location" tab is worse than no tab at all.
+    page_sections: pageSections(),
+
     // What each service needs before it can happen — the salon's own policy,
     // and nothing about any client. The same sentence printed on the wall of
     // every colour bar in the country, so it discloses nothing, and having it

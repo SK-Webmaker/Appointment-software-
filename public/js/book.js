@@ -90,6 +90,227 @@ function headHtml({ cover = false } = {}) {
     </div>`;
 }
 
+/**
+ * The page beyond the booking form: About, Contact, Location, Hours, Reviews.
+ *
+ * One long page with a sticky bar over it, rather than tabs that swap the
+ * content out. Two reasons, and the first is the one that matters:
+ *
+ *   BOOKING IS A FLOW, NOT A TAB. The form is three steps deep by the time
+ *   somebody picks a time. Making it one tab of five means a tap on "Location"
+ *   throws that away, or keeps it hidden and surprises them when they come
+ *   back. Scrolling keeps their place because it never left.
+ *
+ *   IT IS HOW A PHONE ALREADY WORKS. Scroll is the gesture people have; the bar
+ *   follows them rather than asking them to drive it.
+ *
+ * Every section is optional and several default to off, because an empty
+ * "Location" tab is worse than no tab at all — a mobile barber has no address
+ * worth a map.
+ */
+const SECTION_DEFS = [
+  { id: 'book', label: 'Book', always: true },
+  { id: 'about', label: 'About' },
+  { id: 'contact', label: 'Contact' },
+  { id: 'location', label: 'Location' },
+  { id: 'reviews', label: 'Reviews' },
+];
+
+/** Which sections this business actually has something to put in. */
+function liveSections() {
+  const b = state.info || {};
+  const p = b.page_sections || {};
+  const has = {
+    about: p.about && (p.about_text || b.brand?.tagline),
+    contact: p.contact && (b.business_phone || b.business_email || b.mail_domain),
+    // "Location" carries the address AND the opening hours, because on a phone
+    // they are the same question: can I get there, and will you be open.
+    location: (p.location && b.business_address) || (p.hours && (b.hours || []).length),
+    reviews: p.reviews && (b.reviews?.count > 0),
+  };
+  return SECTION_DEFS.filter((d) => d.always || has[d.id]);
+}
+
+function pageTabsHtml() {
+  const live = liveSections();
+  if (live.length < 2) return '';
+  return `
+    <nav class="bk-tabs" id="bk-tabs" aria-label="Sections of this page">
+      ${live.map((d, i) => `
+        <button type="button" class="bk-tab ${i === 0 ? 'on' : ''}" data-tab="${d.id}">${esc(d.label)}</button>`).join('')}
+    </nav>`;
+}
+
+const clock = (min) => {
+  if (min === null || min === undefined) return '';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+
+/**
+ * Five stars, filled to the exact fraction.
+ *
+ * Rounding is tempting and dishonest: Math.round(4.6) is 5, so a 4.6 business
+ * would show the same five full stars as a flawless one. The fill is a width
+ * clip over a second row of the same glyphs, so 4.6 is 92% of the way across
+ * and looks it.
+ */
+function starsHtml(n) {
+  const pct = Math.max(0, Math.min(100, (Number(n) || 0) / 5 * 100));
+  return `<span class="bk-stars" role="img" aria-label="${n} out of 5">
+    <span class="bk-stars-off">★★★★★</span>
+    <span class="bk-stars-on" style="width:${pct}%">★★★★★</span>
+  </span>`;
+}
+
+function pageSectionsHtml() {
+  const b = state.info || {};
+  const p = b.page_sections || {};
+  const live = new Set(liveSections().map((d) => d.id));
+  if (live.size < 2) return '';
+  const out = [];
+
+  if (live.has('about')) {
+    out.push(`
+      <section class="bk-sec" id="sec-about">
+        <h2>About</h2>
+        <p class="bk-prose">${esc(p.about_text || b.brand?.tagline || '')}</p>
+      </section>`);
+  }
+
+  if (live.has('contact')) {
+    const tel = String(b.business_phone || '').replace(/[^\d+]/g, '');
+    out.push(`
+      <section class="bk-sec" id="sec-contact">
+        <h2>Contact</h2>
+        <div class="bk-lines">
+          ${b.business_phone ? `<a class="bk-line" href="tel:${esc(tel)}">${icon('phone', 16)}
+            <span>${esc(b.business_phone)}</span></a>` : ''}
+          ${b.business_email ? `<a class="bk-line" href="mailto:${esc(b.business_email)}">${icon('mail', 16)}
+            <span>${esc(b.business_email)}</span></a>` : ''}
+        </div>
+      </section>`);
+  }
+
+  if (live.has('location')) {
+    const addr = String(b.business_address || '').trim();
+    // A real map cannot be embedded: the booking page's own CSP is
+    // default-src 'self', which is what stops a third party running script on a
+    // page where people type their phone number. So the address links OUT to
+    // whichever map app the phone already has, which is where they were going
+    // to end up anyway.
+    const maps = `https://maps.google.com/?q=${encodeURIComponent(addr)}`;
+    out.push(`
+      <section class="bk-sec" id="sec-location">
+        ${addr && p.location ? `
+          <h2>Location</h2>
+          <div class="bk-lines">
+            <a class="bk-line" href="${esc(maps)}" target="_blank" rel="noreferrer">${icon('globe', 16)}
+              <span>${esc(addr)}</span></a>
+          </div>
+          ${p.map ? `<a class="btn bk-directions" href="${esc(maps)}" target="_blank" rel="noreferrer">
+            ${icon('external', 14)} Get directions</a>` : ''}` : ''}
+        ${p.hours && (b.hours || []).length ? `
+          <h2 style="${addr && p.location ? 'margin-top:26px' : ''}">Opening Hours</h2>
+          <div class="bk-hours">
+            ${b.hours.map((h) => `
+              <div class="bk-hour ${h.closed ? 'shut' : ''}">
+                <span>${esc(h.label)}</span>
+                <span>${h.closed ? 'Closed' : `${clock(h.open_min)} - ${clock(h.close_min)}`}</span>
+              </div>`).join('')}
+          </div>` : ''}
+      </section>`);
+  }
+
+  if (live.has('reviews')) {
+    const r = b.reviews;
+    const max = Math.max(1, ...Object.values(r.distribution || {}));
+    out.push(`
+      <section class="bk-sec" id="sec-reviews">
+        <h2>Reviews</h2>
+        <div class="bk-rev">
+          <div class="bk-rev-score">
+            <b>${r.average.toFixed(1)}</b>
+            ${starsHtml(r.average)}
+            <span>${r.count} review${r.count === 1 ? '' : 's'}</span>
+          </div>
+          <div class="bk-rev-bars">
+            ${[5, 4, 3, 2, 1].map((k) => `
+              <div class="bk-rev-row">
+                <span class="bk-rev-k">${icon('star', 12)} ${k}</span>
+                <span class="bk-rev-bar"><i style="width:${Math.round(((r.distribution[k] || 0) / max) * 100)}%"></i></span>
+              </div>`).join('')}
+          </div>
+        </div>
+      </section>`);
+  }
+  return out.length ? `<div class="bk-page-sections">${out.join('')}</div>` : '';
+}
+
+/**
+ * Make the bar follow the page, and the page follow the bar.
+ *
+ * The spy reads positions on a rAF-throttled passive scroll listener. An
+ * IntersectionObserver was the first instinct and is the wrong tool here: it
+ * reports how MUCH of a thing is visible, and "which section am I in" is a
+ * question about where the tops are. See the comment on the loop.
+ */
+function wirePageTabs() {
+  const bar = document.getElementById('bk-tabs');
+  if (!bar) return;
+  const target = (id) => (id === 'book' ? document.querySelector('.book-head') : document.getElementById(`sec-${id}`));
+
+  const mark = (id) => {
+    bar.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === id));
+  };
+
+  // Which section is "current" is a question about POSITION, not area.
+  //
+  // The first version scored by intersection ratio and got it wrong in a way
+  // that looked almost right: a short section fully on screen scores 1.0 while
+  // the tall one you actually scrolled to only shows its top third. Tapping
+  // "Location" lit "Contact". So this takes the last section whose top has
+  // passed under the bar — which is what "where am I" means to a reader.
+  const ids = liveSections().map((d) => d.id);
+  const OFFSET = 96; // the sticky bar, plus a little room so the switch feels early
+  let pinned = 0;    // set on a tap, so the bar never argues with the finger mid-scroll
+
+  const spy = () => {
+    if (Date.now() < pinned) return;
+    let current = ids[0];
+    for (const id of ids) {
+      const el = target(id);
+      if (el && el.getBoundingClientRect().top - OFFSET <= 0) current = id;
+    }
+    mark(current);
+  };
+
+  bar.querySelectorAll('[data-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const el = target(btn.dataset.tab);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Light it immediately. A smooth scroll takes a few hundred milliseconds
+      // and a bar that waits for it reads as a tap that did not register.
+      mark(btn.dataset.tab);
+      pinned = Date.now() + 900;
+    });
+  });
+
+  // Passive so scrolling is never blocked waiting for this, and rAF-throttled
+  // so it runs once a frame rather than once an event.
+  let queued = false;
+  const onScroll = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; spy(); });
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  spy();
+}
+
 /** Apply the business's chosen colour scheme, accent, font — set in Settings → Booking page. */
 function applyBrand(brand) {
   if (!brand) return;
@@ -485,7 +706,7 @@ function renderServiceStep() {
   const cats = [...new Set(state.info.services.map((s) => s.category))];
   const chosen = new Set(cartIds());
   root.innerHTML = `
-    ${headHtml({ cover: !state.location })}${stepsHtml()}
+    ${headHtml({ cover: !state.location })}${pageTabsHtml()}${stepsHtml()}
     ${state.location ? `<button class="bk-back" id="back-loc">${icon('chevL', 14)} ${esc(state.location.name)}</button>` : ''}
     ${referralHtml()}
     <div class="bk-section-title">Choose your services</div>
@@ -509,8 +730,10 @@ function renderServiceStep() {
       </div>
       <button class="btn primary" id="cart-continue">Continue ${icon('chevR', 14)}</button>
     </div>
+    ${pageSectionsHtml()}
     ${poweredHtml()}`;
 
+  wirePageTabs();
   root.querySelector('#back-loc')?.addEventListener('click', renderLocationStep);
 
   const refreshCart = () => {

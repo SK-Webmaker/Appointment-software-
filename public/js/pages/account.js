@@ -66,11 +66,61 @@ const statRow = (label, value, sub = '') => `
     ${sub ? `<div class="as-sub">${esc(sub)}</div>` : ''}
   </div>`;
 
+/**
+ * The 14-day, no-reason guarantee.
+ *
+ * Shown as a countdown while it is live, because "14 days" means nothing on day
+ * nine — "5 days left" does. Drawn only when the platform actually answered:
+ * inventing a countdown locally would be a promise about somebody's money made
+ * by a screen that does not know what they paid.
+ */
+function guaranteeCard(g) {
+  if (!g || !g.available) return '';
+  if (g.refunded) {
+    return `
+      <div class="card">
+        <div class="card-title">Refunded</div>
+        <div class="card-sub">This Kairo has been refunded and switched off. Your data was emailed to
+          you at the address on the account.</div>
+      </div>`;
+  }
+  const left = Number(g.days_left || 0);
+  const live = left > 0;
+  const amount = g.price_cents ? `$${(g.price_cents / 100).toFixed(2).replace(/\.00$/, '')}` : 'what you paid';
+  return `
+    <div class="card gtee-card">
+      <div class="card-title">Your ${g.window_days}-day guarantee</div>
+      <div class="card-sub">${live
+    ? `No reason needed, no questions asked. We refund ${esc(amount)} and your whole business is emailed to you first.`
+    : `The no-reason window has passed, but asking is still worth it — Australian consumer law may
+       still apply, and a person reads every request.`}</div>
+      <div class="gtee-row">
+        <div class="gtee-days ${live ? 'live' : 'past'}">
+          <b>${live ? left : 0}</b><span>${live ? `day${left === 1 ? '' : 's'} left` : 'days left'}</span>
+        </div>
+        <div class="gtee-say">
+          ${live
+    ? 'Press once and it happens — the money goes back the way it came, usually within a few business days.'
+    : 'This sends a request to a person rather than refunding automatically. You will hear back by email.'}
+        </div>
+      </div>
+      <button type="button" class="btn ${live ? 'danger' : ''}" id="acct-refund">
+        ${icon('back', 14)} ${live ? 'Refund and close my Kairo' : 'Ask for a refund'}
+      </button>
+    </div>`;
+}
+
 export async function renderAccount(container) {
   container.innerHTML = `<div class="empty" style="padding-top:60px">Loading your account…</div>`;
   let a;
+  let guarantee = null;
   try {
-    a = await api.get('/api/account');
+    // Two requests in parallel. The guarantee lives on the platform that took
+    // the card, so it is allowed to be unavailable — the page still draws.
+    [a, guarantee] = await Promise.all([
+      api.get('/api/account'),
+      api.get('/api/account/guarantee').catch(() => null),
+    ]);
   } catch (err) {
     container.innerHTML = `<div class="empty" style="padding-top:60px">${icon('alert', 24)}<div>${esc(err.message)}</div></div>`;
     return;
@@ -97,6 +147,14 @@ export async function renderAccount(container) {
             ${a.user.created_at ? `<div class="acct-meta">Account opened ${esc(fmtDate(String(a.user.created_at).slice(0, 10), { weekday: false }))}</div>` : ''}
           </div>
         </div>
+        <div class="acct-session">
+          <button type="button" class="btn" id="acct-signout">${icon('logout', 14)} Sign out</button>
+          <button type="button" class="btn" id="acct-signout-all">${icon('shield', 14)} Sign out everywhere</button>
+        </div>
+        <div class="hint" style="margin-top:8px">"Everywhere" ends every session on every device — the
+          phone in your bag, the iPad at the counter, anything a former team member still has open.
+          You will be signed out here too.</div>
+
         <form id="acct-profile" style="display:flex;flex-direction:column;gap:13px;margin-top:20px">
           <div class="field"><label>Your name</label><input name="name" value="${esc(a.user.name)}" required></div>
           <div class="field"><label>Sign-in email</label>
@@ -133,6 +191,8 @@ export async function renderAccount(container) {
             : 'Invoices and payment history will appear here once billing is switched on.'}
         </div>
       </div>
+
+      ${guaranteeCard(guarantee)}
 
       <div class="card">
         <div class="card-title">What you're using</div>
@@ -208,6 +268,55 @@ export async function renderAccount(container) {
     </div>`;
 
   // ---- profile -------------------------------------------------------------
+  // Signing out. The ordinary one ends this session; "everywhere" retires every
+  // session this user has anywhere, including this one.
+  container.querySelector('#acct-signout').onclick = async () => {
+    await api.post('/api/auth/logout').catch(() => {});
+    location.reload();
+  };
+  container.querySelector('#acct-signout-all').onclick = async () => {
+    const yes = await confirmDialog('Sign out everywhere',
+      'Every device signed in as you will be signed out — including this one. Anyone who still has '
+      + 'Kairo open will have to sign in again. Your data is untouched.',
+      { okText: 'Sign out everywhere' });
+    if (!yes) return;
+    await api.post('/api/auth/logout-everywhere').catch(() => {});
+    location.reload();
+  };
+
+  // The refund. Asks twice on purpose while the window is live, because the
+  // press is irreversible and takes the salon offline with it.
+  const refundBtn = container.querySelector('#acct-refund');
+  if (refundBtn) {
+    refundBtn.onclick = async () => {
+      const live = Number(guarantee?.days_left || 0) > 0;
+      const yes = await confirmDialog(
+        live ? 'Refund and close your Kairo' : 'Ask for a refund',
+        live
+          ? 'Your money goes back to the card that paid, your whole business is emailed to you first, '
+            + 'and your booking page stops taking bookings. This cannot be undone.'
+          : 'This sends a request to a person, with anything you write below. Nothing is refunded or '
+            + 'switched off until somebody has read it.',
+        { okText: live ? 'Refund and close' : 'Send the request', danger: live });
+      if (!yes) return;
+      refundBtn.disabled = true;
+      try {
+        const r = await api.post('/api/account/refund', {});
+        if (r.refunded) {
+          toast('Refunded. Your data is on its way to you by email.', 'ok');
+        } else if (r.queued) {
+          toast('Request sent — somebody will read it and come back to you.', 'ok');
+        } else if (r.already) {
+          toast('This Kairo has already been refunded.', 'ok');
+        }
+        renderAccount(container);
+      } catch (err) {
+        refundBtn.disabled = false;
+        toast(err.message, 'err');
+      }
+    };
+  }
+
   container.querySelector('#acct-profile').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);

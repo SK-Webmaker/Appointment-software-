@@ -2967,3 +2967,96 @@ a:focus-visible,
 .wiz-sample-opt b { font-size: 13.5px; }
 .wiz-sample-opt span span { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
 .wiz-sample-opt em { font-style: normal; color: var(--amber, #d9a441); font-weight: 600; }
+
+/* Profile: sign-out controls and the refund guarantee.
+   Named acct-session, not acct-actions — that one already exists further up
+   this file for the workspace buttons, and redefining it moved them. */
+.acct-session { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.gtee-row { display: flex; align-items: center; gap: 16px; margin: 16px 0 14px; }
+.gtee-days {
+  flex: none; text-align: center; padding: 10px 16px; border-radius: 12px;
+  background: var(--surface-3, rgba(255, 255, 255, .05));
+  border: 1px solid var(--line, rgba(255, 255, 255, .08));
+}
+.gtee-days b { display: block; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.gtee-days span { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 3px; }
+.gtee-days.live b { color: var(--green, #199e70); }
+.gtee-days.past b { color: var(--text-2); }
+.gtee-say { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+.gtee-card .btn { align-self: flex-start; }
+
+/* ---------------------------------------------------------------------------
+   Booking page: the sticky section bar, and the sections it follows
+   ---------------------------------------------------------------------------
+   One page, one scroll. The bar tracks where you are rather than replacing the
+   content, so a tap on "Location" never costs somebody the booking they were
+   three steps into.
+*/
+.bk-tabs {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
+  margin: 0 -16px 14px; padding: 0 12px;
+  background: color-mix(in srgb, var(--bg, #0b0f14) 92%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, .08));
+}
+.bk-tabs::-webkit-scrollbar { display: none; }
+.bk-tab {
+  flex: none; padding: 13px 14px; border: 0; background: none; cursor: pointer;
+  font-size: 14.5px; font-weight: 500; color: var(--text-2);
+  border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color var(--dur-2, .18s) var(--ease-out, ease);
+}
+.bk-tab:hover { color: var(--text-1); }
+.bk-tab.on { color: var(--text-1); font-weight: 650; border-bottom-color: var(--accent, #38bdf8); }
+
+.bk-page-sections { margin-top: 34px; display: flex; flex-direction: column; gap: 30px; }
+.bk-sec { scroll-margin-top: 64px; }
+.bk-sec h2 { font-size: 21px; font-weight: 650; margin: 0 0 12px; }
+.bk-prose { font-size: 14.5px; line-height: 1.65; color: var(--text-2); margin: 0; white-space: pre-wrap; }
+
+.bk-lines { display: flex; flex-direction: column; gap: 2px; }
+.bk-line {
+  display: flex; align-items: center; gap: 11px; padding: 11px 2px;
+  color: inherit; text-decoration: none; font-size: 14.5px;
+}
+.bk-line svg { flex: none; color: var(--text-2); }
+.bk-line:hover { color: var(--accent, #38bdf8); }
+.bk-directions { margin-top: 12px; }
+
+.bk-hours { display: flex; flex-direction: column; }
+.bk-hour {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 11px 2px; font-size: 14.5px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, .06));
+}
+.bk-hour:last-child { border-bottom: 0; }
+.bk-hour span:last-child { font-variant-numeric: tabular-nums; }
+.bk-hour.shut { color: var(--text-2); }
+
+.bk-rev { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.bk-rev-score {
+  flex: none; text-align: center; padding: 18px 22px; border-radius: 14px;
+  background: var(--surface-2, rgba(255, 255, 255, .03));
+  border: 1px solid var(--line, rgba(255, 255, 255, .07));
+}
+.bk-rev-score b { display: block; font-size: 46px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bk-rev-score span { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.bk-stars { position: relative; display: inline-block; margin-top: 7px; font-size: 14px; letter-spacing: 2px; }
+.bk-stars-off { color: var(--line-2, rgba(255, 255, 255, .22)); }
+.bk-stars-on {
+  position: absolute; inset: 0; overflow: hidden; white-space: nowrap;
+  color: var(--accent, #38bdf8);
+}
+.bk-rev-bars { flex: 1; min-width: 190px; display: flex; flex-direction: column; gap: 7px; }
+.bk-rev-row { display: flex; align-items: center; gap: 10px; }
+.bk-rev-k {
+  flex: none; display: flex; align-items: center; gap: 3px;
+  font-size: 13px; color: var(--text-2); width: 34px;
+}
+.bk-rev-bar {
+  flex: 1; height: 8px; border-radius: 99px; overflow: hidden;
+  background: var(--surface-3, rgba(255, 255, 255, .07));
+}
+.bk-rev-bar i { display: block; height: 100%; border-radius: 99px; background: var(--text-2); }
+.bk-rev-row:first-child .bk-rev-bar i { background: var(--accent, #38bdf8); }

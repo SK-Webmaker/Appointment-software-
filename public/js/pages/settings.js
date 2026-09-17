@@ -262,6 +262,33 @@ export async function renderSettings(container, params) {
         </form>
       </div>
 
+      <div class="card" data-sec="page">
+        <div class="card-title">What your booking page shows</div>
+        <div class="card-sub" style="margin-bottom:16px">Below the booking form, your page can carry an
+          About, Contact, Location and Reviews section, with a bar at the top that follows the customer
+          as they scroll. Turn off anything you have nothing to put in — an empty section looks worse
+          than a missing one.</div>
+        <form id="set-page" style="display:flex;flex-direction:column;gap:11px">
+          ${[
+    ['page_show_about', 'About', 'A few lines about the business, below.'],
+    ['page_show_contact', 'Contact', 'Your phone and email, tappable.'],
+    ['page_show_location', 'Location', 'Your address, with a link to directions.'],
+    ['page_show_map', 'A "Get directions" button', 'Opens the address in their own map app.'],
+    ['page_show_hours', 'Opening hours', 'The week, from the hours you already set.'],
+    ['page_show_reviews', 'Reviews', 'Your rating and how the scores are spread.'],
+  ].map(([key, label, hint]) => `
+            <label class="opt-out">
+              <input type="checkbox" class="chk" name="${key}" ${s[key] === '1' ? 'checked' : ''}>
+              <span><b>${label}</b><span>${hint}</span></span>
+            </label>`).join('')}
+          <div class="field"><label>About text</label>
+            <textarea name="page_about_text" rows="4" maxlength="1200"
+              placeholder="What you do, who you do it for, and anything somebody deciding whether to book should know.">${esc(s.page_about_text || '')}</textarea>
+            <div class="hint">Shown under About. Left empty, your tagline is used instead.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save page sections</button>
+        </form>
+      </div>
+
       <div class="card" data-sec="brand">
         <div class="card-title">Booking page appearance</div>
         <div class="card-sub" style="margin-bottom:16px">Make the customer booking page match the business's brand.
@@ -829,6 +856,27 @@ export async function renderSettings(container, params) {
   // booking page appearance
   let brandLogo = s.brand_logo || '';
   let brandCover = s.brand_cover || '';
+  // What the booking page carries below the form. Checkboxes save as '1'/'0'
+  // rather than presence, so turning one OFF is a value the server stores —
+  // an unchecked box that simply is not submitted would read as "unchanged".
+  container.querySelector('#set-page')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const flag = (k) => (e.target.querySelector(`[name="${k}"]`).checked ? '1' : '0');
+    try {
+      await api.put('/api/settings', {
+        page_show_about: flag('page_show_about'),
+        page_show_contact: flag('page_show_contact'),
+        page_show_location: flag('page_show_location'),
+        page_show_map: flag('page_show_map'),
+        page_show_hours: flag('page_show_hours'),
+        page_show_reviews: flag('page_show_reviews'),
+        page_about_text: String(f.get('page_about_text') || '').slice(0, 1200),
+      });
+      toast('Saved. Open your booking page to see it.', 'ok');
+    } catch (err) { toast(err.message, 'err'); }
+  });
+
   const brandForm = container.querySelector('#set-brand');
 
   container.querySelector('#brand-schemes').addEventListener('click', (e) => {

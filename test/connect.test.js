@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { startKairo, startPlatform, openDateAhead } from './helpers/kairo.js';
 import { mockStripe, mockAbr, mockResend, mockCloudflare, mockClickSend } from './helpers/mocks.js';
+import { sign } from '../src/platform-sign.js';
 
 const KEY = 'platform-key-for-tests-0123456789';
 const DOMAIN = 'kairobookings.test';
@@ -342,4 +343,116 @@ test('the owner can connect a salon’s email from the queue, for a business tha
   // every salon on it.
   const dmarc = cflare.records.filter((x) => String(x.name).toLowerCase() === `_dmarc.${DOMAIN}`);
   assert.equal(dmarc.length, 1, 'one DMARC for the domain, however many salons connect');
+});
+
+// ---------------------------------------------------------------------------
+// The owner's own page: signing out, and the guarantee
+// ---------------------------------------------------------------------------
+//
+// The refund lives on the platform, which took the card. These check the bridge
+// the salon's own Kairo uses to ask about it — because an owner who wants their
+// money back should not have to find an email from six weeks ago to do it.
+
+test('the app can see the guarantee, and never invents one', async () => {
+  const g = await shard.api('GET', '/api/account/guarantee', { host: HOST, cookie: ownerCookie });
+  assert.equal(g.status, 200);
+  assert.equal(g.json.available, true);
+  assert.equal(g.json.days_left, 14, 'counted by the platform, not by the app');
+  assert.equal(g.json.refunded, false);
+  assert.equal(g.json.window_days, 14);
+  assert.equal(g.json.price_cents, 41000, 'what they actually paid');
+  assert.equal((await shard.api('GET', '/api/account/guarantee', { host: HOST })).status, 401,
+    'and it needs a session');
+});
+
+test('signing out everywhere retires every session, including this one', async () => {
+  // A second sign-in, standing in for the phone in somebody's bag.
+  const { cookie: phone } = await shard.login(PERSON.email, PERSON.password, { host: HOST });
+  assert.equal((await shard.api('GET', '/api/account', { host: HOST, cookie: phone })).status, 200);
+
+  const out = await shard.api('POST', '/api/auth/logout-everywhere', { host: HOST, cookie: phone });
+  assert.equal(out.status, 200);
+
+  // Both the session that asked AND the one that did not are now dead. That is
+  // the whole point of it — an ordinary sign-out cannot reach the other device.
+  assert.equal((await shard.api('GET', '/api/account', { host: HOST, cookie: phone })).status, 401);
+  assert.equal((await shard.api('GET', '/api/account', { host: HOST, cookie: ownerCookie })).status, 401,
+    'the other device is signed out too');
+
+  ({ cookie: ownerCookie } = await shard.login(PERSON.email, PERSON.password, { host: HOST }));
+});
+
+test('a refund asked for inside the app reaches the platform and returns the money', async () => {
+  // Its own salon, so the refund does not take the one the other tests use.
+  const token = await provision({ slug: 'refundme', business_name: 'Refund Me', email: 'ref@abchair.example' });
+  const d = platform.platformDb();
+  const slug = 'refundme';
+  d.close();
+  const host = `${slug}.${DOMAIN}`;
+  const { cookie } = await shard.login('ref@abchair.example', PERSON.password, { host });
+
+  const before = stripe.refunds.length;
+  const r = await shard.api('POST', '/api/account/refund', {
+    host, cookie, body: { reason: 'not for me' },
+  });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.refunded, true);
+  assert.equal(stripe.refunds.length, before + 1, 'the money actually went back');
+
+  // And the platform agrees, which is the half that matters to the bank.
+  const st = (await platform.api('GET', `/api/status?token=${token}`)).json;
+  assert.equal(st.state, 'refunded');
+});
+
+test('a Kairo with no platform behind it says so rather than drawing a countdown', async () => {
+  // A hand-installed copy has no platform handles. Inventing "14 days left"
+  // there would be a promise about money made by a screen that knows nothing
+  // about any payment.
+  const solo = await startKairo();
+  // try/finally, not a stop() at the end: a failing assertion would otherwise
+  // leave the child server running and the whole suite hangs to its timeout
+  // instead of failing. A mutation caught by a hang is a much weaker signal
+  // than one caught by an assertion, and three minutes slower in CI.
+  try {
+    const { cookie } = await solo.login();
+    const g = await solo.api('GET', '/api/account/guarantee', { cookie });
+    assert.equal(g.json.available, false);
+    assert.equal(g.json.reason, 'not_platform');
+
+    const r = await solo.api('POST', '/api/account/refund', { cookie, body: {} });
+    assert.equal(r.status, 400, 'and asking is refused with a reason, not a crash');
+  } finally {
+    await solo.stop();
+  }
+});
+
+test('a refund the platform refuses is never reported as done', async () => {
+  // The most dangerous line in the whole flow. An owner told "refunded" who was
+  // not finds out from their bank statement, weeks later, and by then the trust
+  // is gone whatever the money does.
+  //
+  // Reachable-but-refused, not unreachable: the connect token is pointed at
+  // something the platform will not accept, so it answers 404 rather than
+  // timing out. That is the branch a network failure never reaches.
+  const token = await provision({ slug: 'refused', business_name: 'Refused Co', email: 'no@abchair.example' });
+  const host = `refused.${DOMAIN}`;
+  const { cookie } = await shard.login('no@abchair.example', PERSON.password, { host });
+
+  const path = '/api/platform/tenants/refused';
+  const body = JSON.stringify({ connect_token: 'not-a-real-connect-token' });
+  const t = Date.now();
+  const patched = await shard.api('PATCH', path, {
+    body, headers: { 'x-kairo-signature': `t=${t},v1=${sign(t, 'PATCH', path, body, KEY)}`, 'content-type': 'application/json' },
+  });
+  assert.equal(patched.status, 200, patched.text);
+
+  const before = stripe.refunds.length;
+  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { reason: 'try it' } });
+  assert.ok(r.status >= 400, `refused must not read as success — got ${r.status} ${r.text}`);
+  assert.notEqual(r.json?.refunded, true, 'and certainly not "refunded: true"');
+  assert.equal(stripe.refunds.length, before, 'no money moved');
+
+  // And the salon is still running, because nothing was actually cancelled.
+  const st = (await platform.api('GET', `/api/status?token=${token}`)).json;
+  assert.equal(st.state, 'ready');
 });

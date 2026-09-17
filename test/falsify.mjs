@@ -772,6 +772,45 @@ const MUTATIONS = {
     find: '  if (!b.keep_samples) clearDemoData();',
     replace: '  if (b.keep_samples === false) clearDemoData();',
   },
+  'guarantee-is-invented-locally': {
+    // A countdown drawn by a screen that knows nothing about any payment is a
+    // promise about somebody's money.
+    file: 'src/api.js', suites: ['connect'],
+    find: "    return { available: false, reason: 'not_platform' };",
+    replace: "    return { available: true, days_left: 14, refunded: false, window_days: 14 };",
+  },
+  'logout-everywhere-only-signs-out-here': {
+    // The whole point is the OTHER device — the phone in the taxi. Without the
+    // token_version bump it is an ordinary sign-out wearing a bigger label.
+    file: 'src/api.js', suites: ['connect'],
+    find: "  db.prepare('UPDATE users SET token_version = token_version + 1 WHERE id = ?').run(user.id);",
+    replace: '  // (bump removed)',
+  },
+  'refund-reports-success-it-did-not-get': {
+    // An owner told "refunded" who was not finds out from their bank statement.
+    file: 'src/api.js', suites: ['connect'],
+    find: "  if (!r.ok) throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');",
+    replace: '  if (!r.ok) return { refunded: true };',
+  },
+  'page-hours-lose-the-per-day-override': {
+    // The page would show the salon's default hours on a day it opens late,
+    // which sends somebody to a locked door.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: '      open_min: closed ? null : (rule?.open_min ?? baseOpen),',
+    replace: '      open_min: closed ? null : baseOpen,',
+  },
+  'page-section-turns-itself-on-empty': {
+    // An empty Location tab reads as a broken page.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: "    location: on('page_show_location', hasAddress ? '1' : '0'),",
+    replace: "    location: on('page_show_location', '1'),",
+  },
+  'rating-drops-the-bad-reviews': {
+    // An average computed from the reviews a business liked is not an average.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: "      'SELECT rating, COUNT(*) AS n FROM reviews GROUP BY rating'",
+    replace: "      'SELECT rating, COUNT(*) AS n FROM reviews WHERE rating >= 4 GROUP BY rating'",
+  },
   'kai-voice-edits-the-receipt': {
     // The personality is a prefix and nothing else: `warm` must always end
     // with `said`, character for character.

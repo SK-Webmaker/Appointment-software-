@@ -410,6 +410,28 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - All images are stored in the business's own database as size-capped data URIs;
   nothing is uploaded to a third party
 
+### 📖 Booking-page sections — the parts under the booking form (v1.65.0)
+- Under *Settings → Booking page sections*, a business turns on the parts of the
+  page that sit **below** the booking steps: **About**, **Contact**, **Location**,
+  **Opening hours**, **Reviews** — each a plain checkbox, plus a free-text About
+  paragraph
+- Whatever is on gets a **tab** at the top of the page. The tabs stick to the top
+  as you scroll and the current one lights up on its own; tapping one scrolls
+  there. "Book" always comes first, because the page is for booking
+- **Opening hours** is generated from the same week the diary runs on, so it
+  cannot drift out of date — change a day in Settings and the public page changes
+  with it. Closed days say *Closed* rather than disappearing
+- **Reviews** shows the average out of five, a star row filled to the exact
+  fraction (4.6 is 4.6, not rounded up to five), the count, and a bar per rating
+  so a customer can see the spread. It counts **every** review, including the bad
+  ones — an average you curate is a number nobody should believe
+- **Location** links out to a map rather than embedding one: the booking page runs
+  under `default-src 'self'` and an embedded map would mean opening that up to a
+  third party on the page where customers type their phone number
+- A section with nothing behind it **defaults to off** and stays off — no address
+  means no Location tab, no reviews means no Reviews tab. Nothing renders an empty
+  box at a customer
+
 ### 🗓 The team roster — who works when (v1.34.0)
 - ***Team → Scheduled shifts*** is a week grid: one row per person, one cell per
   day, showing **"11 AM – 5 PM"** or **"Not working"**. Page through the weeks,
@@ -818,6 +840,16 @@ turns them on. Full detail in [SECURITY.md §6b](SECURITY.md).
   still on the default password.
 - **Your workspace** — booking-page status, whether email and SMS are set up,
   the size of your database, the version, and a one-click client export.
+- **Sessions** (v1.65.0) — **Sign out** ends this browser. **Sign out
+  everywhere** bumps the account's token version and drops every registered
+  device, so a phone left at a salon or a session on a shared machine is closed
+  from here without changing the password. Both confirm first.
+- **Your 14-day guarantee** (v1.65.0) — on a salon sold through the platform, the
+  page shows the days left in the window and a **Get a refund** button that runs
+  the refund end to end: data exported to the owner, the card refunded, the
+  tenant removed. No email, no waiting on anybody. Outside the window the button
+  is gone and the card says so instead of pretending. If the platform refuses the
+  refund, the page says it failed — it never reports a refund it did not get.
 
 ### ⚙️ Settings
 - Business profile (shown on invoices + booking page), usual hours, **your week**
@@ -826,6 +858,8 @@ turns them on. Full detail in [SECURITY.md §6b](SECURITY.md).
   **usual rebooking gap**
 - Currency symbol, tax rate, invoice numbering/footer
 - Notification providers, deposit rules, locations
+- **Booking page sections** — which of About / Contact / Location / Opening hours
+  / Reviews appear under the booking form, and the About text
 - Plan and billing terms shown to the business owner (name, price, status,
   dates, billing contact, note)
 - Demo-data reset and the guided setup wizard; personal profile, password and
@@ -1000,8 +1034,8 @@ process, never in a salon's settings, because one app serves every salon.
 ## Tests
 
 ```bash
-npm test               # 19 suites, 162 checks, ~75 s — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 47 ways; every guarding suite must fail
+npm test               # 30 suites, 294 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 134 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
