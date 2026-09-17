@@ -169,9 +169,19 @@ CI runs `npm test` and `npm run test:falsify` on every push
 Locally, the same two commands:
 
 ```
-npm test              # 258 checks
-npm run test:falsify  # 119 deliberate breakages, all of which must be caught
+npm test              # 283 checks
+npm run test:falsify  # 127 deliberate breakages, all of which must be caught
 ```
+
+> **A red mutations job is not always a surviving mutation.** On 16 September it
+> was a mutation whose `find` string no longer matched the code — somebody had
+> edited the line it quoted. The runner threw from inside the loop, so it died at
+> that entry and every mutation after it never ran: a third of the gate silently
+> did not execute, behind a red cross that looked like a caught bug. It now
+> checks every `find` BEFORE running anything and names all the stale ones at
+> once, because a partial mutation run is not a gate. If you see that message,
+> the fix is to update the mutation to quote the new code — or delete it, if what
+> it guarded is gone.
 
 ---
 

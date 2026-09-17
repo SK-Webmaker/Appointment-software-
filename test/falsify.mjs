@@ -720,12 +720,6 @@ const MUTATIONS = {
     find: 'export function clearDemoData() {\n  db.exec(`',
     replace: 'export function clearDemoData() {\n  if (true) { clearBusinessData(); return; }\n  db.exec(`',
   },
-  'demo-skip-keeps-the-fake-salon': {
-    // "Skip for now" used to hand a real business fourteen invented clients.
-    file: 'src/api.js', suites: ['demo-data'],
-    find: "route('POST', '/api/setup/skip', async () => {\n  clearDemoData();",
-    replace: "route('POST', '/api/setup/skip', async () => {",
-  },
   'demo-rows-go-unflagged': {
     // An unflagged seed row is invisible to the label AND to the delete.
     file: 'src/db.js', suites: ['demo-data'],
@@ -796,6 +790,35 @@ function copyRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kairo-falsify-'));
   fs.cpSync(ROOT, dir, { recursive: true, filter: (src) => !SKIP.has(path.basename(src)) || src === ROOT });
   return dir;
+}
+
+/**
+ * Check every mutation still matches the code, BEFORE running any of them.
+ *
+ * A `find` string goes stale the moment somebody edits the line it quotes, and
+ * until this existed that threw from inside the loop — killing the run at
+ * whatever position the stale entry happened to sit in, so every mutation after
+ * it silently never ran. The job went red, which looks like a caught bug and is
+ * actually a coverage hole: on 16 September one stale entry at position 92 of
+ * 121 meant a third of the gate had not run, and the red cross said nothing
+ * about that.
+ *
+ * So: all of them are checked up front, ALL the stale ones are named at once
+ * rather than one per run, and nothing is executed until they are fixed.
+ */
+const stale = [];
+for (const name of names) {
+  const m = MUTATIONS[name];
+  const src = fs.readFileSync(path.join(ROOT, m.file), 'utf8');
+  const count = src.split(m.find).length - 1;
+  if (count !== 1) stale.push(`  ${name}: found ${count} matches in ${m.file}`);
+}
+if (stale.length) {
+  console.error(`\n${stale.length} mutation${stale.length === 1 ? ' no longer matches' : 's no longer match'} the code.`);
+  console.error('The code moved; update the mutation, or delete it if what it guarded is gone.\n');
+  console.error(stale.join('\n'));
+  console.error('\nNothing was run — a partial mutation run is not a gate.\n');
+  process.exit(1);
 }
 
 let survived = 0;
