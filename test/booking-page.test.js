@@ -14,7 +14,12 @@
 //      internal ids beyond what booking needs.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startKairo } from './helpers/kairo.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 let k, cookie;
 const api = (m, p, body) => k.api(m, p, { cookie, body });
@@ -123,6 +128,35 @@ test('the rating counts every review, including the ones nobody wants', async ()
   assert.equal(r.average, 4.2, 'the one-star is in the average');
   assert.equal(r.distribution[5], 4);
   assert.equal(r.distribution[1], 1, 'and it is visible in the spread');
+});
+
+test('the filled stars keep their own colour', () => {
+  // A 4.6 rendered as five identical grey stars, and every assertion above still
+  // passed: the number was right, the fill width was right, and the colour that
+  // makes the fill visible was being overwritten.
+  //
+  // The cause was `.bk-rev-score span`, written for the "9 reviews" line. The
+  // stars are spans inside that block, so the loose selector matched them too —
+  // and at (0,1,1) it out-specifies `.bk-stars-on` at (0,1,0). Nothing in the
+  // markup was wrong. The product's claim that it will not round 4.6 up to five
+  // was true in the DOM and false on the screen.
+  //
+  // So this asserts the shape of the rule rather than the rendering: no bare
+  // element selector under .bk-rev-score, because any of them silently wins.
+  const css = fs.readFileSync(path.join(ROOT, 'public/css/app.css'), 'utf8');
+  const loose = [...css.matchAll(/\.bk-rev-score\s*>?\s*([a-z][\w-]*)\s*(?:,|\{)/gi)].map((m) => m[1]);
+  assert.deepEqual(loose, [], `.bk-rev-score must not style bare elements (found: ${loose.join(', ')}) — `
+    + 'the stars live in there and lose the specificity fight');
+
+  const rule = (sel) => {
+    const m = css.match(new RegExp(`\\${sel}\\s*\\{([^}]*)\\}`));
+    assert.ok(m, `${sel} has no rule at all`);
+    return m[1];
+  };
+  const on = rule('.bk-stars-on').match(/(?:^|[^-])color:\s*([^;]+);/);
+  const off = rule('.bk-stars-off').match(/(?:^|[^-])color:\s*([^;]+);/);
+  assert.ok(on && off, 'both halves of the star row must set a colour');
+  assert.notEqual(on[1].trim(), off[1].trim(), 'a fill the same colour as the gap is not a fill');
 });
 
 test('the public page still says nothing about any client', async () => {

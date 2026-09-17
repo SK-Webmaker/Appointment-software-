@@ -8,8 +8,13 @@
 // leaving the app.
 import test, { before, after, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startKairo, bookFirstSlot, openDateAhead, ADMIN } from './helpers/kairo.js';
 import { apnsKeyPair, mockApns } from './helpers/mocks.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const TOKEN_A = 'a'.repeat(64);
 const TOKEN_B = 'b'.repeat(64);
@@ -271,5 +276,20 @@ describe('deleting the account from inside the app', () => {
     // The book itself is still there: that is the point of the seven days.
     assert.ok(d.prepare('SELECT COUNT(*) AS n FROM clients').get().n > 0);
     d.close();
+  });
+
+  test('and can reach it without asking anybody', () => {
+    // Every assertion above passed for months while NOTHING in the app called
+    // this route. Apple's requirement is not that the endpoint exists — it is
+    // that an owner can find it in the app — so the suite proved a feature
+    // nobody could use.
+    //
+    // The same was true of the other two things an owner does about their own
+    // account. A route with no button is a promise in the release notes.
+    const src = fs.readFileSync(path.join(ROOT, 'public/js/pages/account.js'), 'utf8');
+    for (const route of ['/api/account/delete', '/api/account/refund', '/api/auth/logout-everywhere']) {
+      assert.ok(src.includes(`'${route}'`),
+        `nothing on the Account page calls ${route} — the owner cannot get to it`);
+    }
   });
 });

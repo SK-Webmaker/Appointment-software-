@@ -233,9 +233,9 @@ function pageSectionsHtml() {
         <h2>Reviews</h2>
         <div class="bk-rev">
           <div class="bk-rev-score">
-            <b>${r.average.toFixed(1)}</b>
+            <b class="bk-rev-avg">${r.average.toFixed(1)}</b>
             ${starsHtml(r.average)}
-            <span>${r.count} review${r.count === 1 ? '' : 's'}</span>
+            <span class="bk-rev-n">${r.count} review${r.count === 1 ? '' : 's'}</span>
           </div>
           <div class="bk-rev-bars">
             ${[5, 4, 3, 2, 1].map((k) => `

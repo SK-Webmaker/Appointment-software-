@@ -3109,8 +3109,11 @@ route('GET', '/api/account/guarantee', async () => {
       refunded: Boolean(d.refunded),
       paid_at: String(d.paid_at || ''),
       price_cents: Number(d.price_cents || 0),
-      owner_email: String(d.owner_email || ''),
       window_days: 14,
+      // The platform also returns the owner's email here; it is not carried
+      // through. The account page already knows who is signed in, and passing a
+      // personal detail down a second path is how it ends up somewhere it was
+      // never meant to be.
     };
   } catch {
     return { available: false, reason: 'unreachable' };

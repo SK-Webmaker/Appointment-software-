@@ -551,6 +551,13 @@ const MUTATIONS = {
   },
 
   // ── slice 6: the app ─────────────────────────────────────────────────────
+  'closing-the-account-has-no-button': {
+    // The state this was actually in: the route worked, the tests passed, and
+    // no owner could reach it. Apple requires the deletion to be IN the app.
+    file: 'public/js/pages/account.js', suites: ['app'],
+    find: "        const r = await api.post('/api/account/delete', {",
+    replace: "        const r = await api.post('/api/account/close-it', {",
+  },
   'any-device-token-accepted': {
     file: 'src/api.js', suites: ['app'],
     find: "if (!/^[0-9a-fA-F]{32,200}$/.test(token)) throw httpError(400, 'That is not a device token');",
@@ -804,6 +811,14 @@ const MUTATIONS = {
     file: 'src/api.js', suites: ['booking-page'],
     find: "    location: on('page_show_location', hasAddress ? '1' : '0'),",
     replace: "    location: on('page_show_location', '1'),",
+  },
+  'stars-lose-their-fill-colour': {
+    // The real bug, put back: a loose `span` rule under .bk-rev-score wins the
+    // specificity fight against .bk-stars-on, and a 4.6 renders as five
+    // identical grey stars while every number behind it stays correct.
+    file: 'public/css/app.css', suites: ['booking-page'],
+    find: '.bk-rev-n { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }',
+    replace: '.bk-rev-score span { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }',
   },
   'rating-drops-the-bad-reviews': {
     // An average computed from the reviews a business liked is not an average.

@@ -2972,6 +2972,11 @@ a:focus-visible,
    Named acct-session, not acct-actions — that one already exists further up
    this file for the workspace buttons, and redefining it moved them. */
 .acct-session { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+/* The last card on the page, and the only one that ends the business. Marked
+   quietly rather than shouted at: a red panel above the fold would make an
+   owner's own page feel like a warning. */
+.acct-close { border-color: var(--danger-line, rgba(248, 113, 113, .22)); }
+.acct-close .card-title { color: var(--danger, #f87171); }
 .gtee-row { display: flex; align-items: center; gap: 16px; margin: 16px 0 14px; }
 .gtee-days {
   flex: none; text-align: center; padding: 10px 16px; border-radius: 12px;
@@ -2981,7 +2986,9 @@ a:focus-visible,
 .gtee-days b { display: block; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
 .gtee-days span { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 3px; }
 .gtee-days.live b { color: var(--green, #199e70); }
-.gtee-days.past b { color: var(--text-2); }
+/* "Closed" is a word where the live state has a numeral, so it cannot ride the
+   30px size without dwarfing the sentence beside it. */
+.gtee-days.past b { color: var(--text-2); font-size: 17px; letter-spacing: .2px; padding: 6px 0; }
 .gtee-say { font-size: 13px; color: var(--text-2); line-height: 1.55; }
 .gtee-card .btn { align-self: flex-start; }
 
@@ -3040,9 +3047,13 @@ a:focus-visible,
   background: var(--surface-2, rgba(255, 255, 255, .03));
   border: 1px solid var(--line, rgba(255, 255, 255, .07));
 }
-.bk-rev-score b { display: block; font-size: 46px; line-height: 1; font-variant-numeric: tabular-nums; }
-.bk-rev-score span { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
-.bk-stars { position: relative; display: inline-block; margin-top: 7px; font-size: 14px; letter-spacing: 2px; }
+.bk-rev-avg { display: block; font-size: 46px; line-height: 1; font-variant-numeric: tabular-nums; }
+/* Named, not `.bk-rev-score span`. The stars are spans too, and the loose
+   selector beat .bk-stars-on on specificity — so the filled stars took this
+   colour and this font-size, and a 4.6 rendered as five identical grey stars.
+   The fill was correct the whole time; only its colour was being overwritten. */
+.bk-rev-n { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.bk-stars { position: relative; display: inline-block; margin-top: 7px; font-size: 16px; letter-spacing: 2px; }
 .bk-stars-off { color: var(--line-2, rgba(255, 255, 255, .22)); }
 .bk-stars-on {
   position: absolute; inset: 0; overflow: hidden; white-space: nowrap;
@@ -3058,5 +3069,8 @@ a:focus-visible,
   flex: 1; height: 8px; border-radius: 99px; overflow: hidden;
   background: var(--surface-3, rgba(255, 255, 255, .07));
 }
-.bk-rev-bar i { display: block; height: 100%; border-radius: 99px; background: var(--text-2); }
-.bk-rev-row:first-child .bk-rev-bar i { background: var(--accent, #38bdf8); }
+/* Every bar the same colour, the one-star included. Accenting only the top row
+   and muting the rest is a way of drawing the eye off the complaints, and this
+   section exists to show the spread rather than to flatter it. Width already
+   says which rating won. */
+.bk-rev-bar i { display: block; height: 100%; border-radius: 99px; background: var(--accent, #38bdf8); }

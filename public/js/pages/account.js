@@ -6,7 +6,7 @@
 // is a bill: the plan card reads from settings the reseller sets per
 // deployment, so a business always sees the terms it was actually sold.
 import { api } from '../api.js';
-import { esc, icon, toast, fmtDate, initials, confirmDialog } from '../ui.js';
+import { esc, icon, toast, fmtDate, initials, confirmDialog, openModal } from '../ui.js';
 import { state } from '../app.js';
 
 const PLAN_LABELS = {
@@ -96,7 +96,11 @@ function guaranteeCard(g) {
        still apply, and a person reads every request.`}</div>
       <div class="gtee-row">
         <div class="gtee-days ${live ? 'live' : 'past'}">
-          <b>${live ? left : 0}</b><span>${live ? `day${left === 1 ? '' : 's'} left` : 'days left'}</span>
+          ${live
+    ? `<b>${left}</b><span>day${left === 1 ? '' : 's'} left</span>`
+    // Not "0 days left" — a zero next to a countdown reads as "today is your
+    // last chance", which is the opposite of what has happened.
+    : `<b>Closed</b><span>${g.window_days}-day window</span>`}
         </div>
         <div class="gtee-say">
           ${live
@@ -104,9 +108,16 @@ function guaranteeCard(g) {
     : 'This sends a request to a person rather than refunding automatically. You will hear back by email.'}
         </div>
       </div>
+      ${live ? '' : `
+      <div class="field" style="margin-top:14px">
+        <label>Anything you want to say (optional)</label>
+        <textarea id="acct-refund-reason" rows="3" maxlength="300"
+          placeholder="What went wrong, or what you needed and didn't get."></textarea>
+      </div>`}
       <button type="button" class="btn ${live ? 'danger' : ''}" id="acct-refund">
         ${icon('back', 14)} ${live ? 'Refund and close my Kairo' : 'Ask for a refund'}
       </button>
+      ${g.paid_at ? `<div class="acct-meta" style="margin-top:10px">Bought ${esc(fmtDate(String(g.paid_at).slice(0, 10), { weekday: false }))}${g.price_cents ? ` · ${esc(amount)} once, nothing after` : ''}</div>` : ''}
     </div>`;
 }
 
@@ -151,9 +162,8 @@ export async function renderAccount(container) {
           <button type="button" class="btn" id="acct-signout">${icon('logout', 14)} Sign out</button>
           <button type="button" class="btn" id="acct-signout-all">${icon('shield', 14)} Sign out everywhere</button>
         </div>
-        <div class="hint" style="margin-top:8px">"Everywhere" ends every session on every device — the
-          phone in your bag, the iPad at the counter, anything a former team member still has open.
-          You will be signed out here too.</div>
+        <div class="hint" style="margin-top:8px">"Everywhere" ends every session on every device,
+          this one included — for a phone that went missing, or someone who has left.</div>
 
         <form id="acct-profile" style="display:flex;flex-direction:column;gap:13px;margin-top:20px">
           <div class="field"><label>Your name</label><input name="name" value="${esc(a.user.name)}" required></div>
@@ -265,7 +275,64 @@ export async function renderAccount(container) {
         </div>
         <div class="hint" style="margin-top:12px">Your data is yours. Export it any time, and ask for a copy of the whole database whenever you want one.</div>
       </div>
+
+      <div class="card acct-close">
+        <div class="card-title">Closing your account</div>
+        <div class="card-sub">This is your whole book — every client, every appointment, every invoice.
+          Closing signs everybody out and takes your booking page down straight away. The files are
+          deleted seven days later, so if you press this at 11pm by mistake, it can still be undone at 9am.</div>
+        <div class="hint" style="margin:14px 0 0">Export your clients first if you want a copy. A refund, if
+          you are still inside the guarantee, is the button further up — this one closes the account
+          without refunding anything.</div>
+        <button type="button" class="btn danger" id="acct-close" style="margin-top:16px">
+          ${icon('trash', 14)} Close my account
+        </button>
+      </div>
     </div>`;
+
+  // Closing the account. The route has existed since the App Store work and
+  // nothing called it, which means the app shipped a thing Apple requires and
+  // no owner could reach. Two proofs are asked for — the password and the
+  // business name typed out — because a mis-tap must not be able to do this.
+  container.querySelector('#acct-close').onclick = () => {
+    const name = state.settings?.business_name || '';
+    const m = openModal({
+      title: 'Close this account',
+      body: `
+        <p style="color:var(--text-2);line-height:1.6">Your booking page goes off now and everyone is
+          signed out. Your data is deleted in seven days — until then, a message to us brings it back.</p>
+        <form id="acct-close-form" style="display:flex;flex-direction:column;gap:13px;margin-top:16px">
+          <div class="field"><label>Your password</label>
+            <input name="password" type="password" autocomplete="current-password" required></div>
+          <div class="field"><label>Type your business name to confirm</label>
+            <input name="confirm" autocomplete="off" required placeholder="${esc(name)}">
+            <div class="hint">Exactly as it appears on your invoices.</div></div>
+          <div class="login-error" id="acct-close-err"></div>
+          <button class="btn danger" type="submit" style="align-self:flex-start">Close the account</button>
+        </form>`,
+    });
+    m.querySelector('#acct-close-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const err = m.querySelector('#acct-close-err');
+      err.textContent = '';
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        const r = await api.post('/api/account/delete', {
+          password: fd.get('password'), confirm: fd.get('confirm'),
+        });
+        m.close();
+        // Everything is already signed out server-side; reloading lands on the
+        // login screen, which is the honest end of this.
+        toast(r.message || 'Your account is closed.', 'ok');
+        setTimeout(() => location.reload(), 2500);
+      } catch (e2) {
+        err.textContent = e2.message;
+        btn.disabled = false;
+      }
+    });
+  };
 
   // ---- profile -------------------------------------------------------------
   // Signing out. The ordinary one ends this session; "everywhere" retires every
@@ -295,13 +362,14 @@ export async function renderAccount(container) {
         live
           ? 'Your money goes back to the card that paid, your whole business is emailed to you first, '
             + 'and your booking page stops taking bookings. This cannot be undone.'
-          : 'This sends a request to a person, with anything you write below. Nothing is refunded or '
+          : 'This sends a request to a person, along with anything you wrote. Nothing is refunded or '
             + 'switched off until somebody has read it.',
         { okText: live ? 'Refund and close' : 'Send the request', danger: live });
       if (!yes) return;
       refundBtn.disabled = true;
       try {
-        const r = await api.post('/api/account/refund', {});
+        const note = container.querySelector('#acct-refund-reason');
+        const r = await api.post('/api/account/refund', { reason: note ? note.value.trim() : '' });
         if (r.refunded) {
           toast('Refunded. Your data is on its way to you by email.', 'ok');
         } else if (r.queued) {

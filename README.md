@@ -844,6 +844,11 @@ turns them on. Full detail in [SECURITY.md §6b](SECURITY.md).
   everywhere** bumps the account's token version and drops every registered
   device, so a phone left at a salon or a session on a shared machine is closed
   from here without changing the password. Both confirm first.
+- **Closing your account** (v1.65.0) — the route has been there since the App
+  Store work; now there is a button that reaches it. Asks for the password *and*
+  the business name typed out, shuts the salon on the spot (signed out
+  everywhere, booking page off) and removes the files seven days later, so an
+  11pm mistake can still be undone at 9am.
 - **Your 14-day guarantee** (v1.65.0) — on a salon sold through the platform, the
   page shows the days left in the window and a **Get a refund** button that runs
   the refund end to end: data exported to the owner, the card refunded, the
@@ -1034,8 +1039,8 @@ process, never in a salon's settings, because one app serves every salon.
 ## Tests
 
 ```bash
-npm test               # 30 suites, 294 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 134 ways; every guarding suite must fail
+npm test               # 30 suites, 296 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 136 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).
