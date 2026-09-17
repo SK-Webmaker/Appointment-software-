@@ -81,7 +81,13 @@ test('a section with nothing to put in it does not turn itself on', async () => 
     const { cookie: c2 } = await solo.login();
     await solo.api('POST', '/api/setup/skip', { cookie: c2 });
     await solo.api('PUT', '/api/settings', {
-      cookie: c2, body: { business_name: 'Mobile Barber', business_address: '', brand_tagline: '' },
+      cookie: c2,
+      // A mobile barber with nothing on file: no shopfront, no landline, no
+      // address for a map, nothing written about themselves.
+      body: {
+        business_name: 'Mobile Barber', business_address: '', brand_tagline: '',
+        business_phone: '', business_email: '',
+      },
     });
     const p = (await solo.api('GET', '/api/public/info')).json.page_sections;
     assert.equal(p.location, false, 'no address means no Location');
@@ -90,6 +96,18 @@ test('a section with nothing to put in it does not turn itself on', async () => 
     // Not "nothing to show" — this one is off even with a wall of five-stars,
     // because publishing a rating is the owner's decision to make.
     assert.equal(p.reviews, false, 'reviews wait to be switched on');
+
+    // A salon with no phone and no email must get no Contact tab — and every
+    // salon on the shared sender HAS a mail_domain, so counting that as a way
+    // to be contacted would give all of them an empty box. Caught four minutes
+    // before it reached a real barber who has neither on file.
+    const pub = (await solo.api('GET', '/api/public/info')).json;
+    assert.ok(!pub.business_phone && !pub.business_email, 'this salon has neither');
+    const book = fs.readFileSync(path.join(ROOT, 'public/js/book.js'), 'utf8');
+    const rule = book.match(/contact: p\.contact && \(([^)]*)\)/);
+    assert.ok(rule, 'the Contact rule must still be readable here');
+    assert.ok(!/mail_domain/.test(rule[1]),
+      'the sending domain is not a way for a customer to reach anybody');
   } finally {
     await solo.stop();
   }

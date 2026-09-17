@@ -1052,7 +1052,7 @@ process, never in a salon's settings, because one app serves every salon.
 
 ```bash
 npm test               # 30 suites, 297 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 139 ways; every guarding suite must fail
+npm run test:falsify   # breaks Kairo on purpose 140 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

@@ -122,7 +122,12 @@ function liveSections() {
   const p = b.page_sections || {};
   const has = {
     about: p.about && (p.about_text || b.brand?.tagline),
-    contact: p.contact && (b.business_phone || b.business_email || b.mail_domain),
+    // Phone or email only. `mail_domain` is the domain letters are SENT from —
+    // "kairobookings.com" on the shared sender, which every salon has — and it
+    // is not something a customer can ring or write to. Counting it here gave a
+    // salon with neither a phone nor an email a Contact tab pointing at an
+    // empty box, which is the exact thing this function exists to prevent.
+    contact: p.contact && (b.business_phone || b.business_email),
     // "Location" carries the address AND the opening hours, because on a phone
     // they are the same question: can I get there, and will you be open.
     location: (p.location && b.business_address) || (p.hours && (b.hours || []).length),

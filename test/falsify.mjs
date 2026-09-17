@@ -812,6 +812,13 @@ const MUTATIONS = {
     find: "    location: on('page_show_location', hasAddress ? '1' : '0'),",
     replace: "    location: on('page_show_location', '1'),",
   },
+  'contact-tab-opens-on-nothing': {
+    // Every salon on the shared sender has a mail_domain, so this gives a
+    // phone-less, email-less business a Contact tab pointing at an empty box.
+    file: 'public/js/book.js', suites: ['booking-page'],
+    find: '    contact: p.contact && (b.business_phone || b.business_email),',
+    replace: '    contact: p.contact && (b.business_phone || b.business_email || b.mail_domain),',
+  },
   'reviews-publish-themselves': {
     // An upgrade that lands overnight and puts a salon's rating on its booking
     // page by morning, without anybody choosing that.
