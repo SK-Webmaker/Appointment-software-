@@ -323,17 +323,31 @@ salons).
 
 ---
 
-## 5. Website changes I can make directly
+## 5. Website changes — done and live
 
-I have edit access to the Hair by Sha site. These are ready to apply on your go-ahead:
+Applied and verified live on `hairbyshacamberwell.com` on 17 September 2026:
 
-- Fix the footer NAP to `1 Prospect Hill Rd, Camberwell VIC 3124` — exactly matching the Google profile
-- Add `sameAs` entries for Facebook, TikTok and the Google Business Profile
-- Add `hasMap` pointing at the Google listing
-- Correct `foundingDate` from 2026 to 2023
-- Add a `Person` entity for Shamalka (helps Google connect the stylist to the business)
-- Build the four suburb pages
-- Embed the Google review link on a thank-you/post-visit page
+- ✅ **Footer NAP corrected** to `1 Prospect Hill Rd, Camberwell VIC 3124`, matching the Google profile
+  character for character. Zero occurrences of the old `Prospect Hill Rd, Melbourne` remain anywhere
+  on the site.
+- ✅ **Address moved to a single source of truth** (`src/data/site.ts`), so every page, the schema and
+  the FAQ now read the same string. This is what stops the drift recurring.
+- ✅ **`sameAs` extended** with Facebook, TikTok and the Google Business Profile
+- ✅ **`hasMap`** added, pointing at the verified profile link
+- ✅ **`foundingDate` corrected** from 2026 to 2023
+- ✅ **`Person` entity added** for Shamalka Kiridena — `founder` and `employee`, cross-referenced by
+  `@id`, which helps Google tie the stylist to the business as one entity
+- ✅ **Sub-pages now reference the canonical business by `@id`** instead of duplicating the whole
+  business object on every page
+- ✅ **Four suburb pages built and live** — `/hawthorn`, `/glen-iris`, `/canterbury`, `/surrey-hills`.
+  Each has its own angle, travel description, service emphasis and testimonial set rather than one
+  template with the suburb swapped. Each is honest that a 4–6 week root touch-up may suit a closer
+  salon, which is what keeps them useful pages rather than doorway pages.
+- ✅ **Added to `sitemap.xml`** and linked from every page under an "Areas we look after" footer heading
+
+**Not done, deliberately:** embedding the review link on a post-visit page. That belongs with the
+booking flow rather than the marketing site, so it is better handled in Kairo's post-appointment
+message (Tier 2, item 7).
 
 ---
 
