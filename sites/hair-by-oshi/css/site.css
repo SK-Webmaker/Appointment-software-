@@ -560,3 +560,4 @@ body:not(.is-loading) .hero__meta{opacity:1}
 .hero__media .slot::after{display:none}
 .hero__media .slot__mark,.hero__media .slot__name,.hero__media .slot__alt{opacity:.22}
 .ba__stage .slot__alt{display:none}
+.hero__media .slot{justify-content:flex-start;padding-top:22vh}
