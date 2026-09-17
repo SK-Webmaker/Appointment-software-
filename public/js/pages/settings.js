@@ -304,7 +304,7 @@ export async function renderSettings(container, params) {
     ['page_show_location', 'location', 'Location', 'Your address, with a link to directions.'],
     ['page_show_map', 'map', 'A "Get directions" button', 'Opens the address in their own map app.'],
     ['page_show_hours', 'hours', 'Opening hours', 'The week, from the hours you already set.'],
-    ['page_show_reviews', 'reviews', 'Reviews', 'Your rating and how the scores are spread.'],
+    ['page_show_reviews', 'reviews', 'Reviews', 'Off unless you turn it on. Shows your rating out of five and how the scores are spread — all of them, including any bad ones.'],
     // Ticked from what the page is showing, not from the stored key — see
     // livePageSections. The two differ on any business that has never saved
     // this card, which is every business until it does.

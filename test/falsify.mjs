@@ -812,6 +812,20 @@ const MUTATIONS = {
     find: "    location: on('page_show_location', hasAddress ? '1' : '0'),",
     replace: "    location: on('page_show_location', '1'),",
   },
+  'reviews-publish-themselves': {
+    // An upgrade that lands overnight and puts a salon's rating on its booking
+    // page by morning, without anybody choosing that.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: "    reviews: on('page_show_reviews', '0'),",
+    replace: "    reviews: on('page_show_reviews', '1'),",
+  },
+  'unpublished-rating-still-in-the-json': {
+    // "Off" meaning only "not drawn": the rating the owner chose not to publish
+    // sits in the page's own JSON for anyone who opens the network tab.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: '    reviews: pageSections().reviews\n      ? publicReviewSummary()\n      : { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },',
+    replace: '    reviews: publicReviewSummary(),',
+  },
   'settings-boxes-read-the-stored-keys': {
     // The state this was in: every box drawn unticked over a page that was
     // showing five sections, and a save that then switched them all off.

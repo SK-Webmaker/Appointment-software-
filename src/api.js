@@ -4304,8 +4304,23 @@ function publicReviewSummary() {
   }
 }
 
-/** Which extra sections the booking page shows. Each one defaults to on only
- *  when there is something real to put in it. */
+/**
+ * Which extra sections the booking page shows.
+ *
+ * Each one defaults to on only when there is something real to put in it — with
+ * one deliberate exception.
+ *
+ * REVIEWS DEFAULT TO OFF, even for a business with a wall of five-stars. The
+ * others publish facts the business already publishes: where it is, when it
+ * opens, what its number is. A rating is a judgement about them, and switching
+ * it on by default would mean an upgrade landing overnight and a salon's page
+ * advertising a 3.2 to every prospective customer the next morning without
+ * anybody choosing that.
+ *
+ * It stays an opt-in for that reason alone. Once it IS on, every review counts,
+ * the one-stars included — see publicReviewSummary. Choosing whether to publish
+ * a rating is the owner's; choosing which reviews go into it is nobody's.
+ */
 function pageSections() {
   const on = (key, dflt) => getSetting(key, dflt) === '1';
   const hasAddress = String(getSetting('business_address', '') || '').trim().length > 0;
@@ -4314,7 +4329,7 @@ function pageSections() {
     contact: on('page_show_contact', '1'),
     location: on('page_show_location', hasAddress ? '1' : '0'),
     hours: on('page_show_hours', '1'),
-    reviews: on('page_show_reviews', '1'),
+    reviews: on('page_show_reviews', '0'),
     map: on('page_show_map', hasAddress ? '1' : '0'),
     about_text: String(getSetting('page_about_text', '') || ''),
   };
@@ -4403,10 +4418,16 @@ route('GET', '/api/public/info', async () => {
     // Built here rather than in the browser because the day rules are stored as
     // JSON and the page should not have to know that.
     hours: weekHours(),
-    // What people said afterwards. Only the reviews the salon chose to show,
-    // and only the shape a rating summary needs — never a client's name against
+    // What people said afterwards — numbers only, never a client's name against
     // a low score.
-    reviews: publicReviewSummary(),
+    //
+    // Withheld entirely when the section is off, rather than sent and hidden by
+    // the browser. A rating the owner chose not to publish must not be sitting
+    // in the page's JSON for anyone who opens the network tab: "off" would mean
+    // nothing more than "not drawn".
+    reviews: pageSections().reviews
+      ? publicReviewSummary()
+      : { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
     // Which of the extra sections this business wants on its page. Off is a
     // real answer: a mobile barber has no address worth a map, and an empty
     // "Location" tab is worse than no tab at all.

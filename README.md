@@ -421,10 +421,17 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - **Opening hours** is generated from the same week the diary runs on, so it
   cannot drift out of date — change a day in Settings and the public page changes
   with it. Closed days say *Closed* rather than disappearing
-- **Reviews** shows the average out of five, a star row filled to the exact
+- **Reviews** is **off until the owner turns it on**, and it is the only section
+  that is. The others publish facts the business already publishes — where it is,
+  when it opens, its number. A rating is a judgement about them, and an upgrade
+  landing overnight must not put a 3.2 on somebody's booking page by morning.
+  Switched off, the rating is not sent to the page at all, so "off" is not just
+  "not drawn"
+- Once it **is** on: the average out of five, a star row filled to the exact
   fraction (4.6 is 4.6, not rounded up to five), the count, and a bar per rating
   so a customer can see the spread. It counts **every** review, including the bad
-  ones — an average you curate is a number nobody should believe
+  ones. Whether to publish a rating is the owner's call; which reviews go into it
+  is nobody's
 - **Location** links out to a map rather than embedding one: the booking page runs
   under `default-src 'self'` and an embedded map would mean opening that up to a
   third party on the page where customers type their phone number
@@ -1045,7 +1052,7 @@ process, never in a salon's settings, because one app serves every salon.
 
 ```bash
 npm test               # 30 suites, 297 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 137 ways; every guarding suite must fail
+npm run test:falsify   # breaks Kairo on purpose 139 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

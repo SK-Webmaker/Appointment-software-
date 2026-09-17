@@ -87,6 +87,9 @@ test('a section with nothing to put in it does not turn itself on', async () => 
     assert.equal(p.location, false, 'no address means no Location');
     assert.equal(p.map, false, 'and nothing to get directions to');
     assert.equal(p.about, false, 'nothing written means no About');
+    // Not "nothing to show" — this one is off even with a wall of five-stars,
+    // because publishing a rating is the owner's decision to make.
+    assert.equal(p.reviews, false, 'reviews wait to be switched on');
   } finally {
     await solo.stop();
   }
@@ -123,11 +126,20 @@ test('the rating counts every review, including the ones nobody wants', async ()
   });
   d.close();
 
+  // Reviews are off until asked for, so ask.
+  await set({ page_show_reviews: '1' });
   const r = (await info()).reviews;
   assert.equal(r.count, 5);
   assert.equal(r.average, 4.2, 'the one-star is in the average');
   assert.equal(r.distribution[5], 4);
   assert.equal(r.distribution[1], 1, 'and it is visible in the spread');
+
+  // Switched off, the rating is not sent at all — not sent and hidden.
+  await set({ page_show_reviews: '0' });
+  const off = await info();
+  assert.equal(off.reviews.count, 0, 'a rating the owner did not publish is not in the JSON');
+  assert.equal(off.reviews.average, 0);
+  await set({ page_show_reviews: '1' });
 });
 
 test('the owner is shown what the page is doing, not what was saved', async () => {
@@ -158,6 +170,7 @@ test('the owner is shown what the page is doing, not what was saved', async () =
     assert.equal(live.hours, true);
     assert.equal(live.location, true, 'it has an address, so Location is on');
     assert.equal(live.map, true);
+    assert.equal(live.reviews, false, 'the rating is the one that waits to be asked');
 
     // The settings page must render from `live`. If it ever reads the raw keys
     // again, it will draw these as off.
