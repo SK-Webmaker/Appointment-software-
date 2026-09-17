@@ -4324,7 +4324,7 @@ function publicReviewSummary() {
 function pageSections() {
   const on = (key, dflt) => getSetting(key, dflt) === '1';
   const hasAddress = String(getSetting('business_address', '') || '').trim().length > 0;
-  return {
+  const want = {
     about: on('page_show_about', getSetting('brand_tagline', '') ? '1' : '0'),
     contact: on('page_show_contact', '1'),
     location: on('page_show_location', hasAddress ? '1' : '0'),
@@ -4333,6 +4333,30 @@ function pageSections() {
     map: on('page_show_map', hasAddress ? '1' : '0'),
     about_text: String(getSetting('page_about_text', '') || ''),
   };
+
+  // Wanting a section and having something to put in it are two questions, and
+  // they have to be answered in the same place. They were not: the browser
+  // decided what to draw while Settings ticked a box from what was stored, so a
+  // barber with no phone number saw "Contact ✓" over a page with no Contact on
+  // it — and, before that, a Contact tab over an empty box.
+  //
+  // `live` is that one answer. The booking page draws these and nothing else;
+  // Settings ticks the box from `want` (it is still the owner's choice) and says
+  // "nothing to show yet" against anything wanted but not live.
+  const has = {
+    about: Boolean(want.about_text || getSetting('brand_tagline', '')),
+    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '')),
+    location: hasAddress,
+    hours: weekHours().length > 0,
+    reviews: publicReviewSummary().count > 0,
+    map: hasAddress,
+  };
+  // Location carries the opening hours too, so it survives on either one.
+  const live = ['about', 'contact', 'location', 'hours', 'reviews', 'map']
+    .filter((id) => want[id] && has[id]);
+  if (want.hours && has.hours && !live.includes('location')) live.push('location');
+
+  return { ...want, live, empty: Object.keys(has).filter((id) => want[id] && !has[id]) };
 }
 
 route('GET', '/api/public/info', async () => {

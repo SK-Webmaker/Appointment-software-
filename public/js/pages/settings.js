@@ -111,6 +111,11 @@ function readWeekRules(container) {
  * The answer comes from the booking page's own endpoint, so the tick cannot
  * disagree with the page. A business whose booking page is switched off has no
  * page to ask, and falls back to the stored values.
+ *
+ * It also carries `empty` — the sections the owner has asked for that have
+ * nothing behind them yet. A tick is the owner's choice and stays ticked; the
+ * row says "nothing to show yet" rather than the box quietly disagreeing with
+ * the page, which is what a barber with no phone number saw.
  */
 async function livePageSections(s) {
   try {
@@ -124,8 +129,19 @@ async function livePageSections(s) {
     about: s.page_show_about === '1', contact: s.page_show_contact === '1',
     location: s.page_show_location === '1', map: s.page_show_map === '1',
     hours: s.page_show_hours === '1', reviews: s.page_show_reviews === '1',
+    empty: [],
   };
 }
+
+/** Why a section the owner asked for is not on the page yet. */
+const NOTHING_YET = {
+  about: 'Nothing to show yet — write a line or two below.',
+  contact: 'Nothing to show yet — add a phone number or email in Business profile.',
+  location: 'Nothing to show yet — add your address in Business profile.',
+  map: 'Nothing to show yet — add your address in Business profile.',
+  hours: 'Nothing to show yet — set your opening hours.',
+  reviews: 'Nothing to show yet — it appears once a client has left a review.',
+};
 
 export async function renderSettings(container, params) {
   const s = state.settings;
@@ -308,11 +324,14 @@ export async function renderSettings(container, params) {
     // Ticked from what the page is showing, not from the stored key — see
     // livePageSections. The two differ on any business that has never saved
     // this card, which is every business until it does.
-  ].map(([key, id, label, hint]) => `
-            <label class="opt-out">
+  ].map(([key, id, label, hint]) => {
+    const nothingYet = (live.empty || []).includes(id);
+    return `
+            <label class="opt-out${nothingYet ? ' waiting' : ''}">
               <input type="checkbox" class="chk" name="${key}" ${live[id] ? 'checked' : ''}>
-              <span><b>${label}</b><span>${hint}</span></span>
-            </label>`).join('')}
+              <span><b>${label}</b><span>${nothingYet ? NOTHING_YET[id] : hint}</span></span>
+            </label>`;
+  }).join('')}
           <div class="field"><label>About text</label>
             <textarea name="page_about_text" rows="4" maxlength="1200"
               placeholder="What you do, who you do it for, and anything somebody deciding whether to book should know.">${esc(s.page_about_text || '')}</textarea>

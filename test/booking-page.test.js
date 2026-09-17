@@ -87,6 +87,9 @@ test('a section with nothing to put in it does not turn itself on', async () => 
       body: {
         business_name: 'Mobile Barber', business_address: '', brand_tagline: '',
         business_phone: '', business_email: '',
+        // On the shared sender, which is what every salon Kairo sells is on.
+        // This is the setting that made mail_domain look like a contact.
+        notif_from_email: 'bookings@kairobookings.com',
       },
     });
     const p = (await solo.api('GET', '/api/public/info')).json.page_sections;
@@ -97,17 +100,24 @@ test('a section with nothing to put in it does not turn itself on', async () => 
     // because publishing a rating is the owner's decision to make.
     assert.equal(p.reviews, false, 'reviews wait to be switched on');
 
-    // A salon with no phone and no email must get no Contact tab — and every
-    // salon on the shared sender HAS a mail_domain, so counting that as a way
-    // to be contacted would give all of them an empty box. Caught four minutes
-    // before it reached a real barber who has neither on file.
+    // A salon with no phone and no email must get no Contact section — and
+    // every salon on the shared sender HAS a mail_domain, so counting that as a
+    // way to be contacted gave all of them an empty box. Caught on a real
+    // barber who has neither on file, four minutes after it went live.
     const pub = (await solo.api('GET', '/api/public/info')).json;
     assert.ok(!pub.business_phone && !pub.business_email, 'this salon has neither');
+    assert.ok(pub.mail_domain, 'but it does have a sending domain, like every salon does');
+    assert.ok(!p.live.includes('contact'), 'and a sending domain is not a way to reach anybody');
+
+    // Contact is still what the owner wants — the tick stays on. It is listed
+    // as empty, so Settings says why rather than quietly unticking itself.
+    assert.equal(p.contact, true, 'the preference is untouched');
+    assert.ok(p.empty.includes('contact'), 'and the reason is named');
+
+    // The page draws exactly `live`, so the three opinions cannot diverge again.
     const book = fs.readFileSync(path.join(ROOT, 'public/js/book.js'), 'utf8');
-    const rule = book.match(/contact: p\.contact && \(([^)]*)\)/);
-    assert.ok(rule, 'the Contact rule must still be readable here');
-    assert.ok(!/mail_domain/.test(rule[1]),
-      'the sending domain is not a way for a customer to reach anybody');
+    assert.match(book, /new Set\(p\.live \|\| \[\]\)/,
+      'the booking page must draw the server\'s list, not recompute it');
   } finally {
     await solo.stop();
   }

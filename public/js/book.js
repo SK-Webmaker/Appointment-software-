@@ -116,24 +116,28 @@ const SECTION_DEFS = [
   { id: 'reviews', label: 'Reviews' },
 ];
 
-/** Which sections this business actually has something to put in. */
+/**
+ * Which sections this business actually has something to put in.
+ *
+ * The server decides, and sends the answer as `page_sections.live`. Working it
+ * out here as well is how a Contact tab ended up over an empty box on a barber
+ * with no phone number while Settings ticked the box anyway — three places each
+ * with their own opinion of the same question.
+ *
+ * "Location" carries the address AND the opening hours, because on a phone they
+ * are one question: can I get there, and will you be open. The server puts it
+ * in `live` for either.
+ */
 function liveSections() {
   const b = state.info || {};
   const p = b.page_sections || {};
-  const has = {
-    about: p.about && (p.about_text || b.brand?.tagline),
-    // Phone or email only. `mail_domain` is the domain letters are SENT from —
-    // "kairobookings.com" on the shared sender, which every salon has — and it
-    // is not something a customer can ring or write to. Counting it here gave a
-    // salon with neither a phone nor an email a Contact tab pointing at an
-    // empty box, which is the exact thing this function exists to prevent.
-    contact: p.contact && (b.business_phone || b.business_email),
-    // "Location" carries the address AND the opening hours, because on a phone
-    // they are the same question: can I get there, and will you be open.
-    location: (p.location && b.business_address) || (p.hours && (b.hours || []).length),
-    reviews: p.reviews && (b.reviews?.count > 0),
-  };
-  return SECTION_DEFS.filter((d) => d.always || has[d.id]);
+  const live = new Set(p.live || []);
+  // A mobile barber has no address, so that section holds only the week. Calling
+  // its tab "Location" would promise somewhere to go.
+  const addressShown = Boolean(p.location && String(b.business_address || '').trim());
+  return SECTION_DEFS
+    .filter((d) => d.always || live.has(d.id))
+    .map((d) => (d.id === 'location' && !addressShown ? { ...d, label: 'Hours' } : d));
 }
 
 function pageTabsHtml() {

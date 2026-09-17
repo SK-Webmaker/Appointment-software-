@@ -813,11 +813,19 @@ const MUTATIONS = {
     replace: "    location: on('page_show_location', '1'),",
   },
   'contact-tab-opens-on-nothing': {
-    // Every salon on the shared sender has a mail_domain, so this gives a
-    // phone-less, email-less business a Contact tab pointing at an empty box.
+    // Every salon on the shared sender has a sending domain, so counting it as
+    // a way to be contacted gives every phone-less business a Contact tab
+    // pointing at an empty box. This is what was live on Horahaircutz.
+    file: 'src/api.js', suites: ['booking-page'],
+    find: "    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '')),",
+    replace: "    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '') || getSetting('notif_from_email', '')),",
+  },
+  'page-draws-its-own-idea-of-whats-live': {
+    // Three places each with an opinion of the same question, which is how the
+    // Settings tick and the page it describes came apart.
     file: 'public/js/book.js', suites: ['booking-page'],
-    find: '    contact: p.contact && (b.business_phone || b.business_email),',
-    replace: '    contact: p.contact && (b.business_phone || b.business_email || b.mail_domain),',
+    find: '  const live = new Set(p.live || []);',
+    replace: "  const live = new Set(['about', 'contact', 'location', 'reviews'].filter((id) => p[id]));",
   },
   'reviews-publish-themselves': {
     // An upgrade that lands overnight and puts a salon's rating on its booking
