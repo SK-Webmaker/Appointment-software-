@@ -431,6 +431,11 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
 - A section with nothing behind it **defaults to off** and stays off — no address
   means no Location tab, no reviews means no Reviews tab. Nothing renders an empty
   box at a customer
+- The checkboxes are ticked from **what the booking page is actually showing**,
+  read from the page's own endpoint, not from the stored settings. Several
+  sections default to on and have no stored row until the card is first saved, so
+  reading the raw values drew six empty boxes over a live page — and the save
+  writes every box, which would have switched off four the owner never touched
 
 ### 🗓 The team roster — who works when (v1.34.0)
 - ***Team → Scheduled shifts*** is a week grid: one row per person, one cell per
@@ -1039,8 +1044,8 @@ process, never in a salon's settings, because one app serves every salon.
 ## Tests
 
 ```bash
-npm test               # 30 suites, 296 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 136 ways; every guarding suite must fail
+npm test               # 30 suites, 297 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 137 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

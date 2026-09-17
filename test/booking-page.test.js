@@ -130,6 +130,47 @@ test('the rating counts every review, including the ones nobody wants', async ()
   assert.equal(r.distribution[1], 1, 'and it is visible in the spread');
 });
 
+test('the owner is shown what the page is doing, not what was saved', async () => {
+  // A business that has never opened this card has no page_show_* rows at all,
+  // and several sections default to ON. The Settings card drew every box
+  // unticked over a page that was showing five sections — and the save writes
+  // every box explicitly, so an owner changing one thing switched off four they
+  // had never touched.
+  //
+  // The tick is read from /api/public/info, the booking page's own answer, so
+  // it cannot disagree with what a customer sees. This asserts the two sources
+  // are the same one.
+  const solo = await startKairo();
+  try {
+    const { cookie: c2 } = await solo.login();
+    await solo.api('POST', '/api/setup/skip', { cookie: c2 });
+    await solo.api('PUT', '/api/settings', {
+      cookie: c2, body: { business_address: '1 Smith Street, Fitzroy VIC 3065', business_phone: '0400000000' },
+    });
+
+    const raw = (await solo.api('GET', '/api/settings', { cookie: c2 })).json;
+    for (const k of ['page_show_contact', 'page_show_hours', 'page_show_reviews', 'page_show_location']) {
+      assert.ok(raw[k] === undefined || raw[k] === '', `${k} is unset until the card is saved — that is the whole trap`);
+    }
+
+    const live = (await solo.api('GET', '/api/public/info')).json.page_sections;
+    assert.equal(live.contact, true, 'and yet the page is showing Contact');
+    assert.equal(live.hours, true);
+    assert.equal(live.location, true, 'it has an address, so Location is on');
+    assert.equal(live.map, true);
+
+    // The settings page must render from `live`. If it ever reads the raw keys
+    // again, it will draw these as off.
+    const src = fs.readFileSync(path.join(ROOT, 'public/js/pages/settings.js'), 'utf8');
+    assert.match(src, /const live = await livePageSections\(/,
+      'the boxes must be ticked from what the booking page reports, not from the stored keys');
+    assert.ok(!/const live = \{[^}]*page_show_/.test(src),
+      'and must not fall back to reading those keys inline');
+  } finally {
+    await solo.stop();
+  }
+});
+
 test('the filled stars keep their own colour', () => {
   // A 4.6 rendered as five identical grey stars, and every assertion above still
   // passed: the number was right, the fill width was right, and the colour that

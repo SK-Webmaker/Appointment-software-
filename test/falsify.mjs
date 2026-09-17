@@ -812,6 +812,13 @@ const MUTATIONS = {
     find: "    location: on('page_show_location', hasAddress ? '1' : '0'),",
     replace: "    location: on('page_show_location', '1'),",
   },
+  'settings-boxes-read-the-stored-keys': {
+    // The state this was in: every box drawn unticked over a page that was
+    // showing five sections, and a save that then switched them all off.
+    file: 'public/js/pages/settings.js', suites: ['booking-page'],
+    find: "  const live = await livePageSections(s);",
+    replace: "  const live = { about: s.page_show_about === '1', contact: s.page_show_contact === '1', location: s.page_show_location === '1', map: s.page_show_map === '1', hours: s.page_show_hours === '1', reviews: s.page_show_reviews === '1' };",
+  },
   'stars-lose-their-fill-colour': {
     // The real bug, put back: a loose `span` rule under .bk-rev-score wins the
     // specificity fight against .bk-stars-on, and a 4.6 renders as five

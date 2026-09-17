@@ -99,8 +99,37 @@ function readWeekRules(container) {
 }
 
 
+/**
+ * What the booking page is ACTUALLY showing right now.
+ *
+ * Not `settings.page_show_*`, which is unset until the first save. Several of
+ * these sections default to ON, so reading the raw values drew six unticked
+ * boxes over a page that was showing five sections — and because the save
+ * writes every box explicitly, an owner changing one thing switched off four
+ * they had never touched.
+ *
+ * The answer comes from the booking page's own endpoint, so the tick cannot
+ * disagree with the page. A business whose booking page is switched off has no
+ * page to ask, and falls back to the stored values.
+ */
+async function livePageSections(s) {
+  try {
+    const r = await fetch('/api/public/info');
+    if (r.ok) {
+      const p = (await r.json()).page_sections;
+      if (p) return p;
+    }
+  } catch { /* fall through */ }
+  return {
+    about: s.page_show_about === '1', contact: s.page_show_contact === '1',
+    location: s.page_show_location === '1', map: s.page_show_map === '1',
+    hours: s.page_show_hours === '1', reviews: s.page_show_reviews === '1',
+  };
+}
+
 export async function renderSettings(container, params) {
   const s = state.settings;
+  const live = await livePageSections(s);
   // The link the owner copies into their Instagram bio. It has to be the
   // business's real address, not whatever they happen to have typed into the
   // address bar — an owner signed in at the raw hosting URL would otherwise
@@ -270,15 +299,18 @@ export async function renderSettings(container, params) {
           than a missing one.</div>
         <form id="set-page" style="display:flex;flex-direction:column;gap:11px">
           ${[
-    ['page_show_about', 'About', 'A few lines about the business, below.'],
-    ['page_show_contact', 'Contact', 'Your phone and email, tappable.'],
-    ['page_show_location', 'Location', 'Your address, with a link to directions.'],
-    ['page_show_map', 'A "Get directions" button', 'Opens the address in their own map app.'],
-    ['page_show_hours', 'Opening hours', 'The week, from the hours you already set.'],
-    ['page_show_reviews', 'Reviews', 'Your rating and how the scores are spread.'],
-  ].map(([key, label, hint]) => `
+    ['page_show_about', 'about', 'About', 'A few lines about the business, below.'],
+    ['page_show_contact', 'contact', 'Contact', 'Your phone and email, tappable.'],
+    ['page_show_location', 'location', 'Location', 'Your address, with a link to directions.'],
+    ['page_show_map', 'map', 'A "Get directions" button', 'Opens the address in their own map app.'],
+    ['page_show_hours', 'hours', 'Opening hours', 'The week, from the hours you already set.'],
+    ['page_show_reviews', 'reviews', 'Reviews', 'Your rating and how the scores are spread.'],
+    // Ticked from what the page is showing, not from the stored key — see
+    // livePageSections. The two differ on any business that has never saved
+    // this card, which is every business until it does.
+  ].map(([key, id, label, hint]) => `
             <label class="opt-out">
-              <input type="checkbox" class="chk" name="${key}" ${s[key] === '1' ? 'checked' : ''}>
+              <input type="checkbox" class="chk" name="${key}" ${live[id] ? 'checked' : ''}>
               <span><b>${label}</b><span>${hint}</span></span>
             </label>`).join('')}
           <div class="field"><label>About text</label>
