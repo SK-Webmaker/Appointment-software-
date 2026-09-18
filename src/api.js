@@ -2951,7 +2951,7 @@ route('GET', '/api/app/config', async ({ user }) => ({
  * leaves one notification on the lock screen rather than three.
  */
 async function pushNewBooking(apptId) {
-  if (!pushConfigured()) return;
+  if (!pushConfigured()) return { sent: 0, skipped: 'not configured' };
   // Appointments carry no service name of their own — one booking can bundle
   // several — so it is read the way every other screen reads it.
   const a = db.prepare(
@@ -2968,17 +2968,61 @@ async function pushNewBooking(apptId) {
        LEFT JOIN services sv ON sv.id = a.service_id
       WHERE a.id = ?`
   ).get(apptId);
-  if (!a) return;
+  if (!a) return { sent: 0, skipped: 'no appointment' };
   const who = `${a.first_name || 'Someone'} ${a.last_name || ''}`.trim();
   const hh = String(Math.floor(a.start_min / 60)).padStart(2, '0');
   const mm = String(a.start_min % 60).padStart(2, '0');
-  await pushToOwner({
+  return pushToOwner({
     title: 'New booking',
     body: `${who} — ${a.services_summary || a.service_name || 'an appointment'}, ${a.date} ${hh}:${mm}`,
     threadId: 'bookings',
     collapseId: `appt-${a.id}`,
     data: { kind: 'booking', appointment_id: a.id, date: a.date },
   });
+}
+
+/** How long the owner's email waits on Apple before it stops waiting. */
+const OWNER_PUSH_WAIT_MS = Number(process.env.KAIRO_OWNER_PUSH_WAIT_MS || 5000);
+
+/**
+ * Tell the owner a customer just booked: their phone first, their inbox only
+ * if the phone did not get it.
+ *
+ * The owner used to get both, every time, which is the reason this exists —
+ * an app that duplicates the email it was meant to replace is just a second
+ * thing to dismiss. Client messages are untouched: a confirmation and a
+ * reminder are for the customer, who has no app and never will.
+ *
+ * The email is skipped ONLY on proof, never on inference. `sent` counts
+ * devices Apple actually accepted the alert for; a token it has retired comes
+ * back 410 and is pruned rather than counted, so an owner whose phone is wiped
+ * falls back to email on the very next booking instead of hearing nothing.
+ *
+ * Everything else falls back: push not configured, no phone signed in, Apple
+ * refusing, Apple erroring, and Apple simply not answering — that last one is
+ * why there is a timer. An unreachable APNs is not allowed to hold the alert
+ * indefinitely, because the failure that matters here is not a duplicate
+ * email, it is a booking the owner never hears about.
+ */
+async function notifyOwnerOfBooking(apptId) {
+  let sent = 0;
+  try {
+    // unref() so a pending timer can never be the reason the process lingers.
+    let timer;
+    const gaveUp = new Promise((resolve) => {
+      timer = setTimeout(() => resolve({ sent: 0, skipped: 'apns timed out' }), OWNER_PUSH_WAIT_MS);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+    const out = await Promise.race([pushNewBooking(apptId), gaveUp]);
+    clearTimeout(timer);
+    sent = Number(out && out.sent) || 0;
+  } catch {
+    sent = 0;
+  }
+  if (sent > 0) return { channel: 'push', sent };
+  queueOwnerNotification(apptId);
+  processQueue().catch(() => {});
+  return { channel: 'email', sent: 0 };
 }
 
 /**
@@ -5153,13 +5197,14 @@ route('POST', '/api/public/book', async ({ req }) => {
     }
   }
 
+  // The customer's own confirmation and reminder go out immediately and are
+  // not affected by any of the owner-alert logic below.
   queueAppointmentMessages(apptId);
-  queueOwnerNotification(apptId); // alert the owner: a customer just booked
   processQueue().catch(() => {});
-  // And on their phone, if it is signed in. Not awaited and never able to
-  // throw: the customer's booking is already made, and Apple being slow or
-  // unreachable must not turn a good booking into an error page.
-  pushNewBooking(apptId).catch(() => {});
+  // The owner is told separately: phone first, inbox only if that misses.
+  // Not awaited and never able to throw — the booking is already made, and
+  // Apple being slow must not turn a good booking into an error page.
+  notifyOwnerOfBooking(apptId).catch(() => {});
 
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
   return {
