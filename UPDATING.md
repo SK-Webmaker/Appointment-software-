@@ -201,6 +201,17 @@ node scripts/verify-deploy.mjs \
   --salon horahaircutz --salon hairbysha
 ```
 
+**Render deploys the branch head, whatever commit you name.** Triggering a
+deploy through the API with an explicit commit id is accepted without complaint
+and then builds `origin/<branch>` as it stands — the response names the commit
+it actually took, which is the only place the substitution shows. So the gate in
+*Before you deploy* applies to **the branch head at the moment you deploy**, not
+to the commit you meant. Push nothing to that branch between checking CI and
+deploying, or check the head again after you push.
+
+(Found the honest way: a docs-only commit went out on top of a CI-green one
+because the API quietly took the head instead. One README line that time.)
+
 `verify-deploy` exists because of a mistake that has already been made here
 once: a post-deploy check ran the instant the deploy was triggered, came back
 green, and was green **about the code being replaced**. Render serves the old
