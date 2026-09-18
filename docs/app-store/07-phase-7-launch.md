@@ -181,8 +181,8 @@ HOW TO SIGN IN
    Enter:  demo
    (that resolves to demo.kairobookings.com)
 2. Sign in with:
-   Email:     review@kairobookings.com
-   Password:  <filled in at submission>
+   Email:     demo@kairobookings.com
+   Password:  <paste at submission — it is in the password manager>
 
 This is a full working salon with sample data. Nothing you do in it affects a
 real business.
@@ -233,11 +233,17 @@ blank calendar as a failure.
 
 **Three things must be done by hand first, and none of them is done yet:**
 
-- [ ] **Create `review@kairobookings.com` on the demo salon.** It does not
-      exist. The address appears in these notes and nowhere in the code — it
-      has never been created.
-- [ ] **Set its password** and paste it into the notes above at submission.
-      Keep it in the password manager, not in this repository.
+- [x] **A reviewer can sign in.** Done 18 September. The account is the demo
+      salon's own owner, `demo@kairobookings.com` — not `review@`, which was
+      named in an earlier draft of these notes and never existed. The control
+      API can set a password on an existing account but cannot create one, so
+      the existing owner is the account to use.
+- [x] **The salon has something in it.** The check above caught it empty on
+      18 September — a reviewer would have signed in successfully and landed on
+      a blank calendar, which is guideline 4.2. Re-seeded via
+      `Settings → Reset to demo data`.
+- [ ] **Paste the password into the notes above at submission.** It lives in
+      the password manager, never in this repository — this repo is public.
 - [ ] **Re-seed the demo after any review that exercised account deletion.**
       `Settings → Reset to demo data`, or `npm run reset-demo`. Nothing does
       this on a schedule — see the note below.
