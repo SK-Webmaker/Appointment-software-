@@ -397,6 +397,19 @@ server.listen(PORT, HOST, () => {
     if (sharedKey && sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);
     else if (sharedKey || sharedFrom) console.log(`    !  Shared sender: HALF SET — ${sharedKey ? 'KAIRO_SHARED_FROM' : 'KAIRO_SHARED_RESEND_KEY'} is missing, so it is off`);
     else console.log('    Shared sender: off — a salon with no Resend account of its own cannot send');
+    // Whether the owner's phone can be reached, because the answer now changes
+    // what happens rather than just what is possible: a new booking goes to the
+    // phone when push works and to the inbox when it does not. Off is a valid
+    // state and says what it falls back to, so a quiet app reads as configured
+    // rather than broken. Half-set is the one worth shouting about — three
+    // variables have to agree and a missing one is invisible from the outside.
+    const apnsBits = { KAIRO_APNS_KEY: 1, KAIRO_APNS_KEY_ID: 1, KAIRO_APNS_TEAM_ID: 1 };
+    const apnsSet = Object.keys(apnsBits).filter((k) => String(process.env[k] || '').trim());
+    if (apnsSet.length === 3) console.log('    Push: on — owners are told on their phone, not by email');
+    else if (apnsSet.length) {
+      const missing = Object.keys(apnsBits).filter((k) => !apnsSet.includes(k)).join(', ');
+      console.log(`    !  Push: HALF SET — ${missing} missing, so it is off and owners fall back to email`);
+    } else console.log('    Push: off — owners are told by email instead');
     if (String(process.env.KAIRO_READ_ONLY || '') === '1') console.log('    !  KAIRO_READ_ONLY=1 — every salon is refusing writes');
     console.log('');
     return;
