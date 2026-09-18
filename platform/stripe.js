@@ -14,6 +14,27 @@ const API_BASE = () => process.env.STRIPE_API_BASE || 'https://api.stripe.com';
 const key = () => String(process.env.STRIPE_SECRET_KEY || '').trim();
 export const stripeConfigured = () => key().length > 0;
 
+// Which Stripe the platform is actually wired to.
+//
+// The boot banner used to say only whether a key was present, which is the one
+// thing nobody gets wrong. What people get wrong is believing they switched to
+// live when they did not — a Render env var saved without a deploy looks
+// identical from the dashboard. In that state every customer pays with a card
+// that is never charged and is handed a real salon for nothing, and the first
+// evidence is a bank account that stays empty.
+//
+// 'unset' and 'test' are distinct because they need different sentences: one
+// means nobody can pay at all, the other means everybody can pay and none of it
+// is real. 'unknown' covers a key shaped like neither, including the restricted
+// keys (rk_*) somebody may reach for; it is reported rather than guessed at.
+export function stripeMode() {
+  const k = key();
+  if (!k) return 'unset';
+  if (k.startsWith('sk_live_') || k.startsWith('rk_live_')) return 'live';
+  if (k.startsWith('sk_test_') || k.startsWith('rk_test_')) return 'test';
+  return 'unknown';
+}
+
 async function call(path, params, idempotencyKey = '') {
   const res = await fetch(`${API_BASE()}/v1${path}`, {
     method: params ? 'POST' : 'GET',

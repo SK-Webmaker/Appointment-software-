@@ -398,7 +398,11 @@ server.listen(PORT, HOST, () => {
   console.log(`    Operator      ${ORIGIN()}/operator`);
   console.log(`    Shard         ${shard.SHARD_URL()}`);
   console.log(`    Salons on     *.${signup.BASE_DOMAIN()}`);
-  if (!stripe.stripeConfigured()) console.log('    !  STRIPE_SECRET_KEY is not set — nobody can pay');
+  const mode = stripe.stripeMode();
+  if (mode === 'unset') console.log('    !  STRIPE_SECRET_KEY is not set — nobody can pay');
+  else if (mode === 'test') console.log('    !  Stripe: TEST MODE — cards are never charged and salons are handed out free');
+  else if (mode === 'unknown') console.log('    !  Stripe: key is neither a live nor a test key — check STRIPE_SECRET_KEY');
+  else console.log('    Stripe        live — real cards, real money');
   if (!process.env.STRIPE_WEBHOOK_SECRET) console.log('    !  STRIPE_WEBHOOK_SECRET is not set — payments cannot be confirmed');
   if (!process.env.KAIRO_PLATFORM_KEY) console.log('    !  KAIRO_PLATFORM_KEY is not set — the shard will refuse every call');
   if (!process.env.CLOUDFLARE_API_TOKEN) console.log('    !  CLOUDFLARE_API_TOKEN is not set — salon email cannot be connected');

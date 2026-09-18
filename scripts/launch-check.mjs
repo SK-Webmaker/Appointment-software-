@@ -167,13 +167,12 @@ async function main() {
   console.log(`\n${c.b('  Needs a person, not this script')}`);
   for (const line of [
     'Apple Developer Program enrolment (A$149, 1–2 days) — everything iOS waits on it',
-    'Create review@kairobookings.com on the demo salon and set its password. It is named in the App Review notes and does not exist — a reviewer who cannot sign in rejects the build the same day. Verify with: KAIRO_REVIEW_URL=… KAIRO_REVIEW_EMAIL=… KAIRO_REVIEW_PASSWORD=… node scripts/review-login-check.mjs',
+    'Confirm the reviewer can sign in. The App Review notes name demo@kairobookings.com — the demo salon\u2019s own owner, not a separate review@ account. Prove it rather than assume it: KAIRO_REVIEW_URL=… KAIRO_REVIEW_EMAIL=demo@kairobookings.com KAIRO_REVIEW_PASSWORD=… node scripts/review-login-check.mjs',
     'The four GitHub secrets, once Apple approves: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8',
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
-    'Stripe live keys and the webhook secret on the platform service',
+    'Stripe live keys and the webhook secret on the platform service. Both change together — a live key with a test signing secret rejects every real payment at the signature check. The boot banner names the mode it ended up in; read it rather than trusting the dashboard, because a Render variable saved without a deploy looks identical there.',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
-    'support@kairobookings.com accepts mail and DROPS it (proven 15 Sep: an address with no rule was accepted too, which means the Email Routing catch-all is set to Drop). Cloudflare → Email Routing → verify a destination, add the support rule, point the catch-all at it. Apple emails this address during review.',
-    'The live marketing Terms at kairobookings.com/legal/terms still say A$410 "including GST" and name no seller — see docs/app-store/LEGAL-TODO.md §1b',
+    'support@kairobookings.com forwards to kairobooking18@gmail.com, and so does the catch-all (set 18 Sep). The earlier note here said the catch-all was set to Drop; that was wrong — an unrouted address came back \u201cdelivered\u201d because the catch-all was forwarding it, and a forward was read as a black hole. Cloudflare accepting a message still proves nothing about it arriving, so re-prove this from the inbox before submitting: Apple emails this address during review.',
   ]) console.log(`  ${c.dim('·')} ${line}`);
 
   console.log('');
