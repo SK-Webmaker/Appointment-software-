@@ -4361,6 +4361,9 @@ function pageSections() {
 
 route('GET', '/api/public/info', async () => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  // Worked out once. It reads the week and counts the reviews to decide what is
+  // live, and this route needs the answer twice.
+  const sections = pageSections();
   return {
     business_name: getSetting('business_name'),
     business_phone: getSetting('business_phone'),
@@ -4449,13 +4452,13 @@ route('GET', '/api/public/info', async () => {
     // the browser. A rating the owner chose not to publish must not be sitting
     // in the page's JSON for anyone who opens the network tab: "off" would mean
     // nothing more than "not drawn".
-    reviews: pageSections().reviews
+    reviews: sections.reviews
       ? publicReviewSummary()
       : { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },
     // Which of the extra sections this business wants on its page. Off is a
     // real answer: a mobile barber has no address worth a map, and an empty
     // "Location" tab is worse than no tab at all.
-    page_sections: pageSections(),
+    page_sections: sections,
 
     // What each service needs before it can happen — the salon's own policy,
     // and nothing about any client. The same sentence printed on the wall of

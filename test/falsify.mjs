@@ -838,7 +838,7 @@ const MUTATIONS = {
     // "Off" meaning only "not drawn": the rating the owner chose not to publish
     // sits in the page's own JSON for anyone who opens the network tab.
     file: 'src/api.js', suites: ['booking-page'],
-    find: '    reviews: pageSections().reviews\n      ? publicReviewSummary()\n      : { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },',
+    find: '    reviews: sections.reviews\n      ? publicReviewSummary()\n      : { count: 0, average: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } },',
     replace: '    reviews: publicReviewSummary(),',
   },
   'settings-boxes-read-the-stored-keys': {
