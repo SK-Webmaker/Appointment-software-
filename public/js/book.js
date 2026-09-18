@@ -191,15 +191,18 @@ function pageSectionsHtml() {
   }
 
   if (live.has('contact')) {
+    // The phone only. `b.business_email` was read here for weeks and is not a
+    // field /api/public/info sends — so this branch could never fire, and the
+    // line asking for it made the section look like it had two things in it
+    // when it had one. The owner's business email is where their invoices go;
+    // putting it on a public page is a decision, not a fallback.
     const tel = String(b.business_phone || '').replace(/[^\d+]/g, '');
     out.push(`
       <section class="bk-sec" id="sec-contact">
         <h2>Contact</h2>
         <div class="bk-lines">
-          ${b.business_phone ? `<a class="bk-line" href="tel:${esc(tel)}">${icon('phone', 16)}
-            <span>${esc(b.business_phone)}</span></a>` : ''}
-          ${b.business_email ? `<a class="bk-line" href="mailto:${esc(b.business_email)}">${icon('mail', 16)}
-            <span>${esc(b.business_email)}</span></a>` : ''}
+          <a class="bk-line" href="tel:${esc(tel)}">${icon('phone', 16)}
+            <span>${esc(b.business_phone)}</span></a>
         </div>
       </section>`);
   }

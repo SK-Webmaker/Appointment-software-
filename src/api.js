@@ -4345,7 +4345,14 @@ function pageSections() {
   // "nothing to show yet" against anything wanted but not live.
   const has = {
     about: Boolean(want.about_text || getSetting('brand_tagline', '')),
-    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '')),
+    // The phone, and only the phone. business_email is the address on the
+    // business profile — where invoices and billing go, often a personal inbox —
+    // and /api/public/info has never sent it to the booking page. Counting it
+    // here said "there is a way to contact this salon" about something the page
+    // could not draw, which is how Horahaircutz got an empty Contact section
+    // twice in a row. Publishing that address by default is not a fix; it is a
+    // different mistake, and not one to make on somebody's behalf.
+    contact: Boolean(getSetting('business_phone', '')),
     location: hasAddress,
     hours: weekHours().length > 0,
     reviews: publicReviewSummary().count > 0,

@@ -450,6 +450,10 @@ step is a real, mandatory cost Fresha's plan pricing absorbs for you.
   writes every box, which would have switched off four the owner never touched
 - A salon with no address gets the tab labelled **Hours** rather than Location,
   because a mobile barber has nowhere to send anybody
+- **Contact is the phone number.** The business email on the profile is where
+  invoices and billing go, often a personal inbox, and it is never sent to the
+  public page — so it cannot make Contact appear either. Publishing it would be
+  a decision for the owner, not a fallback
 
 ### 🗓 The team roster — who works when (v1.34.0)
 - ***Team → Scheduled shifts*** is a week grid: one row per person, one cell per
@@ -1058,8 +1062,8 @@ process, never in a salon's settings, because one app serves every salon.
 ## Tests
 
 ```bash
-npm test               # 30 suites, 297 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
-npm run test:falsify   # breaks Kairo on purpose 141 ways; every guarding suite must fail
+npm test               # 30 suites, 298 checks, ~2½ min — boots a real Kairo per suite, no mocks, no framework
+npm run test:falsify   # breaks Kairo on purpose 143 ways; every guarding suite must fail
 ```
 
 Zero dependencies here too: Node's built-in `node:test`. See [`test/README.md`](test/README.md).

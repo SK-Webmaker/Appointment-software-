@@ -105,9 +105,19 @@ test('a section with nothing to put in it does not turn itself on', async () => 
     // way to be contacted gave all of them an empty box. Caught on a real
     // barber who has neither on file, four minutes after it went live.
     const pub = (await solo.api('GET', '/api/public/info')).json;
-    assert.ok(!pub.business_phone && !pub.business_email, 'this salon has neither');
+    assert.ok(!pub.business_phone, 'this salon has no phone');
     assert.ok(pub.mail_domain, 'but it does have a sending domain, like every salon does');
     assert.ok(!p.live.includes('contact'), 'and a sending domain is not a way to reach anybody');
+
+    // Nor is the business email. It is where invoices go, it is often personal,
+    // and /api/public/info has never sent it — so a salon whose only contact is
+    // an email got a Contact section the page could not fill. Twice.
+    await solo.api('PUT', '/api/settings', { cookie: c2, body: { business_email: 'sam@example.test' } });
+    const p2 = (await solo.api('GET', '/api/public/info')).json;
+    assert.equal(p2.business_email, undefined, 'the owner\'s email is not published');
+    assert.ok(!p2.page_sections.live.includes('contact'),
+      'and it must not make Contact live, because the page cannot draw it');
+    await solo.api('PUT', '/api/settings', { cookie: c2, body: { business_email: '' } });
 
     // Contact is still what the owner wants — the tick stays on. It is listed
     // as empty, so Settings says why rather than quietly unticking itself.
@@ -210,6 +220,33 @@ test('the owner is shown what the page is doing, not what was saved', async () =
   } finally {
     await solo.stop();
   }
+});
+
+test('the booking page never reads a field the server does not send', async () => {
+  // `b.business_email` was read in the Contact section for weeks. It is not a
+  // key of /api/public/info and never has been, so the branch could not fire —
+  // and because the section still had the phone, nothing looked broken until a
+  // salon turned up with an email and no phone. Then it drew an empty box.
+  //
+  // A missing key is not an error in JavaScript; it is `undefined`, quietly.
+  // So the check has to be made deliberately, here, against the real payload.
+  const src = fs.readFileSync(path.join(ROOT, 'public/js/book.js'), 'utf8');
+  const start = src.indexOf('function liveSections');
+  const end = src.indexOf('function wirePageTabs');
+  assert.ok(start > 0 && end > start, 'the section code must still be findable');
+  // Comments stripped first: this file explains the bug it is guarding against
+  // by name, and a scanner that reads its own prose finds a fault in the story
+  // rather than in the code.
+  const code = src.slice(start, end)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const read = new Set([...code.matchAll(/\bb\.([a-zA-Z_][\w]*)/g)].map((m) => m[1]));
+  assert.ok(read.size > 0, 'if this finds nothing the test is not testing anything');
+
+  const sent = new Set(Object.keys(await info()));
+  const missing = [...read].filter((k) => !sent.has(k));
+  assert.deepEqual(missing, [],
+    `the booking page reads ${missing.join(', ')}, which /api/public/info does not send`);
 });
 
 test('the filled stars keep their own colour', () => {

@@ -817,8 +817,16 @@ const MUTATIONS = {
     // a way to be contacted gives every phone-less business a Contact tab
     // pointing at an empty box. This is what was live on Horahaircutz.
     file: 'src/api.js', suites: ['booking-page'],
-    find: "    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '')),",
+    find: "    contact: Boolean(getSetting('business_phone', '')),",
     replace: "    contact: Boolean(getSetting('business_phone', '') || getSetting('business_email', '') || getSetting('notif_from_email', '')),",
+  },
+  'page-reads-a-field-nobody-sends': {
+    // The original defect, restored: a Contact line reading b.business_email,
+    // which /api/public/info does not send and never did. A missing key is
+    // `undefined` rather than an error, so it fails in silence.
+    file: 'public/js/book.js', suites: ['booking-page'],
+    find: '          <a class="bk-line" href="tel:${esc(tel)}">${icon(\'phone\', 16)}',
+    replace: '          ${b.business_email ? `<a class="bk-line" href="mailto:${esc(b.business_email)}">${icon(\'mail\', 16)}<span>${esc(b.business_email)}</span></a>` : \'\'}\n          <a class="bk-line" href="tel:${esc(tel)}">${icon(\'phone\', 16)}',
   },
   'page-draws-its-own-idea-of-whats-live': {
     // Three places each with an opinion of the same question, which is how the

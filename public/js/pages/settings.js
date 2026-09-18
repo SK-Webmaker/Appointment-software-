@@ -136,7 +136,7 @@ async function livePageSections(s) {
 /** Why a section the owner asked for is not on the page yet. */
 const NOTHING_YET = {
   about: 'Nothing to show yet — write a line or two below.',
-  contact: 'Nothing to show yet — add a phone number or email in Business profile.',
+  contact: 'Nothing to show yet — add a phone number in Business profile.',
   location: 'Nothing to show yet — add your address in Business profile.',
   map: 'Nothing to show yet — add your address in Business profile.',
   hours: 'Nothing to show yet — set your opening hours.',
@@ -316,7 +316,7 @@ export async function renderSettings(container, params) {
         <form id="set-page" style="display:flex;flex-direction:column;gap:11px">
           ${[
     ['page_show_about', 'about', 'About', 'A few lines about the business, below.'],
-    ['page_show_contact', 'contact', 'Contact', 'Your phone and email, tappable.'],
+    ['page_show_contact', 'contact', 'Contact', 'Your phone number, tappable.'],
     ['page_show_location', 'location', 'Location', 'Your address, with a link to directions.'],
     ['page_show_map', 'map', 'A "Get directions" button', 'Opens the address in their own map app.'],
     ['page_show_hours', 'hours', 'Opening hours', 'The week, from the hours you already set.'],
