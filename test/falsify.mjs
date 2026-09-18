@@ -321,6 +321,14 @@ const MUTATIONS = {
     find: '      && msgs.every((m) => String(m?.status ?? \'SUCCESS\').toUpperCase() === \'SUCCESS\');',
     replace: '      && true;',
   },
+  // Reverting to `|| 'Kairo'` makes an explicitly-empty sender fall back to the
+  // alpha tag — an unregistered one, which ClickSend then quietly rewrites. The
+  // outcome happens to be right and the intent is lost.
+  'empty-sender-falls-back-to-the-unregistered-alpha-tag': {
+    file: 'platform/notify.js', suites: ['platform-sms'],
+    find: "const CS_FROM = () => (process.env.CLICKSEND_FROM === undefined ? 'Kairo' : String(process.env.CLICKSEND_FROM).trim());",
+    replace: "const CS_FROM = () => String(process.env.CLICKSEND_FROM || 'Kairo').trim();",
+  },
   // ── Motion ───────────────────────────────────────────────────────────────
   // Somebody tidying the reduced-motion guard will reach for `animation: none`,
   // because it reads as obviously correct. It strands every to-only keyframe at

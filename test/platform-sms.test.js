@@ -17,13 +17,14 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 
-let server, base, reply;
+let server, base, reply, lastSent;
 
 before(async () => {
   server = http.createServer((req, res) => {
     let body = '';
     req.on('data', (c) => { body += c; });
     req.on('end', () => {
+      try { lastSent = JSON.parse(body || '{}'); } catch { lastSent = null; }
       res.writeHead(reply.status, { 'content-type': 'application/json' });
       res.end(JSON.stringify(reply.body));
     });
@@ -81,4 +82,33 @@ test('an envelope that is not SUCCESS is still a failure', async () => {
   const r = await sendSms('0400000000', 'code 123456');
   assert.equal(r.ok, false);
   assert.match(r.detail, /Authorization failed/);
+});
+
+// ── Who the code appears to come from ──────────────────────────────────────
+// An alphanumeric sender ID ("Kairo") needs a one-off ACMA registration, and
+// that needs an ABN. Until there is one, the honest setting is ClickSend's
+// shared number — and that has to be expressible in config rather than
+// happening by accident. It did happen by accident: `env || 'Kairo'` treats an
+// empty string as unset, so an explicit "use a number" silently sent the tag,
+// and ClickSend swapped in a number of its own without being asked.
+test('an UNSET sender still defaults to the Kairo alpha tag', async () => {
+  delete process.env.CLICKSEND_FROM;
+  reply = { status: 200, body: { response_code: 'SUCCESS', data: { messages: [{ status: 'SUCCESS' }] } } };
+  await sendSms('0400000000', 'code');
+  assert.equal(lastSent.messages[0].from, 'Kairo');
+});
+
+test('an EMPTY sender omits the field, so ClickSend picks a shared number', async () => {
+  process.env.CLICKSEND_FROM = '';
+  reply = { status: 200, body: { response_code: 'SUCCESS', data: { messages: [{ status: 'SUCCESS' }] } } };
+  await sendSms('0400000000', 'code');
+  assert.ok(!('from' in lastSent.messages[0]),
+    `empty must omit "from" entirely, not send it blank — got ${JSON.stringify(lastSent.messages[0])}`);
+});
+
+test('a number set explicitly is sent as given', async () => {
+  process.env.CLICKSEND_FROM = '+61456674108';
+  reply = { status: 200, body: { response_code: 'SUCCESS', data: { messages: [{ status: 'SUCCESS' }] } } };
+  await sendSms('0400000000', 'code');
+  assert.equal(lastSent.messages[0].from, '+61456674108');
 });

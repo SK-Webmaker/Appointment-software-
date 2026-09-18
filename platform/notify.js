@@ -9,7 +9,18 @@ const RESEND_KEY = () => String(process.env.RESEND_API_KEY || '').trim();
 const FROM = () => String(process.env.PLATFORM_FROM_EMAIL || '').trim();
 const CS_USER = () => String(process.env.CLICKSEND_USERNAME || '').trim();
 const CS_KEY = () => String(process.env.CLICKSEND_API_KEY || '').trim();
-const CS_FROM = () => String(process.env.CLICKSEND_FROM || 'Kairo').trim();
+// The sender a code arrives from. UNSET means "Kairo", the alpha tag. SET BUT
+// EMPTY means "use ClickSend's shared number", which is a real and deliberate
+// choice, not an oversight: an alphanumeric sender ID in Australia needs a
+// one-off ACMA registration, and that needs an ABN. Without one the tag is not
+// ours to use.
+//
+// `process.env.X || default` cannot express that — an empty string is falsy, so
+// it silently became 'Kairo' again. Kairo then sent an unregistered tag and
+// ClickSend quietly swapped in a number of its own. The right outcome by
+// accident, resting on a provider behaviour nobody documented and nobody would
+// notice changing.
+const CS_FROM = () => (process.env.CLICKSEND_FROM === undefined ? 'Kairo' : String(process.env.CLICKSEND_FROM).trim());
 // Same override the salon side uses (src/notify.js), so the platform's own
 // sending can be pointed at a stand-in and actually tested. Until now it could
 // not be, which is how "Send another" shipped claiming success without sending.
@@ -41,7 +52,9 @@ export async function sendSms(to, body) {
         Authorization: `Basic ${Buffer.from(`${CS_USER()}:${CS_KEY()}`).toString('base64')}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ messages: [{ to, body, from: CS_FROM() }] }),
+      // Omitted entirely when empty, rather than sent blank: ClickSend then
+      // picks a shared number, which is what a sender with no ABN should do.
+      body: JSON.stringify({ messages: [{ to, body, ...(CS_FROM() ? { from: CS_FROM() } : {}) }] }),
       signal: AbortSignal.timeout(15000),
     });
     const data = await res.json().catch(() => ({}));
