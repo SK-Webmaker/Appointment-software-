@@ -45,8 +45,27 @@ export async function sendSms(to, body) {
       signal: AbortSignal.timeout(15000),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data?.response_code === 'SUCCESS') return { ok: true, detail: 'sent' };
-    return { ok: false, detail: `ClickSend: ${data?.response_msg || res.status}` };
+    // The envelope is not the answer. A ClickSend account with no credit replies
+    // response_code: SUCCESS, response_msg: "Messages queued for delivery" — and
+    // then sends nothing at all. Proven on 18 September against the live
+    // account: the call reported success, this function returned ok, the signup
+    // told the customer a code was on its way, and the account's own SMS history
+    // stayed empty. Nobody could have completed a signup, and nothing anywhere
+    // said so.
+    //
+    // The truth is per message. An empty list means nothing was queued, whatever
+    // the envelope claims. A status that is present and not SUCCESS is a refusal.
+    // A message with no status at all is allowed through, matching the shard's
+    // check in src/notify.js, which got this right first.
+    const msgs = data?.data?.messages;
+    const queued = Array.isArray(msgs) && msgs.length > 0
+      && msgs.every((m) => String(m?.status ?? 'SUCCESS').toUpperCase() === 'SUCCESS');
+    if (res.ok && data?.response_code === 'SUCCESS' && queued) return { ok: true, detail: 'sent' };
+    const why = Array.isArray(msgs) && msgs.length === 0
+      ? 'accepted the request but queued no message (usually no credit)'
+      : (msgs?.find?.((m) => String(m?.status ?? 'SUCCESS').toUpperCase() !== 'SUCCESS')?.status
+         || data?.response_msg || `HTTP ${res.status}`);
+    return { ok: false, detail: `ClickSend: ${why}` };
   } catch (err) {
     return { ok: false, detail: `ClickSend unreachable: ${String(err.message).slice(0, 120)}` };
   }

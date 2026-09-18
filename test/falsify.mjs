@@ -304,6 +304,23 @@ const MUTATIONS = {
     find: "    if (sharedKey && sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);",
     replace: "    if (sharedKey || sharedFrom) console.log(`    Shared sender: on, from ${sharedFrom}`);",
   },
+  // ── The platform's own SMS ───────────────────────────────────────────────
+  // Reverting to trusting the envelope is the regression this guards. A
+  // ClickSend account with no credit answers SUCCESS and sends nothing, so a
+  // signup tells a customer a code is coming to a handset that will never get
+  // one. Proven against the live account on 18 September.
+  'platform-sms-trusts-the-envelope-again': {
+    file: 'platform/notify.js', suites: ['platform-sms'],
+    find: '    if (res.ok && data?.response_code === \'SUCCESS\' && queued) return { ok: true, detail: \'sent\' };',
+    replace: '    if (res.ok && data?.response_code === \'SUCCESS\') return { ok: true, detail: \'sent\' };',
+  },
+  // An empty message list is the zero-credit signature. Accepting it is the
+  // same bug wearing a different hat.
+  'platform-sms-accepts-an-empty-queue': {
+    file: 'platform/notify.js', suites: ['platform-sms'],
+    find: '      && msgs.every((m) => String(m?.status ?? \'SUCCESS\').toUpperCase() === \'SUCCESS\');',
+    replace: '      && true;',
+  },
   // ── Motion ───────────────────────────────────────────────────────────────
   // Somebody tidying the reduced-motion guard will reach for `animation: none`,
   // because it reads as obviously correct. It strands every to-only keyframe at
