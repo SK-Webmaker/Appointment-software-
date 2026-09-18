@@ -15,7 +15,7 @@ const CS_KEY = () => String(process.env.CLICKSEND_API_KEY || '').trim();
 // one-off ACMA registration, and that needs an ABN. Without one the tag is not
 // ours to use.
 //
-// `process.env.X || default` cannot express that — an empty string is falsy, so
+// A plain `|| fallback` cannot express that — an empty string is falsy, so
 // it silently became 'Kairo' again. Kairo then sent an unregistered tag and
 // ClickSend quietly swapped in a number of its own. The right outcome by
 // accident, resting on a provider behaviour nobody documented and nobody would
