@@ -89,10 +89,33 @@ jobs:
           ISSUER: ${{ secrets.ASC_ISSUER_ID }}
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Whitespace is stripped here, once, and the clean values are what
+          # every later step uses.
+          #
+          # Run 4 failed on this. A copied Issuer ID carried trailing spaces,
+          # which made the JWT's issuer claim wrong, so Apple answered 401 on
+          # listTeams and Xcode then reported "No profiles for
+          # com.kairobookings.kairo were found" — an error about provisioning
+          # that was really an error about a space. Nobody would find that by
+          # reading it, because GitHub masks the value and the spaces sit
+          # outside the mask.
+          #
+          # All three are alphanumeric-and-hyphen tokens with no legitimate
+          # whitespace anywhere in them, so deleting it cannot corrupt a good
+          # value. The .p8 is deliberately NOT treated this way: its newlines
+          # are load-bearing.
+          KEY_ID="$(printf '%s' "$KEY_ID" | tr -d '[:space:]')"
+          ISSUER="$(printf '%s' "$ISSUER" | tr -d '[:space:]')"
+          TEAM="$(printf '%s' "$TEAM" | tr -d '[:space:]')"
           if [ -z "$KEY_ID" ] || [ -z "$ISSUER" ] || [ -z "$TEAM" ]; then
             echo "Apple credentials are not set yet — nothing to upload."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
+            {
+              echo "ASC_KEY_ID=$KEY_ID"
+              echo "ASC_ISSUER_ID=$ISSUER"
+              echo "APPLE_TEAM_ID=$TEAM"
+            } >> "$GITHUB_ENV"
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -106,7 +129,6 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
           printf '%s' "$ASC_KEY_P8" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
@@ -115,8 +137,6 @@ jobs:
       - name: Generate the project
         if: steps.secrets.outputs.ready == 'true'
         working-directory: ios
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           xcodegen generate
           # The build number is the run number, which only ever goes up. Apple
@@ -127,13 +147,24 @@ jobs:
       - name: Archive
         if: steps.secrets.outputs.ready == 'true'
         working-directory: ios
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
-          VERSION="${GITHUB_REF_NAME#ios-v}"; VERSION="${VERSION#v}"; [ -n "$VERSION" ] || VERSION="1.0"
+          # MARKETING_VERSION is CFBundleShortVersionString, and App Store
+          # Connect will only accept one to three dot-separated numbers.
+          #
+          # This used to be the ref name with an "ios-v" prefix stripped, which
+          # is right for a release tag and wrong for everything else: dispatched
+          # from a branch it produced MARKETING_VERSION=claude/markdown-file-
+          # analysis-a5ppnf. Non-empty, so the old guard passed it straight
+          # through to an upload Apple would have rejected.
+          #
+          # So the shape is checked rather than the emptiness. Anything that is
+          # not a version number is not one, and 1.0.0 is used instead.
+          VERSION="${GITHUB_REF_NAME#ios-v}"; VERSION="${VERSION#v}"
+          case "$VERSION" in
+            *[!0-9.]*|''|.*|*.) VERSION="1.0.0" ;;
+          esac
+          echo "Marketing version: $VERSION (build $GITHUB_RUN_NUMBER)"
           xcodebuild \
             -project Kairo.xcodeproj \
             -scheme Kairo \
@@ -152,10 +183,6 @@ jobs:
       - name: Export and upload to TestFlight
         if: steps.secrets.outputs.ready == 'true'
         working-directory: ios
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           set -o pipefail
           cat > build/ExportOptions.plist <<PLIST
