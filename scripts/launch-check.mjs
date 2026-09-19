@@ -167,10 +167,10 @@ async function main() {
   console.log(`\n${c.b('  Needs a person, not this script')}`);
   for (const line of [
     'Apple Developer Program enrolment (A$149, 1–2 days) — everything iOS waits on it',
+    'DONE 19 Sep: Stripe is live on the platform and a real card was charged and the salon provisioned end to end. The boot banner reads "Stripe live — real cards, real money"; if it ever reads TEST MODE, a Render variable was saved without a deploy and every payment since is fake.',
     'Confirm the reviewer can sign in. The App Review notes name demo@kairobookings.com — the demo salon\u2019s own owner, not a separate review@ account. Prove it rather than assume it: KAIRO_REVIEW_URL=… KAIRO_REVIEW_EMAIL=demo@kairobookings.com KAIRO_REVIEW_PASSWORD=… node scripts/review-login-check.mjs',
     'The four GitHub secrets, once Apple approves: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8',
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
-    'Stripe live keys and the webhook secret on the platform service. Both change together — a live key with a test signing secret rejects every real payment at the signature check. The boot banner names the mode it ended up in; read it rather than trusting the dashboard, because a Render variable saved without a deploy looks identical there.',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
     'support@kairobookings.com forwards to kairobooking18@gmail.com, and so does the catch-all (set 18 Sep). The earlier note here said the catch-all was set to Drop; that was wrong — an unrouted address came back \u201cdelivered\u201d because the catch-all was forwarding it, and a forward was read as a black hole. Cloudflare accepting a message still proves nothing about it arriving, so re-prove this from the inbox before submitting: Apple emails this address during review.',
   ]) console.log(`  ${c.dim('·')} ${line}`);
