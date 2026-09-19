@@ -397,6 +397,26 @@ server.listen(PORT, HOST, () => {
   console.log(`    Signup        ${ORIGIN()}/start   (A$${price} once)`);
   console.log(`    Operator      ${ORIGIN()}/operator`);
   console.log(`    Shard         ${shard.SHARD_URL()}`);
+  // Can this platform actually talk to that shard, or does it only know the
+  // address? The two share a secret, and a rotation that reaches one service
+  // and not the other leaves everything looking healthy: the signup page
+  // loads, the card is charged, and provisioning is the first thing that
+  // finds out. That is the worst possible moment and somebody else's money.
+  //
+  // So the link is exercised at boot rather than assumed. Asynchronous and
+  // never fatal — a shard that is briefly down must not stop the platform
+  // starting, and the line says which of the two failed, because "cannot
+  // reach it" and "it refused my key" need different fixes.
+  shard.health().then(
+    (h) => console.log(`    Link          ok — the shard answers and accepts this key (${h?.tenants ?? '?'} salons)`),
+    (e) => {
+      const why = String(e && e.message || e);
+      const refused = /401|unauthoris|signature/i.test(why);
+      console.log(refused
+        ? '    !  Link: the shard REFUSED this key — KAIRO_PLATFORM_KEY differs between the two services, so no salon can be provisioned'
+        : `    !  Link: cannot reach the shard — ${why.slice(0, 120)}`);
+    },
+  );
   console.log(`    Salons on     *.${signup.BASE_DOMAIN()}`);
   const mode = stripe.stripeMode();
   if (mode === 'unset') console.log('    !  STRIPE_SECRET_KEY is not set — nobody can pay');
