@@ -172,7 +172,7 @@ async function main() {
     'The four GitHub secrets, once Apple approves: APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8',
     'The APNs key on the shard: KAIRO_APNS_KEY, KAIRO_APNS_KEY_ID, KAIRO_APNS_TEAM_ID, KAIRO_APPLE_APP_ID',
     'Decide what serves the apex — the marketing site or the platform (see platform/render.yaml)',
-    'support@kairobookings.com forwards to kairobooking18@gmail.com, and so does the catch-all (set 18 Sep). The earlier note here said the catch-all was set to Drop; that was wrong — an unrouted address came back \u201cdelivered\u201d because the catch-all was forwarding it, and a forward was read as a black hole. Cloudflare accepting a message still proves nothing about it arriving, so re-prove this from the inbox before submitting: Apple emails this address during review.',
+    'DONE 19 Sep: support@kairobookings.com arrives. It and the catch-all both forward to kairobooking18@gmail.com, and the owner confirmed the test messages landed in that inbox \u2014 which is the only evidence that counts here. Two earlier readings of this were wrong in opposite directions: first that mail was being dropped, then that a \u201cdelivered\u201d status meant it had arrived. Cloudflare accepting a message says only that its MX took it at the door. If this is ever in doubt again, send to support@ AND to an address with no rule, and check which inbox each one reaches.',
   ]) console.log(`  ${c.dim('·')} ${line}`);
 
   console.log('');
