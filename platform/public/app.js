@@ -29,7 +29,17 @@ async function call(method, path, body) {
 // start, and what the thing they are in the middle of is called.
 const STEP_NAMES = ['Your details', 'Confirm it\'s you', 'Payment', 'Setting up'];
 const header = (step) => `
-  <div class="brand"><a href="/" style="display:flex;align-items:center;gap:10px;color:inherit"><span class="mark">K</span><b>Kairo</b></a></div>
+  <div class="brand"><a href="/" style="display:flex;align-items:center;gap:10px;color:inherit">
+    <svg class="mark" viewBox="0 0 48 48" width="32" height="32" aria-hidden="true">
+      <defs><linearGradient id="bm" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#3b82f6"/>
+      </linearGradient></defs>
+      <rect width="48" height="48" fill="url(#bm)"/>
+      <path d="M15.6 13V35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+      <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" stroke="#fff" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+      <path d="M18.5 25.4L31.6 35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+      <circle cx="33" cy="13.2" r="3.2" fill="#bae6fd"/>
+    </svg><b>Kairo</b></a></div>
   ${step ? `
     <div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="${step}"
          aria-label="Step ${step} of 4: ${STEP_NAMES[step - 1]}">

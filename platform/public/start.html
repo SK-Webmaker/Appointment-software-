@@ -10,6 +10,29 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <!-- The field behind the purchase.
+       Decorative only: aria-hidden, pointer-events off, and every element in
+       it is composited on the GPU (transform and opacity, nothing else), so a
+       four-minute signup on a mid-range phone does not pay for it in battery
+       or in jank while someone is typing their card in.
+       One <symbol>, used six times — the mark cannot drift out of sync with
+       itself because there is only one of it. -->
+  <svg class="field" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="kmark" viewBox="0 0 48 48">
+        <path d="M15.6 13V35" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+        <path d="M18.5 25.4L31.6 35" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+        <circle cx="33" cy="13.2" r="3.2" fill="currentColor"/>
+      </symbol>
+    </defs>
+    <use class="k k1" href="#kmark" width="280" height="280" x="-40"  y="40"/>
+    <use class="k k2" href="#kmark" width="170" height="170" x="76%"  y="8%"/>
+    <use class="k k3" href="#kmark" width="120" height="120" x="12%"  y="62%"/>
+    <use class="k k4" href="#kmark" width="220" height="220" x="68%"  y="70%"/>
+    <use class="k k5" href="#kmark" width="90"  height="90"  x="44%"  y="30%"/>
+    <use class="k k6" href="#kmark" width="140" height="140" x="-4%"  y="88%"/>
+  </svg>
   <div class="wrap" id="app"></div>
   <script type="module" src="/app.js"></script>
 </body>

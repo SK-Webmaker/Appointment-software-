@@ -79,7 +79,7 @@ export function kairoTile(size = 30, id = 'kt') {
   return `
 <svg width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true">
   <defs><linearGradient id="${id}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-    <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#1d4ed8"/>
+    <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#3b82f6"/>
   </linearGradient></defs>
   <rect width="48" height="48" rx="12.5" fill="url(#${id})"/>
   <path d="M15.6 13V35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
