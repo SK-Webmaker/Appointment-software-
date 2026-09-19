@@ -160,6 +160,17 @@ jobs:
           #
           # So the shape is checked rather than the emptiness. Anything that is
           # not a version number is not one, and 1.0.0 is used instead.
+          #
+          # The archive below asks for DISTRIBUTION signing. Run 6 failed with
+          # "Your team has no devices from which to generate a provisioning
+          # profile" and "no iOS App Development provisioning profiles" — the
+          # word Development being the whole story. Automatic signing reaches
+          # for a development profile, and a development profile lists the
+          # devices allowed to run the build, so a team with no registered
+          # devices cannot have one. TestFlight does not want one anyway: it
+          # wants an App Store distribution profile, which names no devices.
+          # Asking for "Apple Distribution" makes -allowProvisioningUpdates
+          # fetch that instead, with no Mac and no iPhone in the loop.
           VERSION="${GITHUB_REF_NAME#ios-v}"; VERSION="${VERSION#v}"
           case "$VERSION" in
             *[!0-9.]*|''|.*|*.) VERSION="1.0.0" ;;
@@ -172,6 +183,8 @@ jobs:
             -configuration Release \
             -archivePath build/Kairo.xcarchive \
             -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
             -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \

@@ -52,7 +52,19 @@ targets:
     entitlements:
       path: Kairo/Kairo.entitlements
       properties:
-        aps-environment: development
+        # production, not development.
+        #
+        # This decides which Apple push network the app's device token belongs
+        # to, and the two are separate: a token minted under 'development'
+        # exists only in the sandbox and api.push.apple.com — which is what the
+        # shard sends to — has never heard of it. TestFlight and App Store
+        # builds are production builds, so a 'development' entitlement here
+        # means every push silently goes nowhere, with a valid-looking token
+        # and no error anywhere.
+        #
+        # Nothing is lost by this: debug builds off a Mac are the only thing
+        # that wants the sandbox, and there is no Mac in this project.
+        aps-environment: production
         com.apple.developer.associated-domains:
           - applinks:kairobookings.com
           - applinks:*.kairobookings.com
