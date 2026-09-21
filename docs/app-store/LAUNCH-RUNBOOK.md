@@ -111,7 +111,14 @@ cannot be re-downloaded. Save both somewhere safe immediately.
 
 1. <https://appstoreconnect.apple.com/access/integrations/api>
 2. **+** under *Team Keys*
-3. Name: `Kairo CI`, Access: **App Manager**
+3. Name: `Kairo CI`, Access: **Admin**
+
+   > Admin, not App Manager. App Manager cannot create cloud-managed
+   > distribution certificates, and the upload needs one — Apple answers the
+   > archive export with 403 FORBIDDEN_ERROR, "You haven't been given access
+   > to cloud-managed distribution certificates", which does not mention roles
+   > or keys and reads like an account problem. A key's role cannot be changed
+   > after it is made, so getting this wrong costs a new key.
 4. **Generate**, then **Download API Key** — a file named
    `AuthKey_XXXXXXXXXX.p8`
 5. Note the **Key ID** (10 chars, in the filename) and the **Issuer ID**
@@ -189,6 +196,13 @@ Mac. The repository is public, so those runner minutes are free.
 ---
 
 ## Step 4 — App Store Connect listing
+
+> **Do the "New App" part of this BEFORE step 3f.** The upload needs an app
+> record to exist, and registering the Bundle ID in 3a does not create one —
+> it creates the identifier the app is later attached to. Without the record
+> the export dies on "Error Downloading App Information", which says nothing
+> about what is missing. Everything else on this page can wait until after
+> the build lands.
 
 1. <https://appstoreconnect.apple.com/apps> → **+** → **New App**
 2. Platform **iOS**, Name `Kairo`, Primary language **English (Australia)**,
