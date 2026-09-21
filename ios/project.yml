@@ -48,7 +48,26 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kairobookings.kairo
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # iPhone only ("1"). It was "1,2" — iPhone and iPad — and App Store
+        # Connect rejected the upload for it:
+        #
+        #   ContentDelivery 90474: ... you need to include all of the
+        #   Portrait, PortraitUpsideDown, LandscapeLeft, LandscapeRight
+        #   orientations to support iPad multitasking
+        #
+        # An iPad app must accept all four orientations, and this one lists
+        # three because upside-down is wrong for a phone propped on a counter.
+        # The orientation clash is only the visible half though. Declaring iPad
+        # support also obliges the App Store listing to carry iPad screenshots,
+        # and it ships a layout drawn for a phone — fixed scale, no zoom, a
+        # phone-width nav — onto a 13-inch screen, which is what guideline
+        # 4.0 and 2.3.1 rejections are made of.
+        #
+        # iPhone apps still install and run on iPad, so nothing is taken away
+        # from an owner who has one. When iPad is done properly this becomes
+        # "1,2" again with a UISupportedInterfaceOrientations~ipad key holding
+        # all four, which keeps the phone from ever going upside down.
+        TARGETED_DEVICE_FAMILY: "1"
     entitlements:
       path: Kairo/Kairo.entitlements
       properties:
