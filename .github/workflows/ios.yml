@@ -226,6 +226,29 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
+      # "Error Downloading App Information" and its siblings are what
+      # -exportArchive prints; the reason it actually got from Apple is written
+      # into an .xcdistributionlogs bundle in a temp directory and then thrown
+      # away with the runner. Two rounds were spent inferring a cause that was
+      # sitting in that file, so it is printed whenever the export fails.
+      - name: Why the export failed
+        if: failure()
+        run: |
+          shopt -s nullglob
+          found=0
+          for d in "${TMPDIR:-/tmp}"/*.xcdistributionlogs "$HOME"/Library/Logs/gym/*.xcdistributionlogs; do
+            found=1
+            echo "──────── $d ────────"
+            for f in "$d"/*; do
+              [ -f "$f" ] || continue
+              echo "── $(basename "$f")"
+              # IDEDistribution.standard.log carries the server's own words.
+              tail -c 20000 "$f"
+              echo
+            done
+          done
+          [ "$found" = 1 ] || echo "(no .xcdistributionlogs bundle was produced)"
+
       - name: Forget the key
         if: always()
         run: rm -rf ~/.appstoreconnect/private_keys
