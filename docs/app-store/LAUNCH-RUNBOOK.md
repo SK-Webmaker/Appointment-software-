@@ -224,6 +224,20 @@ Then fill these in:
   it at submission**. It is not in this repository and must not be: this
   repository is public.
 
+### Lost the demo password?
+
+Render → **kairo-shard-au** → **Shell**, then:
+
+```bash
+KAIRO_DATA_DIR=/var/data node scripts/set-tenant-password.mjs demo 'a-new-password'
+```
+
+It needs no control key and no network — it runs where the data already is.
+It refuses an unknown salon, an unknown owner, or a password the app's own
+rules would later reject, and it signs out every existing session for that
+salon, because a password lost is a password that might not be lost to
+everybody.
+
 ### Before you press Submit — run the check
 
 A reviewer who cannot sign in gets the build rejected the same day, and it is
