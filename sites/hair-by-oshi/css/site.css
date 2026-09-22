@@ -323,7 +323,8 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   border-block:1px solid var(--line)}
 .nano__grid{display:grid;gap:clamp(28px,5vw,64px);max-width:1240px;margin-inline:auto;
   align-items:center}
-.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:2px;
+  padding:clamp(18px,2.4vw,30px);display:flex;align-items:center}
 .strand{width:100%;height:auto;display:block}
 .strand__lbl{fill:var(--cocoa);font-size:11px;font-weight:600;letter-spacing:.15em;
   text-transform:uppercase;font-family:Inter,sans-serif}
@@ -332,11 +333,14 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .nano__viz.in #strandAfter{transition-delay:.4s}
 .strand__shine{opacity:0}
 .nano__viz.in .strand__shine{animation:shineRun 3.4s 2s var(--ease-io) infinite}
-@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(254px)}
-  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(254px)}}
+@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(198px)}
+  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(198px)}}
 .nano__cols{display:grid;gap:22px}
-.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 8px;
-  color:var(--clay)}
+.nano__col{padding-top:18px;border-top:1px solid var(--line)}
+.nano__n{display:block;font-size:11px;font-weight:600;letter-spacing:.2em;
+  color:var(--clay);margin-bottom:11px}
+.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:clamp(19px,2.2vw,23px);
+  margin:0 0 9px;color:var(--ink);letter-spacing:-.01em}
 .nano__col p{margin:0;color:var(--cocoa);font-size:14.5px;line-height:1.72}
 .nano__col em{color:var(--ink);font-style:italic}
 @media(min-width:620px){.nano__cols{grid-template-columns:1fr 1fr}}
@@ -974,3 +978,57 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 
 /* the entrance and the drift must not both write to transform */
 .in[data-anim="wipe"] img,.in[data-anim="wipe"] .slot{transform:none}
+
+/* ---------- fact grid ---------- */
+.fact-note{display:block;margin-top:6px;font-size:12.5px;color:var(--soft)}
+.studio__facts p{font-family:var(--f-display);font-size:16.5px;line-height:1.55;color:var(--ink)}
+.studio__facts .fact-note{font-family:var(--f-body)}
+
+/* ============================================================
+   INTERACTION
+   Hover is the one moment a page answers back. Each response is
+   small, quick, and says something true about what will happen.
+   ============================================================ */
+
+/* links underline themselves from the left rather than blinking on */
+.foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{
+  position:relative;text-decoration:none;
+}
+.foot__grid a::after,.studio__facts a::after,.faq__item p a::after,.cform__fine a::after{
+  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  background:currentColor;opacity:.4;
+  transform:scaleX(1);transform-origin:right;
+  transition:transform .42s var(--e-out),opacity .42s var(--e-out);
+}
+.foot__grid a:hover::after,.studio__facts a:hover::after,
+.faq__item p a:hover::after,.cform__fine a:hover::after{
+  opacity:1;transform:scaleX(0);transform-origin:right;
+}
+.foot__grid a::before,.studio__facts a::before,.faq__item p a::before,.cform__fine a::before{
+  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  background:currentColor;transform:scaleX(0);transform-origin:left;
+  transition:transform .42s var(--e-out) .1s;
+}
+.foot__grid a:hover::before,.studio__facts a:hover::before,
+.faq__item p a:hover::before,.cform__fine a:hover::before{transform:scaleX(1)}
+
+/* the answer opens rather than appearing */
+.faq__item[open] p{animation:answerIn .5s var(--e-out)}
+@keyframes answerIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* a service row lifts its own hairline as you consider it */
+.svc__item{position:relative}
+.svc__item::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:var(--clay);transform:scaleX(0);transform-origin:left;
+  transition:transform .6s var(--e-out)}
+.svc__item:hover::after{transform:scaleX(1)}
+
+/* the gallery card says it is a photograph, not a button */
+.work__card{transition:transform .7s var(--e-out)}
+.work__card:hover{transform:translateY(-6px)}
+
+@media(prefers-reduced-motion:reduce){
+  .faq__item[open] p{animation:none}
+  .work__card:hover{transform:none}
+  .foot__grid a::after,.foot__grid a::before{transition:none}
+}

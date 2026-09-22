@@ -339,7 +339,8 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   border-block:1px solid var(--line)}
 .nano__grid{display:grid;gap:clamp(28px,5vw,64px);max-width:1240px;margin-inline:auto;
   align-items:center}
-.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:2px;
+  padding:clamp(18px,2.4vw,30px);display:flex;align-items:center}
 .strand{width:100%;height:auto;display:block}
 .strand__lbl{fill:var(--cocoa);font-size:11px;font-weight:600;letter-spacing:.15em;
   text-transform:uppercase;font-family:Inter,sans-serif}
@@ -348,11 +349,14 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .nano__viz.in #strandAfter{transition-delay:.4s}
 .strand__shine{opacity:0}
 .nano__viz.in .strand__shine{animation:shineRun 3.4s 2s var(--ease-io) infinite}
-@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(254px)}
-  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(254px)}}
+@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(198px)}
+  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(198px)}}
 .nano__cols{display:grid;gap:22px}
-.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 8px;
-  color:var(--clay)}
+.nano__col{padding-top:18px;border-top:1px solid var(--line)}
+.nano__n{display:block;font-size:11px;font-weight:600;letter-spacing:.2em;
+  color:var(--clay);margin-bottom:11px}
+.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:clamp(19px,2.2vw,23px);
+  margin:0 0 9px;color:var(--ink);letter-spacing:-.01em}
 .nano__col p{margin:0;color:var(--cocoa);font-size:14.5px;line-height:1.72}
 .nano__col em{color:var(--ink);font-style:italic}
 @media(min-width:620px){.nano__cols{grid-template-columns:1fr 1fr}}
@@ -991,6 +995,60 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 /* the entrance and the drift must not both write to transform */
 .in[data-anim="wipe"] img,.in[data-anim="wipe"] .slot{transform:none}
 
+/* ---------- fact grid ---------- */
+.fact-note{display:block;margin-top:6px;font-size:12.5px;color:var(--soft)}
+.studio__facts p{font-family:var(--f-display);font-size:16.5px;line-height:1.55;color:var(--ink)}
+.studio__facts .fact-note{font-family:var(--f-body)}
+
+/* ============================================================
+   INTERACTION
+   Hover is the one moment a page answers back. Each response is
+   small, quick, and says something true about what will happen.
+   ============================================================ */
+
+/* links underline themselves from the left rather than blinking on */
+.foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{
+  position:relative;text-decoration:none;
+}
+.foot__grid a::after,.studio__facts a::after,.faq__item p a::after,.cform__fine a::after{
+  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  background:currentColor;opacity:.4;
+  transform:scaleX(1);transform-origin:right;
+  transition:transform .42s var(--e-out),opacity .42s var(--e-out);
+}
+.foot__grid a:hover::after,.studio__facts a:hover::after,
+.faq__item p a:hover::after,.cform__fine a:hover::after{
+  opacity:1;transform:scaleX(0);transform-origin:right;
+}
+.foot__grid a::before,.studio__facts a::before,.faq__item p a::before,.cform__fine a::before{
+  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  background:currentColor;transform:scaleX(0);transform-origin:left;
+  transition:transform .42s var(--e-out) .1s;
+}
+.foot__grid a:hover::before,.studio__facts a:hover::before,
+.faq__item p a:hover::before,.cform__fine a:hover::before{transform:scaleX(1)}
+
+/* the answer opens rather than appearing */
+.faq__item[open] p{animation:answerIn .5s var(--e-out)}
+@keyframes answerIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* a service row lifts its own hairline as you consider it */
+.svc__item{position:relative}
+.svc__item::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:var(--clay);transform:scaleX(0);transform-origin:left;
+  transition:transform .6s var(--e-out)}
+.svc__item:hover::after{transform:scaleX(1)}
+
+/* the gallery card says it is a photograph, not a button */
+.work__card{transition:transform .7s var(--e-out)}
+.work__card:hover{transform:translateY(-6px)}
+
+@media(prefers-reduced-motion:reduce){
+  .faq__item[open] p{animation:none}
+  .work__card:hover{transform:none}
+  .foot__grid a::after,.foot__grid a::before{transition:none}
+}
+
 </style>
 <script type="application/ld+json">
 {
@@ -1165,20 +1223,20 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   </div>
   <div class="nano__grid">
     <div class="nano__viz reveal">
-      <svg viewBox="0 0 400 300" class="strand" aria-label="Diagram of a hair cuticle before and after nanoplasty">
+      <svg viewBox="0 0 400 230" class="strand" aria-label="Diagram of a hair cuticle before and after nanoplasty">
         <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0%" stop-color="#B4664A"/><stop offset="100%" stop-color="#D9A05B"/></linearGradient></defs>
-        <text x="20" y="28" class="strand__lbl">Before — lifted cuticle</text>
-        <path class="strand__path" d="M20 84 q10 -18 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="#A8917E" fill="none" stroke-width="2"/>
-        <text x="20" y="200" class="strand__lbl">After — sealed &amp; smooth</text>
-        <path class="strand__path" id="strandAfter" d="M20 254 q10 -2 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="url(#sg)" fill="none" stroke-width="3"/>
+        <text x="20" y="22" class="strand__lbl">Before — lifted cuticle</text>
+        <path class="strand__path" d="M20 72 q10 -20 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="#A8917E" fill="none" stroke-width="2"/>
+        <text x="20" y="150" class="strand__lbl">After — sealed &amp; smooth</text>
+        <path class="strand__path" id="strandAfter" d="M20 198 q10 -2 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="url(#sg)" fill="none" stroke-width="3"/>
         <circle class="strand__shine" r="5" fill="#FCF8F4" stroke="#D9A05B"/>
       </svg>
     </div>
     <div class="nano__cols">
-      <div class="nano__col reveal"><h3>What it is</h3><p>A formaldehyde-free smoothing treatment. Low-molecular amino acids slip into the cuticle and seal it flat, so light bounces off one smooth surface instead of scattering off a raised one. That is the shine.</p></div>
-      <div class="nano__col reveal"><h3>What it is not</h3><p>Not a permanent straightener, not a chemical relaxer. It will not destroy your curl pattern. It softens and relaxes — it does not erase.</p></div>
-      <div class="nano__col reveal"><h3>Versus keratin</h3><p>Keratin gives a straighter, more uniform finish. Nanoplasty keeps more of your natural movement and is gentler on coloured hair. It depends whether you want <em>straight</em> or <em>easy</em>.</p></div>
-      <div class="nano__col reveal"><h3>Who it's for</h3><p>Dense, coarse, frizz-prone hair that takes forever to dry. If your blow-dry is a 45-minute event and Melbourne humidity undoes it in ten, this is the one.</p></div>
+      <div class="nano__col reveal"><span class="nano__n">01</span><h3>What it is</h3><p>A formaldehyde-free smoothing treatment. Low-molecular amino acids slip into the cuticle and seal it flat, so light bounces off one smooth surface instead of scattering off a raised one. That is the shine.</p></div>
+      <div class="nano__col reveal"><span class="nano__n">02</span><h3>What it is not</h3><p>Not a permanent straightener, not a chemical relaxer. It will not destroy your curl pattern. It softens and relaxes — it does not erase.</p></div>
+      <div class="nano__col reveal"><span class="nano__n">03</span><h3>Versus keratin</h3><p>Keratin gives a straighter, more uniform finish. Nanoplasty keeps more of your natural movement and is gentler on coloured hair. It depends whether you want <em>straight</em> or <em>easy</em>.</p></div>
+      <div class="nano__col reveal"><span class="nano__n">04</span><h3>Who it's for</h3><p>Dense, coarse, frizz-prone hair that takes forever to dry. If your blow-dry is a 45-minute event and Melbourne humidity undoes it in ten, this is the one.</p></div>
     </div>
   </div>
 </section>
@@ -1255,7 +1313,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     <h2 class="h2 reveal">A private suite, <em>not a salon floor</em></h2>
     <div class="studio__facts">
       <div class="reveal"><em>Where</em><p>Freedom Suites<br>350 Warrigal Rd<br>Oakleigh South VIC 3167</p></div>
-      <div class="reveal"><em>Days</em><p>Monday<br>Tuesday<br>Friday<br>Saturday</p></div>
+      <div class="reveal"><em>Days</em><p>Mon &middot; Tue &middot; Fri &middot; Sat<br><span class="fact-note">Four days, by appointment</span></p></div>
       <div class="reveal"><em>Parking</em><p>On-site at The Links — no meters, no circling the block.</p></div>
       <div class="reveal"><em>Booking</em><p>Book online, or DM <a href="https://www.instagram.com/hair_by_oshi_/" target="_blank" rel="noopener">@hair_by_oshi_</a>.</p></div>
     </div>
