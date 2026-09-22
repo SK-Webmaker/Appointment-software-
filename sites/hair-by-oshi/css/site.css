@@ -336,7 +336,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 @keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(254px)}
   12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(254px)}}
 .nano__cols{display:grid;gap:22px}
-.nano__col h4{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 8px;
+.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0 0 8px;
   color:var(--clay)}
 .nano__col p{margin:0;color:var(--cocoa);font-size:14.5px;line-height:1.72}
 .nano__col em{color:var(--ink);font-style:italic}
@@ -424,7 +424,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   padding-top:clamp(30px,5vw,50px);border-top:1px solid var(--line)}
 .val__n{display:block;font-family:var(--f-body);font-size:11px;font-weight:600;
   color:var(--clay);letter-spacing:.2em;margin-bottom:8px}
-.val h4{font-family:var(--f-display);font-weight:400;font-size:19px;margin:0 0 6px}
+.val h3{font-family:var(--f-display);font-weight:400;font-size:19px;margin:0 0 6px}
 .val p{margin:0;color:var(--cocoa);font-size:14px;line-height:1.65}
 .oshi__sig{font-family:var(--f-display);font-style:italic;
   font-size:clamp(20px,5.5vw,34px);color:var(--flame);text-align:center;
