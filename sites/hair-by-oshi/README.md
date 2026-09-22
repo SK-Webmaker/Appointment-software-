@@ -54,3 +54,23 @@ shows immediately.
 The same site inlined into one file — open it directly in a browser, no server
 needed. Keep it next to the `assets/` folder so the photography resolves once
 it's added. The multi-file version is the one to edit.
+
+## Checking for collisions
+
+Two blocks sitting on top of one another is the failure that screenshots
+hide — a card over a paragraph still renders, and at a glance the page looks
+whole. `test/overlap-check.cjs` walks every text block and image frame at nine
+widths from 320 to 1920 and fails if any two that aren't ancestor and
+descendant intersect by more than a small fraction of the smaller one.
+
+```sh
+node test/overlap-check.cjs                       # this build
+TARGET=https://example.com node test/overlap-check.cjs
+```
+
+It needs Playwright and a Chromium binary on the machine.
+
+Three exclusions are deliberate: overlays meant to sit above the page (modal,
+menu, nav, sticky bar), collapsed `<details>` whose hidden children all report
+the same rect, and the before/after comparison, which stacks its two images by
+design. Everything else is a real finding.
