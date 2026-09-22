@@ -244,8 +244,8 @@
   /* ---------- 7. scroll-linked effects ---------- */
   (function scrollFX() {
     var heroImg = $('#heroImg'), craft = $('.craft'), chars = $$('#craftText .ch');
-    var workSec = $('.work'), workTrk = $('#workTrack'), marquee = $('#marquee');
-    var mqX = 0, mqW = 0, trkX = 0;
+    var marquee = $('#marquee');
+    var mqX = 0, mqW = 0;
     function measure() { if (marquee) mqW = marquee.scrollWidth / 2; }
     measure(); window.addEventListener('resize', measure);
 
@@ -264,16 +264,6 @@
           var lit = i < upTo;
           if (chars[i]._lit !== lit) { chars[i].classList.toggle('lit', lit); chars[i]._lit = lit; }
         }
-      }
-      if (workSec && workTrk && window.innerWidth >= 900 && !reduce) {
-        var wr = workSec.getBoundingClientRect();
-        var wt = workSec.offsetHeight - vh;
-        var wp = clamp((-wr.top) / (wt > 0 ? wt : 1), 0, 1);
-        var dist = Math.max(workTrk.scrollWidth - window.innerWidth + 80, 0);
-        trkX = lerp(trkX, -wp * dist, 0.1);
-        workTrk.style.transform = 'translate3d(' + trkX + 'px,0,0)';
-      } else if (workTrk && workTrk.style.transform) {
-        workTrk.style.transform = '';
       }
       if (marquee && mqW && !reduce) {
         mqX -= 0.42;
@@ -331,6 +321,76 @@
       }
       requestAnimationFrame(loop);
     })();
+  })();
+
+  /* ---------- 7c. the gallery rail ----------
+     Drag it, throw a wheel at it, or use the arrow keys. It is an
+     ordinary scroll container, so a trackpad and a screen reader both
+     already know what to do with it.                                  */
+  (function rail() {
+    var track = $('#workTrack'), bar = $('#workBar');
+    if (!track) return;
+
+    function progress() {
+      if (!bar) return;
+      var max = track.scrollWidth - track.clientWidth;
+      bar.style.width = (max > 4 ? (track.scrollLeft / max) * 100 : 100) + '%';
+    }
+    track.addEventListener('scroll', progress, { passive: true });
+    window.addEventListener('resize', progress);
+    progress();
+
+    /* a vertical wheel over the rail should move it sideways, but only
+       while there is still rail to move — otherwise the page stops
+       scrolling and the visitor feels stuck */
+    track.addEventListener('wheel', function (e) {
+      if (e.ctrlKey) return;
+      var dx = Math.abs(e.deltaX), dy = Math.abs(e.deltaY);
+      if (dx > dy) return;                       // already a sideways gesture
+      var max = track.scrollWidth - track.clientWidth;
+      var next = track.scrollLeft + e.deltaY;
+      if (next <= 0 || next >= max) return;      // hand it back to the page
+      e.preventDefault();
+      track.scrollLeft = next;
+    }, { passive: false });
+
+    /* click and drag, the way you would push a print sleeve along */
+    var down = false, startX = 0, startLeft = 0, moved = 0;
+    track.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return;     // native touch is better
+      down = true; moved = 0;
+      startX = e.clientX; startLeft = track.scrollLeft;
+      track.classList.add('is-dragging');
+    });
+    track.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var d = e.clientX - startX;
+      moved = Math.max(moved, Math.abs(d));
+      track.scrollLeft = startLeft - d;
+      if (moved > 4) e.preventDefault();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+      track.addEventListener(ev, function () {
+        down = false;
+        track.classList.remove('is-dragging');
+      });
+    });
+    /* a drag should not also open whatever was under the cursor */
+    track.addEventListener('click', function (e) {
+      if (moved > 4) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+
+    /* keyboard: the rail is focusable, so arrows and Home/End work */
+    track.tabIndex = 0;
+    track.setAttribute('role', 'region');
+    track.setAttribute('aria-label', 'Gallery of recent work, scrollable');
+    track.addEventListener('keydown', function (e) {
+      var step = track.clientWidth * 0.8;
+      if (e.key === 'ArrowRight') { track.scrollLeft += step; e.preventDefault(); }
+      if (e.key === 'ArrowLeft')  { track.scrollLeft -= step; e.preventDefault(); }
+      if (e.key === 'Home')       { track.scrollLeft = 0; e.preventDefault(); }
+      if (e.key === 'End')        { track.scrollLeft = track.scrollWidth; e.preventDefault(); }
+    });
   })();
 
   /* ---------- 8. before / after ---------- */

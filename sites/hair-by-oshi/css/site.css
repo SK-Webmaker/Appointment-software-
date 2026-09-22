@@ -385,28 +385,36 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .work__pin{display:flex;flex-direction:column;gap:24px}
 .work__head{padding:0 var(--pad)}
 .work__head .h2{margin-bottom:0}
-.work__track{display:flex;gap:14px;padding:0 var(--pad) 8px;
-  overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
-  scrollbar-width:none}
+.work__track{display:flex;gap:clamp(14px,2vw,26px);padding:0 var(--pad) 10px;
+  overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;overscroll-behavior-inline:contain;cursor:grab}
+.work__track.is-dragging{cursor:grabbing;scroll-snap-type:none;user-select:none}
 .work__track::-webkit-scrollbar{display:none}
-.work__card{margin:0;flex:0 0 auto;width:72vw;scroll-snap-align:center}
+/* a line that fills as you move through the gallery, so its length is
+   never a surprise */
+.work__bar{margin:18px var(--pad) 0;height:2px;background:var(--line-dark);
+  border-radius:2px;overflow:hidden}
+.work__bar i{display:block;height:100%;width:0;background:var(--on-dark-accent);
+  border-radius:2px;transition:width .18s linear}
+.work__card{margin:0;flex:0 0 auto;width:74vw;scroll-snap-align:center}
 .work__card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:var(--r);
   background:var(--linen);transition:transform .9s var(--ease)}
 .work__card:hover img{transform:scale(1.03)}
 .work__card figcaption{display:flex;gap:9px;align-items:baseline;margin-top:11px;
   font-size:11.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--cocoa)}
 .work__card figcaption em{font-style:normal;color:var(--flame);font-size:10px;font-weight:600}
-.work__hint{margin:0;padding:0 var(--pad);font-size:10px;font-weight:600;
-  letter-spacing:.22em;text-transform:uppercase;color:var(--cocoa)}
+.work__hint{margin:10px 0 0;padding:0 var(--pad);font-size:10px;font-weight:600;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--on-dark-mute)}
 
 @media(min-width:900px){
-  .work{height:230vh;padding:0}
-  .work__pin{position:sticky;top:0;height:100svh;justify-content:center;
-    overflow:hidden;gap:clamp(20px,4vh,44px)}
-  .work__track{width:max-content;overflow:visible;padding-bottom:0;
-    gap:clamp(14px,2vw,30px);will-change:transform}
-  .work__card{width:clamp(220px,25vw,360px);scroll-snap-align:none}
-  .work__hint{position:absolute;right:var(--pad);bottom:22px}
+  /* The rail used to be driven by page scroll, which meant you could only
+     see a card by scrolling the whole page to it and could never go back
+     without scrolling up. It is a normal horizontal scroller now — wheel,
+     trackpad, drag or keyboard — so the gallery can be browsed at your
+     own pace, in either direction. */
+  .work{padding:clamp(54px,8.5vw,108px) 0}
+  .work__pin{gap:clamp(20px,4vh,40px)}
+  .work__card{width:clamp(260px,26vw,380px)}
 }
 
 /* ============================================================
@@ -554,8 +562,9 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .foot{border-top:1px solid var(--line);background:var(--sand);
   padding:clamp(46px,8vw,86px) var(--pad) 26px}
 .foot__top{text-align:center;margin-bottom:clamp(36px,6vw,64px)}
-.foot__mark{font-family:var(--f-display);font-size:clamp(34px,11vw,100px);font-weight:300;
-  letter-spacing:-.03em;margin:0;line-height:1;color:var(--ink)}
+.foot__mark{font-family:var(--f-display);font-size:clamp(30px,13vw,190px);font-weight:300;
+  letter-spacing:-.035em;margin:0;line-height:1.08;color:var(--ink);
+  white-space:nowrap;padding-block:.06em}
 .foot__tag{font-family:var(--f-display);font-style:italic;color:var(--flame);margin:8px 0 0;
   font-size:clamp(14px,3.6vw,19px)}
 .foot__grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1040px;
@@ -646,9 +655,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .craft__sticky{position:static;height:auto;padding-block:clamp(60px,12vw,130px)}
   .craft__text .ch{color:var(--ink)}
   .strand__path{stroke-dashoffset:0}
-  .work{height:auto;padding:clamp(54px,8.5vw,108px) 0}
-  .work__pin{position:static;height:auto}
-  .work__track{width:auto;overflow-x:auto}
+  .work__track{scroll-behavior:auto}
   .mcta{transform:none}
 }
 

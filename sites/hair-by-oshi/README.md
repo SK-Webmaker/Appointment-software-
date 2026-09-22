@@ -53,7 +53,18 @@ shows immediately.
 
 The same site inlined into one file — open it directly in a browser, no server
 needed. Keep it next to the `assets/` folder so the photography resolves once
-it's added. The multi-file version is the one to edit.
+it's added. The multi-file version is the one to edit; regenerate this one with
+
+```sh
+node scripts/build-standalone.cjs
+```
+
+The script inlines through a replacement *function* rather than a replacement
+string on purpose. A replacement string reads `$$`, `$&` and `$1` as escapes,
+which silently rewrote every `$$` helper in `site.js` to `$` and broke the
+preloader and the cursor in the inlined copy while the multi-file build stayed
+fine. The script now diffs both payloads after substituting and fails if either
+came out changed.
 
 ## Checking for collisions
 
