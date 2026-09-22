@@ -83,10 +83,34 @@ const detect = () => {
     await p.goto(TARGET, { waitUntil:'domcontentloaded', timeout:60000 });
     await p.waitForTimeout(4200);
     const H = await p.evaluate(()=>document.documentElement.scrollHeight);
-    for (let y=0; y<H; y+=500){ await p.evaluate(v=>window.scrollTo(0,v),y); await p.waitForTimeout(70); }
+    for (let y=0; y<H; y+=450){ await p.evaluate(v=>window.scrollTo(0,v),y); await p.waitForTimeout(130); }
     await p.evaluate(()=>window.scrollTo(0,0));
-    await p.waitForTimeout(1500);
-    const hits = await p.evaluate(detect);
+
+    // Entrances move things. Measuring while one is still playing reports a
+    // position the element is only passing through, which reads as a
+    // collision that never appears on screen. Wait for every transform to
+    // settle to identity, then measure twice and keep only what both agree
+    // on — a transient state cannot survive both passes.
+    await p.waitForFunction(() => {
+      const moving = [...document.querySelectorAll('h1,h2,h3,p,li,figure,.image-slot,[data-anim]')]
+        .filter(e => {
+          const t = getComputedStyle(e).transform;
+          if (t === 'none') return false;
+          const m = t.match(/matrix\(([^)]+)\)/);
+          if (!m) return true;
+          const v = m[1].split(',').map(Number);
+          return Math.abs(v[4]) > 0.5 || Math.abs(v[5]) > 0.5;   // still offset
+        });
+      return moving.length === 0;
+    }, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(1200);
+
+    const first = await p.evaluate(detect);
+    await p.waitForTimeout(900);
+    const second = await p.evaluate(detect);
+    const key = o => o.a + '|' + o.b;
+    const inBoth = new Set(second.map(key));
+    const hits = first.filter(o => inBoth.has(key(o)));
     total += hits.length;
     console.log(`\n${LABEL} @ ${w}px — ${hits.length ? hits.length + ' OVERLAP(S)' : 'clean'}`);
     hits.forEach(o => console.log(`   ${o.overlap}  ${o.a}\n            ON  ${o.b}`));
