@@ -125,21 +125,66 @@
     return { close: function () { set(false); } };
   })();
 
-  /* ---------- 5. reveals ---------- */
-  (function reveals() {
-    var items = $$('.reveal, .nano__viz');
-    if (reduce || !('IntersectionObserver' in window)) {
-      items.forEach(function (n) { n.classList.add('in'); }); return;
+  /* ---------- 5. choreography ----------
+     Rather than fading every block identically, each element is
+     classed by what it is — a heading, a photograph, a list item —
+     given the matching entrance, and staggered against its
+     neighbours so a section arrives in reading order.            */
+  (function choreograph() {
+    /* first match wins; order matters */
+    var RULES = [
+      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .nano__viz, .consult__formwrap'],
+      ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .nano__col, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
+      ['rise', '.eyebrow, .h2, .lede, .hero__title, .hero__sub, .hero__actions, .hero__note, .svc__num, .svc__body h3, .svc__tag, .svc__copy, .svc__note, .link-btn, .oshi__body p, .pull, .oshi__sig, .studio__actions, .consult__copy p, .book__title, .book__sub, .book__actions, .book__days, .foot__mark, .foot__tag, .oshi__head .h2, .steps__note']
+    ];
+
+    var seen = new Set();
+    function tag(el, kind) {
+      if (seen.has(el) || el.hasAttribute('data-anim')) return;
+      seen.add(el);
+      el.setAttribute('data-anim', kind);
     }
-    var io = new IntersectionObserver(function (es) {
-      es.forEach(function (en, i) {
-        if (!en.isIntersecting) return;
-        var n = en.target;
-        setTimeout(function () { n.classList.add('in'); }, i * 65);
-        io.unobserve(n);
+    RULES.forEach(function (pair) {
+      $$(pair[1]).forEach(function (el) { tag(el, pair[0]); });
+    });
+    /* Anything still carrying the old .reveal class must get an entrance
+       too — .reveal starts at opacity 0, so a block that matched no rule
+       above would otherwise stay invisible for good. */
+    $$('.reveal').forEach(function (el) { tag(el, 'rise'); });
+
+    var groups = $$('section, .foot, .marquee').filter(function (s) {
+      return s.querySelector('[data-anim]');
+    });
+
+    if (reduce || !('IntersectionObserver' in window)) {
+      $$('[data-anim]').forEach(function (el) { el.classList.add('in'); });
+      return;
+    }
+
+    groups.forEach(function (group) {
+      /* stagger in DOM order, but cap it so a long section never
+         leaves the last item waiting a second and a half */
+      var kids = $$('[data-anim]', group);
+      kids.forEach(function (el, i) {
+        el.style.setProperty('--d', Math.min(i * 55, 420) + 'ms');
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
-    items.forEach(function (n) { io.observe(n); });
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          kids.forEach(function (el) { el.classList.add('in'); });
+          io.disconnect();
+        });
+      }, { threshold: 0.06, rootMargin: '0px 0px -5% 0px' });
+      io.observe(group);
+    });
+
+    /* the hero is already on screen — run it once the loader lifts */
+    var hero = $('.hero');
+    if (hero) {
+      setTimeout(function () {
+        $$('[data-anim]', hero).forEach(function (el) { el.classList.add('in'); });
+      }, reduce ? 0 : 120);
+    }
   })();
 
   /* ---------- 6. split craft sentence ---------- */
