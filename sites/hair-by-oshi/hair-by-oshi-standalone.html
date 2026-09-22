@@ -289,7 +289,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 /* ============================================================
    CRAFT
    ============================================================ */
-.craft{position:relative;height:200vh}
+.craft{position:relative;height:165vh}
 .craft__sticky{position:sticky;top:0;height:100svh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:0 var(--pad);text-align:center}
 .craft__text{font-family:var(--f-display);font-weight:300;
@@ -385,6 +385,14 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .ba__tag{position:absolute;bottom:16px;z-index:4;font-size:10px;font-weight:600;
   letter-spacing:.2em;text-transform:uppercase;padding:8px 14px;border-radius:100px;
   background:rgba(250,247,243,.94)}
+/* the two labels sit in opposite corners — an earlier cleanup removed
+   these, leaving both stacked on the left */
+.ba__tag--l{left:14px}
+.ba__tag--r{right:14px}
+/* On a phone a tall crop suits a head-and-shoulders shot. On a desktop
+   the same ratio made the slider 1413px tall — taller than the viewport,
+   so you could never see the before and the after at once. */
+@media(min-width:880px){.ba__stage{aspect-ratio:16/10;margin-inline:auto}}
 
 /* ============================================================
    WORK
@@ -408,7 +416,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   letter-spacing:.22em;text-transform:uppercase;color:var(--cocoa)}
 
 @media(min-width:900px){
-  .work{height:320vh;padding:0}
+  .work{height:230vh;padding:0}
   .work__pin{position:sticky;top:0;height:100svh;justify-content:center;
     overflow:hidden;gap:clamp(20px,4vh,44px)}
   .work__track{width:max-content;overflow:visible;padding-bottom:0;
