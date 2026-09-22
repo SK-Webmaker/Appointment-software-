@@ -43,13 +43,33 @@ const detect = () => {
     const r = e.getBoundingClientRect();
     return r.width > 12 && r.height > 8;
   });
-  const rect = e => { const r = e.getBoundingClientRect();
-    return { l: r.left + window.scrollX, t: r.top + window.scrollY, r: r.right + window.scrollX, b: r.bottom + window.scrollY }; };
+  // An element's own box is not what you see. A heading inside a mask with
+  // overflow:hidden has a box taller than the slot it is shown through, and
+  // the hidden part is not on screen — counting it produces collisions that
+  // exist only in the geometry. So intersect each box with every clipping
+  // ancestor to get the rectangle actually painted.
+  const rect = e => {
+    let r = e.getBoundingClientRect();
+    let box = { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    for (let n = e.parentElement; n && n !== document.documentElement; n = n.parentElement) {
+      const cs = getComputedStyle(n);
+      const clips = /hidden|clip|scroll|auto/.test(cs.overflow + cs.overflowX + cs.overflowY);
+      if (!clips) continue;
+      const c = n.getBoundingClientRect();
+      box = { l: Math.max(box.l, c.left), t: Math.max(box.t, c.top),
+              r: Math.min(box.r, c.right), b: Math.min(box.b, c.bottom) };
+      if (box.r <= box.l || box.b <= box.t) break;   // clipped away entirely
+    }
+    return { l: box.l + window.scrollX, t: box.t + window.scrollY,
+             r: box.r + window.scrollX, b: box.b + window.scrollY };
+  };
   const rs = nodes.map(rect);
+  const visible = rs.map(r => r.r > r.l && r.b > r.t);
   const out = [];
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const a = nodes[i], b = nodes[j];
+      if (!visible[i] || !visible[j]) continue;
       if (a.contains(b) || b.contains(a)) continue;
       // a before/after comparison stacks its two images by design
       const cmp = '.ba__stage, .comparison, .compare-image, .compare-before';
