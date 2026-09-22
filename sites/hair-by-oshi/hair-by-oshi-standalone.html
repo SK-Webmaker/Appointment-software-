@@ -244,7 +244,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .hero__media{position:relative;z-index:2;margin:34px 0 0}
 .hero__frame{border-radius:var(--r);overflow:hidden;background:var(--linen);
   border:1px solid var(--line)}
-.hero__frame img{width:100%;aspect-ratio:4/3;object-fit:cover}
+
 .hero__chip{position:absolute;display:none;flex-direction:column;gap:2px;padding:12px 18px;
   border-radius:100px;background:rgba(250,247,243,.93);
   border:1px solid var(--line)}
@@ -306,8 +306,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .svc__item{max-width:1240px;margin-inline:auto;width:100%;display:grid;gap:22px}
 .svc__media{border-radius:var(--r);overflow:hidden;background:var(--linen);
   border:1px solid var(--line)}
-.svc__media img{width:100%;aspect-ratio:4/3;object-fit:cover;
-  transition:transform 1.2s var(--ease)}
+
 .svc__item:hover .svc__media img{transform:scale(1.045)}
 .svc__num{display:block;font-family:var(--f-body);font-size:11px;font-weight:600;
   color:var(--clay);letter-spacing:.2em;margin-bottom:12px}
@@ -330,7 +329,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 @media(min-width:880px){
   .svc__item{grid-template-columns:1fr 1.05fr;gap:clamp(28px,4.5vw,64px);align-items:start}
   .svc__item--flip .svc__media{order:2}
-  .svc__media img{aspect-ratio:1/1}
+  
 }
 
 /* ============================================================
@@ -422,8 +421,8 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .oshi__grid{display:grid;gap:clamp(26px,4.5vw,60px)}
 .oshi__portrait{position:relative;border-radius:var(--r);overflow:hidden;background:var(--linen);
   border:1px solid var(--line)}
-.oshi__portrait img{width:100%;aspect-ratio:4/5;object-fit:cover}
-@media(min-width:880px){.oshi__portrait img,.oshi__portrait .slot{aspect-ratio:3/4}}
+
+
 .oshi__nameplate{position:absolute;left:14px;bottom:14px;right:14px;
   display:flex;flex-direction:column;gap:1px;padding:13px 18px;border-radius:100px;
   background:rgba(250,247,243,.93);font-weight:400;font-size:18px}
@@ -457,8 +456,8 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   padding:clamp(54px,8.5vw,108px) var(--pad);align-items:center}
 .studio__media{border-radius:var(--r);overflow:hidden;background:var(--linen);
   border:1px solid var(--line)}
-.studio__media img{width:100%;aspect-ratio:5/4;object-fit:cover}
-@media(min-width:880px){.studio__media img,.studio__media .slot{aspect-ratio:1/1}}
+
+
 .studio__facts{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin:26px 0 28px}
 .studio__facts em{display:block;font-style:normal;font-size:9.5px;font-weight:600;
   letter-spacing:.2em;text-transform:uppercase;color:var(--clay);margin-bottom:7px}
@@ -628,12 +627,12 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
   padding:22px;text-align:center;border-radius:var(--r);overflow:hidden;
   background:var(--linen);box-shadow:inset 0 0 0 1px var(--line)}
-.hero__frame .slot{aspect-ratio:4/3}
-@media(min-width:900px){.hero__frame .slot{aspect-ratio:4/5}}
-.svc__media .slot{aspect-ratio:4/3}
-@media(min-width:880px){.svc__media .slot{aspect-ratio:1/1}}
-.oshi__portrait .slot{aspect-ratio:4/5}
-.studio__media .slot{aspect-ratio:5/4}
+
+
+
+
+
+
 .work__card .slot{aspect-ratio:3/4}
 .ba__stage .slot{position:absolute;inset:0;border-radius:0}
 .ba__stage .ba__clip .slot{background:var(--sand)}
@@ -955,6 +954,43 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .ba__handle i{width:60px;height:60px}
 }
 
+
+/* ---------- framed parallax ----------
+   The frame is the window; the photograph drifts behind it.
+
+   The ratio has to live on the frame, not the picture. While the frame
+   was sized by its own child there was no height for a percentage to
+   resolve against, so the drift computed to nothing and the top edge
+   pulled away leaving a gap. With the ratio on the frame, the picture
+   is absolutely positioned at 112% and has room to move. */
+.hero__frame,.svc__media,.oshi__portrait,.studio__media,.work__frame{
+  position:relative;overflow:hidden;
+}
+/* the figure is not the frame — it also holds the caption, and clipping
+   the picture to the figure would draw it over the words */
+.work__card{position:static;overflow:visible}
+.work__frame{aspect-ratio:3/4;border-radius:2px;background:var(--linen)}
+.hero__frame > *,.svc__media > *,.oshi__portrait > img,.oshi__portrait > .slot,
+.studio__media > *,.work__frame > *{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;will-change:transform;
+}
+/* ratios move from the picture to the frame that holds it */
+.hero__frame{aspect-ratio:4/3}
+.svc__media{aspect-ratio:4/3}
+.oshi__portrait{aspect-ratio:4/5}
+.studio__media{aspect-ratio:5/4}
+
+@media(min-width:880px){
+  .svc__media{aspect-ratio:1/1}
+  .oshi__portrait{aspect-ratio:3/4}
+  .studio__media{aspect-ratio:1/1}
+}
+@media(min-width:900px){.hero__frame{aspect-ratio:4/5}}
+
+/* the entrance and the drift must not both write to transform */
+.in[data-anim="wipe"] img,.in[data-anim="wipe"] .slot{transform:none}
+
 </style>
 <script type="application/ld+json">
 {
@@ -1166,12 +1202,12 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   <div class="work__pin" id="workPin">
     <div class="work__head"><p class="eyebrow">05 — The work</p><h2 class="h2">Dark hair, <em>made to shine</em></h2></div>
     <div class="work__track" id="workTrack">
-      <figure class="work__card"><img src="assets/img/work-1.jpg" data-title="Espresso gloss" data-note="Pick your favourite." alt="Glossy espresso brunette" loading="lazy" decoding="async"><figcaption><em>01</em> Espresso gloss</figcaption></figure>
-      <figure class="work__card"><img src="assets/img/work-2.jpg" data-title="Nanoplasty" data-note="Pick your favourite." alt="Nanoplasty smoothing result" loading="lazy" decoding="async"><figcaption><em>02</em> Nanoplasty</figcaption></figure>
-      <figure class="work__card"><img src="assets/img/work-3.jpg" data-title="Soft balayage" data-note="Pick your favourite." alt="Soft brunette balayage" loading="lazy" decoding="async"><figcaption><em>03</em> Soft balayage</figcaption></figure>
-      <figure class="work__card"><img src="assets/img/work-4.jpg" data-title="Colour correction" data-note="Ideally the box-dye rescue." alt="Colour correction from box dye" loading="lazy" decoding="async"><figcaption><em>04</em> Correction</figcaption></figure>
-      <figure class="work__card"><img src="assets/img/work-5.jpg" data-title="Keratin" data-note="Pick your favourite." alt="Keratin smoothing result" loading="lazy" decoding="async"><figcaption><em>05</em> Keratin</figcaption></figure>
-      <figure class="work__card"><img src="assets/img/work-6.jpg" data-title="Warm chocolate" data-note="Pick your favourite." alt="Warm chocolate tone" loading="lazy" decoding="async"><figcaption><em>06</em> Warm chocolate</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-1.jpg" data-title="Espresso gloss" data-note="Pick your favourite." alt="Glossy espresso brunette" loading="lazy" decoding="async"></div><figcaption><em>01</em> Espresso gloss</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-2.jpg" data-title="Nanoplasty" data-note="Pick your favourite." alt="Nanoplasty smoothing result" loading="lazy" decoding="async"></div><figcaption><em>02</em> Nanoplasty</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-3.jpg" data-title="Soft balayage" data-note="Pick your favourite." alt="Soft brunette balayage" loading="lazy" decoding="async"></div><figcaption><em>03</em> Soft balayage</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-4.jpg" data-title="Colour correction" data-note="Ideally the box-dye rescue." alt="Colour correction from box dye" loading="lazy" decoding="async"></div><figcaption><em>04</em> Correction</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-5.jpg" data-title="Keratin" data-note="Pick your favourite." alt="Keratin smoothing result" loading="lazy" decoding="async"></div><figcaption><em>05</em> Keratin</figcaption></figure>
+      <figure class="work__card"><div class="work__frame"><img src="assets/img/work-6.jpg" data-title="Warm chocolate" data-note="Pick your favourite." alt="Warm chocolate tone" loading="lazy" decoding="async"></div><figcaption><em>06</em> Warm chocolate</figcaption></figure>
     </div>
     <p class="work__hint" aria-hidden="true">Scroll &#8594;</p>
   </div>
@@ -1602,6 +1638,42 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     });
   })();
 
+  /* ---------- 6b. photo slots ----------
+     Runs before anything caches an image element: this swap replaces
+     <img> with a placeholder node, and a module holding the old
+     reference would then be animating a node no longer in the page.
+     Until the real photography lands, each missing image renders as a
+     deliberate card: what the photo should be, the crop it wants, and a
+     short note. Better to look intentional than to look broken.        */
+  (function photoSlots() {
+    function esc(t) {
+      return String(t || '').replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    function slot(img) {
+      if (img.dataset.slotted) return;
+      img.dataset.slotted = '1';
+      var file  = (img.getAttribute('src') || '').split('/').pop();
+      var title = img.getAttribute('data-title') || file;
+      var note  = img.getAttribute('data-note') || '';
+      var box = document.createElement('div');
+      box.className = 'slot';
+      box.setAttribute('role', 'img');
+      box.setAttribute('aria-label', 'Photograph to come — ' + (img.getAttribute('alt') || title));
+      box.innerHTML =
+        '<span class="slot__tag">Photo to come</span>' +
+        '<span class="slot__title">' + esc(title) + '</span>' +
+        (note ? '<span class="slot__note">' + esc(note) + '</span>' : '') +
+        '<span class="slot__file">' + esc(file) + '</span>';
+      img.replaceWith(box);
+    }
+    $$('img').forEach(function (img) {
+      if (img.complete && img.naturalWidth === 0) slot(img);
+      else img.addEventListener('error', function () { slot(img); });
+    });
+  })();
+
   /* ---------- 7. scroll-linked effects ---------- */
   (function scrollFX() {
     var heroImg = $('#heroImg'), craft = $('.craft'), chars = $$('#craftText .ch');
@@ -1642,6 +1714,55 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
         marquee.style.transform = 'translate3d(' + mqX + 'px,0,0)';
       }
       requestAnimationFrame(frame);
+    })();
+  })();
+
+  /* ---------- 7b. parallax inside the frames ----------
+     A photograph that sits perfectly still inside a moving page reads as
+     a sticker. Letting it drift a little against its own frame is what
+     gives an editorial page its depth — the frame is a window, and you
+     are moving past it. The image is oversized so the drift never
+     exposes an edge.                                                   */
+  (function framedParallax() {
+    if (reduce) return;
+    var frames = $$('.svc__media, .oshi__portrait, .studio__media, .work__frame, .hero__frame')
+      .map(function (f) { return { frame: f, media: null, y: 0 }; });
+    if (!frames.length) return;
+
+    /* A missing photograph is swapped for a placeholder on the image's
+       error event, which fires well after this runs. Holding the original
+       reference would leave us animating a node that is no longer in the
+       page, so each frame re-resolves its own child whenever the one it
+       has drops out of the document. */
+    function resolve(o) {
+      if (o.media && o.media.isConnected) return o.media;
+      o.media = o.frame.querySelector('img, .slot');
+      if (o.media) o.media.style.willChange = 'transform';
+      return o.media;
+    }
+
+    (function loop() {
+      var vh = window.innerHeight;
+      for (var i = 0; i < frames.length; i++) {
+        var o = frames[i];
+        var r = o.frame.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > vh + 200) continue;
+        var m = resolve(o);
+        if (!m) continue;
+        /* -1 as the frame enters, +1 as it leaves.
+           Drift is in pixels, not percent: a percentage on a transform
+           resolves against the element's own box, which made the travel
+           unpredictable across frames of different heights. The picture
+           is 112% of its frame, so half the 12% slack is the most it can
+           move before an edge would show; 4% keeps a margin.          */
+        var centre = (r.top + r.height / 2 - vh / 2) / (vh / 2 + r.height / 2);
+        o.y = lerp(o.y, clamp(centre, -1, 1) * r.height * 0.045, 0.12);
+        /* One transform does both jobs: the scale supplies the slack the
+           drift moves through, so no width, height or offset is touched
+           and there is nothing for a percentage to resolve against. */
+        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(1.14)';
+      }
+      requestAnimationFrame(loop);
     })();
   })();
 
@@ -1810,39 +1931,6 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       if (f && !$('#consultForm').hidden) f.focus({ preventScroll: true });
     }, reduce ? 0 : 700);
   });
-
-  /* ---------- 13. photo slots ----------
-     Until the real photography lands, each missing image renders as a
-     deliberate card: what the photo should be, the crop it wants, and a
-     short note. Better to look intentional than to look broken.        */
-  (function photoSlots() {
-    function esc(t) {
-      return String(t || '').replace(/[&<>"]/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-      });
-    }
-    function slot(img) {
-      if (img.dataset.slotted) return;
-      img.dataset.slotted = '1';
-      var file  = (img.getAttribute('src') || '').split('/').pop();
-      var title = img.getAttribute('data-title') || file;
-      var note  = img.getAttribute('data-note') || '';
-      var box = document.createElement('div');
-      box.className = 'slot';
-      box.setAttribute('role', 'img');
-      box.setAttribute('aria-label', 'Photograph to come — ' + (img.getAttribute('alt') || title));
-      box.innerHTML =
-        '<span class="slot__tag">Photo to come</span>' +
-        '<span class="slot__title">' + esc(title) + '</span>' +
-        (note ? '<span class="slot__note">' + esc(note) + '</span>' : '') +
-        '<span class="slot__file">' + esc(file) + '</span>';
-      img.replaceWith(box);
-    }
-    $$('img').forEach(function (img) {
-      if (img.complete && img.naturalWidth === 0) slot(img);
-      else img.addEventListener('error', function () { slot(img); });
-    });
-  })();
 
   /* ---------- 14. misc ---------- */
   var yr = $('#yr');

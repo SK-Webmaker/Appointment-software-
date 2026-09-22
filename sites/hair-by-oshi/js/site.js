@@ -205,6 +205,42 @@
     });
   })();
 
+  /* ---------- 6b. photo slots ----------
+     Runs before anything caches an image element: this swap replaces
+     <img> with a placeholder node, and a module holding the old
+     reference would then be animating a node no longer in the page.
+     Until the real photography lands, each missing image renders as a
+     deliberate card: what the photo should be, the crop it wants, and a
+     short note. Better to look intentional than to look broken.        */
+  (function photoSlots() {
+    function esc(t) {
+      return String(t || '').replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    function slot(img) {
+      if (img.dataset.slotted) return;
+      img.dataset.slotted = '1';
+      var file  = (img.getAttribute('src') || '').split('/').pop();
+      var title = img.getAttribute('data-title') || file;
+      var note  = img.getAttribute('data-note') || '';
+      var box = document.createElement('div');
+      box.className = 'slot';
+      box.setAttribute('role', 'img');
+      box.setAttribute('aria-label', 'Photograph to come — ' + (img.getAttribute('alt') || title));
+      box.innerHTML =
+        '<span class="slot__tag">Photo to come</span>' +
+        '<span class="slot__title">' + esc(title) + '</span>' +
+        (note ? '<span class="slot__note">' + esc(note) + '</span>' : '') +
+        '<span class="slot__file">' + esc(file) + '</span>';
+      img.replaceWith(box);
+    }
+    $$('img').forEach(function (img) {
+      if (img.complete && img.naturalWidth === 0) slot(img);
+      else img.addEventListener('error', function () { slot(img); });
+    });
+  })();
+
   /* ---------- 7. scroll-linked effects ---------- */
   (function scrollFX() {
     var heroImg = $('#heroImg'), craft = $('.craft'), chars = $$('#craftText .ch');
@@ -245,6 +281,55 @@
         marquee.style.transform = 'translate3d(' + mqX + 'px,0,0)';
       }
       requestAnimationFrame(frame);
+    })();
+  })();
+
+  /* ---------- 7b. parallax inside the frames ----------
+     A photograph that sits perfectly still inside a moving page reads as
+     a sticker. Letting it drift a little against its own frame is what
+     gives an editorial page its depth — the frame is a window, and you
+     are moving past it. The image is oversized so the drift never
+     exposes an edge.                                                   */
+  (function framedParallax() {
+    if (reduce) return;
+    var frames = $$('.svc__media, .oshi__portrait, .studio__media, .work__frame, .hero__frame')
+      .map(function (f) { return { frame: f, media: null, y: 0 }; });
+    if (!frames.length) return;
+
+    /* A missing photograph is swapped for a placeholder on the image's
+       error event, which fires well after this runs. Holding the original
+       reference would leave us animating a node that is no longer in the
+       page, so each frame re-resolves its own child whenever the one it
+       has drops out of the document. */
+    function resolve(o) {
+      if (o.media && o.media.isConnected) return o.media;
+      o.media = o.frame.querySelector('img, .slot');
+      if (o.media) o.media.style.willChange = 'transform';
+      return o.media;
+    }
+
+    (function loop() {
+      var vh = window.innerHeight;
+      for (var i = 0; i < frames.length; i++) {
+        var o = frames[i];
+        var r = o.frame.getBoundingClientRect();
+        if (r.bottom < -200 || r.top > vh + 200) continue;
+        var m = resolve(o);
+        if (!m) continue;
+        /* -1 as the frame enters, +1 as it leaves.
+           Drift is in pixels, not percent: a percentage on a transform
+           resolves against the element's own box, which made the travel
+           unpredictable across frames of different heights. The picture
+           is 112% of its frame, so half the 12% slack is the most it can
+           move before an edge would show; 4% keeps a margin.          */
+        var centre = (r.top + r.height / 2 - vh / 2) / (vh / 2 + r.height / 2);
+        o.y = lerp(o.y, clamp(centre, -1, 1) * r.height * 0.045, 0.12);
+        /* One transform does both jobs: the scale supplies the slack the
+           drift moves through, so no width, height or offset is touched
+           and there is nothing for a percentage to resolve against. */
+        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(1.14)';
+      }
+      requestAnimationFrame(loop);
     })();
   })();
 
@@ -413,39 +498,6 @@
       if (f && !$('#consultForm').hidden) f.focus({ preventScroll: true });
     }, reduce ? 0 : 700);
   });
-
-  /* ---------- 13. photo slots ----------
-     Until the real photography lands, each missing image renders as a
-     deliberate card: what the photo should be, the crop it wants, and a
-     short note. Better to look intentional than to look broken.        */
-  (function photoSlots() {
-    function esc(t) {
-      return String(t || '').replace(/[&<>"]/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-      });
-    }
-    function slot(img) {
-      if (img.dataset.slotted) return;
-      img.dataset.slotted = '1';
-      var file  = (img.getAttribute('src') || '').split('/').pop();
-      var title = img.getAttribute('data-title') || file;
-      var note  = img.getAttribute('data-note') || '';
-      var box = document.createElement('div');
-      box.className = 'slot';
-      box.setAttribute('role', 'img');
-      box.setAttribute('aria-label', 'Photograph to come — ' + (img.getAttribute('alt') || title));
-      box.innerHTML =
-        '<span class="slot__tag">Photo to come</span>' +
-        '<span class="slot__title">' + esc(title) + '</span>' +
-        (note ? '<span class="slot__note">' + esc(note) + '</span>' : '') +
-        '<span class="slot__file">' + esc(file) + '</span>';
-      img.replaceWith(box);
-    }
-    $$('img').forEach(function (img) {
-      if (img.complete && img.naturalWidth === 0) slot(img);
-      else img.addEventListener('error', function () { slot(img); });
-    });
-  })();
 
   /* ---------- 14. misc ---------- */
   var yr = $('#yr');
