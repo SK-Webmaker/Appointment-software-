@@ -493,9 +493,19 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 /* ============================================================
    FAQ
    ============================================================ */
-.faq{padding:clamp(54px,8.5vw,108px) 0;background:var(--sand);
+.faq{padding:clamp(54px,8.5vw,108px) var(--pad);background:var(--sand);
   border-block:1px solid var(--line)}
-.faq__list{max-width:800px;margin-inline:auto;padding:0 var(--pad)}
+.faq__list{max-width:760px;padding:0}
+@media(min-width:900px){
+  /* heading holds the left column, the questions the right — the list was
+     centring itself against a left-aligned heading, which read as a slip */
+  /* the section keeps its full-bleed background; the content is held to
+     1240px by padding instead of a max-width, which would crop the tint */
+  .faq{display:grid;grid-template-columns:1fr 1.7fr;gap:clamp(32px,5vw,72px);
+    align-items:start;padding-inline:max(var(--pad),calc((100% - 1240px) / 2))}
+  .faq .sec-head{margin:0;padding:0;max-width:none}
+  .faq .sec-head .h2{max-width:11ch}
+}
 .faq__item{border-bottom:1px solid var(--line)}
 .faq__item summary{list-style:none;cursor:pointer;padding:20px 38px 20px 0;position:relative;
   font-family:var(--f-display);font-size:clamp(17px,4.4vw,25px);font-weight:400;
