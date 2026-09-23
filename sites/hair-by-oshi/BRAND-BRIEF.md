@@ -61,6 +61,9 @@ healthy dark hair.
 2. **Nanoplasty** — the signature. She uses `#melbournenanoplasty`
    and `#nanoplastyspecialist`. Formaldehyde-free smoothing that keeps movement.
 3. **Keratin** — the classic smoothing service she also educates heavily on.
+   *Not listed on the site:* removed from the service menu at the client's
+   request. The research is kept here because her Instagram still carries it,
+   so if it goes back on the menu the copy is already written.
 
 ### Her own content pillars (mirror these in copy)
 

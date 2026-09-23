@@ -625,9 +625,12 @@
     return { open: open, close: close };
   })();
 
-  /* ---------- 10. booking — opens the Kairo notice ----------
-     Booking itself will live in Kairo, so this button explains that
-     rather than pretending to take an appointment.                    */
+  /* ---------- 10. booking ----------
+     Every Book now button opens the same panel, which offers the two
+     real ways in: a DM to Oshi, or the free consult form. Clicking one
+     of the per-service buttons carries that service into the consult
+     form, so nobody has to pick it twice.                             */
+  var wanted = '';            /* the service a Book <service> button named */
   (function booking() {
     var modal = $('#bookingModal');
     if (!modal) return;
@@ -636,6 +639,7 @@
       if (!t) return;
       e.preventDefault();
       menuApi.close();
+      wanted = t.getAttribute('data-service') || '';
       modalApi.open(modal);
     });
   })();
@@ -699,6 +703,17 @@
     modalApi.close();
     var sec = $('#consult');
     if (!sec) return;
+    /* carry through whichever service the visitor named, so they are
+       not asked to choose it a second time */
+    if (wanted) {
+      var sel = $('#cf-service');
+      if (sel) {
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].text === wanted) { sel.selectedIndex = i; break; }
+        }
+      }
+      wanted = '';
+    }
     var top = sec.getBoundingClientRect().top + window.scrollY - 60;
     window.scrollTo({ top: top, behavior: reduce ? 'auto' : 'smooth' });
     setTimeout(function () {

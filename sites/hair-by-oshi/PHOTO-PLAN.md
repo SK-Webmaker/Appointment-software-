@@ -51,11 +51,9 @@ Second option: [DbUtunOEzZ0](https://www.instagram.com/p/DbUtunOEzZ0/) —
 |---|---|---|---|
 | `svc-colour.jpg` | [DXBSVgSD_-_](https://www.instagram.com/p/DXBSVgSD_-_/) | *"Chocolate but make it dimensional. Created with balayage + root…"* | Medium |
 | `svc-nanoplasty.jpg` | [ChJ3y0qhZqc](https://www.instagram.com/hair_by_oshi_/reel/ChJ3y0qhZqc/) | *"An amazing result from Nanoplasty ❤️ I just can't get over how amazing this treatment is…"* · 12 Aug 2022 | **High** |
-| `svc-keratin.jpg` | [C6VoA-YhsVu](https://www.instagram.com/reel/C6VoA-YhsVu/) | *"WHAT IS KERATIN? Keratin makes hair straight by depositing keratin protein into…"* · 28 Apr 2024 | **High** |
 
-Both keratin/nanoplasty ones are reels — take a still frame (screenshot the
-result shot at the end, or save the cover image). A cleaner alternative for
-keratin: [Co83pkFgwcl](https://www.instagram.com/reel/Co83pkFgwcl/) · 21 Feb 2023.
+The nanoplasty one is a reel — take a still frame (screenshot the result shot
+at the end, or save the cover image).
 
 ---
 
@@ -69,7 +67,7 @@ These run in the dark section, so **darker, richer frames work best**.
 | `work-2.jpg` Nanoplasty | [DWak-NqgcnA](https://www.instagram.com/p/DWak-NqgcnA/) | *"You don't need nanoplasty… but babe, why struggle when you can…"* | Medium |
 | `work-3.jpg` Soft balayage | [DYh6pN1jJCL](https://www.instagram.com/p/DYh6pN1jJCL/) | *"Fresher, brighter and so shiny #balayage"* (carousel) | Medium |
 | `work-4.jpg` Correction | [C2duahjIRF3](https://www.instagram.com/reel/C2duahjIRF3/) | *"COLOUR CHANGE — Removing unwanted black box dye…"* | Medium |
-| `work-5.jpg` Keratin | [DZtax0fOgL_](https://www.instagram.com/reel/DZtax0fOgL_/) | *"LUXURY HAIR TRANSFORMATIONS START WITH THIS"* | Medium |
+| `work-5.jpg` Gloss & tone | [DZtax0fOgL_](https://www.instagram.com/reel/DZtax0fOgL_/) | *"LUXURY HAIR TRANSFORMATIONS START WITH THIS"* | Medium |
 | `work-6.jpg` Warm chocolate | [C11j7rEyxw6](https://www.instagram.com/reel/C11j7rEyxw6/) | *"Cherry Brown #nobleachingrequired"* | Medium |
 
 Spares: [DTe9aX3k6Cj](https://www.instagram.com/reel/DTe9aX3k6Cj/) *"THIS COLOUR IS STILL ON"* ·

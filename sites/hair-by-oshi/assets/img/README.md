@@ -22,7 +22,7 @@ and rename per the table.
 
 ---
 
-## The 14 files
+## The 13 files
 
 | Filename | What it needs to be | Crop | Priority |
 |---|---|---|---|
@@ -31,10 +31,9 @@ and rename per the table.
 | `studio.jpg` | The private suite — chair, mirror, the space. Shot with the lights on, wide enough to read as a room. | landscape 5:4, 2000×1600 | ★★★ |
 | `svc-colour.jpg` | A dimensional brunette / gloss result. | portrait 4:5 | ★★☆ |
 | `svc-nanoplasty.jpg` | A nanoplasty finish — the glossy, smooth one. | portrait 4:5 | ★★★ |
-| `svc-keratin.jpg` | A keratin smoothing result. | portrait 4:5 | ★★☆ |
 | `ba-1-before.jpg` | **Before** — frizz/dullness clearly visible. | landscape 16:10 | ★★★ |
 | `ba-1-after.jpg` | **After** — same client, *same angle, same framing, same distance*. The slider only works if the two line up. | landscape 16:10 | ★★★ |
-| `work-1.jpg` … `work-6.jpg` | Six best results for the scrolling gallery. Vary them: gloss, nanoplasty, balayage, correction, keratin, warm tone. | portrait 3:4 | ★★☆ |
+| `work-1.jpg` … `work-6.jpg` | Six best results for the scrolling gallery. Vary them: gloss, nanoplasty, balayage, correction, tone, warm chocolate. | portrait 3:4 | ★★☆ |
 | `og-cover.jpg` | Link-preview card for when the site is shared. Usually the hero, re-cropped. | 1200×630 | ★★☆ |
 
 ### Notes
