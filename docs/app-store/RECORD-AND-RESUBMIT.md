@@ -33,25 +33,66 @@ check Apple's reviewer will do first.
 
 ---
 
-## Part A — before you press record (10 minutes)
+## Part A — getting Kairo onto your iPhone
 
-1. **Delete Kairo from your iPhone** if it is already installed. Press and hold
-   the icon → Remove App → Delete App.
+Kairo is not on the App Store yet — that is the whole point of this exercise —
+so you cannot install it the normal way. It comes through **TestFlight**,
+Apple's free app for testing builds before release.
 
-   This is not optional. The first-launch screens — the "What is your Kairo
-   address?" prompt and the notifications permission dialog — only appear on a
-   fresh install. Apple specifically wants to see them.
+### A1. Make sure you are a tester
 
-2. **Reinstall from TestFlight.** Open TestFlight → Kairo → Install. Check the
-   build number reads **1.0.0 (17)**.
+On a computer, in App Store Connect:
 
-3. **Do not open it yet.** The recording starts from the closed app.
+1. https://appstoreconnect.apple.com → **Apps** → Kairo → **TestFlight** tab
+2. Check build **1.0.0 (17)** is listed and its status is **Ready to Test**.
+   If it says *Processing*, wait — it takes 10–30 minutes after an upload.
+3. Left side → **Internal Testing** → the **App Store Connect Users** group →
+   **+** → tick your own Apple ID → **Add**
 
-4. Turn on **Do Not Disturb** (Control Centre → the crescent moon). A message
-   banner sliding over the top of the recording means filming it again.
+   You are the account holder, so you can add yourself. Internal testers need
+   no Beta App Review and no waiting.
 
-5. Sign out of the demo anywhere else you are signed in (a laptop browser, for
-   example). Not strictly required, just tidier.
+4. You will get an email from TestFlight with a redeem code or an invite link.
+
+### A2. Install it
+
+1. On the iPhone, open the **App Store** and install **TestFlight** (free,
+   made by Apple).
+2. Open TestFlight and sign in with **the same Apple ID** you added as a
+   tester. A different Apple ID will show an empty TestFlight.
+3. Kairo appears in the list. Tap it → **Install**.
+4. Kairo now has its **own icon on your home screen**, like any other app.
+
+### A3. Do a dry run first
+
+Open Kairo from the home screen and walk through every step in Part B once,
+**without recording**. This is worth the five minutes: you learn where the taps
+are, and the recording you keep is the confident one rather than the one where
+you hunt for a menu.
+
+TestFlight may show a one-time beta sheet the first time a build opens. Dismiss
+it. If it reappears in the real recording that is fine — Apple's reviewers see
+TestFlight builds every day and expect it.
+
+### A4. Reset for the real take
+
+1. **Delete Kairo from the phone.** Press and hold the icon → Remove App →
+   Delete App.
+2. **Reinstall it from TestFlight** (it stays in your TestFlight list).
+
+   This is not optional. The two screens Apple specifically asked to see — the
+   "What is your Kairo address?" prompt and the notifications permission
+   dialog — only appear on a fresh install. On a phone that has already run the
+   app you will film neither of them.
+
+3. **Do not open it.** The recording starts from the closed app.
+4. Turn on **Do Not Disturb** (Control Centre → crescent moon). A message
+   banner sliding over the recording means filming it again.
+
+### You record the Kairo app, not TestFlight
+
+TestFlight is only the delivery van. Once Kairo is on the home screen you never
+open TestFlight again — step 1 of the recording is tapping the **Kairo** icon.
 
 ---
 
