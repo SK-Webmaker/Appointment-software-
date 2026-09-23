@@ -25,19 +25,26 @@ Record this order, without cuts:
 2. **First screen** — "What is your Kairo address?" — type `demo`, continue.
 3. **Sign in** — `demo@kairobookings.com` and the password. Let the sign-in be
    visible; this is the flow they say they need.
-4. **Calendar** — scroll the day. Tap an empty slot, book an appointment, save.
-   Show it appear in the diary.
+4. **Calendar** — scroll the week. Tap an empty slot, book an appointment,
+   **Book appointment**. Show it appear in the diary.
 5. **Clients** — open one, show visit history and totals.
-6. **Invoice** — build one from an appointment, record a payment.
-7. **Push permission** — Settings → Notifications, show the prompt appearing
-   *after* sign-in, not on first launch.
-8. **Account deletion** — Settings → Account → **Delete my account**. Show the
-   password and business-name confirmation. **Complete it.** Apple explicitly
-   requires the deletion flow, and they check that it really deletes.
-9. **Sign back in afterwards** to show the account is gone / reset.
+6. **Billing** — **New invoice**, then open it and **Record payment**.
+7. **Push permission** — the "Kairo Would Like to Send You Notifications"
+   prompt, which appears *after* sign-in, not on first launch.
+8. **Account deletion** — **Account** → "Closing your account" → **Close my
+   account**. Show the dialog asking for the password and the business name,
+   then close it **without completing it**.
 
-> Run `npm run reset-demo`, or Settings → Reset to demo data, after recording,
-> so the demo salon is full again when the reviewer opens it.
+> Do **not** complete the deletion. It really works: it takes the booking page
+> down, signs everybody out and marks the salon for deletion in seven days — on
+> the same demo salon the reviewer is about to use. Showing the flow is what
+> 5.1.1(v) asks for, and Apple did not raise 5.1.1 here.
+>
+> Do **not** run `npm run reset-demo` on the shard either — that script is not
+> tenant-scoped and is a local development tool only. The appointment and
+> invoice you create on camera can simply stay in the demo.
+
+Full tap-by-tap version: `docs/app-store/RECORD-AND-RESUBMIT.md`.
 
 Upload the file to Google Drive/Dropbox with link sharing on, and put the link
 in the reply. Apple accepts a link.
@@ -54,9 +61,12 @@ Thank you. Answers to each point below.
 Recorded on a physical iPhone running the current iOS. It begins at app launch
 and shows: entering the salon address, signing in, the calendar, booking an
 appointment into an empty slot, a client record with visit history, building an
-invoice and taking a payment, the push-notification permission prompt, and
-account deletion in full (Settings > Account > Delete my account), which asks
-for the password and the business name typed out.
+invoice and taking a payment, the push-notification permission prompt, and the
+in-app account deletion flow (Account > Close my account), shown as far as its
+confirmation dialog, which asks for the password and the business name typed
+out. We stop at the final button only because completing it takes this same
+demo salon offline for you. Ask us and we will supply a second account to
+delete on camera.
 
 There is no in-app purchase, no paid content and no purchase path in the app,
 so there is nothing of that kind to show. There is no public or shared
@@ -94,18 +104,19 @@ Full working demo credentials are in the App Review Information section.
 On first launch the app asks for the salon's Kairo address. Enter "demo", then
 sign in with the details above. No sample files are needed.
 
-The demo salon is fully populated: two stylists, a service menu, fourteen
+The demo salon is fully populated: three stylists, thirteen services, fourteen
 example clients and a year of appointment history, so every screen has real
-content. Everything in it is invented - no real business's data and no real
-person's information appears anywhere in it.
+content. It is all sample data - no real business's records and no real
+client's details appear anywhere in it.
 
-  Calendar   - a week of appointments across two stylists. Tap an empty slot to
-               book; drag an appointment to move it.
+  Calendar   - a week of appointments across three stylists. Tap an empty slot
+               to book; drag an appointment to move it.
   Clients    - visit history, totals and notes.
-  Invoices   - build one from an appointment and record a payment.
+  Billing    - build an invoice from an appointment and record a payment.
   Settings   - business details, services, team, notifications.
-  Settings > Account > Delete my account - account deletion, in the app, per
-               5.1.1(v). Safe to run on the demo; we restore it.
+  Account    - "Closing your account" > Close my account: account deletion, in
+               the app, per 5.1.1(v), confirmed with the password and the
+               business name typed out.
 
 4. EXTERNAL SERVICES USED
   Hosting and database   Render (servers and per-business databases, Australia)
