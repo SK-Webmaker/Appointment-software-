@@ -41,12 +41,31 @@ export function expiryHours() {
  * invite must never show a client a Pay button that goes nowhere — that is a
  * lost booking and the salon never finds out why.
  */
-export function payRoute({ configured = false } = {}) {
+export function payRoute({ configured = false, inviteLink = '' } = {}) {
   const want = String(getSetting('invite_pay', 'link') || 'link').trim();
-  const link = String(getSetting('pos_payment_link', '') || '').trim();
+  // This invite's own link wins over the salon-wide one. An owner who pasted a
+  // link for THIS quote meant it for this client, not for whatever the till
+  // happens to be set to.
+  const link = String(inviteLink || getSetting('pos_payment_link', '') || '').trim();
   if (want === 'checkout') return configured ? 'checkout' : (link ? 'link' : 'none');
   if (want === 'link') return link ? 'link' : 'none';
   return 'none';
+}
+
+/** The payment link this invite should show: its own, else the salon's. */
+export function linkOn(inv) {
+  return String(inv?.pay_link || getSetting('pos_payment_link', '') || '').trim();
+}
+
+/**
+ * Who turns "I have paid" into a booking, under the `link` route.
+ *
+ * Neither answer can verify the payment; a payment link reports nothing back.
+ * The choice is only about who carries that risk — the client's word, or the
+ * owner's eyes on their own account.
+ */
+export function confirmBy() {
+  return getSetting('invite_confirm', 'auto') === 'owner' ? 'owner' : 'auto';
 }
 
 /** Is the consultation-first flow switched on for this salon? */
@@ -136,7 +155,7 @@ export function byId(id) {
 export function create({
   staffId, serviceIds, date, startMin, endMin, priceCents = 0,
   note = '', clientId = null, clientName = '', clientEmail = '', clientPhone = '',
-  payMode = 'none',
+  payMode = 'none', payLink = '',
 }) {
   const token = newToken();
   const expires = new Date(Date.now() + expiryHours() * 3600000)
@@ -144,12 +163,12 @@ export function create({
   const info = db.prepare(
     `INSERT INTO booking_invites
        (token, client_id, staff_id, service_ids, date, start_min, end_min, price_cents,
-        note, status, client_name, client_email, client_phone, pay_mode, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)`
+        note, status, client_name, client_email, client_phone, pay_mode, pay_link, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`
   ).run(token, clientId || null, staffId, serviceIds.join(','), date, startMin, endMin,
     Math.max(0, Math.round(priceCents)), String(note).slice(0, 1000),
     String(clientName).slice(0, 200), String(clientEmail).slice(0, 200).toLowerCase(),
-    String(clientPhone).slice(0, 50), payMode, expires);
+    String(clientPhone).slice(0, 50), payMode, String(payLink).slice(0, 500), expires);
   return byId(Number(info.lastInsertRowid));
 }
 
@@ -163,6 +182,21 @@ export function claim(id, { name, email, phone }) {
       WHERE id = ? AND status IN ('open', 'claimed')`
   ).run(String(name).slice(0, 200), String(email).slice(0, 200).toLowerCase(),
     String(phone).slice(0, 50), nowSql(), Number(id));
+  return byId(id);
+}
+
+/**
+ * The client opened the payment page.
+ *
+ * Recorded server-side, because it is the gate on "I have paid": a button that
+ * is merely disabled in the browser is not a gate, it is a suggestion. Stamped
+ * once — reopening the link later must not look like a fresh attempt.
+ */
+export function markOpened(id) {
+  db.prepare(
+    `UPDATE booking_invites SET link_opened_at = ?
+      WHERE id = ? AND link_opened_at = '' AND status IN ('open', 'claimed')`
+  ).run(nowSql(), Number(id));
   return byId(id);
 }
 

@@ -12,11 +12,21 @@
 // moves them forward is always the obvious one.
 //
 // Second, under the `link` payment route Kairo genuinely cannot see the money.
-// A Stripe Payment Link or a PayPal.me address reports nothing back. So this
-// page must never say "you're booked" on the strength of somebody tapping "I
-// have paid" — it says the salon is checking, because that is what is true. A
-// client who leaves here believing they have an appointment they do not have
-// is the single worst outcome this page can produce.
+// A Stripe Payment Link or a PayPal.me address reports nothing back. Two
+// things follow, and they are the whole design of the pay screen:
+//
+//   "I have paid" cannot be tapped until they have opened the payment page.
+//   Not as a nicety — the open is recorded server-side and the tick is refused
+//   without it. It does not prove they paid; nothing can. It rules out the
+//   client who lands here, ignores the payment and ticks the box to get their
+//   slot confirmed.
+//
+//   What the page says afterwards depends on who the salon asked to confirm.
+//   Under 'auto' the booking is made and it says so. Under 'owner' the salon
+//   checks its own account first, and the page says the slot is held and NOT
+//   yet booked — because that is what is true, and a client who leaves here
+//   believing they have an appointment they do not have is the single worst
+//   outcome this page can produce.
 import { esc, icon, fmtDate, fmtTime } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 import { lockZoom } from './nozoom.js';
@@ -286,6 +296,7 @@ function renderCheckout(inv) {
  */
 function renderPayLink(inv) {
   const link = inv.pay?.link || '';
+  const opened = Boolean(inv.pay?.opened);
   shell(inv, `
     <h2>Pay to confirm</h2>
     <div class="lede">Two quick steps, ${esc(firstName(inv))}, and your time is locked in.</div>
@@ -293,18 +304,47 @@ function renderPayLink(inv) {
       <small>${esc(inv.services.map((s) => s.name).join(' + '))}</small></div>
     ${detailsHtml(inv)}
     <div class="iv-steps">
-      <div class="iv-step"><span class="iv-num">1</span>
-        <span>Pay using the button below. It opens our payment page in a new tab.</span></div>
-      <div class="iv-step"><span class="iv-num">2</span>
-        <span>Come back here and tell us you've paid, so we know to look for it.</span></div>
+      <div class="iv-step ${opened ? 'done' : ''}"><span class="iv-num">${opened ? '✓' : '1'}</span>
+        <span>Pay using the button below. It opens the payment page in a new tab.</span></div>
+      <div class="iv-step ${opened ? '' : 'later'}"><span class="iv-num">2</span>
+        <span>Come back here and confirm, and your booking is made.</span></div>
     </div>
     <div class="iv-err" id="iv-err"></div>
     <div class="cx-actions">
       <a class="cx-btn brand" id="iv-open" href="${esc(link)}" target="_blank" rel="noopener noreferrer">
         ${icon('dollar', 16)} Pay ${esc(money(inv.price_cents, inv.currency))}</a>
-      <button class="cx-btn quiet" id="iv-paid">I've paid</button>
+      <button class="cx-btn quiet" id="iv-paid" ${opened ? '' : 'disabled'}>
+        ${icon('check', 16)} I've paid — confirm my booking</button>
     </div>
+    ${opened
+    ? ''
+    : '<div class="cx-note" id="iv-gate">Open the payment page first — this unlocks once you have.</div>'}
     ${expiryNote(inv)}`);
+
+  // Tapping Pay is what unlocks the second step, and it is recorded on the
+  // server rather than in this page: a disabled button is a suggestion, not a
+  // gate. The link still opens either way — a failure here must never stand
+  // between somebody and paying the salon.
+  const payBtn = root.querySelector('#iv-open');
+  payBtn?.addEventListener('click', async () => {
+    try {
+      const out = await getJson('/api/public/invite/opened', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      // Unlock in place rather than redrawing: they are mid-tap, and swapping
+      // the page under them would lose the new tab they just opened.
+      const paid = root.querySelector('#iv-paid');
+      if (paid) paid.disabled = false;
+      root.querySelector('#iv-gate')?.remove();
+      root.querySelector('.iv-step')?.classList.add('done');
+      root.querySelector('.iv-step .iv-num')?.replaceChildren('✓');
+      root.querySelectorAll('.iv-step')[1]?.classList.remove('later');
+      inv.pay = { ...inv.pay, opened: true, confirm_by: out.invite?.pay?.confirm_by };
+    } catch { /* the payment page is open; unlocking can wait for a reload */ }
+  });
+
   wire('#iv-paid', '/api/public/invite/declare-paid', {}, (out) => render(out.invite));
 }
 

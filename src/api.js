@@ -511,7 +511,10 @@ export const EDITABLE_SETTINGS = new Set([
   'patch_service_id', 'patch_lead_hours', 'patch_valid_months',
   // Consultation-first booking — see docs/09-consultation-first.md
   'consult_mode', 'consult_channel', 'consult_handle', 'consult_note',
-  'invite_expiry_hours', 'invite_pay',
+  'invite_expiry_hours', 'invite_pay', 'invite_confirm',
+  // What the owner's phone is allowed to interrupt them for.
+  'push_new_booking', 'push_cancellation', 'push_payment_check',
+  'push_daily_summary', 'push_summary_hour',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -2339,6 +2342,9 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
     } catch (err) {
       console.error('waitlist offer failed (cancellation still went through):', err.message);
     }
+    // The owner's phone. Never awaited and never able to throw: the booking is
+    // already cancelled, and Apple being slow must not turn that into an error.
+    pushCancellation(id, { by }).catch(() => {});
   }
   // Whether the client was actually told — counted, not assumed. Asking for a
   // message doesn't create a way to send one: a walk-in with no email or phone
@@ -2953,8 +2959,37 @@ route('GET', '/api/app/config', async ({ user }) => ({
   push: {
     available: pushConfigured(),
     devices: devicesFor(user.id).length,
+    // What this phone will actually be woken for. Sent to the app so a
+    // settings screen there shows the truth rather than its own guess.
+    kinds: {
+      new_booking: getSetting('push_new_booking', '1') === '1',
+      cancellation: getSetting('push_cancellation', '1') === '1',
+      payment_check: getSetting('push_payment_check', '1') === '1',
+      daily_summary: getSetting('push_daily_summary', '0') === '1',
+      summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),
+    },
   },
 }));
+
+/**
+ * Does the owner want to be interrupted for this?
+ *
+ * Every owner push goes through here. Checked per kind rather than one master
+ * switch, because "tell me the moment somebody books" and "tell me every
+ * morning what the day looks like" are different appetites, and an owner who
+ * can only have both or neither picks neither.
+ */
+function wantsPush(kind) {
+  if (!pushConfigured()) return false;
+  const key = {
+    booking: 'push_new_booking',
+    cancellation: 'push_cancellation',
+    payment_check: 'push_payment_check',
+    daily_summary: 'push_daily_summary',
+  }[kind];
+  if (!key) return true; // a test push is always wanted: it was just asked for
+  return getSetting(key, '1') === '1';
+}
 
 /**
  * "Maya just booked Tuesday 2pm." The one push that earns the app its place on
@@ -2965,7 +3000,7 @@ route('GET', '/api/app/config', async ({ user }) => ({
  * leaves one notification on the lock screen rather than three.
  */
 async function pushNewBooking(apptId) {
-  if (!pushConfigured()) return { sent: 0, skipped: 'not configured' };
+  if (!wantsPush('booking')) return { sent: 0, skipped: 'not wanted' };
   // Appointments carry no service name of their own — one booking can bundle
   // several — so it is read the way every other screen reads it.
   const a = db.prepare(
@@ -3004,7 +3039,7 @@ async function pushNewBooking(apptId) {
  * whole flow exists to prevent.
  */
 async function pushInviteAwaitingCheck(inviteId) {
-  if (!pushConfigured()) return { sent: 0, skipped: 'not configured' };
+  if (!wantsPush('payment_check')) return { sent: 0, skipped: 'not wanted' };
   const inv = invites.byId(inviteId);
   if (!inv) return { sent: 0, skipped: 'no invite' };
   const hh = String(Math.floor(inv.start_min / 60)).padStart(2, '0');
@@ -3018,6 +3053,85 @@ async function pushInviteAwaitingCheck(inviteId) {
     collapseId: `invite-${inv.id}`,
     data: { kind: 'invite', invite_id: inv.id, date: inv.date },
   });
+}
+
+/**
+ * "Ruby cancelled Thursday 2pm." The other half of the booking alert.
+ *
+ * Only for a cancellation the OWNER did not make — they know about their own.
+ * A free slot the owner finds out about in the morning is a slot they could
+ * have sold last night, which is the whole reason the app is on their phone.
+ */
+async function pushCancellation(apptId, { by = 'client' } = {}) {
+  if (by === 'owner') return { sent: 0, skipped: 'the owner did it' };
+  if (!wantsPush('cancellation')) return { sent: 0, skipped: 'not wanted' };
+  const a = db.prepare(
+    `SELECT a.id, a.date, a.start_min, c.first_name, c.last_name,
+            (SELECT group_concat(nm, ' + ') FROM (
+               SELECT sv2.name AS nm FROM appointment_services aps
+               JOIN services sv2 ON sv2.id = aps.service_id
+               WHERE aps.appointment_id = a.id ORDER BY aps.sort_order, aps.id
+             )) AS services_summary
+       FROM appointments a LEFT JOIN clients c ON c.id = a.client_id WHERE a.id = ?`
+  ).get(apptId);
+  if (!a) return { sent: 0, skipped: 'no appointment' };
+  const who = `${a.first_name || 'Someone'} ${a.last_name || ''}`.trim();
+  const hh = String(Math.floor(a.start_min / 60)).padStart(2, '0');
+  const mm = String(a.start_min % 60).padStart(2, '0');
+  return pushToOwner({
+    title: 'Cancellation',
+    body: `${who} cancelled ${a.services_summary || 'their appointment'} on ${a.date} at ${hh}:${mm}. The slot is free again.`,
+    threadId: 'bookings',
+    collapseId: `cancel-${a.id}`,
+    data: { kind: 'cancellation', appointment_id: a.id, date: a.date },
+  });
+}
+
+/**
+ * "6 appointments today, first at 9:00." Once each morning, if asked for.
+ *
+ * Off by default and behind its own hour setting, because a notification at
+ * seven in the morning is a decision an owner makes, never one Kairo makes for
+ * them. Silent on a day with nothing in it: "0 appointments today" is a push
+ * that teaches people to swipe the app away.
+ */
+async function pushDailySummary() {
+  if (!wantsPush('daily_summary')) return { sent: 0, skipped: 'not wanted' };
+  const today = bizToday();
+  const rows = db.prepare(
+    `SELECT a.start_min FROM appointments a
+      WHERE a.date = ? AND a.status NOT IN ('cancelled', 'no_show')
+      ORDER BY a.start_min`
+  ).all(today);
+  if (!rows.length) return { sent: 0, skipped: 'nothing on today' };
+  const first = rows[0].start_min;
+  const hh = String(Math.floor(first / 60)).padStart(2, '0');
+  const mm = String(first % 60).padStart(2, '0');
+  return pushToOwner({
+    title: 'Today',
+    body: rows.length === 1
+      ? `One appointment today, at ${hh}:${mm}.`
+      : `${rows.length} appointments today. First at ${hh}:${mm}.`,
+    threadId: 'summary',
+    collapseId: `summary-${today}`,
+    data: { kind: 'daily_summary', date: today },
+  });
+}
+
+/**
+ * Fire the morning summary at most once a day, at the hour the owner chose.
+ *
+ * Called from the minute tick. The guard is a stored date rather than a timer,
+ * so a restart at 7:01 does not either repeat it or skip it for the day.
+ */
+export async function maybeDailySummary() {
+  if (getSetting('push_daily_summary', '0') !== '1') return { sent: 0, skipped: 'off' };
+  const want = clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7);
+  const { date: today, min: nowMin } = bizNow();
+  if (Math.floor(nowMin / 60) < want) return { sent: 0, skipped: 'too early' };
+  if (getSetting('push_summary_sent_on', '') === today) return { sent: 0, skipped: 'already today' };
+  setSetting('push_summary_sent_on', today);
+  return pushDailySummary();
 }
 
 /** The branding every public page draws itself with. One shape, one place. */
@@ -5822,7 +5936,8 @@ function ownerInvite(inv) {
     services: ids.map((id) => services.find((x) => x.id === id)).filter(Boolean),
     staff_name: staff?.name || '', staff_id: inv.staff_id,
     client_name: inv.client_name, client_email: inv.client_email, client_phone: inv.client_phone,
-    pay_mode: inv.pay_mode, appointment_id: inv.appointment_id,
+    pay_mode: inv.pay_mode, pay_link: inv.pay_link, appointment_id: inv.appointment_id,
+    link_opened_at: inv.link_opened_at,
     created_at: inv.created_at, expires_at: inv.expires_at,
     claimed_at: inv.claimed_at, paid_at: inv.paid_at, confirmed_at: inv.confirmed_at,
     url: invites.linkFor(inv.token, publicUrl()),
@@ -5890,6 +6005,7 @@ route('POST', '/api/invites', async ({ req }) => {
     client_id: s.num(),
     client_name: s.str(200), client_email: s.str(200), client_phone: s.str(50),
     price_cents: s.num({ min: 0, max: 100000000 }),
+    pay_link: s.str(500),
   });
   const svc = resolveServices(b, { required: true });
   const minutes = svc.totalDuration;
@@ -5934,11 +6050,20 @@ route('POST', '/api/invites', async ({ req }) => {
   const price = b.price_cents === undefined || b.price_cents === null
     ? total : Math.max(0, Math.round(Number(b.price_cents) || 0));
 
+  // A payment link for THIS quote. Only http(s) is accepted: anything else in
+  // a field that becomes a button on a stranger's phone is a way to hand a
+  // client a javascript: or data: URL under the salon's name.
+  const payLink = str(b.pay_link, 500);
+  if (payLink && !/^https:\/\/[^\s]+$/i.test(payLink)) {
+    throw httpError(400, 'A payment link must be a full https:// web address');
+  }
+
   const inv = invites.create({
     staffId, serviceIds: svc.ids, date: b.date, startMin: start, endMin: start + minutes,
     priceCents: price, note: str(b.note, 1000), clientId: clientId || null,
     clientName: name, clientEmail: email, clientPhone: phone,
-    payMode: invites.payRoute({ configured: paymentsConfigured() }),
+    payLink,
+    payMode: invites.payRoute({ configured: paymentsConfigured(), inviteLink: payLink }),
   });
   return { invite: ownerInvite(inv) };
 });
@@ -6088,10 +6213,15 @@ function publicInvite(inv) {
     expires_at: inv.expires_at,
     pay: {
       route,
-      // The salon's own link, sent only when that is genuinely the route —
-      // there is no reason for it to travel with an invite that is not using it.
-      link: route === 'link' ? getSetting('pos_payment_link', '') : '',
+      // This invite's own link, else the salon's. Sent only when that is
+      // genuinely the route — there is no reason for it to travel with an
+      // invite that is not using it.
+      link: route === 'link' ? invites.linkOn(inv) : '',
       label: route === 'checkout' ? paymentInfo().label : '',
+      // The gate on "I have paid". False until they have actually opened the
+      // payment page, so the button cannot be tapped by somebody who never went.
+      opened: Boolean(inv.link_opened_at),
+      confirm_by: invites.confirmBy(),
     },
     business: {
       name: getSetting('business_name', ''),
@@ -6199,6 +6329,27 @@ route('POST', '/api/public/invite/paid', async ({ req }) => {
 }, { auth: false });
 
 /**
+ * They tapped the Pay button.
+ *
+ * Its own call rather than trusting the page, because this is the gate on
+ * "I have paid": a button disabled in the browser is a suggestion, not a rule.
+ * Somebody who never opened the payment page cannot say they paid through it.
+ *
+ * It proves they went, not that they paid — nothing can prove the second under
+ * a payment link. But it rules out the tap-through: a client who lands on the
+ * page, ignores the payment and ticks the box to get their slot confirmed.
+ */
+route('POST', '/api/public/invite/opened', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(128, { required: true }) });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
+  const updated = invites.markOpened(inv.id);
+  return { invite: publicInvite(updated), link: invites.linkOn(updated) };
+}, { auth: false });
+
+/**
  * "I have paid" — the `link` route, where Kairo genuinely cannot know.
  *
  * A Stripe Payment Link or a PayPal.me address reports nothing back: no
@@ -6215,10 +6366,25 @@ route('POST', '/api/public/invite/declare-paid', async ({ req }) => {
   if (inv.status === 'confirmed') return { invite: publicInvite(inv), booked: true };
   if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
   if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
-  if (invites.payRoute({ configured: paymentsConfigured() }) === 'checkout') {
+  if (invites.payRoute({ configured: paymentsConfigured(), inviteLink: inv.pay_link }) === 'checkout') {
     throw httpError(409, 'Please pay through the card form on this page');
   }
+  // The gate. Enforced here and not only in the page, because the page is the
+  // one part of this a client can edit.
+  if (!inv.link_opened_at) {
+    throw httpError(409, 'Please open the payment link first, then come back and confirm');
+  }
   invites.markPaid(inv.id, { ref: '', provider: 'manual' });
+
+  // Who turns this into a booking. Under 'auto' the client's word is enough
+  // once they have been through the payment page, and their confirmation goes
+  // out immediately — which is what most salons want and what makes the link
+  // feel like a booking rather than a form. Under 'owner' the salon looks at
+  // its own account first. Neither can verify the payment.
+  if (invites.confirmBy() === 'auto') {
+    const out = await confirmInvite(invites.byId(inv.id), { by: 'client' });
+    return { ...out, booked: true, invite: publicInvite(invites.byId(inv.id)) };
+  }
   // Straight to the owner's phone. This is the step that needs a human, and an
   // owner who does not find out has left a client waiting on a confirmation
   // that is never coming.

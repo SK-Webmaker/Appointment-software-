@@ -177,12 +177,16 @@ test('a claim with no way to reach them is refused', async () => {
 // ── Payment: the honest "I have paid" route ─────────────────────────────────
 
 test('under a plain payment link, saying "I have paid" does NOT book it', async () => {
+  // The 'owner' setting: the salon looks at its own account before anything is
+  // booked. Kairo cannot see a payment-link payment and must not pretend to.
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'owner' } });
   const date = nextDate();
-  const { r } = await sendInvite(date);
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/nina' });
   const { token, id } = r.json.invite;
   await k.api('POST', '/api/public/invite/claim', {
     body: { token, name: 'Nina Poole', phone: '0400222333' },
   });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
   const said = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
   assert.equal(said.status, 200, said.text);
   assert.equal(said.json.awaiting, true, 'the page must say it is waiting, not that it is booked');
@@ -202,6 +206,7 @@ test('under a plain payment link, saying "I have paid" does NOT book it', async 
   assert.ok(made, 'confirming creates the appointment');
   assert.equal(made.client_name, 'Nina Poole');
   assert.equal(made.start_min, r.json.invite.start_min);
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'auto' } });
 });
 
 test('the confirmed booking gets the same messages as any other', async () => {
@@ -211,8 +216,11 @@ test('the confirmed booking gets the same messages as any other', async () => {
   await k.api('POST', '/api/public/invite/claim', {
     body: { token, name: 'Dana List', email: 'dana.list@example.net' },
   });
-  await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
-  const ok = await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const paid = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(paid.status, 200, paid.text);
+  // Auto-confirm books it on the tick; the id comes back from that call.
+  const ok = paid.json.booked ? paid : await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
   assert.equal(ok.status, 200);
   const d = k.db();
   const kinds = d.prepare('SELECT kind FROM messages WHERE appointment_id = ? ORDER BY kind')
@@ -236,6 +244,7 @@ test('confirming twice books once', async () => {
   const { r } = await sendInvite(date);
   const { token, id } = r.json.invite;
   await k.api('POST', '/api/public/invite/claim', { body: { token, name: 'Twice Over', phone: '0400999888' } });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
   await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
   const first = await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
   assert.equal(first.status, 200);
@@ -413,16 +422,21 @@ test('an expired link releases its slot and stops working', async () => {
 });
 
 test('an expired link cannot be confirmed into a booking by the owner either', async () => {
+  // Under 'owner', so the invite is still sitting at 'paid' when it lapses —
+  // which is exactly the state this is about.
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'owner' } });
   const date = nextDate();
   const { r } = await sendInvite(date);
   const { id, token } = r.json.invite;
   await k.api('POST', '/api/public/invite/claim', { body: { token, name: 'Lapsed Lee', phone: '0400555444' } });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
   await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
   const d = k.db();
   d.prepare("UPDATE booking_invites SET expires_at = '2020-01-01 00:00:00' WHERE id = ?").run(id);
   d.close();
   const late = await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
   assert.equal(late.status, 409, 'the slot is back on sale — booking it now could double-book somebody');
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'auto' } });
 });
 
 test('the setup checklist stops asking for a test booking that cannot be made', async () => {
@@ -489,13 +503,15 @@ test('a link composed against an existing client does not leak their details', a
 
 test('a confirmed payment lands on the booking and then on the invoice', async () => {
   const date = nextDate();
-  const { r } = await sendInvite(date, { price_cents: 14500 });
+  const { r } = await sendInvite(date, { price_cents: 14500, pay_link: 'https://buy.stripe.com/upfront' });
   const { token, id } = r.json.invite;
   await k.api('POST', '/api/public/invite/claim', {
     body: { token, name: 'Paid Upfront', email: 'paid.upfront@example.net' },
   });
-  await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
-  const ok = await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const paid = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(paid.status, 200, paid.text);
+  const ok = paid.json.booked ? paid : await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
   assert.equal(ok.status, 200, ok.text);
 
   const d = k.db();
@@ -512,8 +528,161 @@ test('a confirmed payment lands on the booking and then on the invoice', async (
     cookie, body: { appointment_id: ok.json.appointment_id },
   });
   assert.equal(invoice.status, 200, invoice.text);
-  const paid = (invoice.json.payments || []).reduce((sum, p) => sum + p.amount_cents, 0);
-  assert.equal(paid, 14500, 'the money already taken shows as a payment on the invoice');
+  const onInvoice = (invoice.json.payments || []).reduce((sum, p) => sum + p.amount_cents, 0);
+  assert.equal(onInvoice, 14500, 'the money already taken shows as a payment on the invoice');
   assert.match((invoice.json.payments || [])[0].note, /booking link/i,
     'and says where it came from, rather than claiming Stripe confirmed it');
+});
+
+// ── The payment link, and the gate in front of "I have paid" ────────────────
+//
+// The owner pastes a payment link for the price they quoted. The client must
+// actually open it before they can say they paid. That does not prove payment
+// — nothing can, under a payment link — but it rules out the tap-through: the
+// client who lands on the page, never goes near the payment, and ticks the box
+// to get their slot confirmed.
+
+test('an invite carries its own payment link, which beats the salon-wide one', async () => {
+  const date = nextDate();
+  await k.api('PUT', '/api/settings', { cookie, body: { pos_payment_link: 'https://buy.stripe.com/house' } });
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/this-one-quote' });
+  assert.equal(r.status, 200, r.text);
+  const pub = await k.api('GET', `/api/public/invite?token=${encodeURIComponent(r.json.invite.token)}`);
+  assert.equal(pub.json.invite.pay.route, 'link');
+  assert.equal(pub.json.invite.pay.link, 'https://buy.stripe.com/this-one-quote',
+    'a link pasted for this quote is the one the client sees');
+});
+
+test('an invite with no link of its own falls back to the salon-wide one', async () => {
+  const date = nextDate();
+  const { r } = await sendInvite(date);
+  const pub = await k.api('GET', `/api/public/invite?token=${encodeURIComponent(r.json.invite.token)}`);
+  assert.equal(pub.json.invite.pay.link, 'https://buy.stripe.com/house');
+});
+
+test('a payment link that is not an https address is refused', async () => {
+  const date = nextDate();
+  const av = await k.api('GET', `/api/invites/slots?date=${date}&staff_id=1&service_ids=9`, { cookie });
+  for (const bad of ['javascript:alert(1)', 'data:text/html,<script>', 'http://insecure.example/pay', 'not a url']) {
+    const res = await k.api('POST', '/api/invites', {
+      cookie,
+      body: {
+        staff_id: 1, service_ids: [9], date, start_min: av.json.slots[0].start_min, pay_link: bad,
+      },
+    });
+    assert.equal(res.status, 400, `"${bad}" must not become a button on a client's phone`);
+  }
+});
+
+test('"I have paid" is refused until the payment page has actually been opened', async () => {
+  const date = nextDate();
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/gate-test' });
+  const { token } = r.json.invite;
+  await k.api('POST', '/api/public/invite/claim', {
+    body: { token, name: 'Tap Through', email: 'tap.through@example.net' },
+  });
+
+  const pub = await k.api('GET', `/api/public/invite?token=${encodeURIComponent(token)}`);
+  assert.equal(pub.json.invite.pay.opened, false, 'the page knows to keep the button locked');
+
+  const early = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(early.status, 409, 'a disabled button is a suggestion; this is the gate');
+  assert.match(early.json.error, /open the payment link first/i);
+
+  // Open it, as tapping Pay does.
+  const opened = await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  assert.equal(opened.status, 200, opened.text);
+  assert.equal(opened.json.invite.pay.opened, true);
+  assert.equal(opened.json.link, 'https://buy.stripe.com/gate-test');
+
+  const now = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(now.status, 200, now.text);
+});
+
+test('the open is recorded once, and only for a live claimed invite', async () => {
+  const date = nextDate();
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/once' });
+  const { token, id } = r.json.invite;
+
+  const beforeClaim = await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  assert.equal(beforeClaim.status, 409, 'nobody has said who they are yet');
+
+  await k.api('POST', '/api/public/invite/claim', { body: { token, name: 'Once Only', phone: '0400321321' } });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const d = k.db();
+  const first = d.prepare('SELECT link_opened_at FROM booking_invites WHERE id = ?').get(id).link_opened_at;
+  d.close();
+  assert.ok(first, 'stamped');
+
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const d2 = k.db();
+  const second = d2.prepare('SELECT link_opened_at FROM booking_invites WHERE id = ?').get(id).link_opened_at;
+  d2.close();
+  assert.equal(second, first, 'reopening the link is not a fresh attempt');
+});
+
+// ── Who confirms ────────────────────────────────────────────────────────────
+
+test('under auto, saying "I have paid" books it and sends the confirmation', async () => {
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'auto' } });
+  const date = nextDate();
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/auto' });
+  const { token } = r.json.invite;
+  await k.api('POST', '/api/public/invite/claim', {
+    body: { token, name: 'Auto Booked', email: 'auto.booked@example.net' },
+  });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const paid = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(paid.status, 200, paid.text);
+  assert.equal(paid.json.booked, true, 'the client is told they are booked, because they are');
+  assert.match(paid.json.reference, /^BK-\d{5}$/);
+  assert.equal(paid.json.invite.status, 'confirmed');
+
+  const d = k.db();
+  const kinds = d.prepare('SELECT kind FROM messages WHERE appointment_id = ? ORDER BY kind')
+    .all(paid.json.appointment_id).map((m) => m.kind);
+  d.close();
+  assert.ok(kinds.includes('confirmation'), 'their confirmation goes out on the tick');
+  assert.ok(kinds.includes('reminder'));
+});
+
+test('under owner, the same tap holds the slot and books nothing', async () => {
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'owner' } });
+  const date = nextDate();
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/manual' });
+  const { token, id } = r.json.invite;
+  await k.api('POST', '/api/public/invite/claim', {
+    body: { token, name: 'Owner Checks', email: 'owner.checks@example.net' },
+  });
+  await k.api('POST', '/api/public/invite/opened', { body: { token } });
+  const paid = await k.api('POST', '/api/public/invite/declare-paid', { body: { token } });
+  assert.equal(paid.status, 200, paid.text);
+  assert.equal(paid.json.awaiting, true);
+  assert.notEqual(paid.json.booked, true, 'nothing is booked on the client\'s word here');
+  assert.equal(paid.json.invite.status, 'paid');
+
+  const ok = await k.api('POST', `/api/invites/${id}/confirm`, { cookie });
+  assert.equal(ok.status, 200, ok.text);
+  await k.api('PUT', '/api/settings', { cookie, body: { invite_confirm: 'auto' } });
+});
+
+test('a per-invite link works even when the salon has no default link at all', async () => {
+  // A salon that only ever makes a link per quote. Without this, payRoute sees
+  // an empty pos_payment_link, demotes the route to 'none', and the client is
+  // shown a confirm button with no payment step — the booking is made and the
+  // salon is never paid.
+  await k.api('PUT', '/api/settings', { cookie, body: { pos_payment_link: '' } });
+  const date = nextDate();
+  const { r } = await sendInvite(date, { pay_link: 'https://buy.stripe.com/per-quote-only' });
+  assert.equal(r.status, 200, r.text);
+  const pub = await k.api('GET', `/api/public/invite?token=${encodeURIComponent(r.json.invite.token)}`);
+  assert.equal(pub.json.invite.pay.route, 'link',
+    'the link pasted on this invite is a payment step, with or without a house link');
+  assert.equal(pub.json.invite.pay.link, 'https://buy.stripe.com/per-quote-only');
+
+  // And the gate still applies to it.
+  const { token } = r.json.invite;
+  await k.api('POST', '/api/public/invite/claim', { body: { token, name: 'Per Quote', phone: '0400112233' } });
+  assert.equal((await k.api('POST', '/api/public/invite/declare-paid', { body: { token } })).status, 409);
+  await k.api('PUT', '/api/settings', { cookie, body: { pos_payment_link: 'https://buy.stripe.com/house' } });
 });

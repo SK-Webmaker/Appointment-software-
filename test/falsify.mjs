@@ -85,6 +85,41 @@ const MUTATIONS = {
     find: "  if (inv.status === 'paid' && inv.price_cents > 0) {",
     replace: "  if (false) {",
   },
+  'paid-tick-without-opening-the-link': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (!inv.link_opened_at) {\n    throw httpError(409, 'Please open the payment link first, then come back and confirm');\n  }",
+    replace: '',
+  },
+  'invite-link-ignored-for-the-salon-wide-one': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "  const link = String(inviteLink || getSetting('pos_payment_link', '') || '').trim();",
+    replace: "  const link = String(getSetting('pos_payment_link', '') || '').trim();",
+  },
+  'any-url-becomes-a-pay-button': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (payLink && !/^https:\\/\\/[^\\s]+$/i.test(payLink)) {",
+    replace: '  if (false) {',
+  },
+  'public-page-shows-the-wrong-payment-link': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "  return String(inv?.pay_link || getSetting('pos_payment_link', '') || '').trim();",
+    replace: "  return String(getSetting('pos_payment_link', '') || '').trim();",
+  },
+  'push-preferences-ignored': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "  return getSetting(key, '1') === '1';",
+    replace: '  return true;',
+  },
+  'app-told-the-wrong-notification-settings': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "      daily_summary: getSetting('push_daily_summary', '0') === '1',",
+    replace: '      daily_summary: true,',
+  },
+  'summary-hour-not-clamped': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "      summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),",
+    replace: "      summary_hour: Number(getSetting('push_summary_hour', '7')),",
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

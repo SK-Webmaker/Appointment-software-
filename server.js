@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
 import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN, getTenant, tenantFault, tenantFaults, slugForHost } from './src/tenant.js';
 import { sendJson } from './src/util.js';
-import { handleApi } from './src/api.js';
+import { handleApi, maybeDailySummary } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
@@ -57,6 +57,13 @@ startScheduler({
       chaseReviews();
     } catch (err) {
       console.error('review chase:', err.message);
+    }
+    // "6 appointments today." Off unless the owner asked for it, guarded to
+    // once a day by a stored date, and silent on an empty day.
+    try {
+      await maybeDailySummary();
+    } catch (err) {
+      console.error('daily summary push:', err.message);
     }
   },
 });

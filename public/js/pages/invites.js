@@ -20,6 +20,14 @@ const STATUS = {
   paid: ['Says paid', 'act', 'Check the money arrived, then confirm'],
 };
 
+/** Extra line for the one thing the owner cannot see from the status alone. */
+function progressHint(inv) {
+  if (inv.status === 'claimed' && inv.pay_link !== undefined) {
+    return inv.link_opened_at ? 'They have opened the payment page' : 'They have not opened the payment page yet';
+  }
+  return '';
+}
+
 function statusPill(inv) {
   const [label, tone] = STATUS[inv.status] || [inv.status, 'wait'];
   return `<span class="inv-pill ${tone}">${esc(label)}</span>`;
@@ -39,7 +47,7 @@ function heldFor(expiresAt) {
 function rowHtml(inv) {
   const who = inv.client_name || 'Not opened yet';
   const svc = inv.services.map((s) => s.name).join(' + ');
-  const hint = (STATUS[inv.status] || [])[2] || '';
+  const hint = progressHint(inv) || (STATUS[inv.status] || [])[2] || '';
   return `
     <div class="inv-row" data-id="${inv.id}">
       <div class="inv-main">
@@ -136,6 +144,15 @@ export async function openInvites() {
         <div class="field"><label>Note for them</label>
           <input name="note" maxlength="300" placeholder="Balayage + toner, as discussed">
           <div class="hint">Shown on their page, so they know it's the right booking.</div></div>
+        <div class="field"><label>Payment link for this booking</label>
+          <input name="pay_link" maxlength="500" inputmode="url"
+            placeholder="${esc(data.payment_link || 'https://buy.stripe.com/…')}">
+          <div class="hint">${data.payment_link
+    ? `Leave blank to use your usual link (<span class="inv-mono">${esc(data.payment_link)}</span>).
+       Paste a different one here when you've made a link for this exact price.`
+    : `Paste a Stripe, Square or PayPal link for this amount. Without one there is no payment
+       step and they simply confirm the time.`}
+            <br>They must open this link before they can confirm they've paid.</div></div>
         <div class="login-error" id="inv-err"></div>
         <button class="btn primary" type="submit">${icon('send', 14)} Create link</button>
       </form>`,
@@ -189,6 +206,7 @@ export async function openInvites() {
         start_min: Number(fd.get('start_min')),
         note: String(fd.get('note') || ''),
         client_name: String(fd.get('client_name') || ''),
+        pay_link: String(fd.get('pay_link') || '').trim(),
         ...(priceCents === undefined || Number.isNaN(priceCents) ? {} : { price_cents: priceCents }),
       });
       m.close();

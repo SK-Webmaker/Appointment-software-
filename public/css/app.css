@@ -3161,3 +3161,51 @@ a:focus-visible,
   .inv-when { grid-template-columns: 1fr; }
   .inv-acts { width: 100%; }
 }
+
+/* The two steps on the payment-link screen. Step two is visibly waiting on
+   step one, so it is obvious the button is disabled on purpose rather than
+   broken — an unexplained dead button is read as a bug and the client leaves. */
+.iv-step.later { opacity: 0.55; }
+.iv-step.done .iv-num {
+  background: color-mix(in srgb, var(--green, #34d399) 22%, transparent);
+  color: var(--green, #34d399);
+}
+.cx-btn:disabled { opacity: 0.5; cursor: default; }
+.inv-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-all; }
+
+/* ── Guided ClickSend setup ────────────────────────────────────────────────
+   Four steps that each prove themselves. A step goes green only when its own
+   check came back from ClickSend, never because the owner clicked past it. */
+.ss-lede { color: var(--text-2); font-size: 14px; line-height: 1.65; margin-bottom: 20px; }
+.ss-step { border: 1px solid var(--border); border-radius: 13px; padding: 16px 18px; margin-bottom: 12px; }
+.ss-step.done { border-color: color-mix(in srgb, var(--green, #34d399) 45%, var(--border)); }
+.ss-head { display: flex; align-items: center; gap: 11px; }
+.ss-head h3 { font-size: 14.5px; font-weight: 650; margin: 0; }
+.ss-num {
+  flex: 0 0 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--panel-3); color: var(--text); font-size: 12px; font-weight: 700;
+}
+.ss-step.done .ss-num {
+  background: color-mix(in srgb, var(--green, #34d399) 20%, transparent); color: var(--green, #34d399);
+}
+.ss-body { margin: 12px 0 0 35px; font-size: 13.5px; line-height: 1.65; color: var(--text-2); }
+.ss-body p { margin: 0 0 12px; }
+.ss-body b { color: var(--text); }
+.ss-form { display: flex; flex-direction: column; gap: 11px; margin: 14px 0 10px; }
+.ss-err { color: var(--red, #f87171); font-size: 13px; line-height: 1.5; }
+.ss-ok {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  color: var(--green, #34d399); font-size: 13.5px; font-weight: 600;
+}
+.ss-ok b { color: var(--text); }
+.ss-note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+.ss-launch { align-self: flex-start; }
+/* The raw fields stay, folded away: useful to somebody who already knows what
+   they are pasting, noise to everybody else. */
+.ss-manual { margin: 4px 0 6px; }
+.ss-manual > summary {
+  cursor: pointer; font-size: 13px; color: var(--text-2); padding: 7px 0; list-style: revert;
+}
+.ss-manual > summary:hover { color: var(--text); }
+.ss-manual[open] > summary { margin-bottom: 10px; }
+@media (max-width: 520px) { .ss-body { margin-left: 0; } }
