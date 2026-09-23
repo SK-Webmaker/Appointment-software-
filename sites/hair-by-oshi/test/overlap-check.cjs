@@ -9,7 +9,7 @@
  *
  * Exclusions are deliberate, not convenience: overlays that are meant to
  * sit above the page, collapsed <details> whose hidden children all report
- * the same rect, and a before/after comparison, which stacks its two
+ * the same rect, and any comparison widget, which stacks its two
  * images by design.
  *
  *   node test/overlap-check.js                 # this build
@@ -29,7 +29,7 @@ const detect = () => {
   // Leaf-ish blocks that should never sit on top of one another.
   const SEL = 'p,h1,h2,h3,h4,li,figcaption,blockquote,label,summary,button,a,' +
               '.image-slot,.image-placeholder,.slot,.svc__media,.oshi__portrait,' +
-              '.studio__media,.work__card,.hero__frame,.ba__stage,.proof__item,.step,.val';
+              '.studio__media,.work__card,.hero__frame,.proof__item,.step,.val';
   const nodes = Array.from(document.querySelectorAll(SEL)).filter(e => {
     const cs = getComputedStyle(e);
     if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.05) return false;
@@ -71,8 +71,8 @@ const detect = () => {
       const a = nodes[i], b = nodes[j];
       if (!visible[i] || !visible[j]) continue;
       if (a.contains(b) || b.contains(a)) continue;
-      // a before/after comparison stacks its two images by design
-      const cmp = '.ba__stage, .comparison, .compare-image, .compare-before';
+      // a comparison widget stacks its two images by design
+      const cmp = '.comparison, .compare-image, .compare-before';
       if (a.closest(cmp) && b.closest(cmp)) continue;
       const A = rs[i], B = rs[j];
       const ox = Math.min(A.r, B.r) - Math.max(A.l, B.l);

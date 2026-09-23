@@ -374,38 +374,6 @@ button{font:inherit;color:inherit}
 }
 
 /* ============================================================
-   BEFORE / AFTER
-   ============================================================ */
-.ba{padding:clamp(54px,8.5vw,108px) 0}
-.ba__stage{position:relative;max-width:1060px;margin-inline:var(--pad);aspect-ratio:3/4;
-  overflow:hidden;border-radius:var(--r);background:var(--linen);
-  user-select:none;touch-action:pan-y;cursor:ew-resize;
-  border:1px solid var(--line)}
-.ba__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.ba__clip{position:absolute;inset:0;width:50%;overflow:hidden;will-change:width}
-.ba__clip .ba__img{width:auto;min-width:100vw;max-width:none}
-.ba__handle{position:absolute;top:0;bottom:0;left:50%;width:56px;background:none;
-  z-index:3;transform:translateX(-28px);will-change:left;
-  display:flex;align-items:center;justify-content:center;touch-action:none}
-/* the bar stays 3px to the eye; the catchable area is the 56px around it */
-.ba__handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;
-  width:3px;transform:translateX(-1.5px);background:var(--shell)}
-.ba__handle i{position:absolute;width:56px;height:56px;border-radius:50%;background:var(--shell);
-  box-shadow:0 2px 8px rgba(43,30,23,.28)}
-.ba__handle span{position:relative;z-index:2;color:var(--ink);font-size:14px}
-.ba__tag{position:absolute;bottom:16px;z-index:4;font-size:10px;font-weight:600;
-  letter-spacing:.2em;text-transform:uppercase;padding:8px 14px;border-radius:100px;
-  background:rgba(250,247,243,.94)}
-/* the two labels sit in opposite corners — an earlier cleanup removed
-   these, leaving both stacked on the left */
-.ba__tag--l{left:14px}
-.ba__tag--r{right:14px}
-/* On a phone a tall crop suits a head-and-shoulders shot. On a desktop
-   the same ratio made the slider 1413px tall — taller than the viewport,
-   so you could never see the before and the after at once. */
-@media(min-width:880px){.ba__stage{aspect-ratio:16/10;margin-inline:auto}}
-
-/* ============================================================
    WORK
    ============================================================ */
 .work{padding:clamp(54px,8.5vw,108px) 0}
@@ -674,8 +642,6 @@ button{font:inherit;color:inherit}
 
 
 .work__card .slot{aspect-ratio:3/4}
-.ba__stage .slot{position:absolute;inset:0;border-radius:0}
-.ba__stage .ba__clip .slot{background:var(--sand)}
 
 /* ============================================================
    REDUCED MOTION
@@ -762,9 +728,8 @@ button{font:inherit;color:inherit}
 .mcta button{border-radius:2px}
 .modal__panel{border-radius:0}
 @media(min-width:680px){.modal__panel{border-radius:2px}}
-.hero__chip,.oshi__nameplate,.ba__tag{border-radius:2px;background:var(--shell);
+.hero__chip,.oshi__nameplate{border-radius:2px;background:var(--shell);
   border:1px solid var(--line)}
-.ba__handle i{border-radius:50%}
 .chip{border-radius:2px}
 .cform input,.cform select,.cform textarea,
 .cform,.cform__done{border-radius:2px}
@@ -815,8 +780,7 @@ button{font:inherit;color:inherit}
 .work .slot__file{color:var(--on-dark-mute)}
 
 /* tighter inside the narrow ones */
-.work__card .slot,.ba__stage .slot{gap:7px;padding:20px 16px}
-.ba__clip .slot{background:var(--linen)}
+.work__card .slot{gap:7px;padding:20px 16px}
 
 /* ============================================================
    BOOKING PANEL — the two ways in: a DM, or a free consult
@@ -991,8 +955,6 @@ button{font:inherit;color:inherit}
    catchable with a thumb. Widen the touch zone without widening
    the line the eye sees.                                        */
 @media(pointer:coarse){
-  .ba__handle{width:72px;transform:translateX(-36px)}
-  .ba__handle i{width:60px;height:60px}
 }
 
 

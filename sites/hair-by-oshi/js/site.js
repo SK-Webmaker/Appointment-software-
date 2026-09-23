@@ -66,13 +66,13 @@
       requestAnimationFrame(run);
     })();
     document.addEventListener('mouseover', function (e) {
-      var n = e.target.closest('a,button,summary,[data-cursor],.ba__stage,input,select,textarea');
+      var n = e.target.closest('a,button,summary,[data-cursor],input,select,textarea');
       if (!n) return;
       el.classList.add('is-big');
       if (label) label.textContent = n.getAttribute('data-cursor') || '';
     });
     document.addEventListener('mouseout', function (e) {
-      if (e.target.closest('a,button,summary,[data-cursor],.ba__stage,input,select,textarea')) {
+      if (e.target.closest('a,button,summary,[data-cursor],input,select,textarea')) {
         el.classList.remove('is-big');
         if (label) label.textContent = '';
       }
@@ -150,7 +150,7 @@
   (function choreograph() {
     /* first match wins; order matters */
     var RULES = [
-      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .consult__formwrap'],
+      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .consult__formwrap'],
       ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
       ['rise', '.eyebrow, .h2, .lede, .hero__title, .hero__sub, .hero__actions, .hero__note, .svc__num, .svc__body h3, .svc__tag, .svc__copy, .svc__note, .link-btn, .oshi__body p, .pull, .oshi__sig, .studio__actions, .consult__copy p, .book__title, .book__sub, .book__actions, .book__days, .foot__mark, .foot__tag, .oshi__head .h2, .steps__note']
     ];
@@ -539,49 +539,6 @@
         e.preventDefault();
       }
     });
-  })();
-
-  /* ---------- 8. before / after ---------- */
-  (function beforeAfter() {
-    var stage = $('#baStage'), clip = $('#baClip'), handle = $('#baHandle');
-    if (!stage || !clip || !handle) return;
-    var pct = 50, dragging = false;
-    function apply(p) {
-      pct = clamp(p, 2, 98);
-      clip.style.width = pct + '%';
-      handle.style.left = pct + '%';
-      handle.setAttribute('aria-valuenow', Math.round(pct));
-    }
-    function fromX(x) { var r = stage.getBoundingClientRect(); apply(((x - r.left) / r.width) * 100); }
-    stage.addEventListener('pointerdown', function (e) {
-      dragging = true; stage.setPointerCapture(e.pointerId); fromX(e.clientX);
-    });
-    stage.addEventListener('pointermove', function (e) { if (dragging) fromX(e.clientX); });
-    ['pointerup', 'pointercancel'].forEach(function (ev) {
-      stage.addEventListener(ev, function () { dragging = false; });
-    });
-    stage.addEventListener('mousemove', function (e) { if (!dragging) fromX(e.clientX); });
-    handle.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft')  { apply(pct - 4); e.preventDefault(); }
-      if (e.key === 'ArrowRight') { apply(pct + 4); e.preventDefault(); }
-      if (e.key === 'Home') { apply(2); e.preventDefault(); }
-      if (e.key === 'End')  { apply(98); e.preventDefault(); }
-    });
-    apply(50);
-    if (!reduce && 'IntersectionObserver' in window) {
-      var shown = false;
-      new IntersectionObserver(function (en, ob) {
-        if (!en[0].isIntersecting || shown) return;
-        shown = true; ob.disconnect();
-        var t0 = performance.now();
-        (function nudge(now) {
-          var t = (now - t0) / 1500;
-          if (t >= 1 || dragging) { if (!dragging) apply(50); return; }
-          apply(50 + Math.sin(t * Math.PI * 2) * 16);
-          requestAnimationFrame(nudge);
-        })(t0);
-      }, { threshold: 0.45 }).observe(stage);
-    }
   })();
 
   /* ---------- 9. modal plumbing (focus trap + scroll lock) ---------- */

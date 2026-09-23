@@ -13,11 +13,11 @@ profile and her Oakleigh South location tag.
 
 ---
 
-## The 3 that matter most
+## The one that matters most
 
 If you only do three, do these. The site stands or falls on them.
 
-### 1. `oshi-portrait.jpg` — her face
+### `oshi-portrait.jpg` — her face
 **→ [instagram.com/hair_by_oshi_/p/DcK8pTDgULZ](https://www.instagram.com/hair_by_oshi_/p/DcK8pTDgULZ/)** · 17 Aug 2026 · 170 likes · **High**
 > *"A little glimpse of the girl behind the chair. Building my little dream, doing what I love…"*
 
@@ -29,23 +29,8 @@ Backups if the shot isn't flattering:
 [DXTaid7g4Hp](https://www.instagram.com/reel/DXTaid7g4Hp/) *"Professional when I need to be but still me always"* ·
 [DcasSkNjgvN](https://www.instagram.com/reel/DcasSkNjgvN/) *"Looking back, I realise being a hairdresser was never just about…"*
 
-### 2 + 3. `ba-1-before.jpg` and `ba-1-after.jpg` — the drag slider
-**→ [instagram.com/p/DXiadRJEbMq](https://www.instagram.com/p/DXiadRJEbMq/)** · **High**
-> *"This client has been dyeing her hair at home every month… ✨ Grey Blending ✨
-> Grey blending isn't about covering every single grey hair — it's about
-> creating a softer, more natural… Before and after toning."*
 
-This is a **carousel** — swipe to `img_index=2` and `3`. A single post with a
-matched before and after is exactly what the slider needs, because both frames
-were shot in the same chair, same light, same distance. That matching is the
-whole trick; a before and after from two different posts will look amateur.
-
-Second option: [DbUtunOEzZ0](https://www.instagram.com/p/DbUtunOEzZ0/) —
-*"session 2: Rita has a high percentage of greys and was finding a 4-weekly…"*
-
----
-
-## The three service photos
+## The two service photos
 
 | Slot | Post | Caption | Conf. |
 |---|---|---|---|

@@ -22,7 +22,7 @@ and rename per the table.
 
 ---
 
-## The 13 files
+## The 11 files
 
 | Filename | What it needs to be | Crop | Priority |
 |---|---|---|---|
@@ -31,8 +31,6 @@ and rename per the table.
 | `studio.jpg` | The private suite — chair, mirror, the space. Shot with the lights on, wide enough to read as a room. | landscape 5:4, 2000×1600 | ★★★ |
 | `svc-colour.jpg` | A dimensional brunette / gloss result. | portrait 4:5 | ★★☆ |
 | `svc-nanoplasty.jpg` | A nanoplasty finish — the glossy, smooth one. | portrait 4:5 | ★★★ |
-| `ba-1-before.jpg` | **Before** — frizz/dullness clearly visible. | landscape 16:10 | ★★★ |
-| `ba-1-after.jpg` | **After** — same client, *same angle, same framing, same distance*. The slider only works if the two line up. | landscape 16:10 | ★★★ |
 | `work-1.jpg` … `work-6.jpg` | Six best results for the scrolling gallery. Vary them: gloss, nanoplasty, balayage, correction, tone, warm chocolate. | portrait 3:4 | ★★☆ |
 | `og-cover.jpg` | Link-preview card for when the site is shared. Usually the hero, re-cropped. | 1200×630 | ★★☆ |
 
@@ -42,9 +40,9 @@ and rename per the table.
   fastest way to make a beautiful site feel cheap.
 - **Shoot/choose dark.** The whole design assumes deep, moody frames. Bright
   white-background photos will fight it.
-- **The before/after pair matters most.** If only one thing gets done properly,
-  make it that pair — matched framing is the difference between convincing and
-  amateur.
+- **The hero and the portrait matter most.** If only two get done properly,
+  make it those — they carry the top of the page and the whole Meet Oshi
+  section.
 - If a file is missing, nothing breaks. The slot just keeps waiting.
 
 ---

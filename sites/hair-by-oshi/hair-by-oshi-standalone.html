@@ -390,38 +390,6 @@ button{font:inherit;color:inherit}
 }
 
 /* ============================================================
-   BEFORE / AFTER
-   ============================================================ */
-.ba{padding:clamp(54px,8.5vw,108px) 0}
-.ba__stage{position:relative;max-width:1060px;margin-inline:var(--pad);aspect-ratio:3/4;
-  overflow:hidden;border-radius:var(--r);background:var(--linen);
-  user-select:none;touch-action:pan-y;cursor:ew-resize;
-  border:1px solid var(--line)}
-.ba__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.ba__clip{position:absolute;inset:0;width:50%;overflow:hidden;will-change:width}
-.ba__clip .ba__img{width:auto;min-width:100vw;max-width:none}
-.ba__handle{position:absolute;top:0;bottom:0;left:50%;width:56px;background:none;
-  z-index:3;transform:translateX(-28px);will-change:left;
-  display:flex;align-items:center;justify-content:center;touch-action:none}
-/* the bar stays 3px to the eye; the catchable area is the 56px around it */
-.ba__handle::before{content:"";position:absolute;top:0;bottom:0;left:50%;
-  width:3px;transform:translateX(-1.5px);background:var(--shell)}
-.ba__handle i{position:absolute;width:56px;height:56px;border-radius:50%;background:var(--shell);
-  box-shadow:0 2px 8px rgba(43,30,23,.28)}
-.ba__handle span{position:relative;z-index:2;color:var(--ink);font-size:14px}
-.ba__tag{position:absolute;bottom:16px;z-index:4;font-size:10px;font-weight:600;
-  letter-spacing:.2em;text-transform:uppercase;padding:8px 14px;border-radius:100px;
-  background:rgba(250,247,243,.94)}
-/* the two labels sit in opposite corners — an earlier cleanup removed
-   these, leaving both stacked on the left */
-.ba__tag--l{left:14px}
-.ba__tag--r{right:14px}
-/* On a phone a tall crop suits a head-and-shoulders shot. On a desktop
-   the same ratio made the slider 1413px tall — taller than the viewport,
-   so you could never see the before and the after at once. */
-@media(min-width:880px){.ba__stage{aspect-ratio:16/10;margin-inline:auto}}
-
-/* ============================================================
    WORK
    ============================================================ */
 .work{padding:clamp(54px,8.5vw,108px) 0}
@@ -690,8 +658,6 @@ button{font:inherit;color:inherit}
 
 
 .work__card .slot{aspect-ratio:3/4}
-.ba__stage .slot{position:absolute;inset:0;border-radius:0}
-.ba__stage .ba__clip .slot{background:var(--sand)}
 
 /* ============================================================
    REDUCED MOTION
@@ -778,9 +744,8 @@ button{font:inherit;color:inherit}
 .mcta button{border-radius:2px}
 .modal__panel{border-radius:0}
 @media(min-width:680px){.modal__panel{border-radius:2px}}
-.hero__chip,.oshi__nameplate,.ba__tag{border-radius:2px;background:var(--shell);
+.hero__chip,.oshi__nameplate{border-radius:2px;background:var(--shell);
   border:1px solid var(--line)}
-.ba__handle i{border-radius:50%}
 .chip{border-radius:2px}
 .cform input,.cform select,.cform textarea,
 .cform,.cform__done{border-radius:2px}
@@ -831,8 +796,7 @@ button{font:inherit;color:inherit}
 .work .slot__file{color:var(--on-dark-mute)}
 
 /* tighter inside the narrow ones */
-.work__card .slot,.ba__stage .slot{gap:7px;padding:20px 16px}
-.ba__clip .slot{background:var(--linen)}
+.work__card .slot{gap:7px;padding:20px 16px}
 
 /* ============================================================
    BOOKING PANEL — the two ways in: a DM, or a free consult
@@ -1007,8 +971,6 @@ button{font:inherit;color:inherit}
    catchable with a thumb. Widen the touch zone without widening
    the line the eye sees.                                        */
 @media(pointer:coarse){
-  .ba__handle{width:72px;transform:translateX(-36px)}
-  .ba__handle i{width:60px;height:60px}
 }
 
 
@@ -1274,24 +1236,11 @@ button{font:inherit;color:inherit}
   </div>
   <p class="svc__note reveal">Pricing depends on length, density and condition — which is why it's quoted in your consult, not guessed on a website.</p>
 </section>
-<!-- ============ BEFORE / AFTER ============ -->
-<section class="ba" id="transform">
-  <div class="sec-head reveal">
-    <p class="eyebrow center">03 — Transformations</p>
-    <h2 class="h2">Drag to see <em>the difference</em></h2>
-  </div>
-  <div class="ba__stage reveal" id="baStage" data-cursor="drag">
-    <img class="ba__img" src="assets/img/ba-1-after.jpg" data-title="After" data-note="The other half. Shot together, or the slider gives the game away." alt="After — smooth, glossy dark hair" loading="lazy" decoding="async">
-    <div class="ba__clip" id="baClip"><img class="ba__img" src="assets/img/ba-1-before.jpg" data-title="Before" data-note="Half of a matched pair — same chair, same light." alt="Before — frizzy, dull hair" loading="lazy" decoding="async"></div>
-    <div class="ba__handle" id="baHandle" role="slider" tabindex="0" aria-label="Reveal before and after" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><i></i><span>&#8592;&nbsp;&#8594;</span></div>
-    <span class="ba__tag ba__tag--l">Before</span><span class="ba__tag ba__tag--r">After</span>
-  </div>
-</section>
 
 <!-- ============ WORK ============ -->
 <section class="work" id="work">
   <div class="work__pin" id="workPin">
-    <div class="work__head"><p class="eyebrow">04 — The work</p><h2 class="h2">Dark hair, <em>made to shine</em></h2></div>
+    <div class="work__head"><p class="eyebrow">03 — The work</p><h2 class="h2">Dark hair, <em>made to shine</em></h2></div>
     <div class="work__track" id="workTrack">
       <figure class="work__card"><div class="work__frame"><img src="assets/img/work-1.jpg" data-title="Espresso gloss" data-note="Pick your favourite." alt="Glossy espresso brunette" loading="lazy" decoding="async"></div><figcaption><em>01</em> Espresso gloss</figcaption></figure>
       <figure class="work__card"><div class="work__frame"><img src="assets/img/work-2.jpg" data-title="Nanoplasty" data-note="Pick your favourite." alt="Nanoplasty smoothing result" loading="lazy" decoding="async"></div><figcaption><em>02</em> Nanoplasty</figcaption></figure>
@@ -1308,7 +1257,7 @@ button{font:inherit;color:inherit}
 <!-- ============ OSHI ============ -->
 <section class="oshi" id="oshi">
   <div class="oshi__head">
-    <p class="eyebrow reveal">05 — The woman behind the chair</p>
+    <p class="eyebrow reveal">04 — The woman behind the chair</p>
     <h2 class="h2 reveal">You're not booking a salon.<br>You're booking <em>Oshi</em>.</h2>
   </div>
   <div class="oshi__grid">
@@ -1343,7 +1292,7 @@ button{font:inherit;color:inherit}
 <section class="studio" id="studio">
   <div class="studio__media reveal"><img src="assets/img/studio.jpg" data-title="Suite · 350 Warrigal Rd" data-note="The one from the BIG NEWS announcement. Bring it and this fills itself in." alt="Inside the Hair by Oshi private studio" loading="lazy" decoding="async"></div>
   <div class="studio__body">
-    <p class="eyebrow reveal">06 — The studio</p>
+    <p class="eyebrow reveal">05 — The studio</p>
     <h2 class="h2 reveal">A private suite, <em>not a salon floor</em></h2>
     <div class="studio__facts">
       <div class="reveal"><em>Where</em><p>Freedom Suites<br>350 Warrigal Rd<br>Oakleigh South VIC 3167</p></div>
@@ -1361,7 +1310,7 @@ button{font:inherit;color:inherit}
 <!-- ============ HOW IT WORKS ============ -->
 <section class="steps" id="how">
   <div class="steps__head">
-    <p class="eyebrow">07 — How it works</p>
+    <p class="eyebrow">06 — How it works</p>
     <h2 class="h2">Three steps, <em>no guesswork</em></h2>
     <p class="lede">Nobody should have to commit to a price they haven't been told. Here's exactly how an appointment starts.</p>
   </div>
@@ -1389,7 +1338,7 @@ button{font:inherit;color:inherit}
 <section class="consult" id="consult">
   <div class="consult__inner">
     <div class="consult__copy">
-      <p class="eyebrow reveal">08 — No commitment</p>
+      <p class="eyebrow reveal">07 — No commitment</p>
       <h2 class="h2 reveal">Start with a <em>free consultation</em></h2>
       <p class="reveal">Not sure whether colour or nanoplasty is the right call? Worried your hair can't take a correction? Send a photo and what you're hoping for, and you'll get a straight answer — what's possible, what it'll cost, and how long it'll take.</p>
       <ul class="consult__list">
@@ -1448,7 +1397,7 @@ button{font:inherit;color:inherit}
 <!-- ============ FAQ ============ -->
 <section class="faq" id="faq">
   <div class="sec-head reveal">
-    <p class="eyebrow center">09 — Before you book</p>
+    <p class="eyebrow center">08 — Before you book</p>
     <h2 class="h2">The honest <em>answers</em></h2>
   </div>
   <div class="faq__list">
@@ -1464,7 +1413,7 @@ button{font:inherit;color:inherit}
 <!-- ============ BOOK ============ -->
 <section class="book" id="book">
   <div class="book__inner">
-    <p class="eyebrow center reveal">10 — Your turn</p>
+    <p class="eyebrow center reveal">09 — Your turn</p>
     <h2 class="book__title reveal">Let's talk about<br><em>your hair</em></h2>
     <p class="book__sub reveal">Pick a time that suits you, or start with a free consult if you'd rather ask first.</p>
     <div class="book__actions reveal">
@@ -1589,13 +1538,13 @@ button{font:inherit;color:inherit}
       requestAnimationFrame(run);
     })();
     document.addEventListener('mouseover', function (e) {
-      var n = e.target.closest('a,button,summary,[data-cursor],.ba__stage,input,select,textarea');
+      var n = e.target.closest('a,button,summary,[data-cursor],input,select,textarea');
       if (!n) return;
       el.classList.add('is-big');
       if (label) label.textContent = n.getAttribute('data-cursor') || '';
     });
     document.addEventListener('mouseout', function (e) {
-      if (e.target.closest('a,button,summary,[data-cursor],.ba__stage,input,select,textarea')) {
+      if (e.target.closest('a,button,summary,[data-cursor],input,select,textarea')) {
         el.classList.remove('is-big');
         if (label) label.textContent = '';
       }
@@ -1673,7 +1622,7 @@ button{font:inherit;color:inherit}
   (function choreograph() {
     /* first match wins; order matters */
     var RULES = [
-      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .consult__formwrap'],
+      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .consult__formwrap'],
       ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
       ['rise', '.eyebrow, .h2, .lede, .hero__title, .hero__sub, .hero__actions, .hero__note, .svc__num, .svc__body h3, .svc__tag, .svc__copy, .svc__note, .link-btn, .oshi__body p, .pull, .oshi__sig, .studio__actions, .consult__copy p, .book__title, .book__sub, .book__actions, .book__days, .foot__mark, .foot__tag, .oshi__head .h2, .steps__note']
     ];
@@ -2062,49 +2011,6 @@ button{font:inherit;color:inherit}
         e.preventDefault();
       }
     });
-  })();
-
-  /* ---------- 8. before / after ---------- */
-  (function beforeAfter() {
-    var stage = $('#baStage'), clip = $('#baClip'), handle = $('#baHandle');
-    if (!stage || !clip || !handle) return;
-    var pct = 50, dragging = false;
-    function apply(p) {
-      pct = clamp(p, 2, 98);
-      clip.style.width = pct + '%';
-      handle.style.left = pct + '%';
-      handle.setAttribute('aria-valuenow', Math.round(pct));
-    }
-    function fromX(x) { var r = stage.getBoundingClientRect(); apply(((x - r.left) / r.width) * 100); }
-    stage.addEventListener('pointerdown', function (e) {
-      dragging = true; stage.setPointerCapture(e.pointerId); fromX(e.clientX);
-    });
-    stage.addEventListener('pointermove', function (e) { if (dragging) fromX(e.clientX); });
-    ['pointerup', 'pointercancel'].forEach(function (ev) {
-      stage.addEventListener(ev, function () { dragging = false; });
-    });
-    stage.addEventListener('mousemove', function (e) { if (!dragging) fromX(e.clientX); });
-    handle.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft')  { apply(pct - 4); e.preventDefault(); }
-      if (e.key === 'ArrowRight') { apply(pct + 4); e.preventDefault(); }
-      if (e.key === 'Home') { apply(2); e.preventDefault(); }
-      if (e.key === 'End')  { apply(98); e.preventDefault(); }
-    });
-    apply(50);
-    if (!reduce && 'IntersectionObserver' in window) {
-      var shown = false;
-      new IntersectionObserver(function (en, ob) {
-        if (!en[0].isIntersecting || shown) return;
-        shown = true; ob.disconnect();
-        var t0 = performance.now();
-        (function nudge(now) {
-          var t = (now - t0) / 1500;
-          if (t >= 1 || dragging) { if (!dragging) apply(50); return; }
-          apply(50 + Math.sin(t * Math.PI * 2) * 16);
-          requestAnimationFrame(nudge);
-        })(t0);
-      }, { threshold: 0.45 }).observe(stage);
-    }
   })();
 
   /* ---------- 9. modal plumbing (focus trap + scroll lock) ---------- */

@@ -34,7 +34,6 @@ Set pieces:
   rule, eyebrow, headline out of its mask, then the photograph opening
   while the headline is still settling
 - A pinned statement that lights **character by character** as you scroll
-- A draggable before/after slider that nudges itself once on first view
 - A gallery that drifts left to right on its own while it is left alone,
   looping seamlessly, and hands straight over to you on touch
 - Custom lerped cursor, magnetic buttons, hairline scroll progress
@@ -103,5 +102,5 @@ It needs Playwright and a Chromium binary on the machine.
 
 Three exclusions are deliberate: overlays meant to sit above the page (modal,
 menu, nav, sticky bar), collapsed `<details>` whose hidden children all report
-the same rect, and the before/after comparison, which stacks its two images by
+the same rect, and any comparison widget, which stacks its two images by
 design. Everything else is a real finding.
