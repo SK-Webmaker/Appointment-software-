@@ -463,6 +463,79 @@ function showMaintenanceBar() {
   document.body.prepend(bar);
 }
 
+/**
+ * "Message us and we'll book you in."
+ *
+ * The whole of the booking page for a salon running consultation-first. It is
+ * deliberately not an apology: the salon has decided to talk to every client
+ * before booking them, and this screen presents that as the service it is
+ * rather than as a feature being switched off.
+ *
+ * One button, going to the salon's own channel. Anything more is a decision
+ * asked of somebody who came here to do one thing.
+ */
+const CONSULT_CHANNELS = {
+  instagram: {
+    label: 'Message us on Instagram',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://ig.me/m/${String(h).replace(/^@/, '')}`),
+    show: (h) => (String(h).startsWith('@') ? h : `@${h}`),
+  },
+  whatsapp: {
+    label: 'Message us on WhatsApp',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://wa.me/${String(h).replace(/[^0-9]/g, '')}`),
+    show: (h) => h,
+  },
+  facebook: {
+    label: 'Message us on Facebook',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://m.me/${String(h).replace(/^@/, '')}`),
+    show: (h) => h,
+  },
+  phone: {
+    label: 'Call us',
+    href: (h) => `tel:${String(h).replace(/[^0-9+]/g, '')}`,
+    show: (h) => h,
+  },
+  email: {
+    label: 'Email us',
+    href: (h) => `mailto:${h}`,
+    show: (h) => h,
+  },
+  other: {
+    label: 'Get in touch',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://${h}`),
+    show: (h) => h,
+  },
+};
+
+function renderConsultStep() {
+  const c = state.info.consult || {};
+  const kind = CONSULT_CHANNELS[c.channel] || CONSULT_CHANNELS.other;
+  const handle = String(c.handle || '').trim();
+  // No handle set is a salon half-configured. Falling back to the phone number
+  // beats a button that goes nowhere, and saying nothing beats both.
+  const phone = state.info.business_phone || '';
+  const href = handle ? kind.href(handle) : (phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '');
+  const label = handle ? kind.label : (phone ? 'Call us' : '');
+  const note = String(c.note || '').trim()
+    || 'We like to have a quick chat before every appointment, so we can get your '
+     + 'colour and timing right. Message us and we\'ll find you a time.';
+
+  root.innerHTML = `
+    ${headHtml({ cover: true })}${pageTabsHtml()}
+    <div class="bk-consult">
+      <div class="bk-consult-mark">${icon('send', 24)}</div>
+      <div class="bk-section-title">Let's have a chat first</div>
+      <p class="bk-consult-note">${esc(note)}</p>
+      ${href ? `<a class="bk-consult-cta" href="${esc(href)}"
+           ${href.startsWith('http') ? 'target="_blank" rel="noopener noreferrer"' : ''}>
+           ${icon('send', 16)} ${esc(label)}</a>` : ''}
+      ${handle ? `<div class="bk-consult-handle">${esc(kind.show(handle))}</div>` : ''}
+      ${phone && c.channel !== 'phone'
+        ? `<div class="bk-consult-alt">Or call us on <a href="tel:${esc(phone.replace(/[^0-9+]/g, ''))}">${esc(phone)}</a></div>`
+        : ''}
+    </div>`;
+}
+
 async function boot() {
   addReturnBar();
   // "Book another / a different time" buttons — delegated so no inline
@@ -522,6 +595,11 @@ async function boot() {
     const offer = await resolveOffer(params, cameFrom);
     history.replaceState(null, '', location.pathname);
     if (offer) { await openOnOffer(offer); return; }
+
+    // Consultation-first: this salon talks to people before it books them, so
+    // there is no slot picker to draw. Checked AFTER branding is applied, so
+    // the card still looks like the salon and not like an error.
+    if (state.info.consult?.mode) { renderConsultStep(); return; }
 
     if (state.info.locations.length > 1) renderLocationStep();
     else renderServiceStep();

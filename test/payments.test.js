@@ -19,7 +19,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { startKairo } from './helpers/kairo.js';
+import { startKairo, openDateAhead } from './helpers/kairo.js';
 
 let k, cookie, staffId, haircut, beardId;
 let stripeMock, squareMock;
@@ -51,7 +51,10 @@ function mocks() {
           cents: Number(p.get(`line_items[${i}][price_data][unit_amount]`)),
         });
       }
-      seen.stripe.push({ items, total: items.reduce((t, x) => t + x.cents, 0) });
+      seen.stripe.push({
+        items, total: items.reduce((t, x) => t + x.cents, 0),
+        success_url: p.get('success_url') || '', cancel_url: p.get('cancel_url') || '',
+      });
       res.end(JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.test/cs_1' }));
     });
   });
@@ -221,4 +224,43 @@ test('neither key is ever handed to a browser', async () => {
   const pub = JSON.stringify(await info());
   assert.ok(!pub.includes('EAAA_test') && !pub.includes('sk_test_x'),
     'and the public booking page sees neither');
+});
+
+// ── Where a consultation booking link sends them back to ────────────────────
+//
+// A booking link's checkout must return to the invite's own page. Sent to
+// /book — which is where every other payment in Kairo returns to, and so the
+// easy thing to leave it as — the customer pays, lands on a slot picker that
+// has never heard of their invite, and no booking is made. The money is taken
+// either way, which is what makes this worth a test of its own.
+
+test('a booking link\'s checkout returns to the invite, never to /book', async () => {
+  await set({
+    stripe_secret_key: 'sk_test_x', pay_provider: 'stripe', pay_mode: 'full',
+    invite_pay: 'checkout',
+  });
+  const date = openDateAhead(9);
+  const slots = await k.api('GET',
+    `/api/invites/slots?date=${date}&staff_id=${staffId}&service_ids=${haircut}`, { cookie });
+  const inv = await api('POST', '/api/invites', {
+    staff_id: staffId, service_ids: [haircut], date, start_min: slots.json.slots[0].start_min,
+  });
+  assert.equal(inv.status, 200, inv.text);
+  const token = inv.json.invite.token;
+
+  await k.api('POST', '/api/public/invite/claim', {
+    body: { token, name: 'Card Payer', email: 'card.payer@example.net' },
+  });
+  const out = await k.api('POST', '/api/public/invite/checkout', {
+    body: { token, origin: 'https://sharpcuts.example' },
+  });
+  assert.equal(out.status, 200, out.text);
+
+  const call = seen.stripe.at(-1);
+  assert.ok(call.success_url.includes(`/invite/${encodeURIComponent(token)}`),
+    `checkout must return to the invite page, got ${call.success_url}`);
+  assert.ok(!call.success_url.includes('/book?'),
+    'returning to /book takes the money and makes no booking');
+  assert.ok(call.cancel_url.includes(`/invite/${encodeURIComponent(token)}`),
+    'and a cancelled payment must come back to the same place');
 });

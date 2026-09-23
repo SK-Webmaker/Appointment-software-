@@ -81,10 +81,18 @@ export function checklist() {
     action: { label: 'Set up payments', hash: '#/settings' },
   });
 
+  // Consultation-first changes what both of these items mean. The page is
+  // still worth sharing — it is now the "message us" card — but a self-serve
+  // test booking is impossible by design, and leaving an item on the list that
+  // cannot be completed teaches an owner to ignore the list.
+  const consult = getSetting('consult_mode', '0') === '1';
+
   items.push({
     id: 'link',
-    title: 'Share your booking link',
-    why: 'Put it in your Instagram bio and your Google profile. It never changes.',
+    title: consult ? 'Share your booking page' : 'Share your booking link',
+    why: consult
+      ? 'It tells people how to reach you for a consultation. Put it in your Instagram bio.'
+      : 'Put it in your Instagram bio and your Google profile. It never changes.',
     required: false,
     done: on('checklist_link_shared'),
     detail: publicUrl() ? `${publicUrl()}/book` : '/book',
@@ -92,14 +100,26 @@ export function checklist() {
     action: { label: 'Copy the link', copy: publicUrl() ? `${publicUrl()}/book` : '/book' },
   });
 
-  items.push({
-    id: 'test_booking',
-    title: 'Take a test booking',
-    why: 'See exactly what your customers see.',
-    required: false,
-    done: onlineBookings > 0,
-    action: { label: 'Open my booking page', url: publicUrl() ? `${publicUrl()}/book` : '/book', external: true },
-  });
+  if (consult) {
+    const sent = db.prepare('SELECT COUNT(*) AS n FROM booking_invites').get().n;
+    items.push({
+      id: 'test_invite',
+      title: 'Send your first booking link',
+      why: 'After a consultation, send the client a link for the time you agreed. They pay, and it books itself in.',
+      required: false,
+      done: sent > 0,
+      action: { label: 'Open the calendar', hash: '#/calendar' },
+    });
+  } else {
+    items.push({
+      id: 'test_booking',
+      title: 'Take a test booking',
+      why: 'See exactly what your customers see.',
+      required: false,
+      done: onlineBookings > 0,
+      action: { label: 'Open my booking page', url: publicUrl() ? `${publicUrl()}/book` : '/book', external: true },
+    });
+  }
 
   // Detected, not ticked: a phone that signed in is a phone that has the app.
   // The tick is kept only as a fallback for an owner who uses the web app on

@@ -30,6 +30,7 @@ import {
   payProvider, payMode, paymentInfo, amountDueCents, paymentsConfigured, paymentRequired,
   createCheckout as createPayCheckout, verifyPayment as verifyPayPayment,
 } from './payments.js';
+import * as invites from './invites.js';
 import { VERSION } from './version.js';
 import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
 import {
@@ -508,6 +509,9 @@ export const EDITABLE_SETTINGS = new Set([
   'brand_accent', 'brand_theme', 'brand_font', 'brand_logo', 'brand_cover',
   'brand_gallery', 'brand_tagline',
   'patch_service_id', 'patch_lead_hours', 'patch_valid_months',
+  // Consultation-first booking — see docs/09-consultation-first.md
+  'consult_mode', 'consult_channel', 'consult_handle', 'consult_note',
+  'invite_expiry_hours', 'invite_pay',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -2102,6 +2106,16 @@ route('POST', '/api/appointments', async ({ req }) => {
   if (block && !a.b.force) {
     throw Object.assign(httpError(409, 'This time is blocked out'), { data: { block } });
   }
+  // A slot already promised to somebody in a consultation. Overridable like
+  // every other conflict here — the owner may well be booking the very person
+  // the invite was for — but never silent, because the alternative is sending
+  // a link and then taking the slot back without noticing.
+  const held = invites.heldConflict(a.staffId, a.date, a.start, a.end);
+  if (held && !a.b.force) {
+    throw Object.assign(httpError(409, 'A booking link you sent is holding this time'), {
+      data: { invite: { id: held.id, client_name: held.client_name, status: held.status } },
+    });
+  }
   const info = db.prepare(
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'staff')`
@@ -2981,6 +2995,42 @@ async function pushNewBooking(apptId) {
   });
 }
 
+/**
+ * "Ruby says she has paid." The one push the `link` payment route depends on.
+ *
+ * Under a plain payment link Kairo cannot see the money, so a human has to
+ * look. An owner who does not find out has left a client holding a slot and
+ * waiting on a confirmation that is never coming — which is the failure this
+ * whole flow exists to prevent.
+ */
+async function pushInviteAwaitingCheck(inviteId) {
+  if (!pushConfigured()) return { sent: 0, skipped: 'not configured' };
+  const inv = invites.byId(inviteId);
+  if (!inv) return { sent: 0, skipped: 'no invite' };
+  const hh = String(Math.floor(inv.start_min / 60)).padStart(2, '0');
+  const mm = String(inv.start_min % 60).padStart(2, '0');
+  const money = inv.price_cents > 0
+    ? ` ${getSetting('currency', '$')}${(inv.price_cents / 100).toFixed(2)}` : '';
+  return pushToOwner({
+    title: 'Payment to check',
+    body: `${inv.client_name || 'Someone'} says they have paid${money} for ${inv.date} ${hh}:${mm}. Confirm it to book them in.`,
+    threadId: 'invites',
+    collapseId: `invite-${inv.id}`,
+    data: { kind: 'invite', invite_id: inv.id, date: inv.date },
+  });
+}
+
+/** The branding every public page draws itself with. One shape, one place. */
+function brandPayload() {
+  return {
+    accent: getSetting('brand_accent', '#38bdf8'),
+    theme: getSetting('brand_theme', 'dark'),
+    scheme: getSetting('brand_scheme', ''),
+    font: getSetting('brand_font', 'modern'),
+    logo: getSetting('brand_logo', ''),
+  };
+}
+
 /** How long the owner's email waits on Apple before it stops waiting. */
 const OWNER_PUSH_WAIT_MS = Number(process.env.KAIRO_OWNER_PUSH_WAIT_MS || 5000);
 
@@ -3500,7 +3550,10 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   if (appt.deposit_status === 'paid' && appt.deposit_cents > 0) {
     db.prepare("UPDATE invoices SET status = 'sent' WHERE id = ?").run(invId);
     db.prepare('INSERT INTO payments (invoice_id, amount_cents, method, paid_at, note) VALUES (?, ?, ?, ?, ?)')
-      .run(invId, appt.deposit_cents, 'card', `${bizToday()} 00:00:00`, 'Online booking deposit (Stripe)');
+      .run(invId, appt.deposit_cents, 'card', `${bizToday()} 00:00:00`,
+        appt.pay_provider === 'manual'
+          ? 'Paid on the booking link, confirmed by the salon'
+          : 'Online booking deposit (Stripe)');
     refreshPaidStatus(invId);
   }
   return getInvoice(invId);
@@ -4441,6 +4494,14 @@ route('GET', '/api/public/info', async () => {
     booking_horizon_days: bookingHorizonDays(),
     cancel_window_hours: getSetting('client_cancel_enabled', '1') === '1'
       ? Math.max(0, Number(getSetting('cancel_window_hours', '12')) || 0) : -1,
+    // Consultation-first: the booking page draws a "message us" card instead
+    // of a slot picker. Sent always, so the page never has to guess.
+    consult: {
+      mode: invites.consultMode(),
+      channel: getSetting('consult_channel', 'instagram'),
+      handle: getSetting('consult_handle', ''),
+      note: getSetting('consult_note', ''),
+    },
     brand: {
       accent: getSetting('brand_accent', '#38bdf8'),
       theme: getSetting('brand_theme', 'dark'),
@@ -4629,6 +4690,9 @@ function freeSlotsFor(staffId, date, durationMin) {
   // Owner-blocked time (lunch, training, holiday…) is unbookable online, exactly
   // like an existing appointment. A block with no staff_id covers the whole team.
   busy.push(...blocksFor(staffId, date));
+  // A slot the owner has already promised somebody in a consultation. Held
+  // exactly like a block, and released by its own expiry — see src/invites.js.
+  busy.push(...invites.heldSlotsFor(staffId, date));
 
   // "Now" in the business's own time zone, so a slot that has already passed
   // today is never offered (the server may run in UTC while the salon is in
@@ -4705,6 +4769,9 @@ route('GET', '/api/public/patch-slots', async ({ query }) => {
 }, { auth: false });
 
 route('GET', '/api/public/availability', async ({ query }) => {
+  // Under consultation-first there is nothing for a stranger to shop for, and
+  // an open availability feed would map the salon's whole week to anyone.
+  if (invites.consultMode()) throw httpError(404, 'This salon books by consultation');
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
   const date = query.get('date');
   const todayForSlots = bizToday();
@@ -4880,6 +4947,11 @@ route('POST', '/api/public/waitlist', async ({ req }) => {
 
 route('POST', '/api/public/book', async ({ req }) => {
   if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  // Consultation-first: this salon books people itself, after talking to them.
+  // Refused HERE and not merely hidden in the page, because a bookmarked link,
+  // a cached bundle or a replayed request would otherwise walk straight past
+  // the only rule the owner asked for.
+  if (invites.consultMode()) throw httpError(404, 'This salon books by consultation');
   const b = checkBody(await readJson(req), {
     service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),
     date: s.str(10, { required: true }), start_min: s.num({ min: 0, max: 1439, required: true }),
@@ -5722,5 +5794,459 @@ route('POST', '/api/public/review-clicked', async ({ req }) => {
   db.prepare(
     "UPDATE appointments SET review_clicked_at = datetime('now') WHERE review_token = ? AND review_token != '' AND review_clicked_at = ''"
   ).run(token);
+  return { ok: true };
+}, { auth: false });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Consultation-first booking
+//
+// The salon talks to the client first and only then puts them in the diary.
+// See docs/09-consultation-first.md. Everything below is inert on a salon that
+// has not turned consult_mode on, except the owner routes — an owner may send
+// a booking link occasionally without running their whole business this way,
+// and refusing that would be a rule with nothing behind it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** How much of an invite the OWNER is allowed to see. Everything. */
+function ownerInvite(inv) {
+  if (!inv) return null;
+  const ids = String(inv.service_ids || '').split(',').map(Number).filter(Boolean);
+  const services = ids.length
+    ? db.prepare(`SELECT id, name, price_cents, duration_min FROM services WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids)
+    : [];
+  const staff = db.prepare('SELECT id, name FROM staff WHERE id = ?').get(inv.staff_id);
+  return {
+    id: inv.id, token: inv.token, status: inv.status,
+    date: inv.date, start_min: inv.start_min, end_min: inv.end_min,
+    price_cents: inv.price_cents, note: inv.note,
+    services: ids.map((id) => services.find((x) => x.id === id)).filter(Boolean),
+    staff_name: staff?.name || '', staff_id: inv.staff_id,
+    client_name: inv.client_name, client_email: inv.client_email, client_phone: inv.client_phone,
+    pay_mode: inv.pay_mode, appointment_id: inv.appointment_id,
+    created_at: inv.created_at, expires_at: inv.expires_at,
+    claimed_at: inv.claimed_at, paid_at: inv.paid_at, confirmed_at: inv.confirmed_at,
+    url: invites.linkFor(inv.token, publicUrl()),
+  };
+}
+
+/**
+ * Free slots, for the owner composing an invite.
+ *
+ * Its own authenticated route rather than a reach into the public feed, for two
+ * reasons: consultation-first closes that feed, and the whole point of this
+ * mode is that the owner still needs to see the week even when nobody else may.
+ */
+route('GET', '/api/invites/slots', async ({ query }) => {
+  const date = query.get('date');
+  const today = bizToday();
+  if (!isDateStr(date) || date < today) throw httpError(400, 'Choose an upcoming date');
+  if (date > addDaysStr(today, bookingHorizonDays())) throw httpError(400, 'That date is too far ahead');
+  const idsParam = (query.get('service_ids') || '').split(',').map((v) => Number(v)).filter(Boolean);
+  const ids = idsParam.length ? idsParam : [Number(query.get('service_id'))].filter(Boolean);
+  let duration = 0;
+  for (const id of ids) {
+    const svc = db.prepare('SELECT duration_min FROM services WHERE id = ? AND active = 1').get(id);
+    if (!svc) throw httpError(400, 'Choose a service');
+    duration += svc.duration_min;
+  }
+  if (!duration) throw httpError(400, 'Choose a service');
+  const staffParam = query.get('staff_id');
+  const staffList = staffParam && staffParam !== 'any'
+    ? db.prepare('SELECT id, name FROM staff WHERE id = ? AND active = 1').all(Number(staffParam))
+    : db.prepare('SELECT id, name FROM staff WHERE active = 1 ORDER BY id').all();
+  const slotMap = new Map();
+  for (const m of staffList) {
+    for (const t of freeSlotsFor(m.id, date, duration)) if (!slotMap.has(t)) slotMap.set(t, m.id);
+  }
+  return {
+    duration_min: duration,
+    slots: [...slotMap.entries()].sort((a, b) => a[0] - b[0]).map(([start_min, staff_id]) => ({ start_min, staff_id })),
+  };
+});
+
+route('GET', '/api/invites', async () => ({
+  invites: invites.live().map(ownerInvite),
+  consult_mode: invites.consultMode(),
+  pay_route: invites.payRoute({ configured: paymentsConfigured() }),
+  payment_link: getSetting('pos_payment_link', ''),
+  expiry_hours: invites.expiryHours(),
+}));
+
+/**
+ * Send somebody a booking link.
+ *
+ * Every check the public booking route makes about the slot is made here too —
+ * open day, not in the past, inside the horizon, actually free. An invite that
+ * promises a slot the salon cannot honour is worse than no invite, because the
+ * client has already been told.
+ */
+route('POST', '/api/invites', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    service_ids: s.arr(s.num(), 20), service_id: s.num(),
+    staff_id: s.num({ required: true }),
+    date: s.str(10, { required: true }),
+    start_min: s.num({ min: 0, max: 1439, required: true }),
+    note: s.str(1000),
+    client_id: s.num(),
+    client_name: s.str(200), client_email: s.str(200), client_phone: s.str(50),
+    price_cents: s.num({ min: 0, max: 100000000 }),
+  });
+  const svc = resolveServices(b, { required: true });
+  const minutes = svc.totalDuration;
+  const { date: today, min: nowMin } = bizNow();
+  if (!isDateStr(b.date) || b.date < today) throw httpError(400, 'Choose an upcoming date');
+  if (!invites.withinHorizon(b.date, today, bookingHorizonDays())) {
+    throw httpError(400, `Booking links only reach ${bookingHorizonDays()} days ahead`);
+  }
+  const start = clampInt(b.start_min, 0, 1439, NaN);
+  if (Number.isNaN(start)) throw httpError(400, 'Choose a time');
+  if (b.date === today && start <= nowMin) throw httpError(400, 'That time has already passed');
+  if (!isOpenDay(b.date)) throw httpError(409, "You're closed that day");
+
+  const staffId = Number(b.staff_id) || 0;
+  const staff = db.prepare('SELECT id, name FROM staff WHERE id = ? AND active = 1').get(staffId);
+  if (!staff) throw httpError(400, 'Choose who is doing it');
+  // freeSlotsFor already counts live invites as busy, so this refuses a second
+  // link for a slot the first one is holding.
+  if (!freeSlotsFor(staffId, b.date, minutes).includes(start)) {
+    throw httpError(409, 'That time is not free — pick another slot');
+  }
+
+  let clientId = Number(b.client_id) || 0;
+  let name = str(b.client_name, 200);
+  let email = str(b.client_email, 200).toLowerCase();
+  let phone = str(b.client_phone, 50);
+  if (clientId) {
+    const c = db.prepare('SELECT * FROM clients WHERE id = ?').get(clientId);
+    if (!c) throw httpError(400, 'That client no longer exists');
+    // The record wins over anything typed alongside it: an invite that shows
+    // one name and books another is how the wrong person gets the slot.
+    name = [c.first_name, c.last_name].filter(Boolean).join(' ');
+    email = c.email || '';
+    phone = c.phone || '';
+  } else {
+    clientId = 0;
+  }
+
+  const total = svc.services.reduce((sum, x) => sum + (x.price_cents || 0), 0);
+  // The owner may override the price — a consultation is exactly where a
+  // quoted price stops matching the menu.
+  const price = b.price_cents === undefined || b.price_cents === null
+    ? total : Math.max(0, Math.round(Number(b.price_cents) || 0));
+
+  const inv = invites.create({
+    staffId, serviceIds: svc.ids, date: b.date, startMin: start, endMin: start + minutes,
+    priceCents: price, note: str(b.note, 1000), clientId: clientId || null,
+    clientName: name, clientEmail: email, clientPhone: phone,
+    payMode: invites.payRoute({ configured: paymentsConfigured() }),
+  });
+  return { invite: ownerInvite(inv) };
+});
+
+/**
+ * The owner confirms the money arrived.
+ *
+ * The only route to a booking under `link`, because a payment link tells Kairo
+ * nothing. This is where the appointment is finally created.
+ */
+route('POST', '/api/invites/:id/confirm', async ({ params }) => {
+  const inv = invites.byId(params.id);
+  if (!inv) throw httpError(404, 'That booking link no longer exists');
+  if (inv.status === 'confirmed') {
+    return { invite: ownerInvite(inv), already: true };
+  }
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Nobody has opened that link yet');
+  const out = await confirmInvite(inv, { by: 'owner' });
+  return out;
+});
+
+route('DELETE', '/api/invites/:id', async ({ params }) => {
+  const inv = invites.byId(params.id);
+  if (!inv) throw httpError(404, 'That booking link no longer exists');
+  if (inv.status === 'confirmed') throw httpError(409, 'That one is already booked — cancel the appointment instead');
+  invites.close(inv.id, 'cancelled');
+  return { ok: true };
+});
+
+/**
+ * Turn an accepted invite into a real appointment.
+ *
+ * Shared by the owner's confirm and by a hosted checkout coming back paid, so
+ * a booking made either way is identical in every table afterwards — same
+ * client resolution, same messages, same owner alert.
+ */
+async function confirmInvite(inv, { by = 'owner' } = {}) {
+  const ids = String(inv.service_ids || '').split(',').map(Number).filter(Boolean);
+  const services = ids
+    .map((id) => db.prepare('SELECT * FROM services WHERE id = ?').get(id))
+    .filter(Boolean);
+  if (!services.length) throw httpError(409, 'The services on that link no longer exist');
+
+  const { date: today, min: nowMin } = bizNow();
+  if (invites.slotPassed(inv, { today, nowMin })) {
+    invites.close(inv.id, 'cancelled');
+    throw httpError(409, 'That slot has already passed');
+  }
+  // Somebody may have been booked over the top of it with force. Checked at
+  // the last moment rather than trusted from when the link was sent.
+  const clash = findConflict(inv.staff_id, inv.date, inv.start_min, inv.end_min);
+  if (clash) throw httpError(409, 'That time has been booked since the link went out');
+
+  const name = String(inv.client_name || '').trim();
+  const first = name.split(/\s+/)[0] || 'Client';
+  const last = name.split(/\s+/).slice(1).join(' ');
+  const email = String(inv.client_email || '').toLowerCase();
+  const phone = String(inv.client_phone || '');
+
+  let client = inv.client_id ? db.prepare('SELECT * FROM clients WHERE id = ?').get(inv.client_id) : null;
+  if (!client && email) client = db.prepare('SELECT * FROM clients WHERE email = ?').get(email);
+  if (!client && phone) client = db.prepare('SELECT * FROM clients WHERE phone = ? AND first_name = ?').get(phone, first);
+  if (!client) {
+    const info = db.prepare('INSERT INTO clients (first_name, last_name, email, phone) VALUES (?, ?, ?, ?)')
+      .run(first, last, email, phone);
+    client = { id: Number(info.lastInsertRowid) };
+  } else if ((!client.email && email) || (!client.phone && phone)) {
+    // They gave us a detail we did not have. Filled in, never overwritten:
+    // the salon's own record of a client beats one line typed into a link.
+    db.prepare('UPDATE clients SET email = COALESCE(NULLIF(email, \'\'), ?), phone = COALESCE(NULLIF(phone, \'\'), ?) WHERE id = ?')
+      .run(email, phone, client.id);
+  }
+
+  const noteParts = [inv.note && `From consultation: ${inv.note}`].filter(Boolean);
+  const info = db.prepare(
+    `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source)
+     VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online')`
+  ).run(client.id, inv.staff_id, services[0].id, inv.date, inv.start_min, inv.end_min,
+    noteParts.join(' ').slice(0, 1000));
+  const apptId = Number(info.lastInsertRowid);
+  setApptServices(apptId, services.map((x) => x.id));
+
+  // Money already collected is recorded against the booking, so the till does
+  // not ask for it a second time when the client is standing there.
+  //
+  // Both routes count, and they are not equally certain. A hosted checkout was
+  // verified with the provider. A payment link was asserted by the owner, who
+  // looked at their own account and said so — which is the best evidence that
+  // exists for a payment Kairo can't see, and is better recorded as the
+  // owner's word (pay_provider 'manual') than not recorded at all and charged
+  // twice.
+  if (inv.status === 'paid' && inv.price_cents > 0) {
+    db.prepare("UPDATE appointments SET deposit_cents = ?, deposit_status = 'paid', stripe_session_id = ?, pay_provider = ? WHERE id = ?")
+      .run(inv.price_cents, inv.pay_ref || '', inv.pay_provider || 'manual', apptId);
+  }
+
+  invites.markConfirmed(inv.id, apptId);
+  queueAppointmentMessages(apptId);
+  processQueue().catch(() => {});
+  if (by !== 'owner') notifyOwnerOfBooking(apptId).catch(() => {});
+
+  const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
+  return {
+    invite: ownerInvite(invites.byId(inv.id)),
+    appointment_id: apptId,
+    reference: `BK-${String(apptId).padStart(5, '0')}`,
+    date: appt.date, start_min: appt.start_min, end_min: appt.end_min,
+    service: appt.services_summary || appt.service_name, staff: appt.staff_name,
+  };
+}
+
+/**
+ * What the CLIENT is allowed to see, which is far less.
+ *
+ * The link is handed to one person in a private conversation, but a link
+ * travels: forwarded, screenshotted, pasted into a group chat. So it shows the
+ * appointment somebody is being offered and nothing about the salon's other
+ * clients — no ids, no history, no record that this person is known here. The
+ * name is echoed back only once they have typed it themselves.
+ */
+function publicInvite(inv) {
+  const ids = String(inv.service_ids || '').split(',').map(Number).filter(Boolean);
+  const services = ids.length
+    ? db.prepare(`SELECT id, name, duration_min FROM services WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids)
+    : [];
+  const staff = db.prepare('SELECT name FROM staff WHERE id = ?').get(inv.staff_id);
+  const route = inv.pay_mode || invites.payRoute({ configured: paymentsConfigured() });
+  return {
+    status: inv.status,
+    date: inv.date, start_min: inv.start_min, end_min: inv.end_min,
+    price_cents: inv.price_cents,
+    currency: getSetting('currency', '$'),
+    note: inv.note,
+    services: ids.map((id) => services.find((x) => x.id === id)).filter(Boolean)
+      .map((x) => ({ name: x.name, duration_min: x.duration_min })),
+    staff_name: staff?.name || '',
+    // Contact details are echoed back ONLY once this person typed them here
+    // themselves. When the owner composed the invite against an existing client
+    // record, those details are the salon's, not this page's: a link forwarded
+    // into a group chat would otherwise hand out a real client's email and
+    // mobile. The server still uses the owner's copy to match the record when
+    // the booking is finally made — it just never travels to the browser.
+    client_name: inv.claimed_at ? inv.client_name : '',
+    client_email: inv.claimed_at ? inv.client_email : '',
+    client_phone: inv.claimed_at ? inv.client_phone : '',
+    expires_at: inv.expires_at,
+    pay: {
+      route,
+      // The salon's own link, sent only when that is genuinely the route —
+      // there is no reason for it to travel with an invite that is not using it.
+      link: route === 'link' ? getSetting('pos_payment_link', '') : '',
+      label: route === 'checkout' ? paymentInfo().label : '',
+    },
+    business: {
+      name: getSetting('business_name', ''),
+      phone: getSetting('business_phone', ''),
+      email: getSetting('business_email', ''),
+    },
+    brand: brandPayload(),
+  };
+}
+
+/** Read an invite. Wrong or dead tokens all answer the same way. */
+route('GET', '/api/public/invite', async ({ query }) => {
+  const inv = invites.byToken(str(query.get('token'), 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  const { date: today, min: nowMin } = bizNow();
+  if (invites.slotPassed(inv, { today, nowMin }) && invites.isLive(inv)) {
+    invites.close(inv.id, 'cancelled');
+    return { invite: publicInvite(invites.byId(inv.id)), gone: 'passed' };
+  }
+  return { invite: publicInvite(inv) };
+}, { auth: false });
+
+/** "This is me." Records who, holds the slot, books nothing. */
+route('POST', '/api/public/invite/claim', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    token: s.str(128, { required: true }),
+    name: s.str(200, { required: true }),
+    email: s.str(200), phone: s.str(50),
+  });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  const name = str(b.name, 200).trim();
+  const email = str(b.email, 200).trim().toLowerCase();
+  const phone = str(b.phone, 50).trim();
+  if (!name) throw httpError(400, 'Please tell us your name');
+  // One way to reach them, or the confirmation and the reminder have nowhere
+  // to go and the salon is back to remembering on its own.
+  if (!email && !phone) throw httpError(400, 'An email or a phone number is needed so we can confirm it');
+  if (email && !looksLikeEmail(email)) throw httpError(400, 'That email address does not look right');
+  const updated = invites.claim(inv.id, { name, email, phone });
+  return { invite: publicInvite(updated) };
+}, { auth: false });
+
+/**
+ * Start a hosted checkout for an invite.
+ *
+ * Only under the `checkout` route. Under `link` the salon's own payment link is
+ * on the page already and Kairo is not in the middle of it.
+ */
+route('POST', '/api/public/invite/checkout', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    token: s.str(128, { required: true }), origin: s.str(300),
+  });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
+  if (invites.payRoute({ configured: paymentsConfigured() }) !== 'checkout') {
+    throw httpError(409, 'This booking link does not take payment here');
+  }
+  if (inv.price_cents <= 0) throw httpError(409, 'There is nothing to pay on this one');
+  const ids = String(inv.service_ids || '').split(',').map(Number).filter(Boolean);
+  const services = ids.map((id) => db.prepare('SELECT name, price_cents FROM services WHERE id = ?').get(id)).filter(Boolean);
+  // One line named after what they are actually buying. The invite's price
+  // wins over the menu, because a consultation is where a quote is agreed.
+  const items = [{ name: services.map((x) => x.name).join(' + ') || 'Appointment', cents: inv.price_cents }];
+  const origin = str(b.origin, 300) || publicUrl() || `http://localhost:${process.env.PORT || 4820}`;
+  const session = await createPayCheckout({
+    appointmentId: `inv-${inv.id}`, items, origin, idemToken: inv.token.slice(0, 32),
+    // Back to THIS invite, not to /book. The booking page has no idea what an
+    // invite is: sending them there would take the money and leave the client
+    // looking at a slot picker with no booking made.
+    returnPath: `/invite/${encodeURIComponent(inv.token)}`,
+  });
+  db.prepare('UPDATE booking_invites SET pay_ref = ?, pay_provider = ? WHERE id = ?')
+    .run(session.session_id, session.provider || payProvider(), inv.id);
+  return { url: session.url };
+}, { auth: false });
+
+/**
+ * Back from a hosted checkout. Asked of the provider, never taken on trust.
+ *
+ * A client who types "?paid=1" into the address bar has told us nothing, and a
+ * booking confirmed on the strength of a query string is one the salon cannot
+ * collect on.
+ */
+route('POST', '/api/public/invite/paid', async ({ req }) => {
+  const b = checkBody(await readJson(req), {
+    token: s.str(128, { required: true }), session_id: s.str(300),
+  });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (inv.status === 'confirmed') return { invite: publicInvite(inv), booked: true };
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
+
+  const ref = str(b.session_id, 300) || inv.pay_ref;
+  if (!ref || ref !== inv.pay_ref) throw httpError(400, 'That payment does not belong to this booking');
+  const check = await verifyPayment(ref, inv.pay_provider);
+  if (!check.paid) throw httpError(402, 'That payment has not come through yet');
+  invites.markPaid(inv.id, { ref, provider: inv.pay_provider });
+  const out = await confirmInvite(invites.byId(inv.id), { by: 'client' });
+  return { ...out, booked: true, invite: publicInvite(invites.byId(inv.id)) };
+}, { auth: false });
+
+/**
+ * "I have paid" — the `link` route, where Kairo genuinely cannot know.
+ *
+ * A Stripe Payment Link or a PayPal.me address reports nothing back: no
+ * webhook, no session, no receipt. So this records a claim, not a fact. The
+ * slot stays held, the owner is told on their phone, and the booking exists
+ * once they confirm the money landed. The page says exactly that, because a
+ * client who leaves thinking they are booked when they are not is the worst
+ * outcome available here.
+ */
+route('POST', '/api/public/invite/declare-paid', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(128, { required: true }) });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (inv.status === 'confirmed') return { invite: publicInvite(inv), booked: true };
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
+  if (invites.payRoute({ configured: paymentsConfigured() }) === 'checkout') {
+    throw httpError(409, 'Please pay through the card form on this page');
+  }
+  invites.markPaid(inv.id, { ref: '', provider: 'manual' });
+  // Straight to the owner's phone. This is the step that needs a human, and an
+  // owner who does not find out has left a client waiting on a confirmation
+  // that is never coming.
+  pushInviteAwaitingCheck(inv.id).catch(() => {});
+  return { invite: publicInvite(invites.byId(inv.id)), awaiting: true };
+}, { auth: false });
+
+/** No payment at all — accepting is the whole of it. */
+route('POST', '/api/public/invite/accept', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(128, { required: true }) });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (inv.status === 'confirmed') return { invite: publicInvite(inv), booked: true };
+  if (!invites.isLive(inv)) throw httpError(409, `That booking link is ${inv.status}`);
+  if (!inv.claimed_at) throw httpError(409, 'Please put your details in first');
+  if (invites.payRoute({ configured: paymentsConfigured() }) !== 'none') {
+    throw httpError(409, 'This booking needs paying for first');
+  }
+  const out = await confirmInvite(inv, { by: 'client' });
+  return { ...out, booked: true, invite: publicInvite(invites.byId(inv.id)) };
+}, { auth: false });
+
+/** They are not going ahead. Releases the slot immediately. */
+route('POST', '/api/public/invite/decline', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(128, { required: true }) });
+  const inv = invites.byToken(str(b.token, 128));
+  if (!inv) throw httpError(404, 'That booking link is not valid');
+  if (inv.status === 'confirmed') throw httpError(409, 'That one is already booked — ring us to cancel it');
+  invites.close(inv.id, 'declined');
   return { ok: true };
 }, { auth: false });
