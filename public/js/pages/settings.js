@@ -307,6 +307,69 @@ export async function renderSettings(container, params) {
         </form>
       </div>
 
+      <div class="card" data-sec="consult">
+        <div class="card-title">Consultation first</div>
+        <div class="card-sub" style="margin-bottom:16px">For a business that wants to speak to every client
+          before they get near the diary. Your booking page stops taking bookings and invites people to
+          message you instead; you have the conversation, then send them a booking link for the exact
+          service and time you agreed.</div>
+        <form id="set-consult" style="display:flex;flex-direction:column;gap:13px">
+          <label class="opt-out">
+            <input type="checkbox" class="chk" name="consult_mode" ${s.consult_mode === '1' ? 'checked' : ''}>
+            <span><b>Take bookings by consultation only</b>
+              <span>Your booking page stops letting people pick their own slot. You book them yourself,
+                by sending a link.</span></span>
+          </label>
+          <div class="field"><label>Where should people message you?</label>
+            <select name="consult_channel" class="nice-select">${[
+    ['instagram', 'Instagram'], ['whatsapp', 'WhatsApp'], ['facebook', 'Facebook Messenger'],
+    ['phone', 'Phone'], ['email', 'Email'], ['other', 'Somewhere else'],
+  ].map(([v, lab]) => `<option value="${v}" ${(s.consult_channel || 'instagram') === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Your handle, number or link</label>
+            <input name="consult_handle" value="${esc(s.consult_handle || '')}" placeholder="@yoursalon">
+            <div class="hint">An Instagram handle, a mobile number, or a full web address — whichever suits
+              the channel above. This becomes the button on your booking page.</div></div>
+          <div class="field"><label>What your page says</label>
+            <textarea name="consult_note" rows="3" maxlength="600"
+              placeholder="We like a quick chat before every appointment so we can get your colour and timing right.">${esc(s.consult_note || '')}</textarea>
+            <div class="hint">Left empty, we use a sensible default. Say it in your own words if you'd rather.</div></div>
+
+          <div class="card-title" style="margin-top:6px;font-size:14px">Booking links</div>
+          <div class="field"><label>How they pay</label>
+            <select name="invite_pay" class="nice-select">${[
+    ['link', 'My own payment link — I check the money myself'],
+    ['checkout', 'Card on the page (Stripe or Square)'],
+    ['none', 'No payment — they pay on the day'],
+  ].map(([v, lab]) => `<option value="${v}" ${(s.invite_pay || 'link') === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+            <div class="hint">
+              ${(s.invite_pay || 'link') === 'link'
+    ? `A payment link can't tell Kairo when it's been paid — nothing comes back from Stripe or PayPal to
+                   say so. Your client taps <b>I've paid</b>, we hold their slot and send the alert to your phone,
+                   and <b>the booking is made when you confirm it</b>. It is the one honest way to do it without
+                   connecting a card processor.`
+    : (s.invite_pay === 'checkout'
+      ? `Kairo takes the payment and confirms the booking by itself — no checking, nothing for you to do.
+                   Needs Stripe or Square connected under <b>Payments</b>.`
+      : `They just confirm the time and pay you on the day.`)}
+            </div></div>
+          ${(s.invite_pay || 'link') === 'link' ? `
+          <div class="field"><label>Your payment link</label>
+            <input name="pos_payment_link" value="${esc(s.pos_payment_link || '')}"
+              placeholder="https://buy.stripe.com/… or paypal.me/…">
+            <div class="hint">A Stripe Payment Link, Square Online link or PayPal.me address. This is the
+              same link the till uses.${!String(s.pos_payment_link || '').trim()
+    ? ' <b>Without one, booking links can\'t ask for money at all.</b>' : ''}</div></div>` : ''}
+          <div class="field"><label>Hold a slot for</label>
+            <select name="invite_expiry_hours" class="nice-select">${[
+    [6, '6 hours'], [12, '12 hours'], [24, '1 day'], [48, '2 days'], [72, '3 days'], [168, 'A week'],
+  ].map(([v, lab]) => `<option value="${v}" ${Number(s.invite_expiry_hours || 48) === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+            <div class="hint">A link nobody answers releases its time automatically, so one forgotten
+              conversation can't sit on a Saturday afternoon for a month.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save consultation settings</button>
+        </form>
+      </div>
+
       <div class="card" data-sec="page">
         <div class="card-title">What your booking page shows</div>
         <div class="card-sub" style="margin-bottom:16px">Below the booking form, your page can carry an
@@ -853,6 +916,19 @@ export async function renderSettings(container, params) {
     toast('Settings saved');
   };
 
+  container.querySelector('#set-consult').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // pos_payment_link only appears on this form under the 'link' route, so it
+    // is saved only when it is actually on screen — listing it unconditionally
+    // would blank the till's link every time this card is saved under another.
+    const fields = ['consult_mode', 'consult_channel', 'consult_handle', 'consult_note',
+      'invite_pay', 'invite_expiry_hours'];
+    if (e.target.elements.pos_payment_link) fields.push('pos_payment_link');
+    await saveSettings(e.target, fields);
+    // The hint under "How they pay" and the payment-link field both depend on
+    // the route, so the card is redrawn rather than left describing the old one.
+    renderSettings(container, params);
+  });
   container.querySelector('#set-profile').addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['business_name', 'business_phone', 'business_email', 'business_address']);

@@ -639,6 +639,44 @@ function migrate() {
   addColumn('appointments', 'patch_for_id',
     'patch_for_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL');
 
+  // ── Consultation-first booking ────────────────────────────────────────────
+  // One slot, held, with a link the owner pastes into a conversation. See
+  // docs/09-consultation-first.md. Its own table rather than an appointment
+  // with a flag: an appointment that might not be real leaks into counts,
+  // reminders and the diary, and every one of those then has to learn to
+  // ignore it.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS booking_invites (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      token        TEXT NOT NULL UNIQUE,
+      client_id    INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      staff_id     INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+      service_ids  TEXT NOT NULL DEFAULT '',      -- csv, first is primary
+      date         TEXT NOT NULL,                 -- YYYY-MM-DD
+      start_min    INTEGER NOT NULL,
+      end_min      INTEGER NOT NULL,
+      price_cents  INTEGER NOT NULL DEFAULT 0,
+      note         TEXT NOT NULL DEFAULT '',      -- shown to the client
+      -- open|claimed|paid|confirmed|expired|cancelled|declined.
+      -- Only 'confirmed' has an appointment behind it.
+      status       TEXT NOT NULL DEFAULT 'open',
+      appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+      client_name  TEXT NOT NULL DEFAULT '',
+      client_email TEXT NOT NULL DEFAULT '',
+      client_phone TEXT NOT NULL DEFAULT '',
+      pay_mode     TEXT NOT NULL DEFAULT '',      -- checkout|link|none, as at send time
+      pay_ref      TEXT NOT NULL DEFAULT '',      -- provider session id
+      pay_provider TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at   TEXT NOT NULL DEFAULT '',
+      claimed_at   TEXT NOT NULL DEFAULT '',
+      paid_at      TEXT NOT NULL DEFAULT '',
+      confirmed_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_invites_slot ON booking_invites(date, staff_id);
+    CREATE INDEX IF NOT EXISTS idx_invites_status ON booking_invites(status);
+  `);
+
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
   // guarded by "no rows yet" and only touches appointments that have a service.
@@ -1050,6 +1088,19 @@ const DEFAULT_SETTINGS = {
   // PayPal.me). The lowest-effort way to take card money: no keys, no account
   // to connect, and the till can share it.
   pos_payment_link: '',
+  // ── Consultation-first booking (docs/09-consultation-first.md) ────────────
+  // OFF everywhere by default. A salon that never turns it on sees no change.
+  consult_mode: '0',
+  // Where the "book now" button should send people instead of a slot picker.
+  consult_channel: 'instagram',   // instagram|whatsapp|facebook|phone|email|other
+  consult_handle: '',             // @name, a number, or a full URL
+  consult_note: '',               // the salon's own words, shown on /book
+  // How long a held slot waits for an answer before releasing itself.
+  invite_expiry_hours: '48',
+  // checkout → Stripe/Square hosted checkout, confirmed by the provider
+  // link     → pos_payment_link; the client says they paid, the owner confirms
+  // none     → no payment step
+  invite_pay: 'link',
   patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
   patch_lead_hours: '48', // how long before the treatment a patch test must sit
   patch_valid_months: '6',// default validity when a service doesn't say otherwise

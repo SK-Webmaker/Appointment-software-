@@ -33,6 +33,58 @@ const MUTATIONS = {
     find: 'return `Path=/; HttpOnly; SameSite=Lax${secure ? \'; Secure\' : \'\'}`;',
     replace: 'return `Path=/; SameSite=Lax${secure ? \'; Secure\' : \'\'}`;',
   },
+  // ── Consultation-first booking ────────────────────────────────────────────
+  // The four ways this feature could quietly betray the owner who asked for it.
+  'invite-slot-not-held': {
+    file: 'src/api.js', suites: ['invites'],
+    find: '  busy.push(...invites.heldSlotsFor(staffId, date));',
+    replace: '',
+  },
+  'invite-books-without-payment': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  invites.markPaid(inv.id, { ref: '', provider: 'manual' });",
+    replace: "  invites.markPaid(inv.id, { ref: '', provider: 'manual' });\n  await confirmInvite(invites.byId(inv.id), { by: 'client' });",
+  },
+  'consult-mode-only-hides-the-page': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (invites.consultMode()) throw httpError(404, 'This salon books by consultation');\n  const b = checkBody(await readJson(req), {\n    service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),",
+    replace: "  const b = checkBody(await readJson(req), {\n    service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),",
+  },
+  'dead-invite-still-usable': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "export function isLive(inv) {\n  return Boolean(inv) && !FINAL_STATUSES.includes(inv.status);\n}",
+    replace: "export function isLive(inv) {\n  return Boolean(inv);\n}",
+  },
+  'invite-link-falls-through-to-the-app': {
+    file: 'server.js', suites: ['invites'],
+    find: "  if (rel.startsWith('/invite/')) rel = '/invite.html'; // consultation-first booking link",
+    replace: '',
+  },
+  'expired-invites-never-released': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "        AND expires_at != '' AND expires_at <= ?`",
+    replace: "        AND expires_at != '' AND expires_at > ?`",
+  },
+  'invite-can-double-book-a-held-slot': {
+    file: 'src/api.js', suites: ['invites'],
+    find: 'if (!freeSlotsFor(staffId, b.date, minutes).includes(start)) {',
+    replace: 'if (false) {',
+  },
+  'invite-page-leaks-client-contacts': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "    client_name: inv.claimed_at ? inv.client_name : '',",
+    replace: '    client_name: inv.client_name,',
+  },
+  'invite-checkout-returns-to-book': {
+    file: 'src/api.js', suites: ['payments'],
+    find: "    returnPath: `/invite/${encodeURIComponent(inv.token)}`,",
+    replace: '',
+  },
+  'confirmed-payment-not-recorded': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (inv.status === 'paid' && inv.price_cents > 0) {",
+    replace: "  if (false) {",
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',
