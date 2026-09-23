@@ -46,12 +46,43 @@ Set by `invite_pay`:
 | Value      | What the client sees            | How Kairo learns it was paid |
 |------------|---------------------------------|------------------------------|
 | `checkout` | Stripe or Square hosted checkout | The provider is asked. Automatic. |
-| `link`     | The salon's own payment link     | The client says so; the owner confirms. |
+| `link`     | A payment link                   | The client opens it, pays, and says so. |
 | `none`     | No payment step                  | Accepting is enough.         |
 | | | |
 
-`link` reuses `pos_payment_link`, which already exists for the till — a Stripe
-Payment Link, Square Online link or PayPal.me address the salon already has.
+**The payment link can be set per invite.** A consultation is where a price is
+agreed, so it is also where a one-off link for that exact price gets pasted.
+The field is on the send form, next to the note; leave it blank and the salon's
+usual link (`pos_payment_link`, the one the till already uses) is used instead.
+Only `https://` is accepted — anything else in a field that becomes a button on
+a stranger's phone is a way to hand a client a `javascript:` URL under the
+salon's name.
+
+### The client must open the link before they can say they paid
+
+`POST /api/public/invite/opened` is called when they tap **Pay**, and
+`declare-paid` is refused without it. Enforced on the server, not by disabling
+a button: a disabled button is a suggestion, and the page is the one part of
+this a client can edit.
+
+It does not prove they paid — nothing can, under a payment link. It rules out
+the tap-through: the client who lands on the page, never goes near the payment,
+and ticks the box to get their slot confirmed.
+
+### Who turns "I have paid" into a booking
+
+`invite_confirm`, under the `link` route only:
+
+- **`auto`** (default) — the client does. Their confirmation goes out the
+  moment they tap, so a booking link feels like a booking rather than a form.
+  They cannot tap it until they have been through the payment page. It is still
+  their word.
+- **`owner`** — the salon checks its own account first. The owner's phone is
+  notified, the slot stays held, and the client's page says plainly that it is
+  **not** booked yet.
+
+Neither can verify the payment. The setting is about who carries that risk, and
+Settings says so in as many words.
 
 **`link` cannot be automatic and the code does not pretend otherwise.** A
 generic payment link tells Kairo nothing; there is no webhook, no session, no

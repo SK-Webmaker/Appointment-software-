@@ -665,6 +665,13 @@ function migrate() {
       client_email TEXT NOT NULL DEFAULT '',
       client_phone TEXT NOT NULL DEFAULT '',
       pay_mode     TEXT NOT NULL DEFAULT '',      -- checkout|link|none, as at send time
+      -- This invite's own payment link, overriding the salon-wide one. A
+      -- consultation is where a price is agreed, so it is also where a
+      -- one-off Stripe/PayPal link for that price gets pasted.
+      pay_link     TEXT NOT NULL DEFAULT '',
+      -- When the client actually opened the payment page. "I have paid"
+      -- cannot be tapped before this: see docs/09-consultation-first.md.
+      link_opened_at TEXT NOT NULL DEFAULT '',
       pay_ref      TEXT NOT NULL DEFAULT '',      -- provider session id
       pay_provider TEXT NOT NULL DEFAULT '',
       created_at   TEXT NOT NULL DEFAULT (datetime('now')),
@@ -676,6 +683,11 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_invites_slot ON booking_invites(date, staff_id);
     CREATE INDEX IF NOT EXISTS idx_invites_status ON booking_invites(status);
   `);
+
+  // Added after booking_invites shipped: a per-invite payment link, and the
+  // proof that the client opened it.
+  addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");
+  addColumn('booking_invites', 'link_opened_at', "link_opened_at TEXT NOT NULL DEFAULT ''");
 
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
@@ -1098,9 +1110,26 @@ const DEFAULT_SETTINGS = {
   // How long a held slot waits for an answer before releasing itself.
   invite_expiry_hours: '48',
   // checkout → Stripe/Square hosted checkout, confirmed by the provider
-  // link     → pos_payment_link; the client says they paid, the owner confirms
+  // link     → a payment link; the client opens it, pays, and says so
   // none     → no payment step
   invite_pay: 'link',
+  // Under the `link` route only, who turns "I have paid" into a booking:
+  //   auto  → the client does. They must open the payment link first, and the
+  //           confirmation goes out the moment they confirm they have paid.
+  //   owner → the salon checks the money landed and confirms it themselves.
+  // Neither can verify the payment — a payment link reports nothing back — so
+  // this is a choice about who carries that risk, said plainly in Settings.
+  invite_confirm: 'auto',
+  // ── What the owner's phone is allowed to interrupt them for ───────────────
+  // Each one is a real event the owner might want to know about the moment it
+  // happens. All default ON except the daily summary, because an owner who
+  // installed the app did so to be told things — but a notification at 7am is
+  // a choice, not a default.
+  push_new_booking: '1',      // somebody booked
+  push_cancellation: '1',     // somebody cancelled or moved
+  push_payment_check: '1',    // a booking link says it has been paid
+  push_daily_summary: '0',    // "6 appointments today", once each morning
+  push_summary_hour: '7',     // when that lands, business time (0-23)
   patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
   patch_lead_hours: '48', // how long before the treatment a patch test must sit
   patch_valid_months: '6',// default validity when a service doesn't say otherwise
