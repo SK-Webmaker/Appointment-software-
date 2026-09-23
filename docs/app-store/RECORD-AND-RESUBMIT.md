@@ -184,18 +184,21 @@ limit.
 1. https://appstoreconnect.apple.com → **Apps** → Kairo
 2. Left sidebar → **App Review** (or the message icon on the rejected version)
 3. Open the message from App Review
-4. Paste the **long** version — the whole of `docs/app-store/APPLE-2.1-REPLY.md`
+4. Paste the same text you use in the Notes field —
+   `docs/app-store/APPLE-2.1-NOTES-4000.txt`
 5. Replace `<VIDEO LINK>` with your link and `<DEMO PASSWORD>` with `Sachi123456`
 6. **Reply**
 
-This field has no tight character limit, so use the full text here.
+**This field is also capped at 4000 characters.** It is not uncapped, whatever
+you may have been told. One text serves both fields — there is no need for a
+longer variant, and the six-section answer fits with room to spare.
 
 ### D2. The Notes field (attached to the build)
 
 1. Same app → the version that was rejected → scroll to **App Review Information**
 2. The **Notes** box
 3. Delete whatever is in there
-4. Paste the **short** version — all of `docs/app-store/APPLE-2.1-NOTES-4000.txt`
+4. Paste `docs/app-store/APPLE-2.1-NOTES-4000.txt` — the same text as D1
 5. Replace `<VIDEO LINK>` and `<DEMO PASSWORD>` the same way
 6. Fill in the fields beside it, if they are not already:
    - Sign-in required: **Yes**
@@ -204,8 +207,8 @@ This field has no tight character limit, so use the full text here.
    - Contact email / phone: yours
 7. **Save**
 
-The short version is 3832 characters as written, and stays under 4000 with a
-link of up to about 100 characters substituted in.
+The text is 3832 characters as written, and 3899 with the real link and
+password substituted in — 101 under the limit, in both fields.
 
 ---
 

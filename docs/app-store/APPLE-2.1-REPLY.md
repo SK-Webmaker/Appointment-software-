@@ -51,7 +51,14 @@ in the reply. Apple accepts a link.
 
 ---
 
-## The text — paste this into BOTH the reply and the Notes field
+## The text
+
+> **Both fields cap at 4000 characters** — the Notes field *and* the App Review
+> reply. The full text below is 5640 characters and does **not** fit in either.
+> Use `docs/app-store/APPLE-2.1-NOTES-4000.txt` in both places instead; it is
+> 3899 characters with the real link and password filled in, and it answers all
+> six of Apple's points. What follows is kept only as the fuller source the
+> short version was cut from.
 
 ```
 Thank you. Answers to each point below.
