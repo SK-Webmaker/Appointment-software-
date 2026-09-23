@@ -30,11 +30,13 @@ every animation is light travelling over a dark surface.
 
 Set pieces:
 
-- Hero with masked word reveals and a shine sweep across the italic gold words
+- Hero on one hand-set entrance timeline, released when the loader lifts:
+  rule, eyebrow, headline out of its mask, then the photograph opening
+  while the headline is still settling
 - A pinned statement that lights **character by character** as you scroll
-- An animated SVG cuticle diagram for the nanoplasty explainer
 - A draggable before/after slider that nudges itself once on first view
-- A pinned gallery that scrolls horizontally as you scroll down
+- A gallery that drifts left to right on its own while it is left alone,
+  looping seamlessly, and hands straight over to you on touch
 - Custom lerped cursor, magnetic buttons, hairline scroll progress
 
 Uses native scrolling throughout, so `position: sticky` and anchor links behave.
@@ -78,6 +80,24 @@ descendant intersect by more than a small fraction of the smaller one.
 node test/overlap-check.cjs                       # this build
 TARGET=https://example.com node test/overlap-check.cjs
 ```
+
+## Checking for cut-off text
+
+The other failure a screenshot hides: a caption that loses its last word,
+or a heading sheared off by a mask it never finished animating out of.
+`test/clip-check.cjs` walks every text-bearing element at the same nine
+widths and reports two things — text overflowing its own clipped box, and
+text painted outside an ancestor that clips. It measures only once every
+entrance has settled, because a masked heading and a wiping photograph are
+both legitimately clipped while they animate.
+
+```sh
+node test/clip-check.cjs
+TARGET=https://example.com node test/clip-check.cjs
+```
+
+The marquee, the gallery rail and a closed `<details>` are exempt: all
+three are clipped by design rather than by accident.
 
 It needs Playwright and a Chromium binary on the machine.
 

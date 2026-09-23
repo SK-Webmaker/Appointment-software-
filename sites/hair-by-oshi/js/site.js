@@ -13,10 +13,26 @@
   var lerp  = function (a, b, n) { return a + (b - a) * n; };
   var clamp = function (v, a, b) { return Math.min(Math.max(v, a), b); };
 
+  /* ---------- 0. the release signal ----------
+     The hero is above the fold, so it has no scroll to wait for. It
+     waits for this instead, and so does anything else that must not
+     start until the loader is out of the way. Callers registered after
+     the release still fire, so ordering between modules cannot break
+     the entrance.                                                     */
+  var released = false, waiting = [];
+  function release() {
+    if (released) return;
+    released = true;
+    waiting.splice(0).forEach(function (fn) { fn(); });
+  }
+  function onRelease(fn) { released ? fn() : waiting.push(fn); }
+  /* a stuck loader must never cost the page its entrance */
+  setTimeout(release, 4000);
+
   /* ---------- 1. preloader ---------- */
   (function preload() {
     var pl = $('#preloader'), bar = $('#plBar');
-    if (!pl) { document.body.classList.remove('is-loading'); return; }
+    if (!pl) { document.body.classList.remove('is-loading'); release(); return; }
     var p = 0, done = false;
     var tick = setInterval(function () {
       p = Math.min(p + Math.random() * 18, 92);
@@ -30,6 +46,7 @@
       setTimeout(function () {
         pl.classList.add('done');
         document.body.classList.remove('is-loading');
+        release();
         setTimeout(function () { if (pl.parentNode) pl.remove(); }, 800);
       }, reduce ? 0 : 380);
     }
@@ -133,14 +150,19 @@
   (function choreograph() {
     /* first match wins; order matters */
     var RULES = [
-      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .nano__viz, .consult__formwrap'],
-      ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .nano__col, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
+      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .consult__formwrap'],
+      ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
       ['rise', '.eyebrow, .h2, .lede, .hero__title, .hero__sub, .hero__actions, .hero__note, .svc__num, .svc__body h3, .svc__tag, .svc__copy, .svc__note, .link-btn, .oshi__body p, .pull, .oshi__sig, .studio__actions, .consult__copy p, .book__title, .book__sub, .book__actions, .book__days, .foot__mark, .foot__tag, .oshi__head .h2, .steps__note']
     ];
 
     var seen = new Set();
+    /* The hero runs its own hand-set timeline in CSS. Tagging its parts
+       here too would put two transitions on one property and the later
+       one would silently win, which is exactly the race this replaced. */
+    var heroEl = $('.hero');
     function tag(el, kind) {
       if (seen.has(el) || el.hasAttribute('data-anim')) return;
+      if (heroEl && heroEl.contains(el)) return;
       seen.add(el);
       el.setAttribute('data-anim', kind);
     }
@@ -178,12 +200,12 @@
       io.observe(group);
     });
 
-    /* the hero is already on screen — run it once the loader lifts */
-    var hero = $('.hero');
-    if (hero) {
-      setTimeout(function () {
-        $$('[data-anim]', hero).forEach(function (el) { el.classList.add('in'); });
-      }, reduce ? 0 : 120);
+    /* the hero is already on screen — it opens when the loader lifts */
+    if (heroEl) {
+      onRelease(function () {
+        /* a frame's grace so the class lands after layout, not during it */
+        requestAnimationFrame(function () { heroEl.classList.add('is-in'); });
+      });
     }
   })();
 
@@ -203,6 +225,32 @@
       el.appendChild(s);
       if (wi < words.length - 1) el.appendChild(document.createTextNode(' '));
     });
+  })();
+
+  /* ---------- 6a. gallery loop ----------
+     The rail drifts on its own while nobody is touching it, and a drift
+     that stopped dead at the last card would just be a rail that ran
+     out. Duplicating the set gives it somewhere to go: once it has
+     advanced by exactly one set the scroll position is rolled back by
+     that much, which puts identical pixels under the viewport, so the
+     seam cannot be seen. The copies are decoration — they are hidden
+     from assistive tech, which has already read the originals.
+     This runs before the photo slots so the copies are armed by the
+     same sweep, and before the parallax so they drift like the rest.  */
+  (function galleryLoop() {
+    var track = $('#workTrack');
+    if (!track) return;
+    var cards = $$('.work__card', track);
+    if (cards.length < 2) return;
+    var frag = document.createDocumentFragment();
+    cards.forEach(function (c) {
+      var copy = c.cloneNode(true);
+      copy.setAttribute('aria-hidden', 'true');
+      copy.setAttribute('data-clone', '1');
+      frag.appendChild(copy);
+    });
+    track.appendChild(frag);
+    track.setAttribute('data-looped', '1');
   })();
 
   /* ---------- 6b. photo slots ----------
@@ -243,7 +291,7 @@
 
   /* ---------- 7. scroll-linked effects ---------- */
   (function scrollFX() {
-    var heroImg = $('#heroImg'), craft = $('.craft'), chars = $$('#craftText .ch');
+    var craft = $('.craft'), chars = $$('#craftText .ch');
     var marquee = $('#marquee');
     var mqX = 0, mqW = 0;
     function measure() { if (marquee) mqW = marquee.scrollWidth / 2; }
@@ -252,9 +300,6 @@
     (function frame() {
       var y = window.scrollY, vh = window.innerHeight;
 
-      if (heroImg && !reduce && y < vh * 1.4) {
-        heroImg.style.transform = 'scale(' + (1 + clamp(y / vh, 0, 1) * 0.07) + ')';
-      }
       if (craft && chars.length) {
         var r = craft.getBoundingClientRect();
         var total = craft.offsetHeight - vh;
@@ -286,6 +331,29 @@
       .map(function (f) { return { frame: f, media: null, y: 0 }; });
     if (!frames.length) return;
 
+    /* the scale this holds images at, read from the stylesheet so the
+       hero entrance and this agree on one number */
+    var zoom = (getComputedStyle(document.documentElement)
+      .getPropertyValue('--frame-zoom') || '1.14').trim() || '1.14';
+
+    /* The hero photograph is mid-entrance when this starts, and that
+       entrance is a transform set in CSS. Claiming it now would
+       overwrite it on the first frame and the opening move would never
+       be seen, so the hero frame is held back until it has landed. */
+    var heroFrame = $('.hero__frame'), heroReady = !heroFrame;
+    if (heroFrame) {
+      onRelease(function () {
+        var go = function () { heroReady = true; };
+        var m = heroFrame.querySelector('img, .slot');
+        if (m) {
+          m.addEventListener('transitionend', function (e) {
+            if (e.propertyName === 'transform') go();
+          });
+        }
+        setTimeout(go, 2600);   /* backstop: the entrance runs ~2.2s */
+      });
+    }
+
     /* A missing photograph is swapped for a placeholder on the image's
        error event, which fires well after this runs. Holding the original
        reference would leave us animating a node that is no longer in the
@@ -302,6 +370,7 @@
       var vh = window.innerHeight;
       for (var i = 0; i < frames.length; i++) {
         var o = frames[i];
+        if (o.frame === heroFrame && !heroReady) continue;
         var r = o.frame.getBoundingClientRect();
         if (r.bottom < -200 || r.top > vh + 200) continue;
         var m = resolve(o);
@@ -317,7 +386,7 @@
         /* One transform does both jobs: the scale supplies the slack the
            drift moves through, so no width, height or offset is touched
            and there is nothing for a percentage to resolve against. */
-        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(1.14)';
+        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(' + zoom + ')';
       }
       requestAnimationFrame(loop);
     })();
@@ -331,12 +400,38 @@
     var track = $('#workTrack'), bar = $('#workBar');
     if (!track) return;
 
+    var looped = track.getAttribute('data-looped') === '1';
+    /* declared up here because wrap(), below, adjusts its accumulator */
+    var drift = { acc: 0, wrote: 0, last: 0, on: false, idle: 0, hover: false, seen: false };
+
+    /* One set's advance, measured rather than assumed: half the scroll
+       width is not it, because the track's own padding and the gap
+       either side of the seam do not divide evenly. */
+    function span() {
+      var kids = track.children;
+      if (!looped || kids.length < 2) return 0;
+      return kids[kids.length / 2].offsetLeft - kids[0].offsetLeft;
+    }
+
+    var wrapping = false;
+    function wrap() {
+      if (wrapping) return;
+      var sp = span();
+      if (!sp || track.scrollLeft < sp) return;
+      wrapping = true;
+      track.scrollLeft -= sp;      /* identical pixels — nothing moves */
+      drift.acc -= sp; drift.wrote -= sp;   /* keep the drift in step */
+      wrapping = false;
+    }
+
     function progress() {
       if (!bar) return;
+      var sp = span();
+      if (sp) { bar.style.width = ((track.scrollLeft % sp) / sp) * 100 + '%'; return; }
       var max = track.scrollWidth - track.clientWidth;
       bar.style.width = (max > 4 ? (track.scrollLeft / max) * 100 : 100) + '%';
     }
-    track.addEventListener('scroll', progress, { passive: true });
+    track.addEventListener('scroll', function () { wrap(); progress(); }, { passive: true });
     window.addEventListener('resize', progress);
     progress();
 
@@ -384,12 +479,65 @@
     track.tabIndex = 0;
     track.setAttribute('role', 'region');
     track.setAttribute('aria-label', 'Gallery of recent work, scrollable');
+    /* --- the idle drift ---
+       Left to right, slowly, while nobody is using it. Anything that
+       counts as use stops it, and it only picks back up once the rail
+       has been left alone for a moment — so it never fights a hand on
+       the trackpad, and never crawls out from under a reader mid-card.
+       It is suspended off-screen and in a hidden tab as well, because a
+       rAF loop nobody can see is just battery.                         */
+    function still() {                       /* may it move right now? */
+      return drift.on && drift.seen && !drift.hover && !down &&
+             !document.hidden && !track.contains(document.activeElement);
+    }
+    function hold() {                        /* a hand has arrived */
+      drift.on = false;
+      clearTimeout(drift.idle);
+      drift.idle = setTimeout(function () {
+        drift.on = true;
+        drift.acc = track.scrollLeft;        /* resume from where it sits */
+      }, 2200);
+    }
+    ['pointerdown', 'wheel', 'touchstart', 'keydown', 'focusin']
+      .forEach(function (ev) { track.addEventListener(ev, hold, { passive: true }); });
+    track.addEventListener('pointerenter', function () { drift.hover = true; });
+    track.addEventListener('pointerleave', function () { drift.hover = false; });
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        es.forEach(function (en) { drift.seen = en.isIntersecting; });
+      }, { threshold: 0.12 }).observe(track);
+    } else { drift.seen = true; }
+
+    if (!reduce && looped) {
+      drift.on = true;
+      track.classList.add('is-drifting');
+      (function step(t) {
+        requestAnimationFrame(step);
+        var dt = drift.last ? Math.min(t - drift.last, 60) : 16;
+        drift.last = t;
+        if (!still()) { drift.acc = track.scrollLeft; return; }
+        /* If anything else moved the rail — a scrollbar, a jump to a
+           card, the wrap — carry on from where it actually is. Writing
+           a private running total back over it would haul it back. */
+        if (Math.abs(track.scrollLeft - drift.wrote) > 1) drift.acc = track.scrollLeft;
+        drift.acc += 22 * dt / 1000;         /* px per second */
+        track.scrollLeft = drift.acc;        /* scroll fires wrap() */
+        drift.wrote = track.scrollLeft;      /* what the browser took */
+      })(0);
+    }
+
     track.addEventListener('keydown', function (e) {
       var step = track.clientWidth * 0.8;
       if (e.key === 'ArrowRight') { track.scrollLeft += step; e.preventDefault(); }
       if (e.key === 'ArrowLeft')  { track.scrollLeft -= step; e.preventDefault(); }
       if (e.key === 'Home')       { track.scrollLeft = 0; e.preventDefault(); }
-      if (e.key === 'End')        { track.scrollLeft = track.scrollWidth; e.preventDefault(); }
+      if (e.key === 'End')        {
+        /* the far end of the real set, not of the duplicated track */
+        var sp = span();
+        track.scrollLeft = sp ? sp - track.clientWidth : track.scrollWidth;
+        e.preventDefault();
+      }
     });
   })();
 

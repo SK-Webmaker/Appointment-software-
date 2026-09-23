@@ -119,12 +119,12 @@ button{font:inherit;color:inherit}
 .btn--ghost{--bg:transparent;--fg:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
 .btn--ghost::before{background:var(--ink)}
 .btn--ghost:hover{--fg:var(--shell);box-shadow:inset 0 0 0 1.5px var(--ink)}
-.btn--sm{min-height:42px;padding:10px 20px;font-size:11.5px}
+.btn--sm{min-height:44px;padding:10px 20px;font-size:11.5px}
 .btn--lg{min-height:58px;padding:19px 36px;font-size:14px}
 .btn--block{display:flex;width:100%}
 
 .link-btn{
-  display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:10px 0;
+  display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:12px 0;min-height:44px;
   background:none;border:0;cursor:pointer;color:var(--clay);
   font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   border-bottom:1.5px solid var(--line);transition:gap .35s var(--ease),border-color .35s;
@@ -190,6 +190,10 @@ button{font:inherit;color:inherit}
   .nav__burger{display:none}
   .nav__links a{position:relative;text-decoration:none;font-size:12.5px;font-weight:500;
     letter-spacing:.06em;text-transform:uppercase;color:var(--cocoa);padding:4px 0;transition:color .3s}
+  /* the hit area is opened to 44px without moving the text or the
+     underline beneath it, which stays hard against the baseline */
+  .nav__links a::before{content:"";position:absolute;left:0;right:0;top:50%;
+    height:44px;transform:translateY(-50%)}
   .nav__links a::after{content:"";position:absolute;left:0;bottom:0;width:100%;height:1.5px;
     background:var(--clay);transform:scaleX(0);transform-origin:right;transition:transform .4s var(--ease)}
   .nav__links a:hover{color:var(--ink)}
@@ -215,8 +219,10 @@ button{font:inherit;color:inherit}
 .menu.open .menu__links a:nth-child(6){transition-delay:.45s}
 .menu.open .menu__links a:nth-child(7){transition-delay:.5s}
 .menu.open .menu__links a:nth-child(8){transition-delay:.55s}
+/* --clay, not --flame: at 10px this is not display text, and --flame
+   only clears AA at display sizes */
 .menu__links em{font-family:var(--f-body);font-style:normal;font-size:10px;
-  font-weight:600;letter-spacing:.2em;color:var(--flame)}
+  font-weight:600;letter-spacing:.2em;color:var(--clay)}
 .menu__cta{display:flex;flex-direction:column;gap:10px}
 .menu__foot{color:var(--cocoa);font-size:12.5px}
 .menu__foot p{margin:3px 0}
@@ -229,13 +235,8 @@ button{font:inherit;color:inherit}
 .hero__title{font-family:var(--f-display);font-weight:300;
   font-size:clamp(42px,11vw,96px);line-height:1.0;letter-spacing:-.032em;margin:0 0 22px}
 .hero__title .line{display:block;overflow:hidden;padding-bottom:.04em}
-.hero__title .w{display:inline-block;transform:translateY(105%);transition:transform 1.05s var(--ease)}
+.hero__title .w{display:inline-block}
 .hero__title .it{font-style:italic;color:var(--flame)}
-body:not(.is-loading) .hero__title .w{transform:translateY(0)}
-.hero__title .line:nth-child(1) .w:nth-child(1){transition-delay:.04s}
-.hero__title .line:nth-child(1) .w:nth-child(2){transition-delay:.1s}
-.hero__title .line:nth-child(2) .w:nth-child(1){transition-delay:.16s}
-.hero__title .line:nth-child(2) .w:nth-child(2){transition-delay:.22s}
 .hero__sub{max-width:46ch;color:var(--cocoa);font-size:clamp(15px,3.7vw,18.5px);
   line-height:1.72;margin:0 0 26px}
 .hero__actions{display:flex;flex-direction:column;gap:10px}
@@ -273,6 +274,60 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .hero__title{font-size:clamp(54px,7.4vw,96px)}
   .hero__meta{grid-column:1/-1;grid-template-columns:repeat(4,1fr);gap:22px}
 }
+
+/* ---------- hero entrance ----------
+   The hero is already on screen, so it does not wait for a scroll —
+   it is released in one move when the preloader lifts. Previously the
+   headline ran off `body.is-loading` while every other part ran off a
+   generic stagger set in JS, so the two raced and the order varied by
+   how long the loader happened to take. One timeline, set here, in the
+   order a person reads: rule, eyebrow, headline, photograph, promise.
+   The photograph opens while the headline is still settling — the
+   overlap is what makes it read as composed rather than as a queue.  */
+.hero__eyebrow i{transform:scaleX(0);transform-origin:left;
+  transition:transform .74s var(--e-soft) 40ms}
+.hero__eyebrow span{opacity:0;transform:translate3d(0,9px,0);
+  transition:opacity .62s var(--e-out) 90ms,transform .62s var(--e-out) 90ms}
+.hero__title .w{transform:translate3d(0,108%,0);
+  transition:transform 1.15s var(--e-out)}
+.hero__title .line:nth-child(1) .w:nth-child(1){transition-delay:.14s}
+.hero__title .line:nth-child(1) .w:nth-child(2){transition-delay:.21s}
+.hero__title .line:nth-child(2) .w:nth-child(1){transition-delay:.28s}
+.hero__title .line:nth-child(2) .w:nth-child(2){transition-delay:.35s}
+.hero__frame{clip-path:inset(0 0 100% 0);transition:clip-path 1.25s var(--e-wipe) .34s}
+/* it settles to --frame-zoom, not to 1: the parallax takes the image
+   over at exactly that scale, so the handoff is invisible */
+.hero__frame img,.hero__frame .slot{transform:scale(1.26);
+  transition:transform 1.9s var(--e-wipe) .34s}
+.hero__sub{opacity:0;transform:translate3d(0,20px,0);
+  transition:opacity .82s var(--e-out) .62s,transform .82s var(--e-out) .62s}
+.hero__actions{opacity:0;transform:translate3d(0,20px,0);
+  transition:opacity .82s var(--e-out) .71s,transform .82s var(--e-out) .71s}
+.hero__note{opacity:0;transform:translate3d(0,16px,0);
+  transition:opacity .74s var(--e-out) .8s,transform .74s var(--e-out) .8s}
+.hero__chip{opacity:0;transform:translate3d(0,10px,0) scale(.96);
+  transition:opacity .6s var(--e-soft),transform .6s var(--e-soft)}
+.hero__chip--1{transition-delay:.92s}
+.hero__chip--2{transition-delay:1s}
+/* the rule under the hero draws itself rather than simply being there */
+.hero__meta{border-top-color:transparent}
+.hero__meta::before{content:"";position:absolute;top:0;right:0;left:0;height:1px;
+  background:var(--line);transform:scaleX(0);transform-origin:left;
+  transition:transform .95s var(--e-soft) .78s}
+.hero__meta > div{opacity:0;transform:translate3d(0,12px,0);
+  transition:opacity .6s var(--e-soft),transform .6s var(--e-soft)}
+.hero__meta > div:nth-child(1){transition-delay:.86s}
+.hero__meta > div:nth-child(2){transition-delay:.93s}
+.hero__meta > div:nth-child(3){transition-delay:1s}
+.hero__meta > div:nth-child(4){transition-delay:1.07s}
+
+.hero.is-in .hero__eyebrow i,.hero.is-in .hero__meta::before{transform:scaleX(1)}
+.hero.is-in .hero__eyebrow span,.hero.is-in .hero__sub,.hero.is-in .hero__actions,
+.hero.is-in .hero__note,.hero.is-in .hero__chip,.hero.is-in .hero__meta > div{
+  opacity:1;transform:none}
+.hero.is-in .hero__title .w{transform:none}
+.hero.is-in .hero__frame{clip-path:inset(0 0 0 0)}
+.hero.is-in .hero__frame img,.hero.is-in .hero__frame .slot{transform:scale(var(--frame-zoom))}
 
 /* ---------- marquee ---------- */
 .marquee{overflow:hidden;border-block:1px solid var(--line);padding:16px 0;background:var(--sand)}
@@ -333,36 +388,6 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 }
 
 /* ============================================================
-   NANOPLASTY
-   ============================================================ */
-.nano{padding:clamp(54px,8.5vw,108px) var(--pad);background:var(--sand);
-  border-block:1px solid var(--line)}
-.nano__grid{display:grid;gap:clamp(28px,5vw,64px);max-width:1240px;margin-inline:auto;
-  align-items:center}
-.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:2px;
-  padding:clamp(18px,2.4vw,30px);display:flex;align-items:center}
-.strand{width:100%;height:auto;display:block}
-.strand__lbl{fill:var(--cocoa);font-size:11px;font-weight:600;letter-spacing:.15em;
-  text-transform:uppercase;font-family:Inter,sans-serif}
-.strand__path{stroke-dasharray:1400;stroke-dashoffset:1400;transition:stroke-dashoffset 2s var(--ease)}
-.nano__viz.in .strand__path{stroke-dashoffset:0}
-.nano__viz.in #strandAfter{transition-delay:.4s}
-.strand__shine{opacity:0}
-.nano__viz.in .strand__shine{animation:shineRun 3.4s 2s var(--ease-io) infinite}
-@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(198px)}
-  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(198px)}}
-.nano__cols{display:grid;gap:22px}
-.nano__col{padding-top:18px;border-top:1px solid var(--line)}
-.nano__n{display:block;font-size:11px;font-weight:600;letter-spacing:.2em;
-  color:var(--clay);margin-bottom:11px}
-.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:clamp(19px,2.2vw,23px);
-  margin:0 0 9px;color:var(--ink);letter-spacing:-.01em}
-.nano__col p{margin:0;color:var(--cocoa);font-size:14.5px;line-height:1.72}
-.nano__col em{color:var(--ink);font-style:italic}
-@media(min-width:620px){.nano__cols{grid-template-columns:1fr 1fr}}
-@media(min-width:1040px){.nano__grid{grid-template-columns:1fr 1fr}}
-
-/* ============================================================
    BEFORE / AFTER
    ============================================================ */
 .ba{padding:clamp(54px,8.5vw,108px) 0}
@@ -405,6 +430,9 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
   scrollbar-width:none;overscroll-behavior-inline:contain;cursor:grab}
 .work__track.is-dragging{cursor:grabbing;scroll-snap-type:none;user-select:none}
+/* a rail that loops must not snap: the wrap moves the scroll position
+   by exactly one set, and a snap point would drag it back off again */
+.work__track.is-drifting{scroll-snap-type:none;scroll-behavior:auto}
 .work__track::-webkit-scrollbar{display:none}
 /* a line that fills as you move through the gallery, so its length is
    never a surprise */
@@ -462,7 +490,9 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .val h3{font-family:var(--f-display);font-weight:400;font-size:19px;margin:0 0 6px}
 .val p{margin:0;color:var(--cocoa);font-size:14px;line-height:1.65}
 .oshi__sig{font-family:var(--f-display);font-style:italic;
-  font-size:clamp(20px,5.5vw,34px);color:var(--flame);text-align:center;
+  /* floor raised to 28px: below that --flame drops under AA, and on a
+     phone 5.5vw was resolving to ~21px */
+  font-size:clamp(28px,5.5vw,34px);color:var(--flame);text-align:center;
   margin:clamp(36px,6vw,60px) 0 0}
 @media(min-width:880px){
   .oshi__grid{grid-template-columns:.85fr 1.15fr;align-items:start}
@@ -599,7 +629,10 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
    ============================================================ */
 .mcta{position:fixed;left:0;right:0;bottom:0;z-index:5000;display:flex;gap:9px;
   padding:10px var(--pad) calc(10px + env(safe-area-inset-bottom));
-  background:rgba(250,247,243,.94);
+  /* fully opaque: at 94% the paragraph scrolling underneath read
+     straight through the bar, and there is no backdrop-filter
+     here to turn that into a frosted effect */
+  background:var(--shell);
   border-top:1px solid var(--line);
   transform:translateY(120%);transition:transform .5s var(--ease)}
 .mcta.show{transform:translateY(0)}
@@ -665,12 +698,16 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
     transition-duration:.001ms!important}
   .reveal{opacity:1;transform:none}
-  .hero__title .w{transform:none}
-  .hero__sub,.hero__actions,.hero__note{opacity:1;transform:none}
+  /* the hero timeline is hand-set, so every part of it is named here */
+  .hero__title .w,.hero__eyebrow i,.hero__meta::before{transform:none!important}
+  .hero__eyebrow i,.hero__meta::before{transform:scaleX(1)!important}
+  .hero__eyebrow span,.hero__sub,.hero__actions,.hero__note,.hero__chip,
+  .hero__meta > div{opacity:1!important;transform:none!important}
+  .hero__frame{clip-path:none!important}
+  .hero__frame img,.hero__frame .slot{transform:none!important}
   .craft{height:auto}
   .craft__sticky{position:static;height:auto;padding-block:clamp(60px,12vw,130px)}
   .craft__text .ch{color:var(--ink)}
-  .strand__path{stroke-dashoffset:0}
   .work__track{scroll-behavior:auto}
   .mcta{transform:none}
 }
@@ -744,7 +781,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .ba__handle i{border-radius:50%}
 .chip{border-radius:2px}
 .cform input,.cform select,.cform textarea,
-.cform,.cform__done,.nano__viz{border-radius:2px}
+.cform,.cform__done{border-radius:2px}
 .consult__list li::before{border-radius:2px}
 .cform__tick{border-radius:50%}
 
@@ -827,6 +864,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   --e-wipe:cubic-bezier(.65,.02,.2,1);   /* photographs — a shutter   */
   --e-soft:cubic-bezier(.33,1,.68,1);    /* small parts               */
   --d:0ms;                               /* per-element stagger       */
+  --frame-zoom:1.14;                     /* the slack parallax drifts through */
 }
 
 /* type rises out of its own line */
@@ -960,7 +998,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .cform__fine{font-size:13.5px}
   .kbody--quiet{font-size:14px}
   .svc__list li,.consult__list li{font-size:15px}
-  .step p,.nano__col p,.val p,.faq__item p{font-size:15px}
+  .step p,.val p,.faq__item p{font-size:15px}
   .foot__grid p{font-size:14.5px}
 }
 
@@ -1024,9 +1062,13 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 /* links underline themselves from the left rather than blinking on */
 .foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{
   position:relative;text-decoration:none;
+  /* the underline is drawn against the link box, so when that box is
+     padded out to a 44px tap target the line would sink away from the
+     text. This is how far it has to climb back. */
+  --ul-drop:0px;
 }
 .foot__grid a::after,.studio__facts a::after,.faq__item p a::after,.cform__fine a::after{
-  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  content:"";position:absolute;left:0;right:0;bottom:calc(var(--ul-drop) + .08em);height:1px;
   background:currentColor;opacity:.4;
   transform:scaleX(1);transform-origin:right;
   transition:transform .42s var(--e-out),opacity .42s var(--e-out);
@@ -1036,12 +1078,28 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   opacity:1;transform:scaleX(0);transform-origin:right;
 }
 .foot__grid a::before,.studio__facts a::before,.faq__item p a::before,.cform__fine a::before{
-  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  content:"";position:absolute;left:0;right:0;bottom:calc(var(--ul-drop) + .08em);height:1px;
   background:currentColor;transform:scaleX(0);transform-origin:left;
   transition:transform .42s var(--e-out) .1s;
 }
 .foot__grid a:hover::before,.studio__facts a:hover::before,
 .faq__item p a:hover::before,.cform__fine a:hover::before{transform:scaleX(1)}
+
+/* Those same links are padded out to a 44px tap target below 1060px.
+   This has to come after the rule that sets --ul-drop, or the later
+   declaration resets it and the underline floats 14px under the text. */
+@media(max-width:1059px){
+  .foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{--ul-drop:14px}
+}
+
+/* The footer's Instagram link stands on its own in a grid cell, so it
+   gets a real target at every width. The other three sit inside
+   sentences, where padding would open up the line box — they keep the
+   inline size WCAG allows for links in running text. */
+.foot__grid a{display:inline-block;padding-block:14px;--ul-drop:14px}
+@media(min-width:1060px){
+  .nav__brand{min-height:44px;display:flex;flex-direction:column;justify-content:center}
+}
 
 /* the answer opens rather than appearing */
 .faq__item[open] p{animation:answerIn .5s var(--e-out)}
@@ -1107,7 +1165,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     <span class="nav__brand-sub">Oakleigh South</span>
   </a>
   <nav class="nav__links" aria-label="Primary">
-    <a href="#craft">Craft</a><a href="#services">Services</a><a href="#nanoplasty">Nanoplasty</a>
+    <a href="#craft">Craft</a><a href="#services">Services</a>
     <a href="#work">Work</a><a href="#oshi">Oshi</a><a href="#studio">Studio</a>
   </nav>
   <div class="nav__actions">
@@ -1120,10 +1178,10 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <div class="menu" id="menu" hidden>
   <nav class="menu__links" aria-label="Mobile">
     <a href="#craft"><em>01</em> Craft</a><a href="#services"><em>02</em> Services</a>
-    <a href="#nanoplasty"><em>03</em> Nanoplasty</a><a href="#work"><em>04</em> Work</a>
-    <a href="#oshi"><em>05</em> Oshi</a><a href="#studio"><em>06</em> Studio</a>
-    <a href="#how"><em>07</em> How it works</a>
-    <a href="#faq"><em>08</em> Questions</a>
+    <a href="#work"><em>03</em> Work</a>
+    <a href="#oshi"><em>04</em> Oshi</a><a href="#studio"><em>05</em> Studio</a>
+    <a href="#how"><em>06</em> How it works</a>
+    <a href="#faq"><em>07</em> Questions</a>
   </nav>
   <div class="menu__cta">
     <button class="btn btn--block" data-open="booking"><span>Book now</span></button>
@@ -1228,37 +1286,10 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   </div>
   <p class="svc__note reveal">Pricing depends on length, density and condition — which is why it's quoted in your consult, not guessed on a website.</p>
 </section>
-
-<!-- ============ NANOPLASTY ============ -->
-<section class="nano" id="nanoplasty">
-  <div class="sec-head reveal">
-    <p class="eyebrow center">03 — The signature</p>
-    <h2 class="h2">Nanoplasty, <em>actually explained</em></h2>
-  </div>
-  <div class="nano__grid">
-    <div class="nano__viz reveal">
-      <svg viewBox="0 0 400 230" class="strand" aria-label="Diagram of a hair cuticle before and after nanoplasty">
-        <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0%" stop-color="#B4664A"/><stop offset="100%" stop-color="#D9A05B"/></linearGradient></defs>
-        <text x="20" y="22" class="strand__lbl">Before — lifted cuticle</text>
-        <path class="strand__path" d="M20 72 q10 -20 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="#A8917E" fill="none" stroke-width="2"/>
-        <text x="20" y="150" class="strand__lbl">After — sealed &amp; smooth</text>
-        <path class="strand__path" id="strandAfter" d="M20 198 q10 -2 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0" stroke="url(#sg)" fill="none" stroke-width="3"/>
-        <circle class="strand__shine" r="5" fill="#FCF8F4" stroke="#D9A05B"/>
-      </svg>
-    </div>
-    <div class="nano__cols">
-      <div class="nano__col reveal"><span class="nano__n">01</span><h3>What it is</h3><p>A formaldehyde-free smoothing treatment. Low-molecular amino acids slip into the cuticle and seal it flat, so light bounces off one smooth surface instead of scattering off a raised one. That is the shine.</p></div>
-      <div class="nano__col reveal"><span class="nano__n">02</span><h3>What it is not</h3><p>Not a permanent straightener, not a chemical relaxer. It will not destroy your curl pattern. It softens and relaxes — it does not erase.</p></div>
-      <div class="nano__col reveal"><span class="nano__n">03</span><h3>Versus keratin</h3><p>Keratin gives a straighter, more uniform finish. Nanoplasty keeps more of your natural movement and is gentler on coloured hair. It depends whether you want <em>straight</em> or <em>easy</em>.</p></div>
-      <div class="nano__col reveal"><span class="nano__n">04</span><h3>Who it's for</h3><p>Dense, coarse, frizz-prone hair that takes forever to dry. If your blow-dry is a 45-minute event and Melbourne humidity undoes it in ten, this is the one.</p></div>
-    </div>
-  </div>
-</section>
-
 <!-- ============ BEFORE / AFTER ============ -->
 <section class="ba" id="transform">
   <div class="sec-head reveal">
-    <p class="eyebrow center">04 — Transformations</p>
+    <p class="eyebrow center">03 — Transformations</p>
     <h2 class="h2">Drag to see <em>the difference</em></h2>
   </div>
   <div class="ba__stage reveal" id="baStage" data-cursor="drag">
@@ -1272,7 +1303,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <!-- ============ WORK ============ -->
 <section class="work" id="work">
   <div class="work__pin" id="workPin">
-    <div class="work__head"><p class="eyebrow">05 — The work</p><h2 class="h2">Dark hair, <em>made to shine</em></h2></div>
+    <div class="work__head"><p class="eyebrow">04 — The work</p><h2 class="h2">Dark hair, <em>made to shine</em></h2></div>
     <div class="work__track" id="workTrack">
       <figure class="work__card"><div class="work__frame"><img src="assets/img/work-1.jpg" data-title="Espresso gloss" data-note="Pick your favourite." alt="Glossy espresso brunette" loading="lazy" decoding="async"></div><figcaption><em>01</em> Espresso gloss</figcaption></figure>
       <figure class="work__card"><div class="work__frame"><img src="assets/img/work-2.jpg" data-title="Nanoplasty" data-note="Pick your favourite." alt="Nanoplasty smoothing result" loading="lazy" decoding="async"></div><figcaption><em>02</em> Nanoplasty</figcaption></figure>
@@ -1289,7 +1320,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <!-- ============ OSHI ============ -->
 <section class="oshi" id="oshi">
   <div class="oshi__head">
-    <p class="eyebrow reveal">06 — The woman behind the chair</p>
+    <p class="eyebrow reveal">05 — The woman behind the chair</p>
     <h2 class="h2 reveal">You're not booking a salon.<br>You're booking <em>Oshi</em>.</h2>
   </div>
   <div class="oshi__grid">
@@ -1324,7 +1355,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <section class="studio" id="studio">
   <div class="studio__media reveal"><img src="assets/img/studio.jpg" data-title="Suite · 350 Warrigal Rd" data-note="The one from the BIG NEWS announcement. Bring it and this fills itself in." alt="Inside the Hair by Oshi private studio" loading="lazy" decoding="async"></div>
   <div class="studio__body">
-    <p class="eyebrow reveal">07 — The studio</p>
+    <p class="eyebrow reveal">06 — The studio</p>
     <h2 class="h2 reveal">A private suite, <em>not a salon floor</em></h2>
     <div class="studio__facts">
       <div class="reveal"><em>Where</em><p>Freedom Suites<br>350 Warrigal Rd<br>Oakleigh South VIC 3167</p></div>
@@ -1342,7 +1373,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <!-- ============ HOW IT WORKS ============ -->
 <section class="steps" id="how">
   <div class="steps__head">
-    <p class="eyebrow">08 — How it works</p>
+    <p class="eyebrow">07 — How it works</p>
     <h2 class="h2">Three steps, <em>no guesswork</em></h2>
     <p class="lede">Nobody should have to commit to a price they haven't been told. Here's exactly how an appointment starts.</p>
   </div>
@@ -1370,7 +1401,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <section class="consult" id="consult">
   <div class="consult__inner">
     <div class="consult__copy">
-      <p class="eyebrow reveal">09 — No commitment</p>
+      <p class="eyebrow reveal">08 — No commitment</p>
       <h2 class="h2 reveal">Start with a <em>free consultation</em></h2>
       <p class="reveal">Not sure whether you want nanoplasty or keratin? Worried your hair can't take a correction? Send a photo and what you're hoping for, and you'll get a straight answer — what's possible, what it'll cost, and how long it'll take.</p>
       <ul class="consult__list">
@@ -1429,7 +1460,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <!-- ============ FAQ ============ -->
 <section class="faq" id="faq">
   <div class="sec-head reveal">
-    <p class="eyebrow center">10 — Before you book</p>
+    <p class="eyebrow center">09 — Before you book</p>
     <h2 class="h2">The honest <em>answers</em></h2>
   </div>
   <div class="faq__list">
@@ -1445,7 +1476,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 <!-- ============ BOOK ============ -->
 <section class="book" id="book">
   <div class="book__inner">
-    <p class="eyebrow center reveal">11 — Your turn</p>
+    <p class="eyebrow center reveal">10 — Your turn</p>
     <h2 class="book__title reveal">Let's talk about<br><em>your hair</em></h2>
     <p class="book__sub reveal">Pick a time that suits you, or start with a free consult if you'd rather ask first.</p>
     <div class="book__actions reveal">
@@ -1519,10 +1550,26 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   var lerp  = function (a, b, n) { return a + (b - a) * n; };
   var clamp = function (v, a, b) { return Math.min(Math.max(v, a), b); };
 
+  /* ---------- 0. the release signal ----------
+     The hero is above the fold, so it has no scroll to wait for. It
+     waits for this instead, and so does anything else that must not
+     start until the loader is out of the way. Callers registered after
+     the release still fire, so ordering between modules cannot break
+     the entrance.                                                     */
+  var released = false, waiting = [];
+  function release() {
+    if (released) return;
+    released = true;
+    waiting.splice(0).forEach(function (fn) { fn(); });
+  }
+  function onRelease(fn) { released ? fn() : waiting.push(fn); }
+  /* a stuck loader must never cost the page its entrance */
+  setTimeout(release, 4000);
+
   /* ---------- 1. preloader ---------- */
   (function preload() {
     var pl = $('#preloader'), bar = $('#plBar');
-    if (!pl) { document.body.classList.remove('is-loading'); return; }
+    if (!pl) { document.body.classList.remove('is-loading'); release(); return; }
     var p = 0, done = false;
     var tick = setInterval(function () {
       p = Math.min(p + Math.random() * 18, 92);
@@ -1536,6 +1583,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       setTimeout(function () {
         pl.classList.add('done');
         document.body.classList.remove('is-loading');
+        release();
         setTimeout(function () { if (pl.parentNode) pl.remove(); }, 800);
       }, reduce ? 0 : 380);
     }
@@ -1639,14 +1687,19 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   (function choreograph() {
     /* first match wins; order matters */
     var RULES = [
-      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .nano__viz, .consult__formwrap'],
-      ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .nano__col, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
+      ['wipe', '.hero__frame, .svc__media, .oshi__portrait, .studio__media, .work__card, .ba__stage, .consult__formwrap'],
+      ['fade', '.svc__list li, .consult__list li, .val, .step, .proof__item, .studio__facts > div, .faq__item, .hero__meta > div, .foot__grid > div, .hero__chip'],
       ['rise', '.eyebrow, .h2, .lede, .hero__title, .hero__sub, .hero__actions, .hero__note, .svc__num, .svc__body h3, .svc__tag, .svc__copy, .svc__note, .link-btn, .oshi__body p, .pull, .oshi__sig, .studio__actions, .consult__copy p, .book__title, .book__sub, .book__actions, .book__days, .foot__mark, .foot__tag, .oshi__head .h2, .steps__note']
     ];
 
     var seen = new Set();
+    /* The hero runs its own hand-set timeline in CSS. Tagging its parts
+       here too would put two transitions on one property and the later
+       one would silently win, which is exactly the race this replaced. */
+    var heroEl = $('.hero');
     function tag(el, kind) {
       if (seen.has(el) || el.hasAttribute('data-anim')) return;
+      if (heroEl && heroEl.contains(el)) return;
       seen.add(el);
       el.setAttribute('data-anim', kind);
     }
@@ -1684,12 +1737,12 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       io.observe(group);
     });
 
-    /* the hero is already on screen — run it once the loader lifts */
-    var hero = $('.hero');
-    if (hero) {
-      setTimeout(function () {
-        $$('[data-anim]', hero).forEach(function (el) { el.classList.add('in'); });
-      }, reduce ? 0 : 120);
+    /* the hero is already on screen — it opens when the loader lifts */
+    if (heroEl) {
+      onRelease(function () {
+        /* a frame's grace so the class lands after layout, not during it */
+        requestAnimationFrame(function () { heroEl.classList.add('is-in'); });
+      });
     }
   })();
 
@@ -1709,6 +1762,32 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       el.appendChild(s);
       if (wi < words.length - 1) el.appendChild(document.createTextNode(' '));
     });
+  })();
+
+  /* ---------- 6a. gallery loop ----------
+     The rail drifts on its own while nobody is touching it, and a drift
+     that stopped dead at the last card would just be a rail that ran
+     out. Duplicating the set gives it somewhere to go: once it has
+     advanced by exactly one set the scroll position is rolled back by
+     that much, which puts identical pixels under the viewport, so the
+     seam cannot be seen. The copies are decoration — they are hidden
+     from assistive tech, which has already read the originals.
+     This runs before the photo slots so the copies are armed by the
+     same sweep, and before the parallax so they drift like the rest.  */
+  (function galleryLoop() {
+    var track = $('#workTrack');
+    if (!track) return;
+    var cards = $$('.work__card', track);
+    if (cards.length < 2) return;
+    var frag = document.createDocumentFragment();
+    cards.forEach(function (c) {
+      var copy = c.cloneNode(true);
+      copy.setAttribute('aria-hidden', 'true');
+      copy.setAttribute('data-clone', '1');
+      frag.appendChild(copy);
+    });
+    track.appendChild(frag);
+    track.setAttribute('data-looped', '1');
   })();
 
   /* ---------- 6b. photo slots ----------
@@ -1749,7 +1828,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 
   /* ---------- 7. scroll-linked effects ---------- */
   (function scrollFX() {
-    var heroImg = $('#heroImg'), craft = $('.craft'), chars = $$('#craftText .ch');
+    var craft = $('.craft'), chars = $$('#craftText .ch');
     var marquee = $('#marquee');
     var mqX = 0, mqW = 0;
     function measure() { if (marquee) mqW = marquee.scrollWidth / 2; }
@@ -1758,9 +1837,6 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     (function frame() {
       var y = window.scrollY, vh = window.innerHeight;
 
-      if (heroImg && !reduce && y < vh * 1.4) {
-        heroImg.style.transform = 'scale(' + (1 + clamp(y / vh, 0, 1) * 0.07) + ')';
-      }
       if (craft && chars.length) {
         var r = craft.getBoundingClientRect();
         var total = craft.offsetHeight - vh;
@@ -1792,6 +1868,29 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       .map(function (f) { return { frame: f, media: null, y: 0 }; });
     if (!frames.length) return;
 
+    /* the scale this holds images at, read from the stylesheet so the
+       hero entrance and this agree on one number */
+    var zoom = (getComputedStyle(document.documentElement)
+      .getPropertyValue('--frame-zoom') || '1.14').trim() || '1.14';
+
+    /* The hero photograph is mid-entrance when this starts, and that
+       entrance is a transform set in CSS. Claiming it now would
+       overwrite it on the first frame and the opening move would never
+       be seen, so the hero frame is held back until it has landed. */
+    var heroFrame = $('.hero__frame'), heroReady = !heroFrame;
+    if (heroFrame) {
+      onRelease(function () {
+        var go = function () { heroReady = true; };
+        var m = heroFrame.querySelector('img, .slot');
+        if (m) {
+          m.addEventListener('transitionend', function (e) {
+            if (e.propertyName === 'transform') go();
+          });
+        }
+        setTimeout(go, 2600);   /* backstop: the entrance runs ~2.2s */
+      });
+    }
+
     /* A missing photograph is swapped for a placeholder on the image's
        error event, which fires well after this runs. Holding the original
        reference would leave us animating a node that is no longer in the
@@ -1808,6 +1907,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
       var vh = window.innerHeight;
       for (var i = 0; i < frames.length; i++) {
         var o = frames[i];
+        if (o.frame === heroFrame && !heroReady) continue;
         var r = o.frame.getBoundingClientRect();
         if (r.bottom < -200 || r.top > vh + 200) continue;
         var m = resolve(o);
@@ -1823,7 +1923,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
         /* One transform does both jobs: the scale supplies the slack the
            drift moves through, so no width, height or offset is touched
            and there is nothing for a percentage to resolve against. */
-        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(1.14)';
+        m.style.transform = 'translate3d(0,' + o.y.toFixed(1) + 'px,0) scale(' + zoom + ')';
       }
       requestAnimationFrame(loop);
     })();
@@ -1837,12 +1937,38 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     var track = $('#workTrack'), bar = $('#workBar');
     if (!track) return;
 
+    var looped = track.getAttribute('data-looped') === '1';
+    /* declared up here because wrap(), below, adjusts its accumulator */
+    var drift = { acc: 0, wrote: 0, last: 0, on: false, idle: 0, hover: false, seen: false };
+
+    /* One set's advance, measured rather than assumed: half the scroll
+       width is not it, because the track's own padding and the gap
+       either side of the seam do not divide evenly. */
+    function span() {
+      var kids = track.children;
+      if (!looped || kids.length < 2) return 0;
+      return kids[kids.length / 2].offsetLeft - kids[0].offsetLeft;
+    }
+
+    var wrapping = false;
+    function wrap() {
+      if (wrapping) return;
+      var sp = span();
+      if (!sp || track.scrollLeft < sp) return;
+      wrapping = true;
+      track.scrollLeft -= sp;      /* identical pixels — nothing moves */
+      drift.acc -= sp; drift.wrote -= sp;   /* keep the drift in step */
+      wrapping = false;
+    }
+
     function progress() {
       if (!bar) return;
+      var sp = span();
+      if (sp) { bar.style.width = ((track.scrollLeft % sp) / sp) * 100 + '%'; return; }
       var max = track.scrollWidth - track.clientWidth;
       bar.style.width = (max > 4 ? (track.scrollLeft / max) * 100 : 100) + '%';
     }
-    track.addEventListener('scroll', progress, { passive: true });
+    track.addEventListener('scroll', function () { wrap(); progress(); }, { passive: true });
     window.addEventListener('resize', progress);
     progress();
 
@@ -1890,12 +2016,65 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
     track.tabIndex = 0;
     track.setAttribute('role', 'region');
     track.setAttribute('aria-label', 'Gallery of recent work, scrollable');
+    /* --- the idle drift ---
+       Left to right, slowly, while nobody is using it. Anything that
+       counts as use stops it, and it only picks back up once the rail
+       has been left alone for a moment — so it never fights a hand on
+       the trackpad, and never crawls out from under a reader mid-card.
+       It is suspended off-screen and in a hidden tab as well, because a
+       rAF loop nobody can see is just battery.                         */
+    function still() {                       /* may it move right now? */
+      return drift.on && drift.seen && !drift.hover && !down &&
+             !document.hidden && !track.contains(document.activeElement);
+    }
+    function hold() {                        /* a hand has arrived */
+      drift.on = false;
+      clearTimeout(drift.idle);
+      drift.idle = setTimeout(function () {
+        drift.on = true;
+        drift.acc = track.scrollLeft;        /* resume from where it sits */
+      }, 2200);
+    }
+    ['pointerdown', 'wheel', 'touchstart', 'keydown', 'focusin']
+      .forEach(function (ev) { track.addEventListener(ev, hold, { passive: true }); });
+    track.addEventListener('pointerenter', function () { drift.hover = true; });
+    track.addEventListener('pointerleave', function () { drift.hover = false; });
+
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(function (es) {
+        es.forEach(function (en) { drift.seen = en.isIntersecting; });
+      }, { threshold: 0.12 }).observe(track);
+    } else { drift.seen = true; }
+
+    if (!reduce && looped) {
+      drift.on = true;
+      track.classList.add('is-drifting');
+      (function step(t) {
+        requestAnimationFrame(step);
+        var dt = drift.last ? Math.min(t - drift.last, 60) : 16;
+        drift.last = t;
+        if (!still()) { drift.acc = track.scrollLeft; return; }
+        /* If anything else moved the rail — a scrollbar, a jump to a
+           card, the wrap — carry on from where it actually is. Writing
+           a private running total back over it would haul it back. */
+        if (Math.abs(track.scrollLeft - drift.wrote) > 1) drift.acc = track.scrollLeft;
+        drift.acc += 22 * dt / 1000;         /* px per second */
+        track.scrollLeft = drift.acc;        /* scroll fires wrap() */
+        drift.wrote = track.scrollLeft;      /* what the browser took */
+      })(0);
+    }
+
     track.addEventListener('keydown', function (e) {
       var step = track.clientWidth * 0.8;
       if (e.key === 'ArrowRight') { track.scrollLeft += step; e.preventDefault(); }
       if (e.key === 'ArrowLeft')  { track.scrollLeft -= step; e.preventDefault(); }
       if (e.key === 'Home')       { track.scrollLeft = 0; e.preventDefault(); }
-      if (e.key === 'End')        { track.scrollLeft = track.scrollWidth; e.preventDefault(); }
+      if (e.key === 'End')        {
+        /* the far end of the real set, not of the duplicated track */
+        var sp = span();
+        track.scrollLeft = sp ? sp - track.clientWidth : track.scrollWidth;
+        e.preventDefault();
+      }
     });
   })();
 

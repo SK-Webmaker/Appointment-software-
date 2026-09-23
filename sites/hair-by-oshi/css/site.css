@@ -103,12 +103,12 @@ button{font:inherit;color:inherit}
 .btn--ghost{--bg:transparent;--fg:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
 .btn--ghost::before{background:var(--ink)}
 .btn--ghost:hover{--fg:var(--shell);box-shadow:inset 0 0 0 1.5px var(--ink)}
-.btn--sm{min-height:42px;padding:10px 20px;font-size:11.5px}
+.btn--sm{min-height:44px;padding:10px 20px;font-size:11.5px}
 .btn--lg{min-height:58px;padding:19px 36px;font-size:14px}
 .btn--block{display:flex;width:100%}
 
 .link-btn{
-  display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:10px 0;
+  display:inline-flex;align-items:center;gap:8px;margin-top:20px;padding:12px 0;min-height:44px;
   background:none;border:0;cursor:pointer;color:var(--clay);
   font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
   border-bottom:1.5px solid var(--line);transition:gap .35s var(--ease),border-color .35s;
@@ -174,6 +174,10 @@ button{font:inherit;color:inherit}
   .nav__burger{display:none}
   .nav__links a{position:relative;text-decoration:none;font-size:12.5px;font-weight:500;
     letter-spacing:.06em;text-transform:uppercase;color:var(--cocoa);padding:4px 0;transition:color .3s}
+  /* the hit area is opened to 44px without moving the text or the
+     underline beneath it, which stays hard against the baseline */
+  .nav__links a::before{content:"";position:absolute;left:0;right:0;top:50%;
+    height:44px;transform:translateY(-50%)}
   .nav__links a::after{content:"";position:absolute;left:0;bottom:0;width:100%;height:1.5px;
     background:var(--clay);transform:scaleX(0);transform-origin:right;transition:transform .4s var(--ease)}
   .nav__links a:hover{color:var(--ink)}
@@ -199,8 +203,10 @@ button{font:inherit;color:inherit}
 .menu.open .menu__links a:nth-child(6){transition-delay:.45s}
 .menu.open .menu__links a:nth-child(7){transition-delay:.5s}
 .menu.open .menu__links a:nth-child(8){transition-delay:.55s}
+/* --clay, not --flame: at 10px this is not display text, and --flame
+   only clears AA at display sizes */
 .menu__links em{font-family:var(--f-body);font-style:normal;font-size:10px;
-  font-weight:600;letter-spacing:.2em;color:var(--flame)}
+  font-weight:600;letter-spacing:.2em;color:var(--clay)}
 .menu__cta{display:flex;flex-direction:column;gap:10px}
 .menu__foot{color:var(--cocoa);font-size:12.5px}
 .menu__foot p{margin:3px 0}
@@ -213,13 +219,8 @@ button{font:inherit;color:inherit}
 .hero__title{font-family:var(--f-display);font-weight:300;
   font-size:clamp(42px,11vw,96px);line-height:1.0;letter-spacing:-.032em;margin:0 0 22px}
 .hero__title .line{display:block;overflow:hidden;padding-bottom:.04em}
-.hero__title .w{display:inline-block;transform:translateY(105%);transition:transform 1.05s var(--ease)}
+.hero__title .w{display:inline-block}
 .hero__title .it{font-style:italic;color:var(--flame)}
-body:not(.is-loading) .hero__title .w{transform:translateY(0)}
-.hero__title .line:nth-child(1) .w:nth-child(1){transition-delay:.04s}
-.hero__title .line:nth-child(1) .w:nth-child(2){transition-delay:.1s}
-.hero__title .line:nth-child(2) .w:nth-child(1){transition-delay:.16s}
-.hero__title .line:nth-child(2) .w:nth-child(2){transition-delay:.22s}
 .hero__sub{max-width:46ch;color:var(--cocoa);font-size:clamp(15px,3.7vw,18.5px);
   line-height:1.72;margin:0 0 26px}
 .hero__actions{display:flex;flex-direction:column;gap:10px}
@@ -257,6 +258,60 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .hero__title{font-size:clamp(54px,7.4vw,96px)}
   .hero__meta{grid-column:1/-1;grid-template-columns:repeat(4,1fr);gap:22px}
 }
+
+/* ---------- hero entrance ----------
+   The hero is already on screen, so it does not wait for a scroll —
+   it is released in one move when the preloader lifts. Previously the
+   headline ran off `body.is-loading` while every other part ran off a
+   generic stagger set in JS, so the two raced and the order varied by
+   how long the loader happened to take. One timeline, set here, in the
+   order a person reads: rule, eyebrow, headline, photograph, promise.
+   The photograph opens while the headline is still settling — the
+   overlap is what makes it read as composed rather than as a queue.  */
+.hero__eyebrow i{transform:scaleX(0);transform-origin:left;
+  transition:transform .74s var(--e-soft) 40ms}
+.hero__eyebrow span{opacity:0;transform:translate3d(0,9px,0);
+  transition:opacity .62s var(--e-out) 90ms,transform .62s var(--e-out) 90ms}
+.hero__title .w{transform:translate3d(0,108%,0);
+  transition:transform 1.15s var(--e-out)}
+.hero__title .line:nth-child(1) .w:nth-child(1){transition-delay:.14s}
+.hero__title .line:nth-child(1) .w:nth-child(2){transition-delay:.21s}
+.hero__title .line:nth-child(2) .w:nth-child(1){transition-delay:.28s}
+.hero__title .line:nth-child(2) .w:nth-child(2){transition-delay:.35s}
+.hero__frame{clip-path:inset(0 0 100% 0);transition:clip-path 1.25s var(--e-wipe) .34s}
+/* it settles to --frame-zoom, not to 1: the parallax takes the image
+   over at exactly that scale, so the handoff is invisible */
+.hero__frame img,.hero__frame .slot{transform:scale(1.26);
+  transition:transform 1.9s var(--e-wipe) .34s}
+.hero__sub{opacity:0;transform:translate3d(0,20px,0);
+  transition:opacity .82s var(--e-out) .62s,transform .82s var(--e-out) .62s}
+.hero__actions{opacity:0;transform:translate3d(0,20px,0);
+  transition:opacity .82s var(--e-out) .71s,transform .82s var(--e-out) .71s}
+.hero__note{opacity:0;transform:translate3d(0,16px,0);
+  transition:opacity .74s var(--e-out) .8s,transform .74s var(--e-out) .8s}
+.hero__chip{opacity:0;transform:translate3d(0,10px,0) scale(.96);
+  transition:opacity .6s var(--e-soft),transform .6s var(--e-soft)}
+.hero__chip--1{transition-delay:.92s}
+.hero__chip--2{transition-delay:1s}
+/* the rule under the hero draws itself rather than simply being there */
+.hero__meta{border-top-color:transparent}
+.hero__meta::before{content:"";position:absolute;top:0;right:0;left:0;height:1px;
+  background:var(--line);transform:scaleX(0);transform-origin:left;
+  transition:transform .95s var(--e-soft) .78s}
+.hero__meta > div{opacity:0;transform:translate3d(0,12px,0);
+  transition:opacity .6s var(--e-soft),transform .6s var(--e-soft)}
+.hero__meta > div:nth-child(1){transition-delay:.86s}
+.hero__meta > div:nth-child(2){transition-delay:.93s}
+.hero__meta > div:nth-child(3){transition-delay:1s}
+.hero__meta > div:nth-child(4){transition-delay:1.07s}
+
+.hero.is-in .hero__eyebrow i,.hero.is-in .hero__meta::before{transform:scaleX(1)}
+.hero.is-in .hero__eyebrow span,.hero.is-in .hero__sub,.hero.is-in .hero__actions,
+.hero.is-in .hero__note,.hero.is-in .hero__chip,.hero.is-in .hero__meta > div{
+  opacity:1;transform:none}
+.hero.is-in .hero__title .w{transform:none}
+.hero.is-in .hero__frame{clip-path:inset(0 0 0 0)}
+.hero.is-in .hero__frame img,.hero.is-in .hero__frame .slot{transform:scale(var(--frame-zoom))}
 
 /* ---------- marquee ---------- */
 .marquee{overflow:hidden;border-block:1px solid var(--line);padding:16px 0;background:var(--sand)}
@@ -317,36 +372,6 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 }
 
 /* ============================================================
-   NANOPLASTY
-   ============================================================ */
-.nano{padding:clamp(54px,8.5vw,108px) var(--pad);background:var(--sand);
-  border-block:1px solid var(--line)}
-.nano__grid{display:grid;gap:clamp(28px,5vw,64px);max-width:1240px;margin-inline:auto;
-  align-items:center}
-.nano__viz{background:var(--shell);border:1px solid var(--line);border-radius:2px;
-  padding:clamp(18px,2.4vw,30px);display:flex;align-items:center}
-.strand{width:100%;height:auto;display:block}
-.strand__lbl{fill:var(--cocoa);font-size:11px;font-weight:600;letter-spacing:.15em;
-  text-transform:uppercase;font-family:Inter,sans-serif}
-.strand__path{stroke-dasharray:1400;stroke-dashoffset:1400;transition:stroke-dashoffset 2s var(--ease)}
-.nano__viz.in .strand__path{stroke-dashoffset:0}
-.nano__viz.in #strandAfter{transition-delay:.4s}
-.strand__shine{opacity:0}
-.nano__viz.in .strand__shine{animation:shineRun 3.4s 2s var(--ease-io) infinite}
-@keyframes shineRun{0%{opacity:0;transform:translateX(20px) translateY(198px)}
-  12%{opacity:1}88%{opacity:1}100%{opacity:0;transform:translateX(380px) translateY(198px)}}
-.nano__cols{display:grid;gap:22px}
-.nano__col{padding-top:18px;border-top:1px solid var(--line)}
-.nano__n{display:block;font-size:11px;font-weight:600;letter-spacing:.2em;
-  color:var(--clay);margin-bottom:11px}
-.nano__col h3{font-family:var(--f-display);font-weight:400;font-size:clamp(19px,2.2vw,23px);
-  margin:0 0 9px;color:var(--ink);letter-spacing:-.01em}
-.nano__col p{margin:0;color:var(--cocoa);font-size:14.5px;line-height:1.72}
-.nano__col em{color:var(--ink);font-style:italic}
-@media(min-width:620px){.nano__cols{grid-template-columns:1fr 1fr}}
-@media(min-width:1040px){.nano__grid{grid-template-columns:1fr 1fr}}
-
-/* ============================================================
    BEFORE / AFTER
    ============================================================ */
 .ba{padding:clamp(54px,8.5vw,108px) 0}
@@ -389,6 +414,9 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
   scrollbar-width:none;overscroll-behavior-inline:contain;cursor:grab}
 .work__track.is-dragging{cursor:grabbing;scroll-snap-type:none;user-select:none}
+/* a rail that loops must not snap: the wrap moves the scroll position
+   by exactly one set, and a snap point would drag it back off again */
+.work__track.is-drifting{scroll-snap-type:none;scroll-behavior:auto}
 .work__track::-webkit-scrollbar{display:none}
 /* a line that fills as you move through the gallery, so its length is
    never a surprise */
@@ -446,7 +474,9 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .val h3{font-family:var(--f-display);font-weight:400;font-size:19px;margin:0 0 6px}
 .val p{margin:0;color:var(--cocoa);font-size:14px;line-height:1.65}
 .oshi__sig{font-family:var(--f-display);font-style:italic;
-  font-size:clamp(20px,5.5vw,34px);color:var(--flame);text-align:center;
+  /* floor raised to 28px: below that --flame drops under AA, and on a
+     phone 5.5vw was resolving to ~21px */
+  font-size:clamp(28px,5.5vw,34px);color:var(--flame);text-align:center;
   margin:clamp(36px,6vw,60px) 0 0}
 @media(min-width:880px){
   .oshi__grid{grid-template-columns:.85fr 1.15fr;align-items:start}
@@ -583,7 +613,10 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
    ============================================================ */
 .mcta{position:fixed;left:0;right:0;bottom:0;z-index:5000;display:flex;gap:9px;
   padding:10px var(--pad) calc(10px + env(safe-area-inset-bottom));
-  background:rgba(250,247,243,.94);
+  /* fully opaque: at 94% the paragraph scrolling underneath read
+     straight through the bar, and there is no backdrop-filter
+     here to turn that into a frosted effect */
+  background:var(--shell);
   border-top:1px solid var(--line);
   transform:translateY(120%);transition:transform .5s var(--ease)}
 .mcta.show{transform:translateY(0)}
@@ -649,12 +682,16 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
     transition-duration:.001ms!important}
   .reveal{opacity:1;transform:none}
-  .hero__title .w{transform:none}
-  .hero__sub,.hero__actions,.hero__note{opacity:1;transform:none}
+  /* the hero timeline is hand-set, so every part of it is named here */
+  .hero__title .w,.hero__eyebrow i,.hero__meta::before{transform:none!important}
+  .hero__eyebrow i,.hero__meta::before{transform:scaleX(1)!important}
+  .hero__eyebrow span,.hero__sub,.hero__actions,.hero__note,.hero__chip,
+  .hero__meta > div{opacity:1!important;transform:none!important}
+  .hero__frame{clip-path:none!important}
+  .hero__frame img,.hero__frame .slot{transform:none!important}
   .craft{height:auto}
   .craft__sticky{position:static;height:auto;padding-block:clamp(60px,12vw,130px)}
   .craft__text .ch{color:var(--ink)}
-  .strand__path{stroke-dashoffset:0}
   .work__track{scroll-behavior:auto}
   .mcta{transform:none}
 }
@@ -728,7 +765,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 .ba__handle i{border-radius:50%}
 .chip{border-radius:2px}
 .cform input,.cform select,.cform textarea,
-.cform,.cform__done,.nano__viz{border-radius:2px}
+.cform,.cform__done{border-radius:2px}
 .consult__list li::before{border-radius:2px}
 .cform__tick{border-radius:50%}
 
@@ -811,6 +848,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   --e-wipe:cubic-bezier(.65,.02,.2,1);   /* photographs — a shutter   */
   --e-soft:cubic-bezier(.33,1,.68,1);    /* small parts               */
   --d:0ms;                               /* per-element stagger       */
+  --frame-zoom:1.14;                     /* the slack parallax drifts through */
 }
 
 /* type rises out of its own line */
@@ -944,7 +982,7 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   .cform__fine{font-size:13.5px}
   .kbody--quiet{font-size:14px}
   .svc__list li,.consult__list li{font-size:15px}
-  .step p,.nano__col p,.val p,.faq__item p{font-size:15px}
+  .step p,.val p,.faq__item p{font-size:15px}
   .foot__grid p{font-size:14.5px}
 }
 
@@ -1008,9 +1046,13 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
 /* links underline themselves from the left rather than blinking on */
 .foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{
   position:relative;text-decoration:none;
+  /* the underline is drawn against the link box, so when that box is
+     padded out to a 44px tap target the line would sink away from the
+     text. This is how far it has to climb back. */
+  --ul-drop:0px;
 }
 .foot__grid a::after,.studio__facts a::after,.faq__item p a::after,.cform__fine a::after{
-  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  content:"";position:absolute;left:0;right:0;bottom:calc(var(--ul-drop) + .08em);height:1px;
   background:currentColor;opacity:.4;
   transform:scaleX(1);transform-origin:right;
   transition:transform .42s var(--e-out),opacity .42s var(--e-out);
@@ -1020,12 +1062,28 @@ body:not(.is-loading) .hero__title .w{transform:translateY(0)}
   opacity:1;transform:scaleX(0);transform-origin:right;
 }
 .foot__grid a::before,.studio__facts a::before,.faq__item p a::before,.cform__fine a::before{
-  content:"";position:absolute;left:0;right:0;bottom:.08em;height:1px;
+  content:"";position:absolute;left:0;right:0;bottom:calc(var(--ul-drop) + .08em);height:1px;
   background:currentColor;transform:scaleX(0);transform-origin:left;
   transition:transform .42s var(--e-out) .1s;
 }
 .foot__grid a:hover::before,.studio__facts a:hover::before,
 .faq__item p a:hover::before,.cform__fine a:hover::before{transform:scaleX(1)}
+
+/* Those same links are padded out to a 44px tap target below 1060px.
+   This has to come after the rule that sets --ul-drop, or the later
+   declaration resets it and the underline floats 14px under the text. */
+@media(max-width:1059px){
+  .foot__grid a,.studio__facts a,.faq__item p a,.cform__fine a{--ul-drop:14px}
+}
+
+/* The footer's Instagram link stands on its own in a grid cell, so it
+   gets a real target at every width. The other three sit inside
+   sentences, where padding would open up the line box — they keep the
+   inline size WCAG allows for links in running text. */
+.foot__grid a{display:inline-block;padding-block:14px;--ul-drop:14px}
+@media(min-width:1060px){
+  .nav__brand{min-height:44px;display:flex;flex-direction:column;justify-content:center}
+}
 
 /* the answer opens rather than appearing */
 .faq__item[open] p{animation:answerIn .5s var(--e-out)}
