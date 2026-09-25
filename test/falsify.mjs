@@ -120,6 +120,32 @@ const MUTATIONS = {
     find: "      summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),",
     replace: "      summary_hour: Number(getSetting('push_summary_hour', '7')),",
   },
+  // ── Special requests ──────────────────────────────────────────────────────
+  'enquiries-off-only-hides-the-panel': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "  if (!enquiriesEnabled()) throw httpError(404, 'This salon is not taking requests here');",
+    replace: '',
+  },
+  'enquiry-makes-a-client-of-everyone-who-asks': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: '  let clientId = null;\n  if (email) clientId = db.prepare(\'SELECT id FROM clients WHERE lower(email) = ?\').get(email)?.id ?? null;',
+    replace: "  let clientId = null;\n  if (email) clientId = Number(db.prepare('INSERT INTO clients (first_name, email) VALUES (?, ?)').run(name, email).lastInsertRowid);",
+  },
+  'enquiry-accepts-nobody-to-reply-to': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "  if (!email && !phone) throw httpError(400, 'Please leave an email or a phone number so we can reply');",
+    replace: '',
+  },
+  'enquiry-loses-a-date-typed-in-words': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "    [!wantDate && typedDate ? typedDate : '', str(b.when_text, 200)].filter(Boolean).join(' · '),",
+    replace: "    [str(b.when_text, 200)].filter(Boolean).join(' · '),",
+  },
+  'enquiry-alert-cannot-be-turned-off': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "      enquiry: getSetting('push_enquiry', '1') === '1',",
+    replace: '      enquiry: true,',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

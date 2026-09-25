@@ -89,6 +89,7 @@ test('the app is told exactly what it will be woken for, in both directions', as
     cancellation: true,
     payment_check: false,
     daily_summary: true,
+    enquiry: true,
     summary_hour: 8,
   });
   assert.equal(typeof cfg.json.push.available, 'boolean');
@@ -104,6 +105,7 @@ test('the app is told exactly what it will be woken for, in both directions', as
     cancellation: false,
     payment_check: true,
     daily_summary: false,
+    enquiry: true,
     summary_hour: 6,
   });
   await set({ push_summary_hour: '8', push_cancellation: '1' });

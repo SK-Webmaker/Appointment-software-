@@ -313,6 +313,31 @@ export async function renderSettings(container, params) {
         </form>
       </div>
 
+      <div class="card" data-sec="requests">
+        <div class="card-title">Special requests</div>
+        <div class="card-sub" style="margin-bottom:16px">A panel under your booking form for the
+          customer your diary can't serve — someone who wants a Sunday, a later time, or who wants
+          to check something before they book. Without it that person closes the tab and you never
+          find out they were there.</div>
+        <form id="set-requests" style="display:flex;flex-direction:column;gap:13px">
+          <label class="opt-out">
+            <input type="checkbox" class="chk" name="enquiries_enabled" ${(s.enquiries_enabled ?? '1') === '1' ? 'checked' : ''}>
+            <span><b>Let customers send a request from my booking page</b>
+              <span>They tell you what they're after; it lands on your dashboard and pings your phone.
+                Nothing is booked and nothing is sent to them automatically.</span></span>
+          </label>
+          <div class="field"><label>What the panel says</label>
+            <textarea name="enquiries_note" rows="2" maxlength="300"
+              placeholder="Tell us what you're after — a different day, a later time, or anything you want to check first — and we'll see what we can do.">${esc(s.enquiries_note || '')}</textarea>
+            <div class="hint">Leave it empty to use the wording above. The heading stays
+              <b>"Can't find a time that works?"</b> either way.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save requests</button>
+        </form>
+        <div class="hint" style="margin-top:12px">Different from the <b>waitlist</b> below: that one
+          messages people automatically when a day they wanted frees up, and only for days you already
+          open. This one reaches you, about anything, and you reply yourself.</div>
+      </div>
+
       <div class="card" data-sec="consult">
         <div class="card-title">Consultation first</div>
         <div class="card-sub" style="margin-bottom:16px">For a business that wants to speak to every client
@@ -571,6 +596,7 @@ export async function renderSettings(container, params) {
     ['push_cancellation', 'When somebody cancels', 'A free slot you hear about tonight is a slot you can still sell. One you hear about in the morning is gone.', '1'],
     ['push_payment_check', 'When a booking link says it has been paid', 'Only matters if you confirm payments yourself. Tells you there is money to check and somebody waiting on you.', '1'],
     ['push_daily_summary', 'A summary each morning', 'How many appointments today and when the first one is. Silent on a day with nothing in it.', '0'],
+    ['push_enquiry', 'When somebody sends a special request', 'They asked for a time you don\'t offer and are waiting on an answer. The sooner you see it, the more likely they still book.', '1'],
   ].map(([key, label, hint, dflt]) => `
             <label class="opt-out">
               <input type="checkbox" class="chk" name="${key}" ${(s[key] ?? dflt) === '1' ? 'checked' : ''}>
@@ -985,10 +1011,14 @@ export async function renderSettings(container, params) {
     toast('Settings saved');
   };
 
+  container.querySelector('#set-requests')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings(e.target, ['enquiries_enabled', 'enquiries_note']);
+  });
   container.querySelector('#set-apppush')?.addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['push_new_booking', 'push_cancellation', 'push_payment_check',
-      'push_daily_summary', 'push_summary_hour']);
+      'push_daily_summary', 'push_summary_hour', 'push_enquiry']);
   });
   // The hour only matters if the summary is on, so it appears with it.
   container.querySelector('#set-apppush')?.addEventListener('change', (e) => {
