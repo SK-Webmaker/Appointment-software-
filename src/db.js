@@ -684,6 +684,32 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_invites_status ON booking_invites(status);
   `);
 
+  // ── Special requests ──────────────────────────────────────────────────────
+  // "Can you do Tuesday at seven?" when Tuesday at seven is not on the page.
+  // Not the waitlist: that matches a freed slot automatically and only for a
+  // day the salon already offers. This asks for anything, and the reply is the
+  // product. See docs/11-special-requests.md.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS enquiries (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id   INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      name        TEXT NOT NULL DEFAULT '',
+      email       TEXT NOT NULL DEFAULT '',
+      phone       TEXT NOT NULL DEFAULT '',
+      -- What they were hoping for. The date is the easy half; when_text is the
+      -- half that actually helps ("any evening after 6", "Sunday if you ever
+      -- do them") and no date picker can hold it.
+      want_date   TEXT NOT NULL DEFAULT '',
+      when_text   TEXT NOT NULL DEFAULT '',
+      service_id  INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      message     TEXT NOT NULL DEFAULT '',
+      status      TEXT NOT NULL DEFAULT 'new',   -- new|done
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at     TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status, id);
+  `);
+
   // Added after booking_invites shipped: a per-invite payment link, and the
   // proof that the client opened it.
   addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");
@@ -1130,6 +1156,14 @@ const DEFAULT_SETTINGS = {
   push_payment_check: '1',    // a booking link says it has been paid
   push_daily_summary: '0',    // "6 appointments today", once each morning
   push_summary_hour: '7',     // when that lands, business time (0-23)
+  push_enquiry: '1',          // somebody sent a special request
+  // ── Special requests (docs/11-special-requests.md) ────────────────────────
+  // ON by default, unlike the waitlist: this sends nothing to anybody on its
+  // own, it puts a message in front of the owner and stops. Having it off
+  // costs a customer who silently leaves, which is the thing it exists to
+  // prevent.
+  enquiries_enabled: '1',
+  enquiries_note: '',         // the salon's own wording, if they want their own
   patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
   patch_lead_hours: '48', // how long before the treatment a patch test must sit
   patch_valid_months: '6',// default validity when a service doesn't say otherwise

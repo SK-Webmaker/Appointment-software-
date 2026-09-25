@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { esc, icon, money, fmtTime, fmtTimeShort, fmtDate, statusChip, initials, avatarColor, todayStr, openModal, toast, confirmDialog } from '../ui.js';
 import { barChart } from '../charts.js';
 import { state } from '../app.js';
+import { drawEnquiries } from './enquiries.js';
 
 const HOUR_LABEL = (h) => {
   const ap = h >= 12 ? 'PM' : 'AM';
@@ -211,6 +212,14 @@ async function drawDashboard(container) {
         <button class="btn primary" id="qa-new">${icon('plus')} New appointment</button>
       </div>
     </div>
+
+    <!-- Deliberately FIRST, and the mirror image of the Opportunities slot at
+         the bottom. That one is analysis to read when there is a minute; this
+         is people sitting waiting for an answer, who will book somewhere else
+         if they don't get one. It draws nothing at all when nobody is waiting,
+         because a card that says "0" every morning is a card the owner stops
+         seeing — and then misses the morning it says 2. -->
+    <div id="enq-slot"></div>
 
     <!-- Today at a glance -->
     <div class="card today-card">
@@ -496,6 +505,9 @@ async function drawDashboard(container) {
       </div>`).join('');
   }
 
+  drawEnquiries(container.querySelector('#enq-slot'), {
+    onChange: () => renderDashboard(container),
+  });
   drawOpportunities(container.querySelector('#opps-slot'));
 }
 

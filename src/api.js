@@ -514,7 +514,8 @@ export const EDITABLE_SETTINGS = new Set([
   'invite_expiry_hours', 'invite_pay', 'invite_confirm',
   // What the owner's phone is allowed to interrupt them for.
   'push_new_booking', 'push_cancellation', 'push_payment_check',
-  'push_daily_summary', 'push_summary_hour',
+  'push_daily_summary', 'push_summary_hour', 'push_enquiry',
+  'enquiries_enabled', 'enquiries_note',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -2966,6 +2967,7 @@ route('GET', '/api/app/config', async ({ user }) => ({
       cancellation: getSetting('push_cancellation', '1') === '1',
       payment_check: getSetting('push_payment_check', '1') === '1',
       daily_summary: getSetting('push_daily_summary', '0') === '1',
+      enquiry: getSetting('push_enquiry', '1') === '1',
       summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),
     },
   },
@@ -2986,6 +2988,7 @@ function wantsPush(kind) {
     cancellation: 'push_cancellation',
     payment_check: 'push_payment_check',
     daily_summary: 'push_daily_summary',
+    enquiry: 'push_enquiry',
   }[kind];
   if (!key) return true; // a test push is always wanted: it was just asked for
   return getSetting(key, '1') === '1';
@@ -4608,6 +4611,12 @@ route('GET', '/api/public/info', async () => {
     booking_horizon_days: bookingHorizonDays(),
     cancel_window_hours: getSetting('client_cancel_enabled', '1') === '1'
       ? Math.max(0, Number(getSetting('cancel_window_hours', '12')) || 0) : -1,
+    // "Can't find a time?" — the escape hatch under the booking form. Sent
+    // always, so the page never has to guess whether to draw it.
+    enquiries: {
+      enabled: enquiriesEnabled(),
+      note: getSetting('enquiries_note', ''),
+    },
     // Consultation-first: the booking page draws a "message us" card instead
     // of a slot picker. Sent always, so the page never has to guess.
     consult: {
@@ -6416,3 +6425,153 @@ route('POST', '/api/public/invite/decline', async ({ req }) => {
   invites.close(inv.id, 'declined');
   return { ok: true };
 }, { auth: false });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Special requests
+//
+// "Can you do Tuesday at seven?" when Tuesday at seven is not on the page.
+// Not the waitlist — that matches a freed slot automatically, and only for a
+// day the salon already offers. This asks for anything, and the reply is the
+// product. See docs/11-special-requests.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const enquiriesEnabled = () => getSetting('enquiries_enabled', '1') === '1';
+
+/**
+ * Somebody could not find a time and said so.
+ *
+ * Deliberately writes NO client record. A waitlist entry has to create one —
+ * it is a standing instruction to message that person later. This is one
+ * message; making a client out of it would fill the salon's list with people
+ * who asked about a Sunday once, and quietly opt them into whatever the list
+ * is used for. The owner turns it into a client by booking them.
+ */
+route('POST', '/api/public/enquiry', async ({ req }) => {
+  if (!enquiriesEnabled()) throw httpError(404, 'This salon is not taking requests here');
+  if (getSetting('booking_enabled', '1') !== '1') throw httpError(404, 'Online booking is disabled');
+  const b = checkBody(await readJson(req), {
+    name: s.str(120, { required: true }),
+    email: s.str(200),
+    phone: s.str(50),
+    // Wider than a date on purpose. The field is <input type="date">, but a
+    // browser without support for it — an older phone, some in-app webviews —
+    // renders a plain text box, and the customer types "next Tuesday". That is
+    // useful, and losing their whole request over it would turn away the exact
+    // person this feature exists to keep.
+    want_date: s.str(40),
+    when_text: s.str(200),
+    service_id: s.num({ min: 1 }),
+    message: s.str(1500, { required: true }),
+    turnstile_token: s.str(2048),
+  });
+  // Same gate the booking form has. This is free text landing in front of the
+  // owner, which makes it the softest target on the page.
+  const human = await verifyTurnstile(b.turnstile_token, clientIp(req));
+  if (!human.ok) throw httpError(400, human.detail);
+
+  const name = str(b.name, 120);
+  const email = str(b.email, 200).toLowerCase();
+  const phone = str(b.phone, 50);
+  const message = str(b.message, 1500);
+  if (!name) throw httpError(400, 'Please tell us your name');
+  if (!message) throw httpError(400, 'Please tell us what you are after');
+  // Without one of these the owner reads a request they cannot answer, which
+  // is worse than not receiving it: they know somebody wanted something and
+  // cannot find out who.
+  if (!email && !phone) throw httpError(400, 'Please leave an email or a phone number so we can reply');
+  if (email && !looksLikeEmail(email)) throw httpError(400, 'That email address does not look right');
+  // A real date goes in the date column. Anything else they typed there is
+  // kept as words rather than thrown away: "next Tuesday" is more use to the
+  // owner than an empty field.
+  const typedDate = str(b.want_date, 40);
+  const wantDate = isDateStr(typedDate) ? typedDate : '';
+  const whenText = str(
+    [!wantDate && typedDate ? typedDate : '', str(b.when_text, 200)].filter(Boolean).join(' · '),
+    200,
+  );
+
+  // Matched to a client if we already know them, so the owner sees "this is
+  // Ruby, she's been in eleven times" rather than a stranger's name. Looked
+  // up only — never created.
+  let clientId = null;
+  if (email) clientId = db.prepare('SELECT id FROM clients WHERE lower(email) = ?').get(email)?.id ?? null;
+  if (!clientId && phone) clientId = db.prepare('SELECT id FROM clients WHERE phone = ?').get(phone)?.id ?? null;
+
+  const svc = Number(b.service_id) || 0;
+  const serviceId = svc && db.prepare('SELECT id FROM services WHERE id = ? AND active = 1').get(svc) ? svc : null;
+
+  const info = db.prepare(
+    `INSERT INTO enquiries (client_id, name, email, phone, want_date, when_text, service_id, message)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(clientId, name, email, phone, wantDate, whenText, serviceId, message);
+
+  pushEnquiry(Number(info.lastInsertRowid)).catch(() => {});
+  return {
+    ok: true,
+    detail: "Thanks — that's with us. We'll get back to you as soon as we can.",
+  };
+}, { auth: false });
+
+/** "Ruby asked about Sunday." The alert that makes this worth having. */
+async function pushEnquiry(id) {
+  if (!wantsPush('enquiry')) return { sent: 0, skipped: 'not wanted' };
+  const e = db.prepare('SELECT * FROM enquiries WHERE id = ?').get(id);
+  if (!e) return { sent: 0, skipped: 'no enquiry' };
+  const when = e.want_date || e.when_text;
+  return pushToOwner({
+    title: 'Special request',
+    body: `${e.name}${when ? ` — ${when}` : ''}: ${String(e.message).slice(0, 120)}`,
+    threadId: 'enquiries',
+    collapseId: `enquiry-${e.id}`,
+    data: { kind: 'enquiry', enquiry_id: e.id },
+  });
+}
+
+/** The owner's list. Newest first, unanswered first. */
+route('GET', '/api/enquiries', async ({ query }) => {
+  const all = String(query.get('all') || '') === '1';
+  const rows = db.prepare(
+    `SELECT e.*, sv.name AS service_name,
+            c.first_name, c.last_name,
+            (SELECT COUNT(*) FROM appointments a
+              WHERE a.client_id = c.id AND a.status NOT IN ('cancelled')) AS visits
+       FROM enquiries e
+       LEFT JOIN services sv ON sv.id = e.service_id
+       LEFT JOIN clients c ON c.id = e.client_id
+      ${all ? '' : "WHERE e.status = 'new'"}
+      ORDER BY CASE e.status WHEN 'new' THEN 0 ELSE 1 END, e.id DESC
+      LIMIT 200`
+  ).all();
+  return {
+    enquiries: rows.map((r) => ({
+      id: r.id, name: r.name, email: r.email, phone: r.phone,
+      want_date: r.want_date, when_text: r.when_text,
+      service_name: r.service_name || '', message: r.message,
+      status: r.status, created_at: r.created_at, done_at: r.done_at,
+      // Whether the salon already knows them, and how well. The difference
+      // between "a stranger asked" and "your Tuesday regular asked".
+      known: r.client_id ? { id: r.client_id, visits: r.visits || 0 } : null,
+    })),
+    open_count: db.prepare("SELECT COUNT(*) AS n FROM enquiries WHERE status = 'new'").get().n,
+    enabled: enquiriesEnabled(),
+  };
+});
+
+/** Dealt with. Reversible, because "done" is a judgement and judgements slip. */
+route('POST', '/api/enquiries/:id/done', async ({ req, params }) => {
+  const b = await readJson(req).catch(() => ({}));
+  const reopen = b && b.reopen === true;
+  const row = db.prepare('SELECT id FROM enquiries WHERE id = ?').get(params.id);
+  if (!row) throw httpError(404, 'That request no longer exists');
+  if (reopen) {
+    db.prepare("UPDATE enquiries SET status = 'new', done_at = '' WHERE id = ?").run(params.id);
+  } else {
+    db.prepare("UPDATE enquiries SET status = 'done', done_at = datetime('now') WHERE id = ?").run(params.id);
+  }
+  return { ok: true, status: reopen ? 'new' : 'done' };
+});
+
+route('DELETE', '/api/enquiries/:id', async ({ params }) => {
+  db.prepare('DELETE FROM enquiries WHERE id = ?').run(params.id);
+  return { ok: true };
+});

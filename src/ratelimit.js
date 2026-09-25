@@ -26,6 +26,10 @@ const POLICIES = {
   // booking — tighter, in fact, since nobody legitimately joins twelve times.
   public_waitlist: { limit: 6, windowMs: 10 * 60 * 1000 },
   public_attempt: { limit: 20, windowMs: 10 * 60 * 1000 },
+  // A special request is free text a stranger types straight into the owner's
+  // dashboard, so it is the softest spam target on the whole booking page.
+  // Tighter than the waitlist: nobody legitimately sends four in ten minutes.
+  public_enquiry: { limit: 4, windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
   // principle — kept tight for the same reason login is, even though a 128-bit
   // token makes brute force hopeless. Generous enough for a client who opens
@@ -111,6 +115,7 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
+  if (pathname === '/api/public/enquiry' && method === 'POST') return 'public_enquiry';
   // Fires as somebody types, so it needs more headroom than a booking — but it
   // writes contact details, so it still needs a ceiling.
   if (pathname === '/api/public/booking-attempt') return 'public_attempt';

@@ -3209,3 +3209,88 @@ a:focus-visible,
 .ss-manual > summary:hover { color: var(--text); }
 .ss-manual[open] > summary { margin-bottom: 10px; }
 @media (max-width: 520px) { .ss-body { margin-left: 0; } }
+
+/* ── "Can't find a time?" ──────────────────────────────────────────────────
+   The escape hatch under the booking form. Quiet by default: it must never
+   compete with a time the customer could actually take, because talking
+   somebody out of booking and into asking is worse than not offering it. It
+   goes loud only on a day with nothing free, where there is nothing to
+   compete with. */
+.bk-ask {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 18px auto 0; max-width: 560px; padding: 14px 16px;
+  border: 1px dashed var(--border); border-radius: 13px; background: var(--panel-2);
+}
+.bk-ask-text { flex: 1 1 220px; min-width: 0; font-size: 13px; line-height: 1.6; }
+.bk-ask-text b { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 2px; }
+.bk-ask-text span { color: var(--text-2); }
+.bk-ask-btn {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 15px; border-radius: 10px; cursor: pointer;
+  background: var(--panel-3); border: 1px solid var(--border); color: var(--text);
+  font: inherit; font-size: 13.5px; font-weight: 600;
+}
+.bk-ask-btn:hover { border-color: var(--accent, #38bdf8); color: var(--accent, #38bdf8); }
+.bk-ask-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Nothing free that day: there is no booking to compete with, so it leads. */
+.bk-ask.loud {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent, #38bdf8) 40%, transparent);
+  background: color-mix(in srgb, var(--accent, #38bdf8) 8%, var(--panel-2));
+}
+.bk-ask.loud .bk-ask-btn { background: var(--accent-fill, #38bdf8); color: var(--accent-ink, #051422); border-color: transparent; }
+.bk-ask.loud .bk-ask-btn:hover { filter: brightness(1.07); color: var(--accent-ink, #051422); }
+.bk-done-sub { color: var(--muted); font-size: 13px; margin-top: -4px; }
+@media (max-width: 480px) {
+  .bk-ask { flex-direction: column; align-items: stretch; }
+  .bk-ask-btn { justify-content: center; }
+}
+
+/* ── Special requests, owner side ──────────────────────────────────────────
+   Top of the dashboard, and warm rather than alarming: nothing is wrong, a
+   customer is waiting. The mirror of the Opportunities panel at the bottom,
+   which is analysis; this is a person. */
+.enq-card { border-color: color-mix(in srgb, var(--accent, #38bdf8) 40%, var(--border)); }
+.enq-card-head { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
+.enq-card-head h2 { font-size: 16px; margin: 0; letter-spacing: -0.01em; }
+.enq-card-sub { color: var(--text-2); font-size: 13px; margin-top: 3px; }
+.enq-card-icon {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent, #38bdf8) 14%, transparent);
+  color: var(--accent, #38bdf8);
+}
+.enq-card-head .btn { margin-left: auto; }
+.enq-peek { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+.enq-peek-row {
+  display: flex; gap: 10px; align-items: baseline; font-size: 13px;
+  padding: 9px 12px; border-radius: 9px; background: var(--panel-2);
+}
+.enq-peek-row b { flex: 0 0 auto; color: var(--text); }
+.enq-peek-row span { flex: 1 1 auto; color: var(--text-2); min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.enq-peek-row i { flex: 0 0 auto; color: var(--muted); font-style: normal; font-size: 12px; }
+.enq-peek-more { font-size: 12.5px; color: var(--muted); padding-left: 12px; }
+
+.enq-list { display: flex; flex-direction: column; gap: 11px; }
+.enq { padding: 14px 16px; border: 1px solid var(--border); border-radius: 13px; background: var(--panel-2); }
+.enq.is-done { opacity: 0.62; }
+.enq-head { display: flex; align-items: baseline; gap: 10px; }
+.enq-who { font-weight: 650; font-size: 14.5px; flex: 1; min-width: 0; }
+.enq-tag {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em;
+  padding: 2px 7px; border-radius: 99px; margin-left: 7px;
+  background: color-mix(in srgb, var(--green, #34d399) 16%, transparent); color: var(--green, #34d399);
+}
+.enq-when { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.enq-asked {
+  display: flex; align-items: center; gap: 7px; margin-top: 8px;
+  font-size: 13px; font-weight: 600; color: var(--accent, #38bdf8);
+}
+.enq-msg { margin-top: 9px; font-size: 13.5px; line-height: 1.65; color: var(--text); white-space: pre-wrap; }
+.enq-contact { margin-top: 9px; font-size: 12.5px; color: var(--muted); }
+.enq-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 13px; }
+.enq-done-wrap { margin-top: 18px; }
+.enq-done-wrap > summary { cursor: pointer; font-size: 13px; color: var(--text-2); padding: 8px 0; }
+.enq-done-wrap > summary:hover { color: var(--text); }
+.enq-done-wrap[open] > summary { margin-bottom: 11px; }
+@media (max-width: 520px) { .enq-card-head .btn { margin-left: 0; width: 100%; justify-content: center; } }
