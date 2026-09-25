@@ -3243,6 +3243,11 @@ a:focus-visible,
 .bk-done-sub { color: var(--muted); font-size: 13px; margin-top: -4px; }
 @media (max-width: 480px) {
   .bk-ask { flex-direction: column; align-items: stretch; }
+  /* The text keeps its own height once the row becomes a column. Leaving the
+     `flex: 1 1 220px` above in place makes it grow to fill the cross axis, and
+     the panel opens up a void between the words and the button — which reads
+     as a broken card, on the one screen size every one of these is opened at. */
+  .bk-ask-text { flex: 0 0 auto; }
   .bk-ask-btn { justify-content: center; }
 }
 
