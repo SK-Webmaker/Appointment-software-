@@ -146,6 +146,57 @@ const MUTATIONS = {
     find: "      enquiry: getSetting('push_enquiry', '1') === '1',",
     replace: '      enquiry: true,',
   },
+  // ── Signing in at login.kairobookings.com ─────────────────────────────────
+  'sign-in-pass-works-twice': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: "  const row = db.prepare('DELETE FROM login_handoffs WHERE token_hash = ? RETURNING *').get(sha256(t));",
+    replace: "  const row = db.prepare('SELECT * FROM login_handoffs WHERE token_hash = ?').get(sha256(t));",
+  },
+  'sign-in-pass-never-expires': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '  if (row.expires_at <= sqlTime(now)) return null;',
+    replace: '',
+  },
+  'sign-in-pass-stored-in-plain': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '    ).run(sha256(token), match.userId, sqlTime(now + HANDOFF_TTL_MS),',
+    replace: '    ).run(token, match.userId, sqlTime(now + HANDOFF_TTL_MS),',
+  },
+  'front-door-decided-after-the-salon': {
+    file: 'server.js', suites: ['central-login'],
+    find: '  if (MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }\n  const tenant = resolveHost(host);',
+    replace: '  const tenant = resolveHost(host);\n  if (!tenant && MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }',
+  },
+  'locked-email-still-signs-in': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '  if (!f || f.lockedUntil <= now) return 0;',
+    replace: '  return 0;',
+  },
+  'two-businesses-guessed-not-asked': {
+    file: 'src/login-host.js', suites: ['central-login'],
+    find: '  if (matches.length > 1 && !slug) {',
+    replace: '  if (false) {',
+  },
+  'wrong-password-says-the-account-exists': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '      if (!verifyPassword(pass, user.salt, user.pass_hash)) return;',
+    replace: "      if (!verifyPassword(pass, user.salt, user.pass_hash)) { matches.push({ wrongPasswordOnly: true, slug, tenant, userId: user.id, business: slug }); return; }",
+  },
+  'impostor-salon-offered-as-a-target': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '    if (`${slug}.${BASE_DOMAIN}` === loginHost()) continue;',
+    replace: '',
+  },
+  'front-door-serves-the-owner-app': {
+    file: 'src/login-host.js', suites: ['central-login'],
+    find: "  const a = ASSETS.get(pathname);\n  if (!a) {",
+    replace: "  const a = ASSETS.get(pathname) || { file: pathname.replace(/^\\//, ''), type: 'text/javascript', cache: 'no-cache' };\n  if (!a) {",
+  },
+  'sign-in-picker-shows-the-form-too': {
+    file: 'public/login.html', suites: ['central-login'],
+    find: '    [hidden] { display: none !important; }',
+    replace: '',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

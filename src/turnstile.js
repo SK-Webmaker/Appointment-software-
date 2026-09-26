@@ -33,9 +33,21 @@ export const turnstileSiteKey = () => (turnstileEnabled() ? getSetting('turnstil
  */
 export async function verifyTurnstile(token, ip = '', { fetchImpl = fetch } = {}) {
   if (!turnstileEnabled()) return { ok: true, skipped: true, detail: 'Turnstile is off' };
+  return verifyTurnstileWith(getSetting('turnstile_secret_key', ''), token, ip, { fetchImpl });
+}
+
+/**
+ * The check itself, given the secret to check with.
+ *
+ * Split out so the sign-in page at login.kairobookings.com can use it. That
+ * page belongs to no salon, so it has no salon settings to read a key from —
+ * it carries its own, from the environment. One implementation of "is this a
+ * person", shared, rather than two that drift.
+ */
+export async function verifyTurnstileWith(secret, token, ip = '', { fetchImpl = fetch } = {}) {
   if (!token) return { ok: false, detail: 'Please complete the "I am human" check and try again.' };
 
-  const body = new URLSearchParams({ secret: getSetting('turnstile_secret_key', ''), response: String(token).slice(0, 2048) });
+  const body = new URLSearchParams({ secret: String(secret || ''), response: String(token).slice(0, 2048) });
   if (ip) body.set('remoteip', ip);
 
   let data;
@@ -48,8 +60,8 @@ export async function verifyTurnstile(token, ip = '', { fetchImpl = fetch } = {}
     });
     data = await res.json();
   } catch (err) {
-    console.error('turnstile: could not reach Cloudflare, letting the booking through —', String(err?.message || err).slice(0, 120));
-    return { ok: true, skipped: true, detail: 'Turnstile unreachable — booking allowed' };
+    console.error('turnstile: could not reach Cloudflare, letting the request through —', String(err?.message || err).slice(0, 120));
+    return { ok: true, skipped: true, detail: 'Turnstile unreachable — allowed' };
   }
 
   if (data?.success) return { ok: true, detail: 'verified' };

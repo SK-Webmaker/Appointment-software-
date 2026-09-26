@@ -30,6 +30,14 @@ const POLICIES = {
   // dashboard, so it is the softest spam target on the whole booking page.
   // Tighter than the waitlist: nobody legitimately sends four in ten minutes.
   public_enquiry: { limit: 4, windowMs: 10 * 60 * 1000 },
+  // The front door at login.kairobookings.com. Every salon's accounts sit
+  // behind this one form, which makes it worth more to an attacker than any
+  // single salon's login — so it is tighter than 'login', and it is backed by
+  // a per-email lock in src/central-login.js that this cannot provide.
+  central_login:  { limit: 12, windowMs: 10 * 60 * 1000 },
+  // Redeeming a pass from the front door. The pass is 256 bits, so guessing is
+  // hopeless; this is the same belt-and-braces the cancel link gets.
+  public_handoff: { limit: 30, windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
   // principle — kept tight for the same reason login is, even though a 128-bit
   // token makes brute force hopeless. Generous enough for a client who opens
@@ -116,6 +124,7 @@ export function classifyRequest(method, pathname) {
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
   if (pathname === '/api/public/enquiry' && method === 'POST') return 'public_enquiry';
+  if (pathname === '/api/auth/handoff') return 'public_handoff';
   // Fires as somebody types, so it needs more headroom than a booking — but it
   // writes contact details, so it still needs a ceiling.
   if (pathname === '/api/public/booking-attempt') return 'public_attempt';
