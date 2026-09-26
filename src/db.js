@@ -639,6 +639,118 @@ function migrate() {
   addColumn('appointments', 'patch_for_id',
     'patch_for_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL');
 
+  // ── Consultation-first booking ────────────────────────────────────────────
+  // One slot, held, with a link the owner pastes into a conversation. See
+  // docs/09-consultation-first.md. Its own table rather than an appointment
+  // with a flag: an appointment that might not be real leaks into counts,
+  // reminders and the diary, and every one of those then has to learn to
+  // ignore it.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS booking_invites (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      token        TEXT NOT NULL UNIQUE,
+      client_id    INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      staff_id     INTEGER NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+      service_ids  TEXT NOT NULL DEFAULT '',      -- csv, first is primary
+      date         TEXT NOT NULL,                 -- YYYY-MM-DD
+      start_min    INTEGER NOT NULL,
+      end_min      INTEGER NOT NULL,
+      price_cents  INTEGER NOT NULL DEFAULT 0,
+      note         TEXT NOT NULL DEFAULT '',      -- shown to the client
+      -- open|claimed|paid|confirmed|expired|cancelled|declined.
+      -- Only 'confirmed' has an appointment behind it.
+      status       TEXT NOT NULL DEFAULT 'open',
+      appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+      client_name  TEXT NOT NULL DEFAULT '',
+      client_email TEXT NOT NULL DEFAULT '',
+      client_phone TEXT NOT NULL DEFAULT '',
+      pay_mode     TEXT NOT NULL DEFAULT '',      -- checkout|link|none, as at send time
+      -- This invite's own payment link, overriding the salon-wide one. A
+      -- consultation is where a price is agreed, so it is also where a
+      -- one-off Stripe/PayPal link for that price gets pasted.
+      pay_link     TEXT NOT NULL DEFAULT '',
+      -- When the client actually opened the payment page. "I have paid"
+      -- cannot be tapped before this: see docs/09-consultation-first.md.
+      link_opened_at TEXT NOT NULL DEFAULT '',
+      pay_ref      TEXT NOT NULL DEFAULT '',      -- provider session id
+      pay_provider TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at   TEXT NOT NULL DEFAULT '',
+      claimed_at   TEXT NOT NULL DEFAULT '',
+      paid_at      TEXT NOT NULL DEFAULT '',
+      confirmed_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_invites_slot ON booking_invites(date, staff_id);
+    CREATE INDEX IF NOT EXISTS idx_invites_status ON booking_invites(status);
+  `);
+
+  // ── Special requests ──────────────────────────────────────────────────────
+  // "Can you do Tuesday at seven?" when Tuesday at seven is not on the page.
+  // Not the waitlist: that matches a freed slot automatically and only for a
+  // day the salon already offers. This asks for anything, and the reply is the
+  // product. See docs/11-special-requests.md.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS enquiries (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id   INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+      name        TEXT NOT NULL DEFAULT '',
+      email       TEXT NOT NULL DEFAULT '',
+      phone       TEXT NOT NULL DEFAULT '',
+      -- What they were hoping for. The date is the easy half; when_text is the
+      -- half that actually helps ("any evening after 6", "Sunday if you ever
+      -- do them") and no date picker can hold it.
+      want_date   TEXT NOT NULL DEFAULT '',
+      when_text   TEXT NOT NULL DEFAULT '',
+      service_id  INTEGER REFERENCES services(id) ON DELETE SET NULL,
+      message     TEXT NOT NULL DEFAULT '',
+      status      TEXT NOT NULL DEFAULT 'new',   -- new|done
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      done_at     TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status, id);
+  `);
+
+  // ── Signing in from kairobookings.com ─────────────────────────────────────
+  // login.kairobookings.com checks the password where the account lives, then
+  // hands the browser to the salon's own address with one of these. The salon
+  // swaps it for its ordinary session cookie. See docs/12-central-login.md.
+  //
+  // Only the HASH is stored. The token itself travels once, in a redirect, and
+  // is worthless after: single use, and dead in sixty seconds either way.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS login_handoffs (
+      token_hash  TEXT PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at  TEXT NOT NULL,
+      ip          TEXT NOT NULL DEFAULT '',
+      user_agent  TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // ── "Forgot password?" ─────────────────────────────────────────────────────
+  // A reset link is only ever sent to an address the owner has CONFIRMED.
+  // Several accounts were set up under an email the owner does not read, and a
+  // reset link in somebody else's inbox is a key to the business. See
+  // docs/13-password-reset.md.
+  //
+  // Same shape as login_handoffs, for the same reasons: only the hash is kept,
+  // it works once, and it dies on its own (thirty minutes).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash  TEXT PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at  TEXT NOT NULL,
+      ip          TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Added after booking_invites shipped: a per-invite payment link, and the
+  // proof that the client opened it.
+  addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");
+  addColumn('booking_invites', 'link_opened_at', "link_opened_at TEXT NOT NULL DEFAULT ''");
+
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
   // guarded by "no rows yet" and only touches appointments that have a service.
@@ -1050,6 +1162,44 @@ const DEFAULT_SETTINGS = {
   // PayPal.me). The lowest-effort way to take card money: no keys, no account
   // to connect, and the till can share it.
   pos_payment_link: '',
+  // ── Consultation-first booking (docs/09-consultation-first.md) ────────────
+  // OFF everywhere by default. A salon that never turns it on sees no change.
+  consult_mode: '0',
+  // Where the "book now" button should send people instead of a slot picker.
+  consult_channel: 'instagram',   // instagram|whatsapp|facebook|phone|email|other
+  consult_handle: '',             // @name, a number, or a full URL
+  consult_note: '',               // the salon's own words, shown on /book
+  // How long a held slot waits for an answer before releasing itself.
+  invite_expiry_hours: '48',
+  // checkout → Stripe/Square hosted checkout, confirmed by the provider
+  // link     → a payment link; the client opens it, pays, and says so
+  // none     → no payment step
+  invite_pay: 'link',
+  // Under the `link` route only, who turns "I have paid" into a booking:
+  //   auto  → the client does. They must open the payment link first, and the
+  //           confirmation goes out the moment they confirm they have paid.
+  //   owner → the salon checks the money landed and confirms it themselves.
+  // Neither can verify the payment — a payment link reports nothing back — so
+  // this is a choice about who carries that risk, said plainly in Settings.
+  invite_confirm: 'auto',
+  // ── What the owner's phone is allowed to interrupt them for ───────────────
+  // Each one is a real event the owner might want to know about the moment it
+  // happens. All default ON except the daily summary, because an owner who
+  // installed the app did so to be told things — but a notification at 7am is
+  // a choice, not a default.
+  push_new_booking: '1',      // somebody booked
+  push_cancellation: '1',     // somebody cancelled or moved
+  push_payment_check: '1',    // a booking link says it has been paid
+  push_daily_summary: '0',    // "6 appointments today", once each morning
+  push_summary_hour: '7',     // when that lands, business time (0-23)
+  push_enquiry: '1',          // somebody sent a special request
+  // ── Special requests (docs/11-special-requests.md) ────────────────────────
+  // ON by default, unlike the waitlist: this sends nothing to anybody on its
+  // own, it puts a message in front of the owner and stops. Having it off
+  // costs a customer who silently leaves, which is the thing it exists to
+  // prevent.
+  enquiries_enabled: '1',
+  enquiries_note: '',         // the salon's own wording, if they want their own
   patch_service_id: '',   // the (usually free, 10-minute) service used for patch tests
   patch_lead_hours: '48', // how long before the treatment a patch test must sit
   patch_valid_months: '6',// default validity when a service doesn't say otherwise

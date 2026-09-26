@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
 import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN, getTenant, tenantFault, tenantFaults, slugForHost } from './src/tenant.js';
 import { sendJson } from './src/util.js';
-import { handleApi } from './src/api.js';
+import { handleApi, maybeDailySummary } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
@@ -15,6 +15,8 @@ import { checkOrigin } from './src/origin.js';
 import { handlePlatform, platformEnabled, platformKeyFingerprint } from './src/platform.js';
 import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
+import { isLoginHost } from './src/central-login.js';
+import { handleLoginHost } from './src/login-host.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -58,6 +60,13 @@ startScheduler({
     } catch (err) {
       console.error('review chase:', err.message);
     }
+    // "6 appointments today." Off unless the owner asked for it, guarded to
+    // once a day by a stored date, and silent on an empty day.
+    try {
+      await maybeDailySummary();
+    } catch (err) {
+      console.error('daily summary push:', err.message);
+    }
   },
 });
 
@@ -79,6 +88,8 @@ function serveStatic(res, urlPath) {
   if (rel === '/pay-done') rel = '/paydone.html'; // Stripe Checkout return page (POS sales)
   if (rel.startsWith('/review/')) rel = '/review.html'; // client reads the token from the URL itself
   if (rel.startsWith('/cancel/')) rel = '/cancel.html'; // same pattern for the cancel link
+  if (rel.startsWith('/invite/')) rel = '/invite.html'; // consultation-first booking link
+  if (rel === '/reset') rel = '/reset.html'; // "Forgot password?" email link; the token rides after '#'
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
   // Compare against the directory WITH its separator. A bare prefix test lets
   // "/app/public-anything" through, because it starts with "/app/public" —
@@ -260,6 +271,11 @@ async function route(req, res) {
   // answers for any host because Render pings the raw hostname, and a shard
   // that looks down because its health check named no salon restarts forever.
   const host = effectiveHost(req.headers);
+  // The front door: login.kairobookings.com, where an owner signs in without
+  // knowing their own address. Decided BEFORE a host is turned into a salon,
+  // so no salon can ever be served here — not even one somebody managed to
+  // register under that name. See src/login-host.js.
+  if (MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }
   const tenant = resolveHost(host);
   if (!tenant) {
     if (url.pathname === '/api/version') { sendJson(res, 200, { version: VERSION }); return; }

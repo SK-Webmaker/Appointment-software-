@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, openExternal, shareLink, copyText } from '../ui.js';
 import { state, refreshLookups } from '../app.js';
+import { openSmsSetup } from './sms-setup.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
 import { mountSmsCredit } from '../sms-credit.js';
@@ -146,6 +147,11 @@ const NOTHING_YET = {
 export async function renderSettings(container, params) {
   const s = state.settings;
   const live = await livePageSections(s);
+  // Whether push works on this server, and how many phones are actually signed
+  // in. Asked rather than stored: "is there a phone" is a fact about the world
+  // and a settings row would be a copy of it that goes stale the moment
+  // somebody signs out. Never fatal - the card is honest about not knowing.
+  const push = await api.get('/api/app/config').then((c) => c.push).catch(() => null);
   // The link the owner copies into their Instagram bio. It has to be the
   // business's real address, not whatever they happen to have typed into the
   // address bar — an owner signed in at the raw hosting URL would otherwise
@@ -304,6 +310,110 @@ export async function renderSettings(container, params) {
             <div class="hint">Put it in your Instagram bio, Google profile and WhatsApp auto-reply. It opens in Safari
               or Chrome, so you keep your place in Kairo.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save hours</button>
+        </form>
+      </div>
+
+      <div class="card" data-sec="requests">
+        <div class="card-title">Special requests</div>
+        <div class="card-sub" style="margin-bottom:16px">A panel under your booking form for the
+          customer your diary can't serve — someone who wants a Sunday, a later time, or who wants
+          to check something before they book. Without it that person closes the tab and you never
+          find out they were there.</div>
+        <form id="set-requests" style="display:flex;flex-direction:column;gap:13px">
+          <label class="opt-out">
+            <input type="checkbox" class="chk" name="enquiries_enabled" ${(s.enquiries_enabled ?? '1') === '1' ? 'checked' : ''}>
+            <span><b>Let customers send a request from my booking page</b>
+              <span>They tell you what they're after; it lands on your dashboard and pings your phone.
+                Nothing is booked and nothing is sent to them automatically.</span></span>
+          </label>
+          <div class="field"><label>What the panel says</label>
+            <textarea name="enquiries_note" rows="2" maxlength="300"
+              placeholder="Tell us what you're after — a different day, a later time, or anything you want to check first — and we'll see what we can do.">${esc(s.enquiries_note || '')}</textarea>
+            <div class="hint">Leave it empty to use the wording above. The heading stays
+              <b>"Can't find a time that works?"</b> either way.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save requests</button>
+        </form>
+        <div class="hint" style="margin-top:12px">Different from the <b>waitlist</b> below: that one
+          messages people automatically when a day they wanted frees up, and only for days you already
+          open. This one reaches you, about anything, and you reply yourself.</div>
+      </div>
+
+      <div class="card" data-sec="consult">
+        <div class="card-title">Consultation first</div>
+        <div class="card-sub" style="margin-bottom:16px">For a business that wants to speak to every client
+          before they get near the diary. Your booking page stops taking bookings and invites people to
+          message you instead; you have the conversation, then send them a booking link for the exact
+          service and time you agreed.</div>
+        <form id="set-consult" style="display:flex;flex-direction:column;gap:13px">
+          <label class="opt-out">
+            <input type="checkbox" class="chk" name="consult_mode" ${s.consult_mode === '1' ? 'checked' : ''}>
+            <span><b>Take bookings by consultation only</b>
+              <span>Your booking page stops letting people pick their own slot. You book them yourself,
+                by sending a link.</span></span>
+          </label>
+          <div class="field"><label>Where should people message you?</label>
+            <select name="consult_channel" class="nice-select">${[
+    ['instagram', 'Instagram'], ['whatsapp', 'WhatsApp'], ['facebook', 'Facebook Messenger'],
+    ['phone', 'Phone'], ['email', 'Email'], ['other', 'Somewhere else'],
+  ].map(([v, lab]) => `<option value="${v}" ${(s.consult_channel || 'instagram') === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Your handle, number or link</label>
+            <input name="consult_handle" value="${esc(s.consult_handle || '')}" placeholder="@yoursalon">
+            <div class="hint">An Instagram handle, a mobile number, or a full web address — whichever suits
+              the channel above. This becomes the button on your booking page.</div></div>
+          <div class="field"><label>What your page says</label>
+            <textarea name="consult_note" rows="3" maxlength="600"
+              placeholder="We like a quick chat before every appointment so we can get your colour and timing right.">${esc(s.consult_note || '')}</textarea>
+            <div class="hint">Left empty, we use a sensible default. Say it in your own words if you'd rather.</div></div>
+
+          <div class="card-title" style="margin-top:6px;font-size:14px">Booking links</div>
+          <div class="field"><label>How they pay</label>
+            <select name="invite_pay" class="nice-select">${[
+    ['link', 'My own payment link — I check the money myself'],
+    ['checkout', 'Card on the page (Stripe or Square)'],
+    ['none', 'No payment — they pay on the day'],
+  ].map(([v, lab]) => `<option value="${v}" ${(s.invite_pay || 'link') === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+            <div class="hint">
+              ${(s.invite_pay || 'link') === 'link'
+    ? `A payment link can't tell Kairo when it's been paid — nothing comes back from Stripe or PayPal to
+                   say so. Your client taps <b>I've paid</b>, we hold their slot and send the alert to your phone,
+                   and <b>the booking is made when you confirm it</b>. It is the one honest way to do it without
+                   connecting a card processor.`
+    : (s.invite_pay === 'checkout'
+      ? `Kairo takes the payment and confirms the booking by itself — no checking, nothing for you to do.
+                   Needs Stripe or Square connected under <b>Payments</b>.`
+      : `They just confirm the time and pay you on the day.`)}
+            </div></div>
+          ${(s.invite_pay || 'link') === 'link' ? `
+          <div class="field"><label>Your payment link</label>
+            <input name="pos_payment_link" value="${esc(s.pos_payment_link || '')}"
+              placeholder="https://buy.stripe.com/… or paypal.me/…">
+            <div class="hint">A Stripe Payment Link, Square Online link or PayPal.me address. This is the
+              same link the till uses.${!String(s.pos_payment_link || '').trim()
+    ? ' <b>Without one, booking links can\'t ask for money at all.</b>' : ''}</div></div>` : ''}
+          ${(s.invite_pay || 'link') === 'link' ? `
+          <div class="field"><label>Who confirms the booking</label>
+            <select name="invite_confirm" class="nice-select">
+              <option value="auto" ${(s.invite_confirm || 'auto') === 'auto' ? 'selected' : ''}>
+                The client — as soon as they say they've paid</option>
+              <option value="owner" ${s.invite_confirm === 'owner' ? 'selected' : ''}>
+                Me — after I've checked the money arrived</option>
+            </select>
+            <div class="hint">${(s.invite_confirm || 'auto') === 'auto'
+    ? `Their confirmation goes out the moment they tap <b>I've paid</b>, so a booking link feels like
+       a booking rather than a form. They can't tap it until they've opened your payment link — which
+       stops somebody ticking the box without going near it — but <b>it is still their word</b>.
+       If a booking matters more than the deposit, that's the right trade. If it doesn't, switch this.`
+    : `Nothing is booked until you tap <b>Confirm &amp; book</b>. You get a notification on your phone
+       the moment somebody says they've paid, their slot stays held, and their page tells them plainly
+       that it isn't booked yet. Safer, but it needs you.`}</div></div>` : ''}
+          <div class="field"><label>Hold a slot for</label>
+            <select name="invite_expiry_hours" class="nice-select">${[
+    [6, '6 hours'], [12, '12 hours'], [24, '1 day'], [48, '2 days'], [72, '3 days'], [168, 'A week'],
+  ].map(([v, lab]) => `<option value="${v}" ${Number(s.invite_expiry_hours || 48) === v ? 'selected' : ''}>${lab}</option>`).join('')}</select>
+            <div class="hint">A link nobody answers releases its time automatically, so one forgotten
+              conversation can't sit on a Saturday afternoon for a month.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save consultation settings</button>
         </form>
       </div>
 
@@ -469,6 +579,41 @@ export async function renderSettings(container, params) {
         </form>
       </div>
 
+      <div class="card" data-sec="apppush">
+        <div class="card-title">Phone notifications</div>
+        <div class="card-sub" style="margin-bottom:16px">What the Kairo app on your phone wakes you
+          for. These are <b>free</b> and instant — they don't cost a text or an email, and they go to
+          every phone signed into your account. ${!push
+    ? ''
+    : !push.available
+      ? 'Push isn\'t switched on for this server yet, so these are saved but nothing will arrive.'
+      : push.devices > 0
+        ? `<b>${push.devices} phone${push.devices === 1 ? '' : 's'} signed in.</b>`
+        : '<b>No phone is signed in yet</b> — install Kairo on your phone and sign in, and these start working.'}</div>
+        <form id="set-apppush" style="display:flex;flex-direction:column;gap:11px">
+          ${[
+    ['push_new_booking', 'When somebody books', 'The one that earns the app its place on your home screen — you find out from your own book, not from an email tonight.', '1'],
+    ['push_cancellation', 'When somebody cancels', 'A free slot you hear about tonight is a slot you can still sell. One you hear about in the morning is gone.', '1'],
+    ['push_payment_check', 'When a booking link says it has been paid', 'Only matters if you confirm payments yourself. Tells you there is money to check and somebody waiting on you.', '1'],
+    ['push_daily_summary', 'A summary each morning', 'How many appointments today and when the first one is. Silent on a day with nothing in it.', '0'],
+    ['push_enquiry', 'When somebody sends a special request', 'They asked for a time you don\'t offer and are waiting on an answer. The sooner you see it, the more likely they still book.', '1'],
+  ].map(([key, label, hint, dflt]) => `
+            <label class="opt-out">
+              <input type="checkbox" class="chk" name="${key}" ${(s[key] ?? dflt) === '1' ? 'checked' : ''}>
+              <span><b>${label}</b><span>${hint}</span></span>
+            </label>`).join('')}
+          <div class="field" id="summary-hour-field" ${(s.push_daily_summary || '0') === '1' ? '' : 'hidden'}>
+            <label>Send the morning summary at</label>
+            <select name="push_summary_hour" class="nice-select">${
+  Array.from({ length: 24 }, (_, h) => h).map((h) => `<option value="${h}" ${
+    Number(s.push_summary_hour || 7) === h ? 'selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('')}</select>
+            <div class="hint">Your salon's own time.</div></div>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save phone notifications</button>
+        </form>
+        <div class="hint" style="margin-top:12px">Reminders to <b>clients</b> are separate — those are
+          the email and SMS settings below, and they go to the customer, not to you.</div>
+      </div>
+
       <div class="card" data-sec="sms">
         <div class="card-title">SMS (text messages)</div>
         <!-- Credit is prepaid: when it runs out, texts simply stop. The number
@@ -495,12 +640,25 @@ export async function renderSettings(container, params) {
           </div>
 
           <div class="sms-fields" data-provider="clicksend">
+            <!-- The guided path. The raw fields below still work and stay for
+                 anyone who already knows what they're pasting, but an owner who
+                 has never heard of ClickSend should never have to guess where a
+                 username and an API key come from - or find out three weeks
+                 later, from a client, that no reminder ever arrived. -->
+            <button type="button" class="btn primary ss-launch" id="sms-guided">
+              ${icon('send', 14)} Set up ClickSend step by step</button>
+            <div class="hint" style="margin:-4px 0 4px">Four steps, about five minutes: open an
+              account, paste two things, confirm your number, and send yourself a real text to
+              prove it works.</div>
+            <details class="ss-manual">
+              <summary>Or enter the details yourself</summary>
             <div class="form-grid">
               <div class="field"><label>ClickSend username</label>
                 <input name="clicksend_username" value="${esc(s.clicksend_username || '')}" placeholder="your ClickSend login" autocomplete="off"></div>
               <div class="field"><label>ClickSend API key${keySaved(s.clicksend_api_key_set)}</label>
                 <input name="clicksend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.clicksend_api_key_set, 'from ClickSend dashboard')}" autocomplete="off"></div>
             </div>
+            </details>
             <div class="field"><label>Sender name or number (optional)</label>
               <input name="clicksend_from" value="${esc(s.clicksend_from || '')}" placeholder="e.g. LuxeHair (business name) or +61…">
               <div class="hint">Two ways to do this. A <b>business-name sender</b> ("LuxeHair") looks best but needs a
@@ -831,11 +989,12 @@ export async function renderSettings(container, params) {
           <button class="btn" id="rerun-setup">${icon('zap')} Re-run setup wizard</button>
           <button class="btn" id="rerun-tour">${icon('grid')} Show me around again</button>
         </div>
+        ${state.demoResetAllowed ? `
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Demo data</div>
           <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset. Useful before a sales demo.</div>
           <button class="btn danger" id="reset-demo">${icon('zap')} Reset to demo data</button>
-        </div>`}
+        </div>` : ''}`}
       </div>
     </div>`;
 
@@ -853,6 +1012,38 @@ export async function renderSettings(container, params) {
     toast('Settings saved');
   };
 
+  container.querySelector('#set-requests')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings(e.target, ['enquiries_enabled', 'enquiries_note']);
+  });
+  container.querySelector('#set-apppush')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveSettings(e.target, ['push_new_booking', 'push_cancellation', 'push_payment_check',
+      'push_daily_summary', 'push_summary_hour', 'push_enquiry']);
+  });
+  // The hour only matters if the summary is on, so it appears with it.
+  container.querySelector('#set-apppush')?.addEventListener('change', (e) => {
+    if (e.target.name !== 'push_daily_summary') return;
+    const field = container.querySelector('#summary-hour-field');
+    if (field) field.hidden = !e.target.checked;
+  });
+  container.querySelector('#sms-guided')?.addEventListener('click', () => {
+    openSmsSetup({ onDone: () => renderSettings(container, params) });
+  });
+  container.querySelector('#set-consult').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    // pos_payment_link only appears on this form under the 'link' route, so it
+    // is saved only when it is actually on screen — listing it unconditionally
+    // would blank the till's link every time this card is saved under another.
+    const fields = ['consult_mode', 'consult_channel', 'consult_handle', 'consult_note',
+      'invite_pay', 'invite_expiry_hours'];
+    if (e.target.elements.invite_confirm) fields.push('invite_confirm');
+    if (e.target.elements.pos_payment_link) fields.push('pos_payment_link');
+    await saveSettings(e.target, fields);
+    // The hint under "How they pay" and the payment-link field both depend on
+    // the route, so the card is redrawn rather than left describing the old one.
+    renderSettings(container, params);
+  });
   container.querySelector('#set-profile').addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['business_name', 'business_phone', 'business_email', 'business_address']);

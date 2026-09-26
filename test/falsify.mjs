@@ -33,6 +33,170 @@ const MUTATIONS = {
     find: 'return `Path=/; HttpOnly; SameSite=Lax${secure ? \'; Secure\' : \'\'}`;',
     replace: 'return `Path=/; SameSite=Lax${secure ? \'; Secure\' : \'\'}`;',
   },
+  // ── Consultation-first booking ────────────────────────────────────────────
+  // The four ways this feature could quietly betray the owner who asked for it.
+  'invite-slot-not-held': {
+    file: 'src/api.js', suites: ['invites'],
+    find: '  busy.push(...invites.heldSlotsFor(staffId, date));',
+    replace: '',
+  },
+  'invite-books-without-payment': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  invites.markPaid(inv.id, { ref: '', provider: 'manual' });",
+    replace: "  invites.markPaid(inv.id, { ref: '', provider: 'manual' });\n  await confirmInvite(invites.byId(inv.id), { by: 'client' });",
+  },
+  'consult-mode-only-hides-the-page': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (invites.consultMode()) throw httpError(404, 'This salon books by consultation');\n  const b = checkBody(await readJson(req), {\n    service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),",
+    replace: "  const b = checkBody(await readJson(req), {\n    service_id: s.num(), service_ids: s.arr(s.num(), 20), staff_id: s.num(), location_id: s.num(),",
+  },
+  'dead-invite-still-usable': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "export function isLive(inv) {\n  return Boolean(inv) && !FINAL_STATUSES.includes(inv.status);\n}",
+    replace: "export function isLive(inv) {\n  return Boolean(inv);\n}",
+  },
+  'invite-link-falls-through-to-the-app': {
+    file: 'server.js', suites: ['invites'],
+    find: "  if (rel.startsWith('/invite/')) rel = '/invite.html'; // consultation-first booking link",
+    replace: '',
+  },
+  'expired-invites-never-released': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "        AND expires_at != '' AND expires_at <= ?`",
+    replace: "        AND expires_at != '' AND expires_at > ?`",
+  },
+  'invite-can-double-book-a-held-slot': {
+    file: 'src/api.js', suites: ['invites'],
+    find: 'if (!freeSlotsFor(staffId, b.date, minutes).includes(start)) {',
+    replace: 'if (false) {',
+  },
+  'invite-page-leaks-client-contacts': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "    client_name: inv.claimed_at ? inv.client_name : '',",
+    replace: '    client_name: inv.client_name,',
+  },
+  'invite-checkout-returns-to-book': {
+    file: 'src/api.js', suites: ['payments'],
+    find: "    returnPath: `/invite/${encodeURIComponent(inv.token)}`,",
+    replace: '',
+  },
+  'confirmed-payment-not-recorded': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (inv.status === 'paid' && inv.price_cents > 0) {",
+    replace: "  if (false) {",
+  },
+  'paid-tick-without-opening-the-link': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (!inv.link_opened_at) {\n    throw httpError(409, 'Please open the payment link first, then come back and confirm');\n  }",
+    replace: '',
+  },
+  'invite-link-ignored-for-the-salon-wide-one': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "  const link = String(inviteLink || getSetting('pos_payment_link', '') || '').trim();",
+    replace: "  const link = String(getSetting('pos_payment_link', '') || '').trim();",
+  },
+  'any-url-becomes-a-pay-button': {
+    file: 'src/api.js', suites: ['invites'],
+    find: "  if (payLink && !/^https:\\/\\/[^\\s]+$/i.test(payLink)) {",
+    replace: '  if (false) {',
+  },
+  'public-page-shows-the-wrong-payment-link': {
+    file: 'src/invites.js', suites: ['invites'],
+    find: "  return String(inv?.pay_link || getSetting('pos_payment_link', '') || '').trim();",
+    replace: "  return String(getSetting('pos_payment_link', '') || '').trim();",
+  },
+  'push-preferences-ignored': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "  return getSetting(key, '1') === '1';",
+    replace: '  return true;',
+  },
+  'app-told-the-wrong-notification-settings': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "      daily_summary: getSetting('push_daily_summary', '0') === '1',",
+    replace: '      daily_summary: true,',
+  },
+  'summary-hour-not-clamped': {
+    file: 'src/api.js', suites: ['owner-push'],
+    find: "      summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),",
+    replace: "      summary_hour: Number(getSetting('push_summary_hour', '7')),",
+  },
+  // ── Special requests ──────────────────────────────────────────────────────
+  'enquiries-off-only-hides-the-panel': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "  if (!enquiriesEnabled()) throw httpError(404, 'This salon is not taking requests here');",
+    replace: '',
+  },
+  'enquiry-makes-a-client-of-everyone-who-asks': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: '  let clientId = null;\n  if (email) clientId = db.prepare(\'SELECT id FROM clients WHERE lower(email) = ?\').get(email)?.id ?? null;',
+    replace: "  let clientId = null;\n  if (email) clientId = Number(db.prepare('INSERT INTO clients (first_name, email) VALUES (?, ?)').run(name, email).lastInsertRowid);",
+  },
+  'enquiry-accepts-nobody-to-reply-to': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "  if (!email && !phone) throw httpError(400, 'Please leave an email or a phone number so we can reply');",
+    replace: '',
+  },
+  'enquiry-loses-a-date-typed-in-words': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "    [!wantDate && typedDate ? typedDate : '', str(b.when_text, 200)].filter(Boolean).join(' · '),",
+    replace: "    [str(b.when_text, 200)].filter(Boolean).join(' · '),",
+  },
+  'enquiry-alert-cannot-be-turned-off': {
+    file: 'src/api.js', suites: ['enquiries'],
+    find: "      enquiry: getSetting('push_enquiry', '1') === '1',",
+    replace: '      enquiry: true,',
+  },
+  // ── Signing in at login.kairobookings.com ─────────────────────────────────
+  'sign-in-pass-works-twice': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: "  const row = db.prepare('DELETE FROM login_handoffs WHERE token_hash = ? RETURNING *').get(sha256(t));",
+    replace: "  const row = db.prepare('SELECT * FROM login_handoffs WHERE token_hash = ?').get(sha256(t));",
+  },
+  'sign-in-pass-never-expires': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '  if (row.expires_at <= sqlTime(now)) return null;',
+    replace: '',
+  },
+  'sign-in-pass-stored-in-plain': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '    ).run(sha256(token), match.userId, sqlTime(now + HANDOFF_TTL_MS),',
+    replace: '    ).run(token, match.userId, sqlTime(now + HANDOFF_TTL_MS),',
+  },
+  'front-door-decided-after-the-salon': {
+    file: 'server.js', suites: ['central-login'],
+    find: '  if (MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }\n  const tenant = resolveHost(host);',
+    replace: '  const tenant = resolveHost(host);\n  if (!tenant && MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }',
+  },
+  'locked-email-still-signs-in': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '  if (!f || f.lockedUntil <= now) return 0;',
+    replace: '  return 0;',
+  },
+  'two-businesses-guessed-not-asked': {
+    file: 'src/login-host.js', suites: ['central-login'],
+    find: '  if (matches.length > 1 && !slug) {',
+    replace: '  if (false) {',
+  },
+  'wrong-password-says-the-account-exists': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '      if (!verifyPassword(pass, user.salt, user.pass_hash)) return;',
+    replace: "      if (!verifyPassword(pass, user.salt, user.pass_hash)) { matches.push({ wrongPasswordOnly: true, slug, tenant, userId: user.id, business: slug }); return; }",
+  },
+  'impostor-salon-offered-as-a-target': {
+    file: 'src/central-login.js', suites: ['central-login'],
+    find: '    if (`${slug}.${BASE_DOMAIN}` === loginHost()) continue;',
+    replace: '',
+  },
+  'front-door-serves-the-owner-app': {
+    file: 'src/login-host.js', suites: ['central-login'],
+    find: "  const a = ASSETS.get(pathname);\n  if (!a) {",
+    replace: "  const a = ASSETS.get(pathname) || { file: pathname.replace(/^\\//, ''), type: 'text/javascript', cache: 'no-cache' };\n  if (!a) {",
+  },
+  'sign-in-picker-shows-the-form-too': {
+    file: 'frontdoor/index.html', suites: ['central-login'],
+    find: '    [hidden] { display: none !important; }',
+    replace: '',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',
@@ -572,6 +736,72 @@ const MUTATIONS = {
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',
+    replace: '',
+  },
+
+  // ── "Forgot password?" ──────────────────────────────────────────────────
+  'reset-link-sent-to-an-unconfirmed-address': {
+    // The one rule that makes this safe: several accounts sit under an email
+    // the owner does not read, and a link there is a key to the business.
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "  if (!user.email_verified) return { sent: false, why: 'unconfirmed' };\n",
+    replace: '',
+  },
+  'front-door-resets-an-unconfirmed-address': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "'SELECT id FROM users WHERE lower(email) = ? AND email_verified = 1'",
+    replace: "'SELECT id FROM users WHERE lower(email) = ?'",
+  },
+  'reset-link-works-twice': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "  const row = db.prepare('DELETE FROM password_resets WHERE token_hash = ? RETURNING *').get(sha256(t));\n  if (!row) return null;\n  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(row.user_id);",
+    replace: "  const row = db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(sha256(t));\n  if (!row) return null;",
+  },
+  'reset-link-never-expires': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '  if (!row || row.expires_at <= sqlTime(now)) return null;\n  return db.prepare',
+    replace: '  if (!row) return null;\n  return db.prepare',
+  },
+  'reset-link-stored-in-plain': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '.run(sha256(token), userId, sqlTime(now + RESET_TTL_MS), String(ip).slice(0, 64));',
+    replace: '.run(token, userId, sqlTime(now + RESET_TTL_MS), String(ip).slice(0, 64));',
+  },
+  'one-inbox-can-be-flooded': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '  if (times.length && now - times[times.length - 1] < GAP_MS) { sent.set(key, times); return false; }\n',
+    replace: '',
+  },
+  'reset-leaves-old-sessions-signed-in': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  const newVersion = (user.token_version || 0) + 1;',
+    replace: '  const newVersion = (user.token_version || 0);',
+  },
+  'forgot-says-whether-it-sent': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  return { ok: true, message: FORGOT_REPLY };\n}, { auth: false });',
+    replace: "  return { ok: true, message: db.prepare('SELECT 1 FROM users WHERE lower(email) = ? AND email_verified = 1').get(email) ? FORGOT_REPLY : 'No confirmed account' };\n}, { auth: false });",
+  },
+  'reset-leaves-the-front-door-locked': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  clearFailures(String(user.email).toLowerCase());\n',
+    replace: '',
+  },
+  'email-changed-without-the-password': {
+    // Changing the email is as good as changing the password once resets
+    // exist: whoever controls the new inbox can reset their way in.
+    file: 'src/api.js', suites: ['password-reset'],
+    find: "  if (changed && !verifyPassword(String(b.current_password || ''), row.salt, row.pass_hash)) {",
+    replace: '  if (false) {',
+  },
+  'old-inbox-link-outlives-an-email-change': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '    // A reset link already sitting in the OLD inbox must not outlive the move.\n    forgetResets(user.id);\n',
+    replace: '',
+  },
+  'live-salon-can-wipe-itself-to-demo-data': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: "  if (MULTI && currentTenant().slug !== 'demo') throw httpError(403, 'Demo reset is only available on the demo workspace — this protects your live data.');\n",
     replace: '',
   },
 
