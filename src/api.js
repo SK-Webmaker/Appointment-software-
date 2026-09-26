@@ -31,6 +31,7 @@ import {
   createCheckout as createPayCheckout, verifyPayment as verifyPayPayment,
 } from './payments.js';
 import * as invites from './invites.js';
+import { redeemHandoff, loginHost } from './central-login.js';
 import { VERSION } from './version.js';
 import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
 import {
@@ -252,6 +253,84 @@ route('POST', '/api/auth/login', async ({ req, res }) => {
   res.setHeader('Set-Cookie', sessionCookie(token, secureForRequest(req)));
   return { user: { id: user.id, name: user.name, email: user.email, role: user.role, email_verified: user.email_verified } };
 }, { auth: false });
+
+// ── Arriving from login.kairobookings.com ──────────────────────────────────
+//
+// The front door checked the password against this salon's own records and
+// sent the browser here with a single-use pass. This trades it for exactly the
+// session this salon's own login page would have given — same cookie, same
+// token_version, same thirty days — and then gets the pass out of the address
+// bar by redirecting straight on.
+//
+// A pass that is unknown, used, or expired sends them back to the front door
+// with a plain message, never a JSON error on a blank page: this is a
+// top-level navigation, and whatever it answers is what the owner sees.
+const SEEN_COOKIE = 'kairo_seen';
+route('GET', '/api/auth/handoff', async ({ req, res, query }) => {
+  const secure = secureForRequest(req);
+  const back = (why) => {
+    res.writeHead(302, {
+      Location: `${secure ? 'https' : 'http'}://${loginHost()}/?${why}=1`,
+      'Cache-Control': 'no-store',
+    });
+    res.end();
+  };
+  const got = redeemHandoff(str(query.get('t'), 100));
+  if (!got) return back('expired');
+  const { user } = got;
+
+  const secret = getSetting('session_secret');
+  const token = createSession(user.id, secret, user.token_version || 0);
+
+  // Has this browser signed in as this person before? The mark is a keyed
+  // hash of the user id, so it is the same in every browser they have used and
+  // meaningless to anybody else. A browser without it is new, and a new
+  // browser is the one moment worth telling the owner about.
+  const seenMark = recordToken('seen', user.id, secret);
+  const knownBrowser = parseCookies(req)[SEEN_COOKIE] === seenMark;
+  const cookies = [sessionCookie(token, secure)];
+  if (!knownBrowser) {
+    cookies.push(`${SEEN_COOKIE}=${seenMark}; Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}; Max-Age=${400 * 86400}`);
+    pushNewSignIn(user.id, got).catch(() => {});
+  }
+  res.writeHead(302, {
+    Location: '/',
+    'Set-Cookie': cookies,
+    'Cache-Control': 'no-store',
+    // The pass is spent, but it is still in this URL. No page it leads to has
+    // any business being told what it was.
+    'Referrer-Policy': 'no-referrer',
+  });
+  res.end();
+  return undefined;
+}, { auth: false });
+
+/**
+ * "New sign-in to Kairo from a web browser."
+ *
+ * The "basic verification" this front door offers without needing the owner's
+ * email: every time an account is opened from a browser that has never signed
+ * into it before, the owner's phone is told. If it was them, they swipe it
+ * away. If it was not, Account → Sign out everywhere ends it.
+ *
+ * Deliberately not optional and not behind a setting. The other phone
+ * notifications are about the business; this one is about the account.
+ */
+async function pushNewSignIn(userId, got) {
+  if (!pushConfigured()) return { sent: 0, skipped: 'not configured' };
+  const ua = String(got.userAgent || '');
+  const where = /iPhone|iPad/.test(ua) ? 'an iPhone or iPad'
+    : /Android/.test(ua) ? 'an Android phone'
+      : /Macintosh/.test(ua) ? 'a Mac'
+        : /Windows/.test(ua) ? 'a Windows computer' : 'a web browser';
+  return pushToOwner({
+    title: 'New sign-in',
+    body: `Your Kairo account was just opened from ${where}. Not you? Open Account and choose Sign out everywhere.`,
+    threadId: 'security',
+    collapseId: `signin-${Date.now()}`,
+    data: { kind: 'sign_in' },
+  }, { userId });
+}
 
 route('POST', '/api/auth/logout', async ({ req, res }) => {
   res.setHeader('Set-Cookie', clearSessionCookie(secureForRequest(req)));

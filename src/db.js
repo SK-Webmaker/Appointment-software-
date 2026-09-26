@@ -710,6 +710,24 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status, id);
   `);
 
+  // ── Signing in from kairobookings.com ─────────────────────────────────────
+  // login.kairobookings.com checks the password where the account lives, then
+  // hands the browser to the salon's own address with one of these. The salon
+  // swaps it for its ordinary session cookie. See docs/12-central-login.md.
+  //
+  // Only the HASH is stored. The token itself travels once, in a redirect, and
+  // is worthless after: single use, and dead in sixty seconds either way.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS login_handoffs (
+      token_hash  TEXT PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at  TEXT NOT NULL,
+      ip          TEXT NOT NULL DEFAULT '',
+      user_agent  TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // Added after booking_invites shipped: a per-invite payment link, and the
   // proof that the client opened it.
   addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");

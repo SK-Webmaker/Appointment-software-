@@ -39,6 +39,11 @@ const RESERVED = new Set([
   'book', 'booking', 'bookings', 'demo', 'test', 'testing', 'staging', 'dev', 'kairo', 'kairobookings',
   'support', 'help', 'status', 'platform', 'shard', 'operator', 'account', 'accounts', 'billing',
   'pay', 'payments', 'stripe', 'blog', 'shop', 'store', 'my', 'me', 'new', 'signup', 'start', 'ns', 'mx',
+  // The front door. login.kairobookings.com is where every owner signs in
+  // without knowing their own address; a salon registered under one of these
+  // would be served instead of it, and every owner who typed their password
+  // there would be typing it into a stranger's booking page.
+  'login', 'signin', 'sign-in', 'logon', 'log-in', 'auth', 'sso', 'id', 'identity', 'password',
 ]);
 
 export const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;

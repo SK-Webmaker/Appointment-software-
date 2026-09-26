@@ -15,6 +15,8 @@ import { checkOrigin } from './src/origin.js';
 import { handlePlatform, platformEnabled, platformKeyFingerprint } from './src/platform.js';
 import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
+import { isLoginHost } from './src/central-login.js';
+import { handleLoginHost } from './src/login-host.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -268,6 +270,11 @@ async function route(req, res) {
   // answers for any host because Render pings the raw hostname, and a shard
   // that looks down because its health check named no salon restarts forever.
   const host = effectiveHost(req.headers);
+  // The front door: login.kairobookings.com, where an owner signs in without
+  // knowing their own address. Decided BEFORE a host is turned into a salon,
+  // so no salon can ever be served here — not even one somebody managed to
+  // register under that name. See src/login-host.js.
+  if (MULTI && isLoginHost(host)) { await handleLoginHost(req, res, url); return; }
   const tenant = resolveHost(host);
   if (!tenant) {
     if (url.pathname === '/api/version') { sendJson(res, 200, { version: VERSION }); return; }
