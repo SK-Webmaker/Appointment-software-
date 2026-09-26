@@ -89,6 +89,7 @@ function serveStatic(res, urlPath) {
   if (rel.startsWith('/review/')) rel = '/review.html'; // client reads the token from the URL itself
   if (rel.startsWith('/cancel/')) rel = '/cancel.html'; // same pattern for the cancel link
   if (rel.startsWith('/invite/')) rel = '/invite.html'; // consultation-first booking link
+  if (rel === '/reset') rel = '/reset.html'; // "Forgot password?" email link; the token rides after '#'
   const filePath = path.normalize(path.join(PUBLIC_DIR, rel));
   // Compare against the directory WITH its separator. A bare prefix test lets
   // "/app/public-anything" through, because it starts with "/app/public" —

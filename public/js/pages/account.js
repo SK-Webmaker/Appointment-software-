@@ -8,6 +8,7 @@
 import { api } from '../api.js';
 import { esc, icon, toast, fmtDate, initials, confirmDialog, openModal } from '../ui.js';
 import { state } from '../app.js';
+import { PW_MIN, judgePassword } from '../password-judge.js';
 
 const PLAN_LABELS = {
   active: { label: 'Active', tone: 'ok' },
@@ -18,38 +19,6 @@ const PLAN_LABELS = {
 };
 
 const INTERVALS = { month: 'per month', year: 'per year', once: 'one-off' };
-
-// Kept in step with MIN_LENGTH in src/password.js — the server is the enforcer,
-// this is only so the owner finds out before pressing the button.
-const PW_MIN = 10;
-const PW_COMMON = ['password', 'letmein', 'welcome', 'qwerty', 'admin', 'kairo', 'salon',
-  'hair', 'changeme', 'iloveyou', 'monkey', 'dragon', 'sunshine', 'football', 'secret'];
-
-/** Live, honest feedback on a candidate password. Mirrors the server's rules. */
-function judgePassword(pw, context) {
-  const skeleton = (s) => String(s).toLowerCase().replace(/[^a-z]/g, '');
-  const skel = skeleton(pw);
-  if (!pw) return null;
-  if (pw.length < PW_MIN) return { level: 0, say: `${PW_MIN - pw.length} more character${PW_MIN - pw.length === 1 ? '' : 's'} needed` };
-  if (PW_COMMON.includes(skel)) return { level: 0, say: 'Far too common — anyone would try this' };
-  if (/^(.)\1+$/.test(pw)) return { level: 0, say: 'That is one character repeated' };
-  if (/^(?:0123456789|1234567890|abcdefghij|qwertyuiop)/.test(pw.toLowerCase())) {
-    return { level: 0, say: 'That is a keyboard run' };
-  }
-  // Mirrors tooPersonal() in src/password.js: a single word from their world,
-  // and the whole name run together, which is what people actually type.
-  const near = (c) => c.length >= 4 && (skel === c || (skel.startsWith(c) && skel.length - c.length <= 2));
-  for (const raw of context) {
-    const words = String(raw || '').split(/[^A-Za-z]+/).map((w) => w.toLowerCase());
-    if (near(skeleton(raw)) || near(skeleton(String(raw || '').split('@')[0])) || words.some(near)) {
-      return { level: 0, say: 'Too close to your own name or business' };
-    }
-  }
-  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length;
-  if (pw.length >= 16 || (pw.length >= 12 && variety >= 3)) return { level: 3, say: 'Strong' };
-  if (pw.length >= 12 || variety >= 3) return { level: 2, say: 'Good' };
-  return { level: 1, say: 'Passable — longer would be better' };
-}
 
 /** Bytes as something a salon owner would actually say out loud. */
 function fileSize(bytes) {
@@ -168,8 +137,12 @@ export async function renderAccount(container) {
         <form id="acct-profile" style="display:flex;flex-direction:column;gap:13px;margin-top:20px">
           <div class="field"><label>Your name</label><input name="name" value="${esc(a.user.name)}" required></div>
           <div class="field"><label>Sign-in email</label>
-            <input name="email" type="email" value="${esc(a.user.email)}" required>
-            <div class="hint">This is what you sign in with. Changing it means verifying the new address.</div></div>
+            <input name="email" type="email" value="${esc(a.user.email)}" required id="acct-email">
+            <div class="hint">This is what you sign in with, and where a password reset is sent. Use an address
+              you read yourself — changing it means confirming the new one.</div></div>
+          <div class="field" id="acct-email-pw" hidden><label>Current password</label>
+            <input name="current_password" type="password" autocomplete="current-password">
+            <div class="hint">Needed to change the email, because whoever controls this address can reset your password.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save profile</button>
         </form>
       </div>
@@ -241,7 +214,9 @@ export async function renderAccount(container) {
               : `<span class="chip s-sent"><span class="dot"></span>Not verified</span>
                  <button type="button" class="btn small" id="acct-verify">${icon('mail')} Send verification email</button>`}
           </div>
-          ${a.user.email_verified ? '' : '<div class="hint">Confirms you own this address. Needs email set up in Settings → Notifications first.</div>'}
+          ${a.user.email_verified ? '<div class="hint">If you ever forget your password, you can reset it yourself from the sign-in page.</div>'
+            : `<div class="hint">Confirm it and you can reset your own password from the sign-in page if you ever forget it
+                 — without it, a reset has to go through Kairo support.${a.user.can_email ? '' : ' Needs email set up in Settings → Notifications first.'}</div>`}
         </div>
 
         <form id="acct-password" style="display:flex;flex-direction:column;gap:13px">
@@ -385,6 +360,14 @@ export async function renderAccount(container) {
     };
   }
 
+  // Changing the email asks for the password, so the field appears the moment
+  // the address differs from the one on the account — and not before.
+  const emailInput = container.querySelector('#acct-email');
+  const emailPw = container.querySelector('#acct-email-pw');
+  emailInput.addEventListener('input', () => {
+    emailPw.hidden = emailInput.value.trim().toLowerCase() === a.user.email.toLowerCase();
+  });
+
   container.querySelector('#acct-profile').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -398,7 +381,9 @@ export async function renderAccount(container) {
       if (!ok) return;
     }
     try {
-      const out = await api.put('/api/account/profile', { name: fd.get('name'), email: fd.get('email') });
+      const out = await api.put('/api/account/profile', {
+        name: fd.get('name'), email: fd.get('email'), current_password: fd.get('current_password') || '',
+      });
       state.user = { ...state.user, name: out.name, email: out.email, email_verified: out.email_verified };
       toast(out.email_changed ? 'Profile saved. Verify your new email when you can.' : 'Profile saved');
       renderAccount(container);

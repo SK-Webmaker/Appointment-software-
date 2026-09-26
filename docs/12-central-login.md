@@ -25,8 +25,9 @@ that does not expect its customers to come back.
 | — too many wrong | "Too many wrong passwords for this email. Please try again in 15 minutes." |
 | — pass timed out | Back at the form: "That sign-in timed out before it finished…" |
 
-Under the form: **Forgot your password?** and **Don't know which email you
-use?**, both pointing at support, and **New to Kairo? Get started**.
+Under the form: **Forgot your password?**, which emails a reset link to a
+confirmed address (see `docs/13-password-reset.md`), **Don't know which email
+you use?**, and **New to Kairo? Get started**.
 
 ## How it works
 
@@ -111,7 +112,7 @@ All optional. With none set, it works as described with the defaults.
 | `KAIRO_LOGIN_HOST` | `login.<base domain>` | The front door's address |
 | `KAIRO_SITE_URL` | `https://<base domain>` | "Back to the website" and footer links |
 | `KAIRO_SIGNUP_URL` | `https://kairo-platform.onrender.com/start` | "Get started" |
-| `KAIRO_SUPPORT_EMAIL` | `support@<base domain>` | "Forgot your password?" |
+| `KAIRO_SUPPORT_EMAIL` | `support@<base domain>` | Where owners without a confirmed email are sent for help |
 | `KAIRO_LOGIN_TURNSTILE_SITE_KEY` + `KAIRO_LOGIN_TURNSTILE_SECRET` | unset (off) | Cloudflare "I am human" check. Both must be set. Add `login.kairobookings.com` to the widget's hostnames |
 
 On the website (the `my-creative-space` repo), the two nav destinations are in
@@ -147,7 +148,7 @@ shard, and the certificate already covers `login.`.
 | `server.js` | Decides "this is the front door" before any salon is looked up |
 | `src/api.js` | `GET /api/auth/handoff` on each salon, and the new-browser push |
 | `src/db.js` | The `login_handoffs` table |
-| `public/login.html`, `public/js/login.js` | The page |
+| `frontdoor/index.html`, `frontdoor/login.js` | The page |
 | `platform/signup.js` | The reserved names |
 | `test/central-login.test.js` | 22 tests on a shard with two salons and a shared account |
 | `test/falsify.mjs` | 10 mutations, each one a way this could be quietly broken |

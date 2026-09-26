@@ -193,7 +193,7 @@ const MUTATIONS = {
     replace: "  const a = ASSETS.get(pathname) || { file: pathname.replace(/^\\//, ''), type: 'text/javascript', cache: 'no-cache' };\n  if (!a) {",
   },
   'sign-in-picker-shows-the-form-too': {
-    file: 'public/login.html', suites: ['central-login'],
+    file: 'frontdoor/index.html', suites: ['central-login'],
     find: '    [hidden] { display: none !important; }',
     replace: '',
   },
@@ -736,6 +736,72 @@ const MUTATIONS = {
   'pre-update-backup-skipped': {
     file: 'src/db.js', suites: ['backup-and-boot'],
     find: 'if (priorVersion && priorVersion !== VERSION) backupBeforeUpdate(priorVersion);',
+    replace: '',
+  },
+
+  // ── "Forgot password?" ──────────────────────────────────────────────────
+  'reset-link-sent-to-an-unconfirmed-address': {
+    // The one rule that makes this safe: several accounts sit under an email
+    // the owner does not read, and a link there is a key to the business.
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "  if (!user.email_verified) return { sent: false, why: 'unconfirmed' };\n",
+    replace: '',
+  },
+  'front-door-resets-an-unconfirmed-address': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "'SELECT id FROM users WHERE lower(email) = ? AND email_verified = 1'",
+    replace: "'SELECT id FROM users WHERE lower(email) = ?'",
+  },
+  'reset-link-works-twice': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: "  const row = db.prepare('DELETE FROM password_resets WHERE token_hash = ? RETURNING *').get(sha256(t));\n  if (!row) return null;\n  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(row.user_id);",
+    replace: "  const row = db.prepare('SELECT * FROM password_resets WHERE token_hash = ?').get(sha256(t));\n  if (!row) return null;",
+  },
+  'reset-link-never-expires': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '  if (!row || row.expires_at <= sqlTime(now)) return null;\n  return db.prepare',
+    replace: '  if (!row) return null;\n  return db.prepare',
+  },
+  'reset-link-stored-in-plain': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '.run(sha256(token), userId, sqlTime(now + RESET_TTL_MS), String(ip).slice(0, 64));',
+    replace: '.run(token, userId, sqlTime(now + RESET_TTL_MS), String(ip).slice(0, 64));',
+  },
+  'one-inbox-can-be-flooded': {
+    file: 'src/password-reset.js', suites: ['password-reset'],
+    find: '  if (times.length && now - times[times.length - 1] < GAP_MS) { sent.set(key, times); return false; }\n',
+    replace: '',
+  },
+  'reset-leaves-old-sessions-signed-in': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  const newVersion = (user.token_version || 0) + 1;',
+    replace: '  const newVersion = (user.token_version || 0);',
+  },
+  'forgot-says-whether-it-sent': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  return { ok: true, message: FORGOT_REPLY };\n}, { auth: false });',
+    replace: "  return { ok: true, message: db.prepare('SELECT 1 FROM users WHERE lower(email) = ? AND email_verified = 1').get(email) ? FORGOT_REPLY : 'No confirmed account' };\n}, { auth: false });",
+  },
+  'reset-leaves-the-front-door-locked': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '  clearFailures(String(user.email).toLowerCase());\n',
+    replace: '',
+  },
+  'email-changed-without-the-password': {
+    // Changing the email is as good as changing the password once resets
+    // exist: whoever controls the new inbox can reset their way in.
+    file: 'src/api.js', suites: ['password-reset'],
+    find: "  if (changed && !verifyPassword(String(b.current_password || ''), row.salt, row.pass_hash)) {",
+    replace: '  if (false) {',
+  },
+  'old-inbox-link-outlives-an-email-change': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: '    // A reset link already sitting in the OLD inbox must not outlive the move.\n    forgetResets(user.id);\n',
+    replace: '',
+  },
+  'live-salon-can-wipe-itself-to-demo-data': {
+    file: 'src/api.js', suites: ['password-reset'],
+    find: "  if (MULTI && currentTenant().slug !== 'demo') throw httpError(403, 'Demo reset is only available on the demo workspace — this protects your live data.');\n",
     replace: '',
   },
 
