@@ -35,6 +35,14 @@ const POLICIES = {
   // single salon's login — so it is tighter than 'login', and it is backed by
   // a per-email lock in src/central-login.js that this cannot provide.
   central_login:  { limit: 12, windowMs: 10 * 60 * 1000 },
+  // "Forgot password?" sends an email, so it is the tightest thing here. The
+  // per-address cap in src/password-reset.js stops one inbox being flooded;
+  // this stops one machine trying a thousand inboxes.
+  public_forgot:  { limit: 5,  windowMs: 15 * 60 * 1000 },
+  central_forgot: { limit: 5,  windowMs: 15 * 60 * 1000 },
+  // Using a reset link. 256 bits cannot be guessed; this is belt and braces,
+  // with room for somebody who picks a password that is too short twice.
+  public_reset:   { limit: 20, windowMs: 15 * 60 * 1000 },
   // Redeeming a pass from the front door. The pass is 256 bits, so guessing is
   // hopeless; this is the same belt-and-braces the cancel link gets.
   public_handoff: { limit: 30, windowMs: 10 * 60 * 1000 },
@@ -120,6 +128,11 @@ export function clientIp(req) {
 export function classifyRequest(method, pathname) {
   if (pathname === '/api/auth/login') return 'login';
   if (pathname === '/api/auth/password') return 'password';
+  // Changing the sign-in email asks for the current password, so a stolen
+  // session must not be able to guess it here at the generic authed rate.
+  if (pathname === '/api/account/profile') return 'password';
+  if (pathname === '/api/auth/forgot') return 'public_forgot';
+  if (pathname === '/api/auth/reset' || pathname === '/api/auth/reset/check') return 'public_reset';
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';

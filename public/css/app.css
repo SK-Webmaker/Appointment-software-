@@ -268,6 +268,7 @@ a { color: var(--accent); text-decoration: none; }
    control — notably a <select>, which WebKit sizes to its longest option —
    pushes the whole form past the screen edge. */
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field[hidden] { display: none; }
 .field label { font-size: 12px; font-weight: 600; color: var(--text-2); }
 .field input, .field select, .field textarea {
   background: var(--bg-raise); border: 1px solid var(--border);
@@ -1102,6 +1103,17 @@ table.data th.num { text-align: right; }
 }
 .login-demo code { color: var(--accent); background: rgba(56, 189, 248, 0.08); padding: 1px 6px; border-radius: 5px; }
 .login-error { color: var(--red); font-size: 12.5px; text-align: center; }
+/* The sign-in form and the "Forgot password?" form share the card. Without
+   this, `form { display:flex }` above beats the browser's own [hidden] rule
+   and both show at once. */
+.login-card form[hidden], .login-card [hidden] { display: none; }
+.login-link {
+  background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px;
+  color: var(--accent); cursor: pointer; align-self: center;
+}
+.login-link:hover { text-decoration: underline; }
+.login-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.login-note { color: var(--text-2); font-size: 12.5px; line-height: 1.6; text-align: center; }
 
 /* ---------- import wizard ---------- */
 

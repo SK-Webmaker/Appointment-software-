@@ -989,11 +989,12 @@ export async function renderSettings(container, params) {
           <button class="btn" id="rerun-setup">${icon('zap')} Re-run setup wizard</button>
           <button class="btn" id="rerun-tour">${icon('grid')} Show me around again</button>
         </div>
+        ${state.demoResetAllowed ? `
         <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px">
           <div class="card-title" style="font-size:13.5px">Demo data</div>
           <div class="card-sub" style="margin-bottom:12px">Wipe everything and restore the sample dataset. Useful before a sales demo.</div>
           <button class="btn danger" id="reset-demo">${icon('zap')} Reset to demo data</button>
-        </div>`}
+        </div>` : ''}`}
       </div>
     </div>`;
 

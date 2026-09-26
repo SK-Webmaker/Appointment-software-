@@ -151,8 +151,8 @@
     pick.hidden = true;
     form.hidden = false;
     $('help').hidden = false;
-    $('title').textContent = 'Sign in to Kairo';
-    $('lede').textContent = "Use the email and password you already sign in with. We'll take you straight to your business.";
+    $('title').textContent = TITLE;
+    $('lede').textContent = LEDE;
     password.value = '';
     busy(false, 'Sign in');
     password.focus();
@@ -187,9 +187,112 @@
     }
   });
 
+  // ── Forgot password ───────────────────────────────────────────────────────
+  //
+  // Asks for the email, and says the same thing whatever happens: the server
+  // never tells this page whether the account exists or was sent anything,
+  // so neither can the page tell anybody else.
+  const forgot = $('forgot');
+  const fForm = $('forgot-form');
+  const fEmail = $('f-email');
+  const fErr = $('f-error');
+  const fGo = $('f-go');
+  const fLabel = $('f-label');
+  const fDone = $('f-done');
+  const TITLE = 'Sign in to Kairo';
+  const LEDE = "Use the email and password you already sign in with. We'll take you straight to your business.";
+  let fWidget = null;
+  let fToken = '';
+
+  function openForgot() {
+    form.hidden = true;
+    $('help').hidden = true;
+    notice.hidden = true;
+    $('title').textContent = 'Reset your password';
+    $('lede').textContent = "Enter the email you sign in with and we'll send you a link to choose a new password.";
+    fEmail.value = email.value.trim();
+    fErr.textContent = '';
+    fDone.hidden = true;
+    fForm.hidden = false;
+    forgot.hidden = false;
+    if (tsKey && window.turnstile && fWidget === null) {
+      fWidget = window.turnstile.render('#ts-forgot', {
+        sitekey: tsKey, theme: 'dark', action: 'forgot',
+        callback: (t) => { fToken = t; },
+        'expired-callback': () => { fToken = ''; },
+        'error-callback': () => { fToken = ''; },
+      });
+    }
+    fEmail.focus();
+  }
+
+  function closeForgot() {
+    forgot.hidden = true;
+    form.hidden = false;
+    $('help').hidden = false;
+    $('title').textContent = TITLE;
+    $('lede').textContent = LEDE;
+    if (fEmail.value.trim() && !email.value.trim()) email.value = fEmail.value.trim();
+    (email.value ? password : email).focus();
+  }
+
+  $('forgot-open').addEventListener('click', openForgot);
+  $('f-back').addEventListener('click', closeForgot);
+
+  fForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    fErr.textContent = '';
+    const address = fEmail.value.trim();
+    if (!address || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address)) {
+      fErr.textContent = 'Enter the email you sign in with.';
+      fEmail.focus();
+      return;
+    }
+    if (tsKey && !fToken) {
+      fErr.textContent = 'Please complete the "I am human" check first.';
+      return;
+    }
+    fGo.disabled = true;
+    fGo.classList.add('busy');
+    fLabel.textContent = 'Sending…';
+    try {
+      let res;
+      try {
+        res = await fetch('/api/forgot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: address, turnstile_token: fToken }),
+          credentials: 'same-origin',
+        });
+      } catch {
+        throw new Error("Couldn't reach Kairo. Check your connection and try again.");
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+      fForm.hidden = true;
+      fDone.textContent = data.message;
+      fDone.hidden = false;
+      $('f-back').focus();
+    } catch (e2) {
+      fErr.textContent = e2.message;
+      fToken = '';
+      if (fWidget !== null && window.turnstile) { try { window.turnstile.reset(fWidget); } catch { /* gone */ } }
+    } finally {
+      fGo.disabled = false;
+      fGo.classList.remove('busy');
+      fLabel.textContent = 'Send reset link';
+    }
+  });
+
+  // A salon's "this link has expired" page sends people here to ask again.
+  if (params.has('forgot')) {
+    history.replaceState(null, '', location.pathname);
+    openForgot();
+  }
+
   // Back-button from their workspace lands here again with the button still
   // saying "Opening…" — put it back.
   window.addEventListener('pageshow', (e) => { if (e.persisted) busy(false, 'Sign in'); });
 
-  email.focus();
+  if (forgot.hidden) email.focus();
 })();

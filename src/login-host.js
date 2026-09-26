@@ -23,19 +23,25 @@ import {
   findAccounts, mintHandoff, salonOrigin, lockedFor, recordFailure, clearFailures,
   loginTurnstile,
 } from './central-login.js';
+import { requestResetEverywhere, FORGOT_REPLY } from './password-reset.js';
 
-const PUBLIC_DIR = path.join(path.dirname(path.dirname(fileURLToPath(import.meta.url))), 'public');
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const PUBLIC_DIR = path.join(ROOT, 'public');
+// The page and its script live OUTSIDE public/, because every salon serves
+// public/ as-is: kept there, hairbysha.kairobookings.com/login.html answered
+// with this page and its placeholders unfilled.
+const FRONTDOOR_DIR = path.join(ROOT, 'frontdoor');
 
 // The few files the sign-in page needs, and nothing else. An allow-list rather
 // than "serve public/ minus some things": the owner app lives in the same
 // folder, and a front door that could be talked into serving it would render
 // a workspace with no salon behind it.
 const ASSETS = new Map([
-  ['/', { file: 'login.html', type: 'text/html; charset=utf-8', cache: 'no-cache' }],
-  ['/index.html', { file: 'login.html', type: 'text/html; charset=utf-8', cache: 'no-cache' }],
-  ['/js/login.js', { file: 'js/login.js', type: 'text/javascript; charset=utf-8', cache: 'no-cache' }],
-  ['/icons/kairo-192.png', { file: 'icons/kairo-192.png', type: 'image/png', cache: 'public, max-age=86400' }],
-  ['/icons/kairo-180.png', { file: 'icons/kairo-180.png', type: 'image/png', cache: 'public, max-age=86400' }],
+  ['/', { dir: FRONTDOOR_DIR, file: 'index.html', type: 'text/html; charset=utf-8', cache: 'no-cache' }],
+  ['/index.html', { dir: FRONTDOOR_DIR, file: 'index.html', type: 'text/html; charset=utf-8', cache: 'no-cache' }],
+  ['/js/login.js', { dir: FRONTDOOR_DIR, file: 'login.js', type: 'text/javascript; charset=utf-8', cache: 'no-cache' }],
+  ['/icons/kairo-192.png', { dir: PUBLIC_DIR, file: 'icons/kairo-192.png', type: 'image/png', cache: 'public, max-age=86400' }],
+  ['/icons/kairo-180.png', { dir: PUBLIC_DIR, file: 'icons/kairo-180.png', type: 'image/png', cache: 'public, max-age=86400' }],
 ]);
 
 const escAttr = (v) => String(v).replace(/[&<>"']/g, (c) => ({
@@ -99,14 +105,14 @@ function serveAsset(res, pathname) {
       + '<p><a href="/">Sign in to Kairo</a></p></body>');
     return;
   }
-  fs.readFile(path.join(PUBLIC_DIR, a.file), (err, data) => {
+  fs.readFile(path.join(a.dir, a.file), (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     let body = data;
     // Written into the HTML rather than fetched, so the page works on its
     // first paint with no second round trip. Every value is escaped: they come
     // from the environment, and a stray quote in one must not be able to break
     // out of the attribute it lands in.
-    if (a.file === 'login.html') {
+    if (a.file === 'index.html') {
       const ts = loginTurnstile();
       const fill = {
         __TURNSTILE_SITE_KEY__: ts ? ts.siteKey : '',
@@ -193,6 +199,34 @@ async function signIn(req, res) {
   });
 }
 
+/**
+ * "Forgot password?" at the front door. Every salon with a CONFIRMED account
+ * under this email sends its own link; everybody else — no account, an
+ * unconfirmed address, asked too often — gets the same answer, at the same
+ * speed, because the sending happens after the reply.
+ */
+async function forgot(req, res) {
+  const ip = clientIp(req);
+  const over = rateHit('central_forgot', ip);
+  if (over) {
+    res.setHeader('Retry-After', String(over.retryAfterSec));
+    sendJson(res, 429, { error: 'Too many requests from here. Please wait a few minutes and try again.' });
+    return;
+  }
+  let b;
+  try { b = await readJson(req); } catch { sendJson(res, 400, { error: 'That request could not be read.' }); return; }
+  const email = String(b?.email ?? '').trim().toLowerCase().slice(0, 200);
+  if (!email) { sendJson(res, 400, { error: 'Enter the email you sign in with.' }); return; }
+  const ts = loginTurnstile();
+  if (ts) {
+    const human = await verifyTurnstileWith(ts.secret, String(b?.turnstile_token ?? ''), ip);
+    if (!human.ok) { sendJson(res, 400, { error: human.detail }); return; }
+  }
+  requestResetEverywhere(email, { ip, secure: secureForRequest(req) })
+    .catch((err) => console.error('password reset (front door) failed —', String(err?.message || err).slice(0, 160)));
+  sendJson(res, 200, { ok: true, message: FORGOT_REPLY });
+}
+
 /** Everything that arrives at the front door comes through here. */
 export async function handleLoginHost(req, res, url) {
   securityHeaders(res);
@@ -202,6 +236,12 @@ export async function handleLoginHost(req, res, url) {
     res.setHeader('Cache-Control', 'no-store');
     if (req.method !== 'POST') { sendJson(res, 405, { error: 'Method not allowed' }); return; }
     await signIn(req, res);
+    return;
+  }
+  if (p === '/api/forgot') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (req.method !== 'POST') { sendJson(res, 405, { error: 'Method not allowed' }); return; }
+    await forgot(req, res);
     return;
   }
   if (p.startsWith('/api/')) { sendJson(res, 404, { error: 'Not found' }); return; }

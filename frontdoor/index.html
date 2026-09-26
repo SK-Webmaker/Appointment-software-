@@ -149,6 +149,17 @@
     .help details summary:hover { color: var(--accent-hover); text-decoration: underline; }
     .help details p { margin: 8px 0 0; line-height: 1.6; color: var(--ink-2); }
 
+    .forgot { display: flex; flex-direction: column; gap: 14px; }
+    .fine { color: var(--dim); font-size: 13px; line-height: 1.6; margin: 0; }
+    .link-btn {
+      background: none; border: 0; padding: 0; font: inherit; font-size: 13.5px; text-align: left;
+      color: var(--accent); cursor: pointer; align-self: flex-start;
+    }
+    .link-btn:hover { color: var(--accent-hover); text-decoration: underline; }
+    .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+    #ts-forgot { display: flex; justify-content: center; }
+    #ts-forgot:empty { display: none; }
+
     .signup {
       margin-top: 18px; text-align: center; font-size: 14px; color: var(--dim);
     }
@@ -222,13 +233,30 @@
         <button type="button" class="back-btn" id="pick-back">← Use a different account</button>
       </div>
 
+      <!-- Forgot password. Its own panel rather than a pop-up, so it works the
+           same with a keyboard, a screen reader and a phone. -->
+      <div class="forgot" id="forgot" hidden>
+        <form id="forgot-form" novalidate>
+          <div>
+            <label for="f-email">Email</label>
+            <input id="f-email" name="email" type="email" inputmode="email"
+                   autocomplete="username email" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div id="ts-forgot"></div>
+          <div class="error" id="f-error" role="alert" aria-live="assertive"></div>
+          <button type="submit" class="primary" id="f-go">
+            <span class="spinner" aria-hidden="true"></span><span id="f-label">Send reset link</span>
+          </button>
+        </form>
+        <p class="notice" id="f-done" role="status" hidden></p>
+        <p class="fine">Reset links only go to an email address you've confirmed in your Kairo account.
+          Never confirmed yours, or it's an address you don't read? Email
+          <a class="support-link" href="#">__SUPPORT_EMAIL__</a> and we'll get you back in.</p>
+        <button type="button" class="back-btn" id="f-back">← Back to sign in</button>
+      </div>
+
       <div class="help" id="help">
-        <details>
-          <summary>Forgot your password?</summary>
-          <p>Email <a id="support-link" href="#">__SUPPORT_EMAIL__</a> from your business email
-            address and we'll reset it for you. For your security we won't change a password
-            without checking it's really you.</p>
-        </details>
+        <button type="button" class="link-btn" id="forgot-open">Forgot your password?</button>
         <details>
           <summary>Don't know which email you use?</summary>
           <p>It's the one you signed up with, or the one your business owner added you under.

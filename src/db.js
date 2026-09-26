@@ -728,6 +728,24 @@ function migrate() {
     );
   `);
 
+  // ── "Forgot password?" ─────────────────────────────────────────────────────
+  // A reset link is only ever sent to an address the owner has CONFIRMED.
+  // Several accounts were set up under an email the owner does not read, and a
+  // reset link in somebody else's inbox is a key to the business. See
+  // docs/13-password-reset.md.
+  //
+  // Same shape as login_handoffs, for the same reasons: only the hash is kept,
+  // it works once, and it dies on its own (thirty minutes).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      token_hash  TEXT PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at  TEXT NOT NULL,
+      ip          TEXT NOT NULL DEFAULT '',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   // Added after booking_invites shipped: a per-invite payment link, and the
   // proof that the client opened it.
   addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");

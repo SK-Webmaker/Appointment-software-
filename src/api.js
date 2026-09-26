@@ -31,7 +31,11 @@ import {
   createCheckout as createPayCheckout, verifyPayment as verifyPayPayment,
 } from './payments.js';
 import * as invites from './invites.js';
-import { redeemHandoff, loginHost } from './central-login.js';
+import { redeemHandoff, loginHost, clearFailures } from './central-login.js';
+import {
+  requestReset, peekReset, consumeReset, forgetResets, maskEmail, FORGOT_REPLY,
+  sendPasswordChangedEmail, sendEmailChangedNotice,
+} from './password-reset.js';
 import { VERSION } from './version.js';
 import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
 import {
@@ -44,7 +48,7 @@ import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public
 import { buildRoster, bookableWindow, rosteredShift, NO_ROSTER } from '../public/js/roster.js';
 import { checkBody, s } from './validate.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
-import { current as currentTenant, isReadOnly } from './tenant.js';
+import { current as currentTenant, isReadOnly, MULTI } from './tenant.js';
 import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
@@ -357,7 +361,13 @@ route('GET', '/api/auth/me', async ({ user }) => {
   // Whether this workspace is still showing somebody else's fake salon, so the
   // clients list can say so rather than leaving an owner to work out which of
   // these people are real.
-  return { user: safeUser, settings: getSettings(), version: VERSION, has_demo_data: hasDemoData() };
+  return {
+    user: safeUser, settings: getSettings(), version: VERSION, has_demo_data: hasDemoData(),
+    // Whether Settings may offer "Reset to demo data" at all. Same test the
+    // route applies; the button follows it so nobody is shown a control that
+    // will only say no.
+    demo_reset_allowed: !safeUser.email_verified && (!MULTI || currentTenant().slug === 'demo'),
+  };
 });
 
 route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false });
@@ -383,6 +393,9 @@ route('GET', '/api/account', async ({ user }) => {
       default_password: getSetting('default_password_active') === '1',
       // Signed in with a password the operator generated and emailed them.
       handover_password: getSetting('handover_password_active') === '1',
+      // Whether a verification email can actually leave — by the salon's own
+      // sender or the platform's shared one. Every salon on the shard can.
+      can_email: canSendEmail(),
     },
     business: {
       name: getSetting('business_name', ''),
@@ -431,6 +444,7 @@ route('PUT', '/api/account/profile', async ({ req, user }) => {
   const b = checkBody(await readJson(req), {
     name: s.str(100, { required: true }),
     email: s.str(200, { required: true }),
+    current_password: s.str(200),
   });
   const name = str(b.name, 100).trim();
   const email = str(b.email, 200).trim().toLowerCase();
@@ -439,14 +453,30 @@ route('PUT', '/api/account/profile', async ({ req, user }) => {
   const clash = db.prepare('SELECT id FROM users WHERE lower(email) = ? AND id != ?').get(email, user.id);
   if (clash) throw httpError(409, 'Another account already uses that email');
 
-  const row = db.prepare('SELECT email, email_verified FROM users WHERE id = ?').get(user.id);
+  const row = db.prepare('SELECT name, email, email_verified, salt, pass_hash FROM users WHERE id = ?').get(user.id);
   const changed = row.email.toLowerCase() !== email;
+  // The sign-in email is where a password reset goes, so changing it is as
+  // good as changing the password — and it asks for the same proof. Without
+  // this, anyone holding an unlocked phone for a minute could point the
+  // account at their own inbox and reset their way in at leisure.
+  if (changed && !verifyPassword(String(b.current_password || ''), row.salt, row.pass_hash)) {
+    throw httpError(400, b.current_password ? 'Current password is incorrect' : 'Enter your current password to change your email');
+  }
   // A new address hasn't been proven yet, so verification starts over and the
   // old token is burned — otherwise changing the email would inherit a tick
   // that was earned by a different inbox.
   if (changed) {
     db.prepare("UPDATE users SET name = ?, email = ?, email_verified = 0, verify_token = '', verify_sent_at = '' WHERE id = ?")
       .run(name, email, user.id);
+    // A reset link already sitting in the OLD inbox must not outlive the move.
+    forgetResets(user.id);
+    // And the old address hears about it — it is the one that needs to, if
+    // this was not the owner. Not awaited: the owner is waiting on the save.
+    if (canSendEmail()) {
+      sendEmailChangedNotice(row.email, { name, email })
+        .then((r) => { if (!r.ok) console.error('email change notice not sent —', String(r.detail || '').slice(0, 160)); })
+        .catch(() => {});
+    }
   } else {
     db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, user.id);
   }
@@ -473,6 +503,7 @@ route('PUT', '/api/auth/password', async ({ req, res, user }) => {
   // is retired. Then hand THIS browser a fresh cookie so the owner stays in.
   const newVersion = (row.token_version || 0) + 1;
   db.prepare('UPDATE users SET pass_hash = ?, salt = ?, token_version = ? WHERE id = ?').run(hash, salt, newVersion, user.id);
+  forgetResets(user.id);
   if (getSetting('default_password_active') === '1') setSetting('default_password_active', '0');
   // Whatever they were handed at setup is now gone, whichever kind it was.
   if (getSetting('handover_password_active') === '1') setSetting('handover_password_active', '0');
@@ -529,15 +560,93 @@ route('GET', '/api/auth/verify-email', async ({ res, query }) => {
   <a href="/" style="color:#38bdf8;font-weight:600;text-decoration:none">Go to your workspace →</a>
 </div></body></html>`, 'text/html; charset=utf-8');
 
-  if (!token) return page('Link not valid', 'This verification link is missing its code. Request a fresh one from Settings → Security.', false);
+  if (!token) return page('Link not valid', 'This verification link is missing its code. Request a fresh one from Account in your workspace.', false);
   const row = db.prepare('SELECT * FROM users WHERE verify_token = ?').get(token);
-  if (!row) return page('Link not valid', 'This verification link was already used or has been replaced. Request a fresh one from Settings → Security.', false);
+  if (!row) return page('Link not valid', 'This verification link was already used or has been replaced. Request a fresh one from Account in your workspace.', false);
   const sentAt = new Date(`${row.verify_sent_at.replace(' ', 'T')}:00Z`).getTime();
   if (!sentAt || Date.now() - sentAt > 48 * 60 * 60 * 1000) {
-    return page('Link expired', 'Verification links are valid for 48 hours. Request a fresh one from Settings → Security.', false);
+    return page('Link expired', 'Verification links are valid for 48 hours. Request a fresh one from Account in your workspace.', false);
   }
   db.prepare("UPDATE users SET email_verified = 1, verify_token = '' WHERE id = ?").run(row.id);
-  return page('Email verified', `${row.email} is now confirmed. Your account is fully set up.`, true);
+  return page('Email verified', `${row.email} is now confirmed. If you ever forget your password, you can reset it yourself from the sign-in page.`, true);
+}, { auth: false });
+
+// ---------------------------------------------------------------------------
+// Forgot password. The design, and why a link only ever goes to a confirmed
+// address, is at the top of src/password-reset.js.
+// ---------------------------------------------------------------------------
+
+/** This salon's own address, for links in an email. The request's, if nothing is pinned. */
+function originFor(req) {
+  const proto = secureForRequest(req) ? 'https' : 'http';
+  return publicUrl() || `${proto}://${req.headers.host}`;
+}
+
+route('POST', '/api/auth/forgot', async ({ req }) => {
+  const b = checkBody(await readJson(req), { email: s.str(200) });
+  const email = str(b.email, 200).trim().toLowerCase();
+  if (!email) throw httpError(400, 'Enter the email you sign in with.');
+  // Not awaited. Looking the account up is instant but sending an email is
+  // not, and a reply that came back slower whenever the account existed would
+  // answer the question this page refuses to answer.
+  requestReset(email, { origin: originFor(req), ip: clientIp(req) })
+    .catch((err) => console.error('password reset failed —', String(err?.message || err).slice(0, 160)));
+  return { ok: true, message: FORGOT_REPLY };
+}, { auth: false });
+
+/** Is this link still good? Lets the page say so before anybody types a password. Does not use it up. */
+route('POST', '/api/auth/reset/check', async ({ req }) => {
+  const b = checkBody(await readJson(req), { token: s.str(100) });
+  const user = peekReset(b.token);
+  if (!user) throw httpError(410, 'This reset link has expired or has already been used. Ask for a new one from the sign-in page.');
+  return { ok: true, email: maskEmail(user.email), business: getSetting('business_name', '') };
+}, { auth: false });
+
+route('POST', '/api/auth/reset', async ({ req, res }) => {
+  const b = checkBody(await readJson(req), { token: s.str(100), password: s.str(200) });
+  const expired = 'This reset link has expired or has already been used. Ask for a new one from the sign-in page.';
+  const who = peekReset(b.token);
+  if (!who) throw httpError(410, expired);
+  // The password is judged BEFORE the link is used up, so a password that is
+  // too short or already breached costs the owner a retry, not a new email.
+  const next = String(b.password || '');
+  const problem = checkPassword(next, [who.email, who.name, getSetting('business_name', '')]);
+  if (problem) throw httpError(400, problem);
+  const breached = await checkBreached(next);
+  if (breached) throw httpError(400, breached);
+
+  const user = consumeReset(b.token);
+  if (!user) throw httpError(410, expired);
+  const { salt, hash } = hashPassword(next);
+  // Every session this account had is retired, exactly as changing the
+  // password from Account does. Whoever might have been in, is not any more.
+  const newVersion = (user.token_version || 0) + 1;
+  db.prepare('UPDATE users SET pass_hash = ?, salt = ?, token_version = ? WHERE id = ?').run(hash, salt, newVersion, user.id);
+  if (getSetting('default_password_active') === '1') setSetting('default_password_active', '0');
+  if (getSetting('handover_password_active') === '1') setSetting('handover_password_active', '0');
+  // They have proved the inbox and chosen a password — the front door's lock
+  // on this email, if they tripped it trying to remember, no longer applies.
+  clearFailures(String(user.email).toLowerCase());
+
+  // And they are signed in, here, on the browser that proved it.
+  res.setHeader('Set-Cookie', sessionCookie(createSession(user.id, getSetting('session_secret'), newVersion), secureForRequest(req)));
+
+  // Told twice, because if this was not them they need to hear it wherever
+  // they will see it first. Neither holds up the reply.
+  sendPasswordChangedEmail(user)
+    .then((r) => { if (!r.ok) console.error('password changed notice not sent —', String(r.detail || '').slice(0, 160)); })
+    .catch(() => {});
+  if (pushConfigured()) {
+    pushToOwner({
+      title: 'Password changed',
+      body: 'Your Kairo password was just reset from an email link, and every other device was signed out. Not you? Contact Kairo support now.',
+      threadId: 'security',
+      collapseId: `pwreset-${Date.now()}`,
+      data: { kind: 'password_reset' },
+    }, { userId: user.id }).catch(() => {});
+  }
+  console.log(`password reset: completed for ${maskEmail(user.email)}`);
+  return { ok: true };
 }, { auth: false });
 
 // ---------------------------------------------------------------------------
@@ -767,6 +876,12 @@ route('POST', '/api/settings/reset-demo', async ({ user }) => {
   // wipe their clients/appointments/invoices (the button is hidden in the UI
   // too, this guards a crafted request).
   if (user?.email_verified) throw httpError(403, 'Demo reset is disabled once your email is verified — this protects your live data.');
+  // On the shard, every salon but the demo one is a real business. Whether its
+  // owner has confirmed their email says nothing about whether it has real
+  // clients in it — Hair By Sha did, long before anybody verified anything —
+  // so an unconfirmed address must not be the only thing between a mis-tap and
+  // an empty diary.
+  if (MULTI && currentTenant().slug !== 'demo') throw httpError(403, 'Demo reset is only available on the demo workspace — this protects your live data.');
   resetDemo();
   return { ok: true };
 });
