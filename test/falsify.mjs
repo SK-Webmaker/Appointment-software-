@@ -190,7 +190,9 @@ const MUTATIONS = {
   'front-door-serves-the-owner-app': {
     file: 'src/login-host.js', suites: ['central-login'],
     find: "  const a = ASSETS.get(pathname);\n  if (!a) {",
-    replace: "  const a = ASSETS.get(pathname) || { file: pathname.replace(/^\\//, ''), type: 'text/javascript', cache: 'no-cache' };\n  if (!a) {",
+    // The front door's own files live in frontdoor/, so the mutation has to
+    // name public/ itself to reach the owner app — which is what it models.
+    replace: "  const a = ASSETS.get(pathname) || { dir: PUBLIC_DIR, file: pathname.replace(/^\\//, ''), type: 'text/javascript', cache: 'no-cache' };\n  if (!a) {",
   },
   'sign-in-picker-shows-the-form-too': {
     file: 'frontdoor/index.html', suites: ['central-login'],
