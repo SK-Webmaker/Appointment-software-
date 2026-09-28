@@ -26,6 +26,26 @@ const POLICIES = {
   // booking — tighter, in fact, since nobody legitimately joins twelve times.
   public_waitlist: { limit: 6, windowMs: 10 * 60 * 1000 },
   public_attempt: { limit: 20, windowMs: 10 * 60 * 1000 },
+  // A special request is free text a stranger types straight into the owner's
+  // dashboard, so it is the softest spam target on the whole booking page.
+  // Tighter than the waitlist: nobody legitimately sends four in ten minutes.
+  public_enquiry: { limit: 4, windowMs: 10 * 60 * 1000 },
+  // The front door at login.kairobookings.com. Every salon's accounts sit
+  // behind this one form, which makes it worth more to an attacker than any
+  // single salon's login — so it is tighter than 'login', and it is backed by
+  // a per-email lock in src/central-login.js that this cannot provide.
+  central_login:  { limit: 12, windowMs: 10 * 60 * 1000 },
+  // "Forgot password?" sends an email, so it is the tightest thing here. The
+  // per-address cap in src/password-reset.js stops one inbox being flooded;
+  // this stops one machine trying a thousand inboxes.
+  public_forgot:  { limit: 5,  windowMs: 15 * 60 * 1000 },
+  central_forgot: { limit: 5,  windowMs: 15 * 60 * 1000 },
+  // Using a reset link. 256 bits cannot be guessed; this is belt and braces,
+  // with room for somebody who picks a password that is too short twice.
+  public_reset:   { limit: 20, windowMs: 15 * 60 * 1000 },
+  // Redeeming a pass from the front door. The pass is 256 bits, so guessing is
+  // hopeless; this is the same belt-and-braces the cancel link gets.
+  public_handoff: { limit: 30, windowMs: 10 * 60 * 1000 },
   // The cancel link's token is a credential, so looking one up is guessable in
   // principle — kept tight for the same reason login is, even though a 128-bit
   // token makes brute force hopeless. Generous enough for a client who opens
@@ -108,9 +128,16 @@ export function clientIp(req) {
 export function classifyRequest(method, pathname) {
   if (pathname === '/api/auth/login') return 'login';
   if (pathname === '/api/auth/password') return 'password';
+  // Changing the sign-in email asks for the current password, so a stolen
+  // session must not be able to guess it here at the generic authed rate.
+  if (pathname === '/api/account/profile') return 'password';
+  if (pathname === '/api/auth/forgot') return 'public_forgot';
+  if (pathname === '/api/auth/reset' || pathname === '/api/auth/reset/check') return 'public_reset';
   if (pathname === '/api/public/book' && method === 'POST') return 'public_book';
   if (pathname === '/api/public/review' && method === 'POST') return 'public_review';
   if (pathname === '/api/public/waitlist' && method === 'POST') return 'public_waitlist';
+  if (pathname === '/api/public/enquiry' && method === 'POST') return 'public_enquiry';
+  if (pathname === '/api/auth/handoff') return 'public_handoff';
   // Fires as somebody types, so it needs more headroom than a booking — but it
   // writes contact details, so it still needs a ceiling.
   if (pathname === '/api/public/booking-attempt') return 'public_attempt';

@@ -71,13 +71,18 @@ export async function createDepositCheckout({ appointmentId, serviceName, deposi
  * payment: somebody paying $65 should see the $45 and the $20 that make it up,
  * or the first thing they do is ring and ask what they were charged for.
  */
-export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken }) {
+export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken, returnPath = '/book' }) {
   const cur = String(currency || getSetting('currency_code', 'aud') || 'aud').toLowerCase();
   const biz = getSetting('business_name', 'Booking');
+  // Where the customer lands afterwards. Defaults to the booking page, which is
+  // where every payment used to come from; a consultation booking link sends
+  // them back to its own page instead, because /book cannot confirm an invite
+  // and the money would be taken with no booking made.
+  const back = `${origin}${returnPath}${returnPath.includes('?') ? '&' : '?'}`;
   const params = {
     mode: 'payment',
-    success_url: `${origin}/book?paid=success&appt=${appointmentId}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/book?paid=cancelled&appt=${appointmentId}`,
+    success_url: `${back}paid=success&appt=${appointmentId}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${back}paid=cancelled&appt=${appointmentId}`,
     'metadata[appointment_id]': String(appointmentId),
   };
   items.forEach((it, i) => {

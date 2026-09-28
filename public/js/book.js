@@ -463,6 +463,79 @@ function showMaintenanceBar() {
   document.body.prepend(bar);
 }
 
+/**
+ * "Message us and we'll book you in."
+ *
+ * The whole of the booking page for a salon running consultation-first. It is
+ * deliberately not an apology: the salon has decided to talk to every client
+ * before booking them, and this screen presents that as the service it is
+ * rather than as a feature being switched off.
+ *
+ * One button, going to the salon's own channel. Anything more is a decision
+ * asked of somebody who came here to do one thing.
+ */
+const CONSULT_CHANNELS = {
+  instagram: {
+    label: 'Message us on Instagram',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://ig.me/m/${String(h).replace(/^@/, '')}`),
+    show: (h) => (String(h).startsWith('@') ? h : `@${h}`),
+  },
+  whatsapp: {
+    label: 'Message us on WhatsApp',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://wa.me/${String(h).replace(/[^0-9]/g, '')}`),
+    show: (h) => h,
+  },
+  facebook: {
+    label: 'Message us on Facebook',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://m.me/${String(h).replace(/^@/, '')}`),
+    show: (h) => h,
+  },
+  phone: {
+    label: 'Call us',
+    href: (h) => `tel:${String(h).replace(/[^0-9+]/g, '')}`,
+    show: (h) => h,
+  },
+  email: {
+    label: 'Email us',
+    href: (h) => `mailto:${h}`,
+    show: (h) => h,
+  },
+  other: {
+    label: 'Get in touch',
+    href: (h) => (/^https?:/i.test(h) ? h : `https://${h}`),
+    show: (h) => h,
+  },
+};
+
+function renderConsultStep() {
+  const c = state.info.consult || {};
+  const kind = CONSULT_CHANNELS[c.channel] || CONSULT_CHANNELS.other;
+  const handle = String(c.handle || '').trim();
+  // No handle set is a salon half-configured. Falling back to the phone number
+  // beats a button that goes nowhere, and saying nothing beats both.
+  const phone = state.info.business_phone || '';
+  const href = handle ? kind.href(handle) : (phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '');
+  const label = handle ? kind.label : (phone ? 'Call us' : '');
+  const note = String(c.note || '').trim()
+    || 'We like to have a quick chat before every appointment, so we can get your '
+     + 'colour and timing right. Message us and we\'ll find you a time.';
+
+  root.innerHTML = `
+    ${headHtml({ cover: true })}${pageTabsHtml()}
+    <div class="bk-consult">
+      <div class="bk-consult-mark">${icon('send', 24)}</div>
+      <div class="bk-section-title">Let's have a chat first</div>
+      <p class="bk-consult-note">${esc(note)}</p>
+      ${href ? `<a class="bk-consult-cta" href="${esc(href)}"
+           ${href.startsWith('http') ? 'target="_blank" rel="noopener noreferrer"' : ''}>
+           ${icon('send', 16)} ${esc(label)}</a>` : ''}
+      ${handle ? `<div class="bk-consult-handle">${esc(kind.show(handle))}</div>` : ''}
+      ${phone && c.channel !== 'phone'
+        ? `<div class="bk-consult-alt">Or call us on <a href="tel:${esc(phone.replace(/[^0-9+]/g, ''))}">${esc(phone)}</a></div>`
+        : ''}
+    </div>`;
+}
+
 async function boot() {
   addReturnBar();
   // "Book another / a different time" buttons — delegated so no inline
@@ -522,6 +595,11 @@ async function boot() {
     const offer = await resolveOffer(params, cameFrom);
     history.replaceState(null, '', location.pathname);
     if (offer) { await openOnOffer(offer); return; }
+
+    // Consultation-first: this salon talks to people before it books them, so
+    // there is no slot picker to draw. Checked AFTER branding is applied, so
+    // the card still looks like the salon and not like an error.
+    if (state.info.consult?.mode) { renderConsultStep(); return; }
 
     if (state.info.locations.length > 1) renderLocationStep();
     else renderServiceStep();
@@ -742,10 +820,12 @@ function renderServiceStep() {
       </div>
       <button class="btn primary" id="cart-continue">Continue ${icon('chevR', 14)}</button>
     </div>
+    ${enquiryPanelHtml()}
     ${pageSectionsHtml()}
     ${poweredHtml()}`;
 
   wirePageTabs();
+  wireEnquiryPanels();
   root.querySelector('#back-loc')?.addEventListener('click', renderLocationStep);
 
   const refreshCart = () => {
@@ -938,10 +1018,12 @@ async function renderTimeStep() {
           <div class="empty">${icon('clock', 22)}<div>No free times that day. Try another date${state.info.waitlist_enabled ? ', or put your name down' : ''}.</div></div>
           ${state.info.waitlist_enabled ? `
             <button class="btn primary" id="join-wl" style="display:block;margin:0 auto">
-              ${icon('users')} Let me know if this day frees up</button>` : ''}`;
+              ${icon('users')} Let me know if this day frees up</button>` : ''}
+          ${enquiryPanelHtml({ loud: true })}`;
         if (state.info.waitlist_enabled) {
           slotsEl.querySelector('#join-wl').onclick = () => renderWaitlistStep({ dayFull: true });
         }
+        wireEnquiryPanels();
         return;
       }
       // Times exist — but not necessarily the one they came for. A day showing
@@ -955,10 +1037,12 @@ async function renderTimeStep() {
           <div class="wl-foot">
             <span>Nothing here that suits?</span>
             <button type="button" id="join-wl-foot">Tell us when you'd like, and we'll message you if it frees up</button>
-          </div>` : '');
+          </div>` : '')
+        + enquiryPanelHtml();
       if (state.info.waitlist_enabled) {
         slotsEl.querySelector('#join-wl-foot').onclick = () => renderWaitlistStep({ dayFull: false });
       }
+      wireEnquiryPanels();
       // Sent here for one particular time? Select it, and say so above the
       // grid. Or say it has gone — with the rest of that day's times already on
       // screen underneath, which is the only version of that news worth giving.
@@ -1002,6 +1086,122 @@ async function renderTimeStep() {
  * Joining the waitlist — the same short form as booking, because somebody who
  * has just been told "no times that day" has already spent their patience.
  */
+/**
+ * "Can't find a time that works?"
+ *
+ * The escape hatch under the booking form, for the customer the diary cannot
+ * serve: a Sunday, half seven, two heads in one visit, a colour correction
+ * they want to talk through first. Today that person closes the tab and the
+ * salon never learns it happened.
+ *
+ * Quiet by design. It must never compete with a time they could actually take
+ * — a customer talked out of booking and into asking is a worse outcome than
+ * no panel at all.
+ */
+function enquiryPanelHtml({ loud = false } = {}) {
+  if (!state.info.enquiries?.enabled) return '';
+  const note = String(state.info.enquiries.note || '').trim();
+  return `
+    <div class="bk-ask ${loud ? 'loud' : ''}">
+      <div class="bk-ask-text">
+        <b>Can't find a time that works?</b>
+        <span>${esc(note || 'Tell us what you\'re after — a different day, a later time, '
+          + 'or anything you want to check first — and we\'ll see what we can do.')}</span>
+      </div>
+      <button type="button" class="bk-ask-btn" data-ask>${icon('send', 15)} Send a request</button>
+    </div>`;
+}
+
+/** Wire every request panel on the current screen. Safe to call when there are none. */
+function wireEnquiryPanels() {
+  root.querySelectorAll('[data-ask]').forEach((b) => {
+    b.onclick = () => renderEnquiryStep();
+  });
+}
+
+function renderEnquiryStep() {
+  const back = state.cart?.length ? 'Back to times' : 'Back';
+  root.innerHTML = `
+    ${headHtml()}
+    <button class="bk-back" id="ask-back">${icon('chevL', 14)} ${esc(back)}</button>
+    <div class="bk-summary">
+      <span class="st-icon tint-cyan" style="width:34px;height:34px">${icon('send')}</span>
+      <div><b>Ask us about a time</b><br>
+        <span style="color:var(--text-2)">Tell us what you're after and we'll come back to you.
+          This doesn't book anything — it starts a conversation.</span></div>
+    </div>
+    <form id="ask-form" class="form-grid">
+      <div class="field span2"><label>Your name *</label><input name="name" required autocomplete="name"></div>
+      <div class="field"><label>Phone</label><input name="phone" type="tel" autocomplete="tel"
+        placeholder="So we can text you"></div>
+      <div class="field"><label>Email</label><input name="email" type="email" autocomplete="email"></div>
+      <div class="field"><label>Day you were hoping for</label>
+        <input name="want_date" type="date" min="${esc(todayStr())}"
+          value="${esc(state.date || '')}"></div>
+      <div class="field"><label>Time that suits</label>
+        <input name="when_text" maxlength="200" placeholder="e.g. any evening after 6"></div>
+      <div class="field span2"><label>What are you after? *</label>
+        <textarea name="message" required maxlength="1500" rows="4"
+          placeholder="e.g. I'd love a balayage but I can only do Sundays — do you ever open?"></textarea></div>
+      ${state.info.turnstile_site_key ? '<div class="span2" id="bk-turnstile" style="display:flex;justify-content:center"></div>' : ''}
+      <div class="span2" style="text-align:right">
+        <button class="btn primary" type="submit" style="min-width:180px;justify-content:center">
+          ${icon('send')} Send request</button>
+      </div>
+      <div class="span2" id="ask-error" style="color:var(--red);font-size:13px;text-align:center"></div>
+    </form>
+    ${poweredHtml()}`;
+
+  mountTurnstile();
+  root.querySelector('#ask-back').onclick = () => {
+    if (state.cart?.length) renderTimeStep();
+    else renderServiceStep();
+  };
+
+  root.querySelector('#ask-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('button[type=submit]');
+    const err = root.querySelector('#ask-error');
+    err.textContent = '';
+    btn.disabled = true;
+    try {
+      const res = await getJson('/api/public/enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: String(fd.get('name') || '').trim(),
+          email: String(fd.get('email') || '').trim(),
+          phone: String(fd.get('phone') || '').trim(),
+          want_date: String(fd.get('want_date') || ''),
+          when_text: String(fd.get('when_text') || '').trim(),
+          message: String(fd.get('message') || '').trim(),
+          service_id: state.cart?.[0]?.id || undefined,
+          turnstile_token: await turnstileToken(),
+        }),
+      });
+      renderEnquirySent(res.detail);
+    } catch (e2) {
+      err.textContent = e2.message;
+      resetTurnstile();
+      btn.disabled = false;
+    }
+  });
+}
+
+function renderEnquirySent(detail) {
+  root.innerHTML = `
+    ${headHtml()}
+    <div class="bk-done">
+      <div class="done-mark">${icon('check', 30)}</div>
+      <h2>Request sent</h2>
+      <p>${esc(detail || "Thanks — that's with us. We'll get back to you as soon as we can.")}</p>
+      <p class="bk-done-sub">Nothing is booked yet. We'll be in touch to sort out a time.</p>
+      <button class="btn" data-book-again>${icon('calendar')} Back to booking</button>
+    </div>
+    ${poweredHtml()}`;
+}
+
 function renderWaitlistStep({ dayFull = true } = {}) {
   // Two ways in, and they must not say the same thing. Telling somebody the day
   // is full when they can plainly see three times on the previous screen is the

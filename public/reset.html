@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Choose a new password · Kairo</title>
+  <link rel="icon" type="image/png" href="/icons/kairo-192.png">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    /* The same card as the sign-in screen, so the owner knows where they are. */
+    [hidden] { display: none !important; }
+    .rs-lede { text-align: center; color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 22px; }
+    .rs-state { text-align: center; }
+    .rs-state h1 { font-size: 20px; margin: 4px 0 8px; letter-spacing: -0.01em; }
+    .rs-state p { color: var(--text-2); font-size: 13.5px; line-height: 1.6; margin: 0 0 20px; }
+    .rs-pw { position: relative; }
+    .rs-pw input { padding-right: 64px; }
+    .rs-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: none; border: 0; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600;
+      padding: 6px 8px; border-radius: 7px; cursor: pointer;
+    }
+    .rs-toggle:hover { color: var(--text); }
+    .rs-foot { text-align: center; margin-top: 18px; font-size: 12.5px; color: var(--muted); }
+    .rs-foot a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="brand">
+        <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true" focusable="false">
+          <defs><linearGradient id="rs" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>
+          <rect width="48" height="48" rx="12.5" fill="url(#rs)"/>
+          <path d="M15.6 13V35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+          <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" stroke="#fff" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+          <path d="M18.5 25.4L31.6 35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+          <circle cx="33" cy="13.2" r="3.2" fill="#bae6fd"/>
+        </svg>
+        <div><div class="brand-name">Kairo</div></div>
+      </div>
+
+      <!-- Checking the link. Replaced within a moment by one of the three below. -->
+      <div class="rs-state" id="rs-checking">
+        <p>Checking your link…</p>
+      </div>
+
+      <!-- The link is good: choose a password. -->
+      <div id="rs-choose" hidden>
+        <p class="rs-lede" id="rs-lede">Choose a new password.</p>
+        <form id="rs-form" novalidate>
+          <div class="field">
+            <label for="rs-new">New password</label>
+            <div class="rs-pw">
+              <input id="rs-new" type="password" autocomplete="new-password" required>
+              <button type="button" class="rs-toggle" id="rs-show" aria-controls="rs-new" aria-pressed="false">Show</button>
+            </div>
+            <div class="pw-meter" id="rs-meter" hidden><span class="pw-bar"><i></i></span><span class="pw-say"></span></div>
+            <div class="hint" id="rs-hint"></div>
+          </div>
+          <div class="field">
+            <label for="rs-again">Type it again</label>
+            <input id="rs-again" type="password" autocomplete="new-password" required>
+          </div>
+          <div class="login-error" id="rs-error" role="alert" aria-live="assertive"></div>
+          <button class="btn primary" type="submit" id="rs-go" style="justify-content:center">Save new password</button>
+        </form>
+        <p class="rs-foot">Saving signs you out on every other device.</p>
+      </div>
+
+      <!-- Done. -->
+      <div class="rs-state" id="rs-done" hidden>
+        <h1>Password changed</h1>
+        <p>You're signed in. Opening your workspace…</p>
+      </div>
+
+      <!-- Expired, used, or never a link at all. -->
+      <div class="rs-state" id="rs-dead" hidden>
+        <h1>This link has expired</h1>
+        <p id="rs-dead-say">Reset links work once, for 30 minutes. Ask for a new one and use the newest email.</p>
+        <a class="btn primary" href="/#forgot" style="justify-content:center;width:100%">Send me a new link</a>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/js/reset.js"></script>
+</body>
+</html>

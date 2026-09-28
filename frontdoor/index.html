@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sign in · Kairo</title>
+  <meta name="description" content="Sign in to your Kairo workspace.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#05070c">
+  <link rel="icon" type="image/png" href="/icons/kairo-192.png">
+  <link rel="apple-touch-icon" href="/icons/kairo-180.png">
+  <style>
+    /* The same ground and the same blue as kairobookings.com and the signup
+       page, on purpose: somebody who clicked "Log in" on the website should
+       not wonder whether they have left it. */
+    :root {
+      --bg: #05070c; --panel: #0a0e17; --panel-2: #111a27;
+      --line: #1e2a3d; --line-soft: #151f2e;
+      --ink: #e8eef8; --ink-2: #c3d0e2; --dim: #8b9cb6;
+      --accent: #3b82f6; --accent-solid: #2f6fe0; --accent-hover: #4a8cf7; --accent-ink: #fff;
+      --accent-wash: rgba(59,130,246,.12);
+      --bad: #e5544b; --good: #0f9d63;
+      --radius: 14px;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    /* The browser's own [hidden] rule loses to any author `display`, so the
+       form (display:flex) and the help block stayed on screen behind the
+       business picker — two sets of controls for one decision. This makes
+       `hidden` mean hidden, everywhere on the page, without exceptions. */
+    [hidden] { display: none !important; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    /* A faint K behind the card — the signup page's motif, still. */
+    .bg-mark {
+      position: fixed; right: -6vw; bottom: -8vw; width: 46vw; max-width: 560px;
+      color: var(--accent); opacity: .05; pointer-events: none; z-index: 0;
+    }
+
+    header.top {
+      position: relative; z-index: 1;
+      padding: 22px clamp(16px, 4vw, 40px);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .brand {
+      display: inline-flex; align-items: center; gap: 9px;
+      color: var(--ink); font-weight: 700; font-size: 19px; letter-spacing: -.01em;
+    }
+    .brand:hover { color: var(--ink); text-decoration: none; }
+    .brand svg { width: 30px; height: 30px; }
+    .top-link { font-size: 14px; color: var(--ink-2); }
+
+    main {
+      position: relative; z-index: 1; flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px 16px 48px;
+    }
+    .card {
+      width: 100%; max-width: 420px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+      padding: 34px clamp(20px, 5vw, 34px) 28px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 30px 60px -32px rgba(0,0,0,.95);
+    }
+    h1 { font-size: 24px; letter-spacing: -.02em; margin: 0 0 6px; font-weight: 700; }
+    .lede { color: var(--dim); margin: 0 0 24px; font-size: 14.5px; }
+
+    .notice {
+      font-size: 13.5px; line-height: 1.55; padding: 11px 13px; border-radius: 11px; margin: 0 0 18px;
+      background: var(--accent-wash); border: 1px solid rgba(59,130,246,.3); color: var(--ink-2);
+    }
+
+    form { display: flex; flex-direction: column; gap: 15px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+    .pw-row { position: relative; }
+    input {
+      width: 100%; min-height: 48px; padding: 12px 14px;
+      background: var(--panel-2); color: var(--ink);
+      border: 1px solid var(--line); border-radius: 11px;
+      font: inherit; font-size: 16px; /* 16px or iOS zooms on focus */
+    }
+    input::placeholder { color: #5d6f8a; }
+    input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+    .pw-row input { padding-right: 72px; }
+    .pw-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: none; border: 0; color: var(--dim); font: inherit; font-size: 13px; font-weight: 600;
+      padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    }
+    .pw-toggle:hover { color: var(--ink); }
+    .pw-toggle:focus-visible { outline: 2px solid var(--accent); }
+
+    .error { color: #ff8a82; font-size: 13.5px; line-height: 1.5; min-height: 1px; }
+    .error:empty { display: none; }
+
+    button.primary {
+      min-height: 50px; border: 0; border-radius: 12px; cursor: pointer;
+      background: var(--accent-solid); color: var(--accent-ink);
+      font: inherit; font-weight: 700; font-size: 15.5px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      transition: background .15s;
+    }
+    button.primary:hover { background: var(--accent-hover); }
+    button.primary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    button.primary:disabled { opacity: .6; cursor: default; }
+    .spinner {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      animation: spin .7s linear infinite; display: none;
+    }
+    button.busy .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+
+    #ts { display: flex; justify-content: center; }
+    #ts:empty { display: none; }
+
+    /* Somebody with access to more than one business picks which. */
+    .pick { display: flex; flex-direction: column; gap: 10px; }
+    .pick-btn {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      width: 100%; text-align: left; cursor: pointer;
+      background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px 16px; font: inherit;
+    }
+    .pick-btn:hover { border-color: var(--accent); }
+    .pick-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pick-btn b { font-size: 15px; }
+    .pick-btn span { color: var(--dim); font-size: 13px; }
+    .back-btn {
+      background: none; border: 0; color: var(--dim); font: inherit; font-size: 13.5px;
+      cursor: pointer; padding: 6px 0; align-self: flex-start;
+    }
+    .back-btn:hover { color: var(--ink); }
+
+    .help {
+      margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line-soft);
+      display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; color: var(--dim);
+    }
+    .help details summary { cursor: pointer; color: var(--accent); list-style: none; }
+    .help details summary::-webkit-details-marker { display: none; }
+    .help details summary:hover { color: var(--accent-hover); text-decoration: underline; }
+    .help details p { margin: 8px 0 0; line-height: 1.6; color: var(--ink-2); }
+
+    .forgot { display: flex; flex-direction: column; gap: 14px; }
+    .fine { color: var(--dim); font-size: 13px; line-height: 1.6; margin: 0; }
+    .link-btn {
+      background: none; border: 0; padding: 0; font: inherit; font-size: 13.5px; text-align: left;
+      color: var(--accent); cursor: pointer; align-self: flex-start;
+    }
+    .link-btn:hover { color: var(--accent-hover); text-decoration: underline; }
+    .link-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+    #ts-forgot { display: flex; justify-content: center; }
+    #ts-forgot:empty { display: none; }
+
+    .signup {
+      margin-top: 18px; text-align: center; font-size: 14px; color: var(--dim);
+    }
+    footer {
+      position: relative; z-index: 1; text-align: center; font-size: 12.5px; color: #5d6f8a;
+      padding: 0 16px 26px;
+    }
+    footer a { color: var(--dim); }
+  </style>
+</head>
+<body>
+  <svg class="bg-mark" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path d="M15.6 13V35" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M18.5 25.4L31.6 35" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/>
+    <circle cx="33" cy="13.2" r="3.2" fill="currentColor"/>
+  </svg>
+
+  <header class="top">
+    <a class="brand" href="__SITE_URL__" aria-label="Kairo — back to the website">
+      <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+        <defs><linearGradient id="bm" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#38bdf8"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>
+        <rect width="48" height="48" rx="12.5" fill="url(#bm)"/>
+        <path d="M15.6 13V35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M18.5 25.4A13 13 0 0 1 28.6 15.9" stroke="#fff" stroke-width="4.6" stroke-linecap="round" fill="none"/>
+        <path d="M18.5 25.4L31.6 35" stroke="#fff" stroke-width="4.6" stroke-linecap="round"/>
+        <circle cx="33" cy="13.2" r="3.2" fill="#bae6fd"/>
+      </svg>
+      Kairo
+    </a>
+    <a class="top-link" href="__SITE_URL__">← Back to the website</a>
+  </header>
+
+  <main>
+    <div class="card" id="card"
+         data-turnstile="__TURNSTILE_SITE_KEY__"
+         data-signup="__SIGNUP_URL__"
+         data-support="__SUPPORT_EMAIL__"
+         data-base="__BASE_DOMAIN__">
+      <h1 id="title">Sign in to Kairo</h1>
+      <p class="lede" id="lede">Use the email and password you already sign in with. We'll take you
+        straight to your business.</p>
+
+      <p class="notice" id="notice" role="status" hidden></p>
+
+      <form id="signin" novalidate>
+        <div>
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" inputmode="email"
+                 autocomplete="username email" autocapitalize="none" spellcheck="false" required>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <div class="pw-row">
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" id="pw-toggle" aria-controls="password"
+                    aria-pressed="false">Show</button>
+          </div>
+        </div>
+        <div id="ts"></div>
+        <div class="error" id="error" role="alert" aria-live="assertive"></div>
+        <button type="submit" class="primary" id="go">
+          <span class="spinner" aria-hidden="true"></span><span id="go-label">Sign in</span>
+        </button>
+      </form>
+
+      <div class="pick" id="pick" hidden>
+        <div id="pick-list" class="pick"></div>
+        <div class="error" id="pick-error" role="alert" aria-live="assertive"></div>
+        <button type="button" class="back-btn" id="pick-back">← Use a different account</button>
+      </div>
+
+      <!-- Forgot password. Its own panel rather than a pop-up, so it works the
+           same with a keyboard, a screen reader and a phone. -->
+      <div class="forgot" id="forgot" hidden>
+        <form id="forgot-form" novalidate>
+          <div>
+            <label for="f-email">Email</label>
+            <input id="f-email" name="email" type="email" inputmode="email"
+                   autocomplete="username email" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div id="ts-forgot"></div>
+          <div class="error" id="f-error" role="alert" aria-live="assertive"></div>
+          <button type="submit" class="primary" id="f-go">
+            <span class="spinner" aria-hidden="true"></span><span id="f-label">Send reset link</span>
+          </button>
+        </form>
+        <p class="notice" id="f-done" role="status" hidden></p>
+        <p class="fine">Reset links only go to an email address you've confirmed in your Kairo account.
+          Never confirmed yours, or it's an address you don't read? Email
+          <a class="support-link" href="#">__SUPPORT_EMAIL__</a> and we'll get you back in.</p>
+        <button type="button" class="back-btn" id="f-back">← Back to sign in</button>
+      </div>
+
+      <div class="help" id="help">
+        <button type="button" class="link-btn" id="forgot-open">Forgot your password?</button>
+        <details>
+          <summary>Don't know which email you use?</summary>
+          <p>It's the one you signed up with, or the one your business owner added you under.
+            If you're still stuck, email <a class="support-link" href="#">__SUPPORT_EMAIL__</a>
+            and we'll find it.</p>
+        </details>
+      </div>
+
+      <p class="signup">New to Kairo? <a href="__SIGNUP_URL__">Get started</a></p>
+    </div>
+  </main>
+
+  <footer>
+    <a href="__SITE_URL__">kairobookings.com</a> ·
+    <a href="__SITE_URL__/get-in-touch">Contact us</a> ·
+    <a href="__SITE_URL__/legal/privacy">Privacy</a>
+  </footer>
+
+  <script src="/js/login.js" defer></script>
+</body>
+</html>

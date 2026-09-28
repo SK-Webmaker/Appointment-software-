@@ -68,11 +68,14 @@ function parseHash() {
 
 function renderLogin() {
   document.title = 'Sign in — Kairo';
+  // The built-in first-run account, spelled out — useful on a laptop, and
+  // nothing any live salon should be advertising on its sign-in screen.
+  const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   root.innerHTML = `
     <div class="login-wrap">
       <div class="login-card">
         <div class="brand">${LOGO_SVG}<div><div class="brand-name">Kairo</div></div></div>
-        <div class="login-tag">The booking OS for modern service businesses</div>
+        <div class="login-tag" id="login-tag">The booking OS for modern service businesses</div>
         <form id="login-form">
           <div class="field"><label>Email</label>
             <input name="email" type="email" required autocomplete="username" placeholder="you@business.com"></div>
@@ -80,11 +83,62 @@ function renderLogin() {
             <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••"></div>
           <div class="login-error" id="login-error"></div>
           <button class="btn primary" type="submit" style="justify-content:center">Sign in</button>
+          <button class="login-link" type="button" id="login-forgot">Forgot password?</button>
         </form>
-        <div class="login-demo">Demo workspace<br><code>admin@kairo.local</code> / <code>admin123</code></div>
+        <form id="forgot-form" hidden>
+          <div class="field"><label>Email</label>
+            <input name="email" type="email" required autocomplete="username" placeholder="you@business.com"></div>
+          <div class="login-error" id="forgot-error"></div>
+          <button class="btn primary" type="submit" style="justify-content:center">Send reset link</button>
+          <div class="login-note" id="forgot-done" role="status" hidden></div>
+          <div class="login-note">Reset links only go to an email you've confirmed in Account. Never confirmed yours?
+            Contact Kairo support and we'll get you back in.</div>
+          <button class="login-link" type="button" id="forgot-back">← Back to sign in</button>
+        </form>
+        ${local ? '<div class="login-demo">Demo workspace<br><code>admin@kairo.local</code> / <code>admin123</code></div>' : ''}
       </div>
     </div>`;
-  root.querySelector('#login-form').addEventListener('submit', async (e) => {
+  const signIn = root.querySelector('#login-form');
+  const forgot = root.querySelector('#forgot-form');
+  const tag = root.querySelector('#login-tag');
+  const TAG = tag.textContent;
+  const openForgot = () => {
+    signIn.hidden = true;
+    forgot.hidden = false;
+    tag.textContent = "Enter the email you sign in with and we'll send you a link to choose a new password.";
+    forgot.email.value = signIn.email.value.trim();
+    root.querySelector('#forgot-error').textContent = '';
+    forgot.email.focus();
+  };
+  root.querySelector('#login-forgot').addEventListener('click', openForgot);
+  root.querySelector('#forgot-back').addEventListener('click', () => {
+    forgot.hidden = true;
+    signIn.hidden = false;
+    tag.textContent = TAG;
+    if (location.hash === '#forgot') history.replaceState(null, '', location.pathname);
+    signIn.email.focus();
+  });
+  forgot.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = root.querySelector('#forgot-error');
+    const done = root.querySelector('#forgot-done');
+    const btn = forgot.querySelector('button[type="submit"]');
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+      const out = await api.post('/api/auth/forgot', { email: forgot.email.value.trim() });
+      done.textContent = out.message;
+      done.hidden = false;
+      btn.hidden = true;
+    } catch (err) {
+      errEl.textContent = err.message;
+    }
+    btn.disabled = false;
+  });
+  // The reset page's "Send me a new link" lands here.
+  if (location.hash === '#forgot') openForgot();
+
+  signIn.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const errEl = root.querySelector('#login-error');
@@ -217,6 +271,8 @@ export async function refreshAll() {
     state.user = me.user;
     state.settings = me.settings;
     state.version = me.version || '';
+    // Only the demo workspace (or a laptop) may wipe itself; see /api/auth/me.
+    state.demoResetAllowed = Boolean(me.demo_reset_allowed);
     setCurrency(state.settings.currency);
     nativeSignedIn();
     await refreshLookups();
@@ -254,6 +310,8 @@ async function boot() {
     state.user = me.user;
     state.settings = me.settings;
     state.version = me.version || '';
+    // Only the demo workspace (or a laptop) may wipe itself; see /api/auth/me.
+    state.demoResetAllowed = Boolean(me.demo_reset_allowed);
     setCurrency(state.settings.currency);
     // Inside the app this is where notifications are asked for: they are
     // signed in and about to see their own book, which is the only honest

@@ -6,6 +6,18 @@ let k, cookie;
 const date = openDateAhead(3);
 const client = { first_name: 'Phase', last_name: 'Six', email: 'phase6@example.com', phone: '0400000006' };
 
+/** Wait for an appointment's messages to be written, up to `ms`. */
+async function waitForMessages(apptId, want, ms = 6000) {
+  const until = Date.now() + ms;
+  for (;;) {
+    const d = k.db();
+    const n = d.prepare('SELECT COUNT(*) AS n FROM messages WHERE appointment_id = ?').get(apptId).n;
+    d.close();
+    if (n >= want || Date.now() > until) return n;
+    await new Promise((r) => { setTimeout(r, 25); });
+  }
+}
+
 before(async () => { k = await startKairo(); ({ cookie } = await k.login()); });
 after(async () => { await k.stop(); });
 
@@ -44,6 +56,14 @@ test('a booking creates the appointment, the client, the service rows and queues
   assert.equal(r.json.service, 'Cut & Finish + Blow Dry');
   assert.match(r.json.ics_url, /^\/api\/public\/ics\/\d+\?t=[A-Za-z0-9_-]{32}$/);
   assert.equal(r.json.checkout_url, null);
+
+  // The owner's alert is deliberately NOT awaited by the booking route — a
+  // slow Apple must never turn a good booking into an error page — so it lands
+  // a moment after the customer is answered. Reading the table straight away
+  // is a race this test used to win by luck and now loses under load. Poll for
+  // the three rows rather than assume them: the alternative is a suite that
+  // goes red for a reason that has nothing to do with what it is checking.
+  await waitForMessages(r.json.appointment_id, 3);
 
   const d = k.db();
   const appt = d.prepare('SELECT * FROM appointments WHERE id = ?').get(r.json.appointment_id);

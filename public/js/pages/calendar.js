@@ -8,6 +8,7 @@ import {
 import { state, refreshLookups } from '../app.js';
 import { hoursForDate, describeRule, parseDayRules } from '../hours.js';
 import { bookableWindow, buildRoster } from '../roster.js';
+import { openInvites } from './invites.js';
 
 const PX_PER_MIN = 1.15;
 const SNAP = 15;
@@ -195,6 +196,7 @@ function draw(container) {
       <div><h1>Calendar</h1><div class="ph-sub">Click an empty slot to book · drag to reschedule</div></div>
       <div class="ph-actions">
         <button class="btn" id="block-time">${icon('lock')} Block time</button>
+        <button class="btn" id="send-link">${icon('send')} Booking link</button>
         <button class="btn primary" id="new-appt">${icon('plus')} New appointment</button>
       </div>
     </div>
@@ -519,6 +521,7 @@ function wireToolbar(container) {
   });
   container.querySelector('#new-appt').onclick = () =>
     openAppointmentModal({ date: cal.date, onSaved: redraw });
+  container.querySelector('#send-link').onclick = () => openInvites();
   container.querySelector('#block-time').onclick = () =>
     openBlockModal({ date: cal.date, staff_id: cal.staffFilter, onSaved: redraw });
 }

@@ -54,7 +54,7 @@ async function squareRequest(path, body, idempotencyKey = '') {
  * and "Haircut $45, Beard trim $20". Square wants amounts in the smallest
  * currency unit, which is what Kairo stores anyway.
  */
-export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken }) {
+export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken, returnPath = '/book' }) {
   const biz = getSetting('business_name', 'Booking');
   const link = await squareRequest('/online-checkout/payment-links', {
     idempotency_key: idemToken || `kairo-appt-${appointmentId}`,
@@ -68,7 +68,9 @@ export async function createBookingCheckout({ appointmentId, items, origin, curr
       })),
     },
     checkout_options: {
-      redirect_url: `${origin}/book?paid=success&appt=${appointmentId}&provider=square`,
+      // Same rule as Stripe's: a consultation booking link must come back to
+      // its own page, or the money is taken and no booking is made.
+      redirect_url: `${origin}${returnPath}${returnPath.includes('?') ? '&' : '?'}paid=success&appt=${appointmentId}&provider=square`,
       merchant_support_email: getSetting('business_email', '') || undefined,
       ask_for_shipping_address: false,
     },
