@@ -168,6 +168,14 @@
       padding: 0 16px 26px;
     }
     footer a { color: var(--dim); }
+
+    /* Inside the iPhone app (the app marks the page before it draws, and
+       login.js marks it again): the app is sign-in only and sells nothing, so
+       everything that leads to the website — where Kairo is sold — goes.
+       What stays is signing in, the password reset, help, and the privacy
+       policy. */
+    .kairo-app .site-only { display: none !important; }
+    .kairo-app .brand { pointer-events: none; }
   </style>
 </head>
 <body>
@@ -191,7 +199,7 @@
       </svg>
       Kairo
     </a>
-    <a class="top-link" href="__SITE_URL__">← Back to the website</a>
+    <a class="top-link site-only" href="__SITE_URL__">← Back to the website</a>
   </header>
 
   <main>
@@ -265,13 +273,13 @@
         </details>
       </div>
 
-      <p class="signup">New to Kairo? <a href="__SIGNUP_URL__">Get started</a></p>
+      <p class="signup site-only">New to Kairo? <a href="__SIGNUP_URL__">Get started</a></p>
     </div>
   </main>
 
   <footer>
-    <a href="__SITE_URL__">kairobookings.com</a> ·
-    <a href="__SITE_URL__/get-in-touch">Contact us</a> ·
+    <span class="site-only"><a href="__SITE_URL__">kairobookings.com</a> ·
+    <a href="__SITE_URL__/get-in-touch">Contact us</a> ·</span>
     <a href="__SITE_URL__/legal/privacy">Privacy</a>
   </footer>
 

@@ -27,6 +27,9 @@
   const pickErr = $('pick-error');
   const notice = $('notice');
 
+  // Inside the iPhone app: hide the way out to the website (see .site-only).
+  if (window.kairoNative) document.documentElement.classList.add('kairo-app');
+
   const support = card.dataset.support || '';
   document.querySelectorAll('#support-link, .support-link').forEach((a) => {
     a.href = `mailto:${support}?subject=${encodeURIComponent('Help signing in to Kairo')}`;

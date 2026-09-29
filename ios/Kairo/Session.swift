@@ -2,6 +2,33 @@ import Foundation
 import SwiftUI
 import UIKit
 
+/// Kairo's own addresses. Plain values with no actor, so the web view's
+/// delegate callbacks can ask about an address without hopping threads.
+enum KairoAddress {
+    static let baseDomain = "kairobookings.com"
+
+    /// The front door: email and password, and it finds the salon. Nobody has
+    /// to know their own address, so nobody can type the wrong one.
+    ///
+    /// The app used to open on "What is your Kairo address?". App Review typed
+    /// something that was not a salon, landed on "No salon at this address",
+    /// and — because the address was saved — every launch after that went
+    /// straight back to the same page with no way out. Asking only for the
+    /// email and password removes both halves of that.
+    static let loginHost = "login.\(baseDomain)"
+    static let frontDoor = URL(string: "https://\(loginHost)/")!
+
+    /// One salon's own address: exactly one label in front of the base domain,
+    /// and not one of the platform's own names.
+    static func isSalonHost(_ candidate: String?) -> Bool {
+        guard let h = candidate?.lowercased(), h.hasSuffix(".\(baseDomain)") else { return false }
+        let label = String(h.dropLast(baseDomain.count + 1))
+        guard !label.isEmpty, !label.contains("."),
+              label.range(of: "^[a-z0-9-]+$", options: .regularExpression) != nil else { return false }
+        return !["login", "www", "app", "api", "mail"].contains(label)
+    }
+}
+
 /// What the app knows between launches: which salon this phone belongs to, and
 /// whether the owner asked for a face unlock.
 ///
@@ -15,7 +42,7 @@ final class Session: ObservableObject {
         static let lock = "kairo.lockEnabled"
     }
 
-    /// e.g. "hairbysha.kairobookings.com". Empty until the owner says who they are.
+    /// e.g. "hairbysha.kairobookings.com". Empty until someone has signed in.
     @Published var host: String {
         didSet { UserDefaults.standard.set(host, forKey: Key.host) }
     }
@@ -29,7 +56,11 @@ final class Session: ObservableObject {
     @Published var pendingPath: String?
 
     init() {
-        host = UserDefaults.standard.string(forKey: Key.host) ?? ""
+        let saved = UserDefaults.standard.string(forKey: Key.host) ?? ""
+        // Only a salon's own address is worth keeping. Anything else (an
+        // address typed into an older version of the app, say) is dropped here
+        // rather than loaded, so it can never come back as an error page.
+        host = KairoAddress.isSalonHost(saved) ? saved.lowercased() : ""
         lockEnabled = UserDefaults.standard.bool(forKey: Key.lock)
     }
 
@@ -38,33 +69,14 @@ final class Session: ObservableObject {
         return url
     }
 
-    /// The address the owner typed, reduced to a hostname.
-    ///
-    /// People type "Hair By Sha", "hairbysha.kairobookings.com",
-    /// "https://hairbysha.kairobookings.com/" and "hairbysha". All four mean
-    /// the same salon, and refusing three of them teaches nobody anything.
-    static func normalise(_ typed: String) -> String? {
-        var s = typed.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if s.isEmpty { return nil }
-        if let r = s.range(of: "://") { s = String(s[r.upperBound...]) }
-        s = s.split(separator: "/").first.map(String.init) ?? s
-        if s.hasSuffix(".") { s.removeLast() }
-        if !s.contains(".") {
-            // A bare name is a slug on the platform's own domain.
-            s = s.replacingOccurrences(of: " ", with: "")
-            s = s.filter { $0.isLetter || $0.isNumber || $0 == "-" }
-            guard !s.isEmpty else { return nil }
-            return "\(s).kairobookings.com"
-        }
-        guard s.contains("."), !s.contains(" "),
-              s.range(of: "^[a-z0-9.-]+$", options: .regularExpression) != nil else { return nil }
-        return s
-    }
+    /// Where the app opens: the salon it is signed in to, or the front door.
+    var startURL: URL { baseURL ?? KairoAddress.frontDoor }
 
-    func sign(in typed: String) -> Bool {
-        guard let h = Session.normalise(typed) else { return false }
+    /// The front door handed us to a salon and it answered: that is this phone's salon now.
+    func adopt(host candidate: String) {
+        let h = candidate.lowercased()
+        guard KairoAddress.isSalonHost(h), h != host else { return }
         host = h
-        return true
     }
 
     func signOut() {
@@ -76,7 +88,7 @@ final class Session: ObservableObject {
     /// A universal link. Only a link to *this* salon is followed: a link to a
     /// different one is somebody else's booking page and belongs in Safari.
     func open(url: URL) {
-        guard let h = url.host, h == host else {
+        guard !host.isEmpty, let h = url.host?.lowercased(), h == host else {
             UIApplication.shared.open(url)
             return
         }

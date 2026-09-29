@@ -199,6 +199,31 @@ const MUTATIONS = {
     find: '    [hidden] { display: none !important; }',
     replace: '',
   },
+  // The iPhone app opens on the front door, and App Review rejects an app that
+  // leads to where the thing it signs in to is sold.
+  'app-shows-get-started': {
+    file: 'frontdoor/index.html', suites: ['central-login'],
+    find: '<p class="signup site-only">New to Kairo?',
+    replace: '<p class="signup">New to Kairo?',
+  },
+  'app-front-door-never-marks-itself': {
+    file: 'frontdoor/login.js', suites: ['central-login'],
+    find: "  if (window.kairoNative) document.documentElement.classList.add('kairo-app');\n",
+    replace: '',
+  },
+  // Without the marker, an app whose saved address stops naming a salon shows
+  // "No salon at this address" on every launch with no way out — the App
+  // Review rejection of 28 September 2026.
+  'no-salon-page-does-not-tell-the-app': {
+    file: 'server.js', suites: ['central-login'],
+    find: "  res.setHeader('X-Kairo-No-Salon', '1');\n",
+    replace: '',
+  },
+  'no-salon-page-is-a-dead-end': {
+    file: 'server.js', suites: ['central-login'],
+    find: "  const front = /^[a-z0-9.-]+$/.test(loginHost()) ? `https://${loginHost()}/` : '';",
+    replace: "  const front = '';",
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

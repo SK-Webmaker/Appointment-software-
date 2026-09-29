@@ -15,7 +15,7 @@ import { checkOrigin } from './src/origin.js';
 import { handlePlatform, platformEnabled, platformKeyFingerprint } from './src/platform.js';
 import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
-import { isLoginHost } from './src/central-login.js';
+import { isLoginHost, loginHost } from './src/central-login.js';
 import { handleLoginHost } from './src/login-host.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -162,16 +162,37 @@ const BOOKING_DOCS = new Set(['/book', '/book.html']);
 const cspFor = (pathname) =>
   (BOOKING_DOCS.has(pathname) && turnstileEnabled() ? TURNSTILE_CSP : CSP);
 
-/** What a caller sees at an address that names no salon. Deliberately dull. */
+/**
+ * What a caller sees at an address that names no salon.
+ *
+ * Two different people land here. A client with a mistyped booking link needs
+ * to be told to check it. An owner who typed the wrong name needs a way in that
+ * does not depend on remembering the name at all — which is the front door,
+ * where the email and password are enough. So the page offers both, and names
+ * nothing about any salon that does exist.
+ *
+ * `X-Kairo-No-Salon` is for the iPhone app: a saved address that has stopped
+ * naming anybody sends it back to its sign-in screen instead of showing this.
+ */
 function noSuchSalon(res, pathname) {
+  res.setHeader('X-Kairo-No-Salon', '1');
   if (pathname.startsWith('/api/')) {
     sendJson(res, 404, { error: 'No salon at this address' });
     return;
   }
+  const front = /^[a-z0-9.-]+$/.test(loginHost()) ? `https://${loginHost()}/` : '';
   res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end('<!doctype html><meta charset="utf-8"><title>Kairo</title>'
-    + '<body style="font:16px system-ui;padding:3rem;color:#333"><h1 style="font-weight:600">No salon at this address</h1>'
-    + '<p>Check the link you were given.</p></body>');
+  res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+    + '<title>Kairo</title>'
+    + '<body style="font:16px/1.55 system-ui,-apple-system,sans-serif;padding:3rem 1.5rem;color:#333;max-width:34rem;margin:0 auto">'
+    + '<h1 style="font-weight:600;font-size:1.6rem;margin:0 0 .5rem">No salon at this address</h1>'
+    + '<p style="margin:0 0 1.5rem">Check the link you were given.</p>'
+    + (front
+      ? '<p style="margin:0 0 .75rem">Have a Kairo account? You don\'t need the address — sign in with your email and password.</p>'
+        + `<p style="margin:0"><a id="front-door" href="${front}" style="display:inline-block;background:#2f6fe0;color:#fff;`
+        + 'text-decoration:none;font-weight:600;padding:.8rem 1.3rem;border-radius:10px">Sign in with your email</a></p>'
+      : '')
+    + '</body>');
 }
 
 /** A salon that exists but will not open. Its own fault, not the visitor's. */

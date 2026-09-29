@@ -1,23 +1,22 @@
 import SwiftUI
 
-/// Three states, and only three: tell us which salon, prove it is you, and the
-/// book. Anything else on the launch path is a screen between an owner and a
-/// client standing in front of them.
+/// Two states, and only two: prove it is you, and the book.
+///
+/// There is no native "which salon?" screen any more. A phone that is not signed
+/// in opens on the front door — email and password, the same as on a computer —
+/// and the front door finds the salon. One web view carries both, so signing in
+/// is a page turning over, not the app rebuilding itself underneath the owner.
 struct RootView: View {
     @EnvironmentObject var session: Session
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
         Group {
-            if let url = session.baseURL {
-                if session.lockEnabled && !session.unlocked {
-                    LockScreen()
-                } else {
-                    KairoWebView(url: url)
-                        .ignoresSafeArea(edges: .bottom)
-                }
+            if session.lockEnabled && !session.unlocked && session.baseURL != nil {
+                LockScreen()
             } else {
-                SignInScreen()
+                KairoWebView()
+                    .ignoresSafeArea(edges: .bottom)
             }
         }
         .onChange(of: phase) { _, newPhase in
@@ -25,48 +24,6 @@ struct RootView: View {
             // phone to somebody to look at a photo does not hand them the book.
             if newPhase != .active && session.lockEnabled { session.unlocked = false }
         }
-    }
-}
-
-private struct SignInScreen: View {
-    @EnvironmentObject var session: Session
-    @State private var typed = ""
-    @State private var wrong = false
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Text("Kairo").font(.system(size: 40, weight: .semibold, design: .rounded))
-            Text("What is your Kairo address?")
-                .font(.headline).foregroundStyle(.secondary)
-            TextField("yoursalon", text: $typed)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .focused($focused)
-                .onSubmit(go)
-            Text("Just your name is enough — we add the rest.")
-                .font(.footnote).foregroundStyle(.secondary)
-            if wrong {
-                Text("That does not look like an address.")
-                    .font(.footnote).foregroundStyle(.red)
-            }
-            Button("Continue", action: go)
-                .buttonStyle(.borderedProminent)
-                .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
-            Spacer()
-            Text("You sign in on the next screen, the same way you do on a computer.")
-                .font(.caption).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(28)
-        .onAppear { focused = true }
-    }
-
-    private func go() {
-        wrong = !session.sign(in: typed)
     }
 }
 

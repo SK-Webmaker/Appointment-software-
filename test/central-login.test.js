@@ -298,3 +298,43 @@ test('"hidden" means hidden on the sign-in page', async () => {
   assert.match(page.text, /\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/,
     'the page must make [hidden] win over its own display rules');
 });
+
+test('inside the iPhone app the sign-in page shows no way to the website or to buying', async () => {
+  // The app is sign-in only and sells nothing (App Review 3.1.1). The front
+  // door is also what the app opens on, so everything that leads to where Kairo
+  // is sold must be marked for hiding, and the marker must hide it.
+  const page = await k.api('GET', '/', { host: LOGIN });
+  assert.match(page.text, /\.kairo-app \.site-only\s*\{\s*display:\s*none\s*!important;?\s*\}/,
+    'the in-app marker must hide .site-only');
+  const signup = page.text.match(/<p class="([^"]*)">New to Kairo\?/);
+  assert.ok(signup && signup[1].split(/\s+/).includes('site-only'), '"Get started" must be hidden in the app');
+  const back = page.text.match(/<a class="([^"]*)"[^>]*>← Back to the website/);
+  assert.ok(back && back[1].split(/\s+/).includes('site-only'), '"Back to the website" must be hidden in the app');
+  assert.match(page.text, /<span class="site-only"><a href="[^"]+">[^<]*<\/a> ·\s*<a href="[^"]+\/get-in-touch">/,
+    'the footer links to the website must be hidden in the app');
+
+  const js = await k.api('GET', '/js/login.js', { host: LOGIN });
+  assert.match(js.text, /if \(window\.kairoNative\) document\.documentElement\.classList\.add\('kairo-app'\)/,
+    'the page marks itself when the app is detected');
+});
+
+test('an address that names no salon points an owner to the front door, and tells the app', async () => {
+  const page = await k.api('GET', '/', { host: `nobody.${DOMAIN}` });
+  assert.equal(page.status, 404);
+  assert.match(page.text, /No salon at this address/);
+  assert.match(page.text, new RegExp(`href="https://${LOGIN.replace(/\./g, '\\.')}/"`),
+    'a way in that needs only the email and password');
+  assert.doesNotMatch(page.text, /Alpha|Beta/, 'no other salon is named');
+  assert.equal(page.headers.get('x-kairo-no-salon'), '1', 'the app uses this to go back to sign-in');
+
+  const api = await k.api('GET', '/api/public/info', { host: `nobody.${DOMAIN}` });
+  assert.equal(api.status, 404);
+  assert.equal(api.headers.get('x-kairo-no-salon'), '1');
+
+  // A real salon must never carry the marker, or the app would sign itself out.
+  const real = await k.api('GET', '/', { host: `alpha.${DOMAIN}` });
+  assert.equal(real.status, 200);
+  assert.equal(real.headers.get('x-kairo-no-salon'), null);
+  const front = await k.api('GET', '/', { host: LOGIN });
+  assert.equal(front.headers.get('x-kairo-no-salon'), null);
+});

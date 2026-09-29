@@ -25,11 +25,32 @@ its own.
 |---|---|
 | `project.yml` | XcodeGen spec. The `.xcodeproj` is generated, never committed — an Xcode project file is a merge-conflict machine and nobody here has Xcode to resolve one |
 | `Kairo/KairoApp.swift` | the app, the push registration callbacks, notification taps |
-| `Kairo/Session.swift` | which salon this phone belongs to, and the Face ID preference. No password, no token |
-| `Kairo/RootView.swift` | three states and only three: which salon, prove it is you, the book |
-| `Kairo/WebView.swift` | the workspace. Only this salon opens in the app; everything else goes to Safari, where the address bar tells the owner where they are |
+| `Kairo/Session.swift` | which salon this phone belongs to (learned from the sign-in, never typed), and the Face ID preference. No password, no token |
+| `Kairo/RootView.swift` | two states and only two: prove it is you, and the book. There is no "which salon?" screen — see below |
+| `Kairo/WebView.swift` | the sign-in and the workspace. Only the front door and this phone's salon open in the app; everything else goes to Safari, where the address bar tells the owner where they are |
 | `Kairo/Push.swift` | asks for notifications at the only fair moment — after somebody signs in, never on first launch |
 | `Kairo/Lock.swift` | Face ID, with the passcode as a fallback so a cracked screen cannot lock an owner out of their own book |
+
+## Signing in
+
+The app opens on **login.kairobookings.com** — email and password, the same
+front door the website's **Log in** button goes to (`docs/12-central-login.md`).
+The front door finds the salon the account belongs to and hands over to it;
+the app remembers that salon and opens straight to it from then on.
+
+It used to open on a native "What is your Kairo address?" screen. App Review
+typed something that was not a salon, got "No salon at this address", and
+because the address was saved, every later launch went back to that page with
+no way out. Now:
+
+- nobody types an address, so nobody can type a wrong one;
+- a saved address that stops naming a salon (the server marks that page with
+  `X-Kairo-No-Salon`) is forgotten and the app returns to sign-in by itself;
+- signing out in the workspace forgets the salon too, so the next sign-in on
+  that phone starts at the front door;
+- no connection is a "Can't reach Kairo — Try again" page, not a blank screen;
+- inside the app the front door hides its links to the website and to
+  "Get started", because the app is sign-in only and sells nothing.
 
 ## Building it, with no Mac
 
