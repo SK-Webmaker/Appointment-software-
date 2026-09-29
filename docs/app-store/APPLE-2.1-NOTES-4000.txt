@@ -1,77 +1,78 @@
-1. SCREEN RECORDING
-<VIDEO LINK>
-Recorded on a physical iPhone from app launch. Shows: entering the salon
-address, sign-in, the calendar, booking an appointment into an empty slot, a
-client record with visit history, building an invoice and taking a payment, the
-push permission prompt, and the in-app account deletion flow (Account > Close
-my account), shown as far as its confirmation dialog. We stop at the final
-button only because completing it takes this demo salon offline for you; ask
-and we will supply a second account to delete on camera.
+WHAT CHANGED IN BUILD 1.0.0 (19)
+The previous build opened on a screen asking for the salon's Kairo address.
+An address that was not a salon showed "No salon at this address", and because
+it was saved, every relaunch returned to that page. Fixed: the app now opens
+on an email and password sign-in. There is no address to type. If a saved
+business can no longer be found, the app returns to sign-in by itself, and
+with no connection it shows "Can't reach Kairo" with a Try again button.
 
-There is no in-app purchase or purchase path anywhere in the app, so there is
-none to show. There is no shared or user-generated content, so no reporting or
-blocking mechanism: the only content is the business's own book.
+1. HOW TO REVIEW
+Open the app. The first screen is "Sign in to Kairo".
+  Email:     demo@kairobookings.com
+  Password:  <DEMO PASSWORD>
+Tap Sign in. The app opens the demo business (Luxe Hair Studio) and remembers
+it; later launches go straight in. Notifications are asked for after sign-in.
 
-2. PURPOSE AND AUDIENCE
-Kairo is an appointment book for small salons and barbershops, typically one to
-five staff, who today run on paper diaries or commission-taking marketplace
-apps. Kairo gives them their own booking page on their own address, a diary
-built for real salon work, client records with history, and invoicing.
+The demo business is fully populated - three stylists, thirteen services,
+fourteen clients, past history and six weeks of upcoming bookings - so every
+screen has content. All of it is sample data: no real business or client.
 
-It is bought once on kairobookings.com. No subscription, no commission. This
-app is the free phone companion to that account: it sells nothing and is
-sign-in only.
-
-Audience: any salon, barber, beauty, nail or massage business that takes
-appointments. Sold publicly to anyone; not for one company or a closed group
-of employees, so it belongs on the public App Store.
-
-3. SETTING UP AND ACCESSING FEATURES
-  Salon address: demo   (resolves to demo.kairobookings.com)
-  Email:         demo@kairobookings.com
-  Password:      <DEMO PASSWORD>
-
-On first launch the app asks for the salon's Kairo address: enter "demo", then
-sign in. No sample files needed.
-
-The demo salon is fully populated - three stylists, thirteen services,
-fourteen clients, a year of history - so every screen has content. It is all
-sample data: no real business's records and no real client's details appear.
-
-  Calendar - a week across three stylists. Tap an empty slot to book.
+  Calendar - tap the menu, then Calendar. Tap an empty slot to book.
   Clients  - visit history, totals, notes.
   Billing  - build an invoice from an appointment, record a payment.
   Account  - "Closing your account" > Close my account: in-app deletion per
              5.1.1(v), confirmed with the password and the business name.
+             Please stop at the final button if you can: completing it
+             really closes this demo business for later reviews.
+  Sign out - in the menu; the app returns to the sign-in screen.
+
+2. SCREEN RECORDING
+<VIDEO LINK>
+Recorded on a physical iPhone from app launch: sign-in, the calendar, booking
+an appointment, a client record, an invoice and payment, the notification
+prompt, and the account deletion flow up to its confirmation dialog.
+
+There is no in-app purchase or purchase path anywhere in the app. There is no
+shared or user-generated content, so no reporting or blocking is needed: the
+only content is the business's own book.
+
+3. PURPOSE AND AUDIENCE
+Kairo is an appointment book for small salons and barbershops, typically one
+to five staff. It gives them their own booking page, a diary built for salon
+work, client records with history, and invoicing.
+
+It is bought once on kairobookings.com. No subscription, no commission. This
+app is the free phone companion to that account: it sells nothing, links to
+nothing that sells, and is sign-in only.
+
+Audience: any salon, barber, beauty, nail or massage business that takes
+appointments. Sold publicly, not to one company or a closed group, so it
+belongs on the public App Store.
 
 4. EXTERNAL SERVICES
-  Hosting/database  Render (per-business databases, Australia)
+  Hosting/database  Render (per-business databases, Singapore)
   Push              Apple Push Notification service
   Email             Resend
-  SMS               ClickSend (or Twilio/Telnyx if the business connects one)
+  SMS               ClickSend (or Twilio if the business connects one)
   Card payments     Stripe or Square, connected to the BUSINESS's own account.
                     Card details never reach Kairo's servers, and Kairo never
                     holds or routes the money.
-  Cloudflare        DNS, email routing, and Turnstile on the booking page
+  Cloudflare        DNS, email routing, and bot checks on some forms
   Password safety   Have I Been Pwned range API (hash prefix only)
 
 No analytics, advertising SDKs, crash-reporting SDKs, data brokers or AI
 services of any kind.
 
 5. REGIONAL DIFFERENCES
-None. The app behaves identically in every region. English only, prices in the
-business's configured currency, no feature varies by country.
+None. English only; no feature varies by country.
 
 6. REGULATED INDUSTRY / PROTECTED MATERIAL
-Not a regulated industry app and not a medical device. It does not diagnose,
-treat or monitor, and makes no health claims.
+Not a regulated industry app and not a medical device. No health claims.
 
 Health is declared in App Privacy for one reason: a salon can type free-text
-notes against a client, and those sometimes record an allergy or patch-test
-result before a colour service. Australia's Privacy Act treats that as health
-information, so we declared it. Kairo stores it for the business and never
-reads or shares it.
+notes against a client, which sometimes record an allergy or patch-test
+result. Australia's Privacy Act treats that as health information, so we
+declared it. Kairo stores it for the business and never reads or shares it.
 https://kairobookings.com/legal/privacy
 
-No third-party copyrighted material: all content is the business's own data
-and our own interface. Support: support@kairobookings.com
+No third-party copyrighted material. Support: support@kairobookings.com

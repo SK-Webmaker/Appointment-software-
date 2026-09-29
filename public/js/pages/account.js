@@ -9,6 +9,7 @@ import { api } from '../api.js';
 import { esc, icon, toast, fmtDate, initials, confirmDialog, openModal } from '../ui.js';
 import { state } from '../app.js';
 import { PW_MIN, judgePassword } from '../password-judge.js';
+import { signedOut as nativeSignedOut } from '../native.js';
 
 const PLAN_LABELS = {
   active: { label: 'Active', tone: 'ok' },
@@ -301,7 +302,8 @@ export async function renderAccount(container) {
         // Everything is already signed out server-side; reloading lands on the
         // login screen, which is the honest end of this.
         toast(r.message || 'Your account is closed.', 'ok');
-        setTimeout(() => location.reload(), 2500);
+        // Inside the app, back to its sign-in screen rather than this salon's.
+        setTimeout(() => { if (!nativeSignedOut()) location.reload(); }, 2500);
       } catch (e2) {
         err.textContent = e2.message;
         btn.disabled = false;
@@ -314,7 +316,7 @@ export async function renderAccount(container) {
   // session this user has anywhere, including this one.
   container.querySelector('#acct-signout').onclick = async () => {
     await api.post('/api/auth/logout').catch(() => {});
-    location.reload();
+    if (!nativeSignedOut()) location.reload();   // the app goes back to its own sign-in
   };
   container.querySelector('#acct-signout-all').onclick = async () => {
     const yes = await confirmDialog('Sign out everywhere',
@@ -323,7 +325,7 @@ export async function renderAccount(container) {
       { okText: 'Sign out everywhere' });
     if (!yes) return;
     await api.post('/api/auth/logout-everywhere').catch(() => {});
-    location.reload();
+    if (!nativeSignedOut()) location.reload();
   };
 
   // The refund. Asks twice on purpose while the window is live, because the
