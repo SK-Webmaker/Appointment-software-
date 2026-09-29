@@ -224,6 +224,11 @@ const MUTATIONS = {
     find: "  const front = /^[a-z0-9.-]+$/.test(loginHost()) ? `https://${loginHost()}/` : '';",
     replace: "  const front = '';",
   },
+  'demo-calendar-empty-after-a-fortnight': {
+    file: 'src/db.js', suites: ['tenants'],
+    find: '    for (let d = 14; d <= 42; d++) {',
+    replace: '    for (let d = 14; d <= 13; d++) {',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

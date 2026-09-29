@@ -1455,6 +1455,36 @@ export function seedDemo() {
     }
   }
 
+  // Weeks three to six ahead. Somebody opening the demo a fortnight after it was
+  // last reset — App Review, typically — should still find a full book rather
+  // than an empty calendar. Its own random sequence, so everything seeded above
+  // and below is exactly what it always was.
+  {
+    const later = mulberry32(20260929);
+    const pickL = (arr) => arr[Math.floor(later() * arr.length)];
+    for (let d = 14; d <= 42; d++) {
+      const day = new Date(today);
+      day.setDate(day.getDate() + d);
+      if (day.getDay() === 0) continue; // closed Sundays
+      const date = dateStr(day);
+      const perDay = 2 + Math.floor(later() * 4);
+      const usedByStaff = new Map(staffIds.map((id) => [id, []]));
+      for (let i = 0; i < perDay; i++) {
+        const svc = pickL(serviceRows);
+        const staffId = pickL(staffIds);
+        const start = pickL(startChoices) + (later() < 0.3 ? 15 : 0);
+        const end = start + svc.duration_min;
+        if (end > 1200) continue;
+        const taken = usedByStaff.get(staffId);
+        if (taken.some(([s, e]) => start < e && end > s)) continue;
+        taken.push([start, end]);
+        const id = Number(insAppt.run(pickL(clientIds), staffId, svc.id, date, start, end,
+          later() < 0.7 ? 'booked' : 'confirmed', later() < 0.35 ? 'online' : 'staff', '').lastInsertRowid);
+        insApptSvc.run(id, svc.id, 0);
+      }
+    }
+  }
+
   // Bill most completed past appointments; leave a few outstanding so the
   // dashboard and invoice list show a realistic mix of paid / sent / draft.
   const insInvoice = db.prepare(

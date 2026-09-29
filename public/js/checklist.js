@@ -5,6 +5,7 @@
 // clicked. When the last one is done the whole card goes, for good.
 import { api } from './api.js';
 import { esc, icon, toast } from './ui.js';
+import { inApp } from './native.js';
 
 let mounted = null;
 
@@ -19,14 +20,19 @@ async function refresh() {
   try { data = await api.get('/api/checklist'); } catch { return; }
   if (!data.show) { mounted.innerHTML = ''; return; }
 
-  const left = data.items.filter((i) => !i.done);
+  // Inside the iPhone app, "put Kairo on your phone" is already true — it is
+  // how they are reading this — and a line telling them to do it looks broken.
+  const items = data.items.map((i) => (i.id === 'app' && inApp() ? { ...i, done: true } : i));
+  const done = items.filter((i) => i.done).length;
+  const left = items.filter((i) => !i.done);
+  if (!left.length) { mounted.innerHTML = ''; return; }
   const urgent = left.filter((i) => i.required);
   mounted.innerHTML = `
     <div class="setup-card${urgent.length ? ' urgent' : ''}">
       <div class="setup-head">
         <div>
           <b>${urgent.length ? 'Two minutes to finish setting up' : 'Finishing touches'}</b>
-          <span class="setup-count">${data.done} of ${data.total} done</span>
+          <span class="setup-count">${done} of ${items.length} done</span>
         </div>
         <button class="setup-toggle" id="setup-toggle" aria-expanded="true" title="Hide">${icon('chevR', 16)}</button>
       </div>

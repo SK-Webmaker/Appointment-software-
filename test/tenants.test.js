@@ -293,3 +293,13 @@ describe('a shard behind a front door', () => {
     } finally { await plain.stop(); fs.rmSync(pdir, { recursive: true, force: true }); }
   });
 });
+
+test('the demo book is full weeks ahead, not just this fortnight', () => {
+  // App Review opens the demo whenever its queue gets to it — often two weeks
+  // or more after the last reset. An empty calendar there reads as a broken app.
+  const d = tenantDb('alpha');
+  const ahead = (days) => { const x = new Date(); x.setDate(x.getDate() + days); return x.toISOString().slice(0, 10); };
+  const n = d.prepare('SELECT COUNT(*) AS n FROM appointments WHERE date BETWEEN ? AND ?').get(ahead(21), ahead(42)).n;
+  d.close();
+  assert.ok(n >= 20, `only ${n} demo appointments three to six weeks out`);
+});
