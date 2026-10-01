@@ -3188,12 +3188,34 @@ const kaiDeps = (req, user) => ({
   catalogue: kaiCatalogueText([...EDITABLE_SETTINGS]),
 });
 
-function kaiLimited(user) {
-  const over = rateHit('kai', `u${user.id}:${currentTenant().slug || ''}`);
-  if (over) throw httpError(429, `Kai needs a short breather — try again in ${Math.max(1, Math.ceil(over.retryAfterSec / 60))} minute(s).`);
+/**
+ * What one salon may ask Kai in a day. A busy salon asks twenty or forty
+ * things; 150 leaves room for a heavy day and caps what any one salon can
+ * cost the platform (on Sonnet, a few dollars on the worst day). Counted in
+ * the salon's own database, so a restart doesn't reset it, and kept on even
+ * where the request rate limits are switched off — it is a budget, not a
+ * guard against abuse. KAIRO_KAI_DAILY_LIMIT changes it.
+ */
+const KAI_DAILY_LIMIT = () => Math.max(1, Number(process.env.KAIRO_KAI_DAILY_LIMIT) || 150);
+function kaiUsedToday() {
+  const [day, n] = String(getSetting('kai_usage_day', '')).split(':');
+  return day === bizToday() ? Number(n) || 0 : 0;
 }
 
-route('GET', '/api/kai/status', async () => ({ agent: kaiAgent.agentEnabled() }));
+function kaiLimited(user, { counts = true } = {}) {
+  const over = rateHit('kai', `u${user.id}:${currentTenant().slug || ''}`);
+  if (over) throw httpError(429, `Kai needs a short breather — try again in ${Math.max(1, Math.ceil(over.retryAfterSec / 60))} minute(s).`);
+  if (!counts) return;
+  const used = kaiUsedToday();
+  if (used >= KAI_DAILY_LIMIT()) {
+    throw httpError(429, `That's Kai's limit for today (${KAI_DAILY_LIMIT()} messages) — it'll be ready again tomorrow. Everything else in Kairo works as normal.`);
+  }
+  setSetting('kai_usage_day', `${bizToday()}:${used + 1}`);
+}
+
+route('GET', '/api/kai/status', async () => ({
+  agent: kaiAgent.agentEnabled(), used_today: kaiUsedToday(), daily_limit: KAI_DAILY_LIMIT(),
+}));
 
 route('GET', '/api/kai/chats', async ({ user }) => ({ chats: kaiAgent.listChats(user.id) }));
 
@@ -3218,7 +3240,8 @@ route('POST', '/api/kai/chats', async ({ req, user }) => {
 route('POST', '/api/kai/chats/:id/confirm', async ({ req, params, user }) => {
   if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
   const b = checkBody(await readJson(req), { approve: s.bool() });
-  kaiLimited(user);
+  // Answering a Confirm card finishes a message already counted.
+  kaiLimited(user, { counts: false });
   return kaiAgent.confirm({ userId: user.id, chatId: params.id, approve: b.approve === true, ...kaiDeps(req, user) });
 });
 

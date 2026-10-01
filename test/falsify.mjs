@@ -261,6 +261,11 @@ const MUTATIONS = {
     find: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? AND user_id = ?').get(id, userId);",
     replace: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? OR user_id = ?').get(id, userId);",
   },
+  'kai-has-no-daily-cap': {
+    file: 'src/api.js', suites: ['kai-agent'],
+    find: '  if (used >= KAI_DAILY_LIMIT()) {',
+    replace: '  if (false) {',
+  },
   'clicksend-password-in-settings-list': {
     file: 'src/db.js', suites: ['kai-agent'],
     find: "  'clicksend_login_password',",

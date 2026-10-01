@@ -74,8 +74,14 @@ Claude Sonnet 5.5 is $2 per million input tokens and $10 per million output
 cached, so each step of a job re-reads them at the cache price. A typical
 request — look someone up, make a change, answer — is about 1–3 US cents;
 a salon asking 20 things a day is roughly $8–15 a month. Each conversation records its token use in
-`kai_chats.input_tokens` / `output_tokens`. A per-owner limit of 60 messages per
-15 minutes stops a runaway tab spending the budget.
+`kai_chats.input_tokens` / `output_tokens`. Two limits keep the bill predictable:
+
+- **Per owner:** 20 messages per 10 minutes — faster than anybody runs a
+  salon, so it only ever stops a stuck tab or a stolen session.
+- **Per salon:** 150 messages a day (`KAIRO_KAI_DAILY_LIMIT`). A busy salon uses
+  20–40. At the cap Kai says it's done for the day; everything else in Kairo
+  carries on. Answering a Confirm card doesn't count. Today's count is on
+  `GET /api/kai/status`.
 
 ## Testing
 

@@ -413,3 +413,28 @@ test('a write in every area of the business runs through Kai and lands in the da
   assert.ok(await has('/api/invoices', (j) => j.some((i) => i.client_id === client.id)));
   assert.ok(await has(`/api/staff/${staff.id}/shifts`, (j) => JSON.stringify(j).includes('Kai day off')));
 });
+
+test("a salon's daily Kai allowance stops at the limit, and a Confirm answer doesn't use one", async () => {
+  const k2 = await startKairo({ env: { KAIRO_ANTHROPIC_API_KEY: 'test-key', KAIRO_ANTHROPIC_BASE_URL: `http://127.0.0.1:${mock.port}`, KAIRO_KAI_DAILY_LIMIT: '2' } });
+  try {
+    const { cookie: c2 } = await k2.login();
+    const send = (message) => k2.api('POST', '/api/kai/chats', { cookie: c2, body: { message } });
+    const victim = (await k2.api('POST', '/api/clients', { cookie: c2, body: { first_name: 'Cap', last_name: 'Test' } })).json;
+    mock.state.script = [calls({ method: 'DELETE', path: `/api/clients/${victim.id}`, summary: 'Delete Cap Test' }), say('Deleted.')];
+    const first = await send('delete Cap Test');
+    assert.equal(first.status, 200, first.text);
+    const conf = await k2.api('POST', `/api/kai/chats/${first.json.chat_id}/confirm`, { cookie: c2, body: { approve: true } });
+    assert.equal(conf.status, 200, 'answering Confirm is not a new message');
+    mock.state.script = [say('Second.')];
+    assert.equal((await send('second')).status, 200);
+    const third = await send('third');
+    assert.equal(third.status, 429);
+    assert.match(third.json.error, /limit for today \(2 messages\)/);
+    const st = (await k2.api('GET', '/api/kai/status', { cookie: c2 })).json;
+    assert.deepEqual([st.used_today, st.daily_limit], [2, 2]);
+    // The rest of Kairo is untouched.
+    assert.equal((await k2.api('GET', '/api/clients', { cookie: c2 })).status, 200);
+  } finally {
+    await k2.stop();
+  }
+});
