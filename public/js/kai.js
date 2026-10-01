@@ -33,6 +33,7 @@
 // wrong thing happened.
 import { esc, icon, copyText, toast, kairoOrb } from './ui.js';
 import { api } from './api.js';
+import { mountKaiChat, openKaiChat, closeKaiChat, isKaiChatOpen, agentReady } from './kai-chat.js';
 
 let el = null;
 let items = [];      // search results for what is currently typed
@@ -514,6 +515,9 @@ export function close() {
 }
 
 export function open(prefill = '') {
+  // With an agent on the server, Kai is the full-screen conversation in
+  // kai-chat.js; this console is the no-network Kai for servers without one.
+  if (agentReady()) { openKaiChat(prefill); return; }
   if (!el) return;
   el.classList.add('open');
   document.documentElement.classList.add('kai-showing');
@@ -674,6 +678,7 @@ export function mountKai(root) {
       </div>
     </div>`;
   root.appendChild(el);
+  mountKaiChat(root);
 
   el.querySelectorAll('[data-close]').forEach((n) => n.addEventListener('click', close));
   el.querySelector('#kai-q').addEventListener('input', (e) => load(e.target.value.trim()));
@@ -699,10 +704,11 @@ export function mountKai(root) {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
     if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
+      if (isKaiChatOpen()) { closeKaiChat(); return; }
       el.classList.contains('open') ? close() : open();
       return;
     }
-    if (e.key === '/' && !typing && !el.classList.contains('open')) {
+    if (e.key === '/' && !typing && !el.classList.contains('open') && !isKaiChatOpen()) {
       e.preventDefault();
       open();
     }

@@ -703,6 +703,30 @@ export async function renderSettings(container, params) {
 
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save SMS settings</button>
         </form>
+
+        <!-- The login for topping up credit on ClickSend's own site. Kept
+             here, by the balance, because it is needed every few months and
+             forgotten in between. Its own form, never part of the one above. -->
+        <form class="cs-login" id="cs-login" autocomplete="off">
+          <div class="cs-login-head">${icon('lock', 15)} <b>Your ClickSend login</b></div>
+          <div class="hint">For topping up credit on the ClickSend website. Save it here so you don't have to
+            remember it — only the business owner can see it, and Kairo never uses it to sign in anywhere.</div>
+          <div class="form-grid">
+            <div class="field"><label for="cs-login-user">Email or username</label>
+              <input id="cs-login-user" autocomplete="off" spellcheck="false" placeholder="the email you log in to ClickSend with"></div>
+            <div class="field"><label for="cs-login-pass">Password</label>
+              <div class="cs-pass">
+                <input id="cs-login-pass" type="password" autocomplete="new-password" spellcheck="false" placeholder="your ClickSend password">
+                <button type="button" class="btn ghost" id="cs-login-show">Show</button>
+                <button type="button" class="btn ghost" id="cs-login-copy" title="Copy the password">${icon('link', 14)} Copy</button>
+              </div></div>
+          </div>
+          <div class="cs-login-actions">
+            <button class="btn primary">${icon('check')} Save login</button>
+            <a class="btn" href="https://dashboard.clicksend.com/" target="_blank" rel="noreferrer">${icon('external', 14)} Top up on ClickSend</a>
+            <span class="hint" id="cs-login-state"></span>
+          </div>
+        </form>
       </div>
 
       <div class="card" data-sec="poscard">
@@ -1244,6 +1268,54 @@ export async function renderSettings(container, params) {
     if (e.target.closest('[data-credit-refresh]')) loadCredit(true);
   });
   loadCredit();
+
+  // The owner's ClickSend login. The password is never put into the page until
+  // Show or Copy asks for it, so a screen left open shows dots, not the secret.
+  const csForm = container.querySelector('#cs-login');
+  if (csForm) {
+    const user = csForm.querySelector('#cs-login-user');
+    const pass = csForm.querySelector('#cs-login-pass');
+    const stateEl = csForm.querySelector('#cs-login-state');
+    let saved = false;
+    let revealed = false;
+    const shown = (has) => {
+      saved = has;
+      pass.placeholder = has ? '•••••••• (saved — press Show to see it)' : 'your ClickSend password';
+    };
+    api.get('/api/sms/login').then((r) => { user.value = r.username || ''; shown(r.password_set); })
+      .catch(() => { csForm.hidden = true; });   // not the owner: nothing to show
+    const reveal = async () => {
+      if (!revealed && saved && !pass.value) {
+        pass.value = (await api.post('/api/sms/login/reveal', {})).password || '';
+        revealed = true;
+      }
+      return pass.value;
+    };
+    csForm.querySelector('#cs-login-show').addEventListener('click', async (e) => {
+      try {
+        if (pass.type === 'password') { await reveal(); pass.type = 'text'; e.currentTarget.textContent = 'Hide'; }
+        else { pass.type = 'password'; e.currentTarget.textContent = 'Show'; }
+      } catch (err) { toast(err.message); }
+    });
+    csForm.querySelector('#cs-login-copy').addEventListener('click', async () => {
+      try {
+        const v = await reveal();
+        if (!v) { toast('No password saved yet'); return; }
+        toast(await copyText(v) ? 'Password copied' : 'Could not copy — press Show and copy it by hand');
+      } catch (err) { toast(err.message || 'Could not copy'); }
+    });
+    csForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const r = await api.put('/api/sms/login', { username: user.value.trim(), password: revealed ? (pass.value || '__clear__') : pass.value });
+        shown(r.password_set);
+        pass.value = ''; pass.type = 'password'; revealed = false;
+        csForm.querySelector('#cs-login-show').textContent = 'Show';
+        stateEl.textContent = 'Saved';
+        toast('ClickSend login saved');
+      } catch (err) { toast(err.message); }
+    });
+  }
 
   // The starter-sender nag. Dismissing hides it; changing the sender retires it
   // for good, because the flag is derived from comparing the two — there is no

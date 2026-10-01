@@ -58,6 +58,9 @@ const POLICIES = {
   public_unsub:   { limit: 30,  windowMs: 10 * 60 * 1000 },
   public_deposit: { limit: 20,  windowMs: 10 * 60 * 1000 },
   public_read:    { limit: 240, windowMs: 60 * 1000 },      // info/availability/ics/review-form
+  // A message to Kai can be a dozen model calls; this keeps a runaway tab (or
+  // a stolen session) from spending the platform's Claude budget.
+  kai:            { limit: 60,  windowMs: 15 * 60 * 1000 },
   authed:         { limit: 600, windowMs: 60 * 1000 },      // per user+IP, anti-runaway
   api_global:     { limit: 900, windowMs: 60 * 1000 },      // absolute per-IP ceiling
 };

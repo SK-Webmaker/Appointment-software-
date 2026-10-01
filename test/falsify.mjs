@@ -229,6 +229,43 @@ const MUTATIONS = {
     find: '    for (let d = 14; d <= 42; d++) {',
     replace: '    for (let d = 14; d <= 13; d++) {',
   },
+  // Kai, the agent. Each is a way the owner could lose control of their own
+  // salon to a sentence — or to a sentence somebody else wrote into a note.
+  'kai-deletes-without-confirm': {
+    file: 'src/kai-catalogue.js', suites: ['kai-agent'],
+    find: "  { method: 'DELETE' },\n",
+    replace: '',
+  },
+  'kai-can-reach-the-account-routes': {
+    file: 'src/kai-catalogue.js', suites: ['kai-agent'],
+    find: "/^\\/api\\/account\\/(delete|refund|profile)/, ",
+    replace: '',
+  },
+  'kai-sees-secrets': {
+    file: 'src/api.js', suites: ['kai-agent'],
+    find: "    if (isSecretSetting(k) || /^(salt|pass_hash|token_version)$/.test(k)) { if (x) out[k] = '(hidden)'; continue; }\n",
+    replace: '',
+  },
+  'kai-sets-keys': {
+    file: 'src/api.js', suites: ['kai-agent'],
+    find: "      if (secret.length) return { error:",
+    replace: "      if (false) return { error:",
+  },
+  'kai-keeps-a-confirm-open-after-the-owner-moves-on': {
+    file: 'src/kai-agent.js', suites: ['kai-agent'],
+    find: "      content.push(...chat.pending.results, ...declined(chat.pending.uses));",
+    replace: "      content.push(...chat.pending.results);",
+  },
+  'kai-chats-readable-by-anyone': {
+    file: 'src/kai-agent.js', suites: ['kai-agent'],
+    find: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? AND user_id = ?').get(id, userId);",
+    replace: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? OR user_id = ?').get(id, userId);",
+  },
+  'clicksend-password-in-settings-list': {
+    file: 'src/db.js', suites: ['kai-agent'],
+    find: "  'clicksend_login_password',",
+    replace: '',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

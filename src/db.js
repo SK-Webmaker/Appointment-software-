@@ -745,6 +745,25 @@ function migrate() {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  // Kai's conversations with the owner: what was said (the model's own
+  // history, kept exactly as the API returned it), what the owner sees, and
+  // anything waiting on a Confirm press. See src/kai-agent.js.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kai_chats (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title         TEXT NOT NULL DEFAULT '',
+      messages      TEXT NOT NULL DEFAULT '[]',
+      events        TEXT NOT NULL DEFAULT '[]',
+      pending       TEXT NOT NULL DEFAULT '',
+      input_tokens  INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS kai_chats_user ON kai_chats(user_id, updated_at);
+  `);
+
 
   // Added after booking_invites shipped: a per-invite payment link, and the
   // proof that the client opened it.
@@ -784,6 +803,9 @@ export const SECRET_SETTINGS = new Set([
   // exactly as dangerous as the Stripe key sitting beside it.
   'session_secret', 'resend_api_key', 'stripe_secret_key', 'square_access_token',
   'twilio_token', 'clicksend_api_key', 'telnyx_api_key',
+  // The owner's own ClickSend dashboard password: read back only through
+  // POST /api/sms/login/reveal, never in the settings list.
+  'clicksend_login_password',
   // Shared with Cloudflare, never with the browser.
   'cf_origin_secret', 'turnstile_secret_key',
 ]);

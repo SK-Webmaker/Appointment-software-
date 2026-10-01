@@ -65,6 +65,9 @@ import {
 import { growthPlan, setManualTick } from './growth-plan.js';
 import { contentIdeas, contentCalendar, businessFacts } from './growth-content.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
+import * as kaiAgent from './kai-agent.js';
+import { catalogueText as kaiCatalogueText, matchPattern as kaiMatchPattern, needsConfirm as kaiNeedsConfirm, isSecretSetting } from './kai-catalogue.js';
+import { Readable } from 'node:stream';
 import {
   planFor as kaiPlanFor, readActions as kaiReadActions, decide as kaiDecide,
   applyPlan as kaiApply, undoChange as kaiUndo, isUndo as kaiIsUndo, lastChange as kaiLastChange,
@@ -3083,6 +3086,142 @@ route('POST', '/api/ask/undo', async ({ req }) => {
   return { ok: true, said: undone.said, did: undone.title, settings: getSettings() };
 });
 
+// ---------------------------------------------------------------------------
+// Kai, the agent — see src/kai-agent.js
+// ---------------------------------------------------------------------------
+
+/**
+ * Run one owner action in-process, exactly as if the owner's own screen had
+ * sent it: the same route, the same validation, the same side effects, as the
+ * same signed-in user. Only routes in Kai's reference (src/kai-catalogue.js)
+ * are reachable — the rest are refused here, not just left out of the prompt.
+ */
+function kaiInvokerFor(req, user) {
+  const invoke = async ({ method, path: pathname, query = {}, body }) => {
+    const r = routes.find((x) => x.method === method && x.regex.test(pathname));
+    if (!r) return { status: 404, data: { error: 'Not found' } };
+    const m = r.regex.exec(pathname);
+    const params = {};
+    r.names.forEach((n, i) => { params[n] = PARAM_PATTERN[n] ? m[i + 1] : Number(m[i + 1]); });
+    const raw = body === undefined ? '' : JSON.stringify(body);
+    const fake = Readable.from(raw ? [Buffer.from(raw)] : []);
+    fake.method = method;
+    fake.url = pathname;
+    fake.headers = { ...req.headers, 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(raw)) };
+    fake.socket = req.socket;
+    const out = { status: 200, body: null, headers: {} };
+    const res = {
+      writableEnded: false, headersSent: false,
+      setHeader(k, v) { out.headers[k.toLowerCase()] = v; },
+      getHeader(k) { return out.headers[k.toLowerCase()]; },
+      writeHead(code, h = {}) { out.status = code; this.headersSent = true; for (const [k, v] of Object.entries(h)) out.headers[k.toLowerCase()] = v; return this; },
+      write(chunk) { out.body = (out.body || '') + chunk; return true; },
+      end(chunk) { if (chunk) out.body = (out.body || '') + chunk; this.writableEnded = true; },
+    };
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(query || {})) if (v !== undefined && v !== null) q.set(k, String(v));
+    let data;
+    try {
+      const result = await r.handler({ req: fake, res, params, query: q, user });
+      if (res.writableEnded) {
+        try { data = JSON.parse(out.body); } catch { data = { ok: out.status < 400, note: 'The action returned a file or page, not data.' }; }
+      } else {
+        data = result ?? { ok: true };
+      }
+    } catch (err) {
+      const status = err.status || 500;
+      if (status === 500) console.error(err);
+      return { status, data: { error: err.message || 'Server error', ...(err.data || {}) } };
+    }
+    return { status: out.status, data: redactSecrets(data) };
+  };
+  /** Is this a call Kai may make, and must the owner confirm it first? */
+  invoke.check = (method, rawPath, body) => {
+    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) return { error: 'Unknown method' };
+    let url;
+    try { url = new URL(rawPath, 'http://kairo.local'); } catch { return { error: 'That is not a path' }; }
+    const pathname = url.pathname;
+    if (!pathname.startsWith('/api/') || pathname.includes('..')) return { error: 'That is not a Kairo action' };
+    if (!kaiMatchPattern(method, pathname)) {
+      return { error: `${method} ${pathname} is not an action Kai can take. Use one from the action reference.` };
+    }
+    if (method === 'PUT' && pathname === '/api/settings' && body) {
+      const secret = Object.keys(body).filter(isSecretSetting);
+      if (secret.length) return { error: `Kai can't set ${secret.join(', ')} — keys and passwords go in Settings by hand.` };
+    }
+    return { path: pathname, query: Object.fromEntries(url.searchParams), confirm: kaiNeedsConfirm(method, pathname, body) };
+  };
+  return invoke;
+}
+
+/** Credentials never reach the model, whichever route returned them. */
+function redactSecrets(v, depth = 0) {
+  if (depth > 6 || v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map((x) => redactSecrets(x, depth + 1));
+  const out = {};
+  for (const [k, x] of Object.entries(v)) {
+    if (isSecretSetting(k) || /^(salt|pass_hash|token_version)$/.test(k)) { if (x) out[k] = '(hidden)'; continue; }
+    out[k] = redactSecrets(x, depth + 1);
+  }
+  return out;
+}
+
+function kaiContext(user) {
+  const tz = getSetting('business_tz', '') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const { date, min } = bizNow();
+  const d = new Date(`${date}T12:00:00Z`);
+  const todayLong = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const h = Math.floor(min / 60), mm = String(min % 60).padStart(2, '0');
+  return {
+    business: getSetting('business_name', 'the business'),
+    owner: user?.name || 'the owner',
+    today: date, todayLong,
+    time: `${((h + 11) % 12) + 1}:${mm} ${h < 12 ? 'am' : 'pm'} (${min} minutes after midnight)`,
+    tz,
+    currency: getSetting('currency', '$'),
+  };
+}
+
+const kaiDeps = (req, user) => ({
+  ctx: kaiContext(user),
+  invoke: kaiInvokerFor(req, user),
+  catalogue: kaiCatalogueText([...EDITABLE_SETTINGS]),
+});
+
+function kaiLimited(user) {
+  const over = rateHit('kai', `u${user.id}:${currentTenant().slug || ''}`);
+  if (over) throw httpError(429, `Kai needs a short breather — try again in ${Math.max(1, Math.ceil(over.retryAfterSec / 60))} minute(s).`);
+}
+
+route('GET', '/api/kai/status', async () => ({ agent: kaiAgent.agentEnabled() }));
+
+route('GET', '/api/kai/chats', async ({ user }) => ({ chats: kaiAgent.listChats(user.id) }));
+
+route('GET', '/api/kai/chats/:id', async ({ params, user }) => {
+  const chat = kaiAgent.getChat(params.id, user.id);
+  if (!chat) throw httpError(404, 'That conversation is gone');
+  return chat;
+});
+
+route('DELETE', '/api/kai/chats/:id', async ({ params, user }) => {
+  if (!kaiAgent.deleteChat(params.id, user.id)) throw httpError(404, 'That conversation is gone');
+  return { ok: true };
+});
+
+route('POST', '/api/kai/chats', async ({ req, user }) => {
+  if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
+  const b = checkBody(await readJson(req), { message: s.str(4000, { required: true }), chat_id: s.num({ min: 1 }) });
+  kaiLimited(user);
+  return kaiAgent.send({ userId: user.id, chatId: b.chat_id ? Number(b.chat_id) : null, text: str(b.message, 4000), ...kaiDeps(req, user) });
+});
+
+route('POST', '/api/kai/chats/:id/confirm', async ({ req, params, user }) => {
+  if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
+  const b = checkBody(await readJson(req), { approve: s.bool() });
+  kaiLimited(user);
+  return kaiAgent.confirm({ userId: user.id, chatId: params.id, approve: b.approve === true, ...kaiDeps(req, user) });
+});
+
 /** One client's own referral link, minted on first ask. */
 route('GET', '/api/clients/:id/referral', async ({ params }) => {
   if (!db.prepare('SELECT id FROM clients WHERE id = ?').get(params.id)) {
@@ -3607,6 +3746,41 @@ route('POST', '/api/sms/own-number/verify', async ({ req }) => {
   // Whatever was lent at handover is gone the moment they have their own.
   setSetting('clicksend_starter_from', '');
   return { ok: true, from: str(b.number, 24) };
+});
+
+// ── The owner's own ClickSend login ─────────────────────────────────────────
+//
+// Credit runs out and has to be topped up on ClickSend's own site, and many
+// salons don't use auto top-up — so the login that does it is needed every few
+// months and forgotten in between. This keeps it next to the balance it tops
+// up. It is not the API key (that is what Kairo sends with) and Kairo never
+// uses it for anything: it is a note the owner can read back, so unlike the
+// keys it is not write-only — but only an owner can read it, it never appears
+// in /api/settings, and Kai can neither see nor change it (kai-catalogue.js).
+const CS_LOGIN_USER = 'clicksend_login_username';
+const CS_LOGIN_PASS = 'clicksend_login_password';
+const ownerOnly = (user) => {
+  if (user?.role && user.role !== 'owner') throw httpError(403, 'Only the business owner can see this');
+};
+
+route('GET', '/api/sms/login', async ({ user }) => {
+  ownerOnly(user);
+  return { username: getSetting(CS_LOGIN_USER, ''), password_set: Boolean(getSetting(CS_LOGIN_PASS, '')) };
+});
+
+route('PUT', '/api/sms/login', async ({ req, user }) => {
+  ownerOnly(user);
+  const b = checkBody(await readJson(req), { username: s.str(200), password: s.str(200) });
+  if (b.username !== undefined) setSetting(CS_LOGIN_USER, str(b.username, 200));
+  // Blank means "keep what's saved"; the sentinel clears it, as for the keys.
+  if (b.password === '__clear__') setSetting(CS_LOGIN_PASS, '');
+  else if (b.password) setSetting(CS_LOGIN_PASS, String(b.password).slice(0, 200));
+  return { username: getSetting(CS_LOGIN_USER, ''), password_set: Boolean(getSetting(CS_LOGIN_PASS, '')) };
+});
+
+route('POST', '/api/sms/login/reveal', async ({ user }) => {
+  ownerOnly(user);
+  return { password: getSetting(CS_LOGIN_PASS, '') };
 });
 
 route('GET', '/api/sms/balance', async ({ query }) => {
