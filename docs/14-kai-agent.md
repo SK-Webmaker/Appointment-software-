@@ -60,7 +60,7 @@ Kai uses Claude through the Messages API, with **one key for the platform**
 | Variable | Default | Purpose |
 |---|---|---|
 | `KAIRO_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) | unset (off) | Turns the agent on |
-| `KAIRO_KAI_MODEL` | `claude-opus-5-5` | The model |
+| `KAIRO_KAI_MODEL` | `claude-sonnet-5-5` | The model (`claude-opus-5-5` for the most capable, at twice the price) |
 | `KAIRO_KAI_EFFORT` | `medium` | `low` … `max`; lower is faster and cheaper |
 
 Render → `kairo-shard-au` → Environment → add `KAIRO_ANTHROPIC_API_KEY` → Save.
@@ -69,10 +69,11 @@ key, the Kai button opens the original rule-based Kai (no network, no cost).
 
 ## What it costs
 
-Claude Opus 5.5 is $4 per million input tokens and $20 per million output. The
-instructions and action reference (~5k tokens) are cached, so each step of a
-job re-reads them at the cache price. A typical request — look someone up, make
-a change, answer — is a few cents. Each conversation records its token use in
+Claude Sonnet 5.5 is $2 per million input tokens and $10 per million output
+(cache reads $0.20). The instructions and action reference (~5k tokens) are
+cached, so each step of a job re-reads them at the cache price. A typical
+request — look someone up, make a change, answer — is about 1–3 US cents;
+a salon asking 20 things a day is roughly $8–15 a month. Each conversation records its token use in
 `kai_chats.input_tokens` / `output_tokens`. A per-owner limit of 60 messages per
 15 minutes stops a runaway tab spending the budget.
 

@@ -41,7 +41,9 @@ import { db } from './db.js';
 
 const API_URL = () => (process.env.KAIRO_ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '') + '/v1/messages';
 const apiKey = () => process.env.KAIRO_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-export const MODEL = () => process.env.KAIRO_KAI_MODEL || 'claude-opus-5-5';
+// Claude Sonnet 5.5: half the price of Opus, and plenty for looking things up
+// and filling in forms. KAIRO_KAI_MODEL=claude-opus-5-5 switches back.
+export const MODEL = () => process.env.KAIRO_KAI_MODEL || 'claude-sonnet-5-5';
 const EFFORT = () => (['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.KAIRO_KAI_EFFORT)
   ? process.env.KAIRO_KAI_EFFORT : 'medium');
 

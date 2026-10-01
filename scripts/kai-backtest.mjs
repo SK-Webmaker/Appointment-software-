@@ -244,5 +244,5 @@ try {
 const passed = results.filter((r) => r.ok).length;
 console.log(`\n${passed}/${results.length} scenarios passed in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 if (tokensIn) console.log(`tokens: ${tokensIn.toLocaleString()} in, ${tokensOut.toLocaleString()} out`);
-fs.writeFileSync(path.join(os.tmpdir(), 'kai-backtest-report.json'), JSON.stringify({ when: new Date().toISOString(), model: process.env.KAIRO_KAI_MODEL || 'claude-opus-5-5', results, tokensIn, tokensOut }, null, 2));
+fs.writeFileSync(path.join(os.tmpdir(), 'kai-backtest-report.json'), JSON.stringify({ when: new Date().toISOString(), model: process.env.KAIRO_KAI_MODEL || 'claude-sonnet-5-5', results, tokensIn, tokensOut }, null, 2));
 process.exit(passed === results.length ? 0 : 1);

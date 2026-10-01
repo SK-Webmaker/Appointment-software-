@@ -109,7 +109,7 @@ test('what goes to Claude: the key, the model, effort, fallback, caching, the to
   assert.equal(req.headers['x-api-key'], 'test-key');
   assert.equal(req.headers['anthropic-version'], '2023-06-01');
   assert.match(req.headers['anthropic-beta'], /server-side-fallback-2026-07-01/);
-  assert.equal(req.body.model, 'claude-opus-5-5');
+  assert.equal(req.body.model, 'claude-sonnet-5-5');
   assert.equal(req.body.fallbacks, 'default');
   assert.equal(req.body.output_config.effort, 'medium');
   assert.equal(req.body.thinking, undefined, 'adaptive thinking is the default on this model');
