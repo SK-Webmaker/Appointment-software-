@@ -5,6 +5,43 @@ wallet must pass before you copy it, the bot settings, the budget, the daily
 routine and a simple playbook for your own trades. The wallets themselves are
 in `PICKS.md` (kept off GitHub).
 
+## Start here: your $65 setup
+
+| Pot | Amount | What it does |
+|---|---|---|
+| **GMGN copy bot** | **$50** (about 0.42 SOL) | Copies **3 wallets: picks #1, #4 and #5 in `PICKS.md`**, $3 per copy |
+| **Your own trades on FOMO** | **$15** | $5 a trade, at most 3 open (section 5) |
+| copyfomo | $0 | Waits until a fomo trader passes every rule |
+
+Why these three: of the top five, they need the least cash to run. Together
+they needed $27 to $31 at $3 per copy (about 23 copies a day), so $50 leaves
+a buffer for fees and the ~$0.24 Solana locks per coin you hold. They're also
+among the strongest on the copy test.
+
+**Set up in GMGN, once per wallet (3 copy tasks):**
+1. Fixed buy, $3 (about 0.025 SOL).
+2. Auto follow sell.
+3. Priority fee 0.0003 SOL.
+4. Anti-MEV off, Lightning mode off.
+5. Min copy amount 0.4 SOL.
+6. Single coin position increase times 0.
+
+**What to expect.** In the forward test the picks made about +5% per copy
+after fees (range roughly -1% to +14%). At 23 copies a day that's a few
+dollars a day in a good fortnight, and a losing fortnight is realistic too.
+The real goal of the first two weeks is to see whether live copies match the
+backtest before any more money goes in.
+
+**Three wallets is thin.** The test used 10, and single wallets were close to a
+coin flip. Expect bigger swings, and expect me to swap wallets at the weekly
+check.
+
+**Stop rule at this size.** If the GMGN balance falls below $35, pause the three
+tasks and tell me.
+
+**Dead coins.** Each coin you still hold locks about $0.24. Once a week, sell or
+burn dust coins in your wallet to get that back.
+
 ## 1. What the four videos teach, fluff removed
 
 Sources: Orangie ($3M+, two videos), a PvE scalper ($1K to $1M), Incentos with
@@ -141,9 +178,9 @@ when one does):
 
 | Setting | Value |
 |---|---|
-| Buy mode | Fixed buy, $5 in SOL (about 0.042 SOL) |
+| Buy mode | Fixed buy, $3 in SOL (about 0.025 SOL) at the $65 start; $5 once the pot is bigger |
 | Sell mode | Auto follow sell |
-| Priority fee | 0.0005 SOL. This one matters: in testing, the same wallets made about twice as much per copy at 0.0005 as at 0.001 (+8.5% vs +4%). At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge on $5 copies |
+| Priority fee | 0.0003 SOL. This one matters: every 0.0001 SOL is about 0.4% of a $3 copy, on the buy and again on the sell. At $3, going from 0.0005 to 0.0001 SOL lifted each wallet's copy result by 4 to 13 points. At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge. Below 0.0003, copies may land late or fail when Solana is busy |
 | Anti-MEV | Off; Lightning mode off (it can copy trades that never happened) |
 | Min copy amount | 0.4 SOL (their buy of about $50 or more) |
 | Market cap limit | Off (not tested; rule 7 covers it) |
@@ -180,13 +217,15 @@ when one does):
 
 ## 6. Budget
 
-Only use money you can afford to lose entirely. These are the smallest amounts
+You're starting with $65 (see "Start here" at the top). The table below is
+where it goes *after* the first two weeks, and only if live copies match the
+backtest. Only use money you can afford to lose entirely. These are the smallest amounts
 at which fees stop eating the edge and the bots don't run dry. (GMGN pauses a
 copy task after 3 failed copies, for example when there isn't enough SOL.) The
 bankroll figures are measured: the lowest the cash balance would have gone
 while copying the picks over the last 28 days.
 
-| Pot | Recommended | Lean start | How it's used |
+| Pot | Full | Mid | How it's used |
 |---|---|---|---|
 | **GMGN copy bot** | **$500** (about 4.2 SOL): all 10 picks at $5 per copy | **$200**: the top 5 picks at $5 per copy | Measured need: $325 to $515 for 10 picks, $165 to $190 for 5. 55 to 90 copies a day for 10, 19 to 37 for 5 |
 | **copyfomo** | $0 this round | $0 | No fomo trader passes every rule right now. The weekly check re-tests; if one qualifies, give it $50 at $5 per copy |
