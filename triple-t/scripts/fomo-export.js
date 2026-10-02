@@ -17,7 +17,9 @@
   const SWAP_PAGES = 3; // pages of recent swaps per trader
 
   const tokenKey = Object.keys(localStorage).find((k) => /^privy:(.+:)?token$/.test(k));
-  let token = tokenKey ? JSON.parse(localStorage.getItem(tokenKey)) : null;
+  const raw = tokenKey ? localStorage.getItem(tokenKey) : null;
+  let token = null;
+  try { token = raw ? JSON.parse(raw) : null; } catch { token = raw; }
   if (!token) {
     const c = document.cookie.split('; ').find((x) => x.startsWith('privy-token='));
     token = c ? decodeURIComponent(c.split('=')[1]) : null;
