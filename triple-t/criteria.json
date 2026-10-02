@@ -58,7 +58,12 @@
       "renowned"
     ],
     "rankBy": "persistence",
-    "_about": "Ranked by persistence: win rate x green-day share x sample size. At most 2 well-known wallets."
+    "_about": "Ranked by persistence: win rate x green-day share x sample size. At most 2 well-known wallets, and one wallet per trader: two wallets that share most of their coins and repeatedly buy within a minute of each other count as one trader (only the best-ranked is kept).",
+    "oneWalletPerTrader": {
+      "minSharedCoins": 0.5,
+      "minSyncBuys": 10,
+      "syncWindowSec": 60
+    }
   },
   "backtest": {
     "delays": [

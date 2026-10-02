@@ -23,16 +23,18 @@ backtest, **1-second price candles** around every trade.
 discover  ->  data/universe.json     every wallet from every source, merged by address
 copyfomo  ->  tags the fomo traders copyfomo profiles (matched by their partial address)
 hunt      ->  criteria.json end to end: profile checks -> 28 days of trades -> wallet
-              rules -> copy backtest with the bot's fees and guards -> 10 picks
-              -> PICKS.md, plus a forward test (rules on the older 14 days,
-              results over the newer 14)
+              rules on the latest 14 days -> copy backtest with the bot's fees
+              and guards -> 10 picks (one wallet per trader) -> PICKS.md, plus
+              a forward test (same rules on the older 14 days, copy results
+              over the newer 14, next to naive and random picks)
 ```
 
 ```bash
 cd triple-t && npm install
 node src/cli.js discover            # ~3 min
 node src/cli.js copyfomo            # ~30 s
-node src/cli.js hunt                # 1-3 h; everything is cached, reruns are faster
+node src/cli.js hunt                # 1-3 h first time; cached reruns ~10-20 min
+node src/cli.js report              # re-render PICKS.md from the last hunt
 npm test
 ```
 

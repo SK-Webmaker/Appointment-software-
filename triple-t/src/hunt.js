@@ -123,13 +123,29 @@ function wellKnown(w, c) {
     || ((w.fomo && w.fomo.fomoFollowers) || 0) >= (c.wellKnownFomoFollowers || 10000);
 }
 
-// Best first, skipping well-known wallets past the cap.
+// Two wallets run by the same trader (or one copying the other): most of
+// their coins are shared and they repeatedly buy within a minute of each other.
+function sameTrader(a, b, rule) {
+  if (!rule || !a.positions || !b.positions) return false;
+  const byToken = new Map();
+  for (const p of b.positions) (byToken.get(p.token) || byToken.set(p.token, []).get(p.token)).push(p.openTs);
+  const tokensA = new Set(a.positions.map((p) => p.token));
+  let shared = 0;
+  for (const t of tokensA) if (byToken.has(t)) shared++;
+  let sync = 0;
+  for (const p of a.positions) if ((byToken.get(p.token) || []).some((ts) => Math.abs(ts - p.openTs) <= rule.syncWindowSec)) sync++;
+  return shared / Math.max(1, Math.min(tokensA.size, byToken.size)) >= rule.minSharedCoins && sync >= rule.minSyncBuys;
+}
+
+// Best first, skipping well-known wallets past the cap and second wallets of
+// a trader already picked.
 function choose(cands, c) {
   const out = [];
   let known = 0;
   for (const x of [...cands].sort((a, b) => b.score - a.score)) {
     if (out.length >= c.count) break;
     if (x.wellKnown && known >= c.maxWellKnown) continue;
+    if (x.r && out.some((y) => sameTrader(x.r, y.r, c.oneWalletPerTrader))) continue;
     if (x.wellKnown) known++;
     out.push(x);
   }
@@ -231,7 +247,9 @@ async function hunt({ log = console.error, concurrency = 5, stage2Limit = 70, se
       const recentKeys = new Set(r.positions.filter((p) => p.openTs >= split && p.closeTs).map((p) => key(p.token, p.openTs)));
       r.sumRecent = windowSummary(r.bt, (t) => recentKeys.has(key(t.token, t.startTs)));
       r.copyFailsFull = copyFails(r.sumFull, c.copy);
-      r.copyFailsRecent = copyFails(r.sumRecent, c.copy);
+      // For today's picks, open positions count at today's price: a wallet
+      // sitting on underwater bags must not look good on its closed trades.
+      r.copyFailsRecent = copyFails(r.sumNew, c.copy);
       r.copyFailsOld = copyFails(r.sumOld, c.copy);
       r.wellKnown = wellKnown(r.w, c.picks);
       if (++done % 10 === 0) log(`  backtested ${done}/${toTest.size}`);
@@ -318,11 +336,11 @@ function writePicks(res) {
     '',
     '## The picks',
     '',
-    'Chosen exactly like the forward test: the rules applied to the latest 14 days. Win rate through entry size are from those 14 days; copy ROI is shown over all 28 days and over the latest 14.',
+    'Chosen like the forward test: the rules applied to the latest 14 days. Win rate through entry size are from those 14 days. Copy ROI is over all 28 days and over the latest 14, with positions they still hold valued at today\'s price.',
     '',
     '| # | Wallet | Bot | Copies (28d) | Copy ROI 1s | Copy ROI 3s | Copy ROI last 14d | Win rate | Green days | Profit factor | Median hold | Entry mcap | Their buy | Followers | Jump after buy | Watch out |',
     '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
-    ...[...res.picks, ...(res.fomoPick ? [res.fomoPick] : [])].map((p, i) => `| ${i < res.picks.length ? i + 1 : 'copyfomo'} | \`${p.address}\`${p.fomoHandle ? ` @${p.fomoHandle}` : p.name ? ` (${p.name})` : ''} | ${p.bot} | ${p.sumFull.at1s.trades} | ${pct(p.sumFull.at1s.roi)} | ${pct(p.sumFull.at3s.roi)} | ${pct(p.sumRecent && p.sumRecent.at1s.roi)} | ${pct(p.recent.winRate)} | ${pct(p.recent.greenDayShare)} | ${p.recent.profitFactor === Infinity ? 'inf' : (p.recent.profitFactor || 0).toFixed(1)} | ${dur(p.recent.medianHoldSec)} | ${kusd(p.recent.medianEntryMcapUsd)} | ${usd(p.recent.medianFirstBuyUsd)} | ${p.followers ?? '-'}${p.fomoFollowers ? ` / fomo ${p.fomoFollowers}` : ''} | ${pct(p.sumFull.followerJump3s)} | ${flags(p, res)} |`),
+    ...[...res.picks, ...(res.fomoPick ? [res.fomoPick] : [])].map((p, i) => `| ${i < res.picks.length ? i + 1 : 'copyfomo'} | \`${p.address}\`${p.fomoHandle ? ` @${p.fomoHandle}` : p.name ? ` (${p.name})` : ''} | ${p.bot} | ${p.sumFull.at1s.trades} | ${pct(p.sumFull.at1s.roi)} | ${pct(p.sumFull.at3s.roi)} | ${pct(p.sumNew && p.sumNew.at1s.roi)} | ${pct(p.recent.winRate)} | ${pct(p.recent.greenDayShare)} | ${p.recent.profitFactor === Infinity ? 'inf' : (p.recent.profitFactor || 0).toFixed(1)} | ${dur(p.recent.medianHoldSec)} | ${kusd(p.recent.medianEntryMcapUsd)} | ${usd(p.recent.medianFirstBuyUsd)} | ${p.followers ?? '-'}${p.fomoFollowers ? ` / fomo ${p.fomoFollowers}` : ''} | ${pct(p.sumFull.followerJump3s)} | ${flags(p, res)} |`),
     '',
     `Copy ROI = profit on what the bot would have spent, after fees, copying every buy and sell 1s / 3s after them. copyfomo picks: $${res.criteria.bots.copyfomo.sizeUsd} per copy, max chase ${res.criteria.bots.copyfomo.maxChase * 100}%, min trader buy $${res.criteria.bots.copyfomo.minTraderBuyUsd}. GMGN picks: $${res.criteria.bots.gmgn.sizeUsd} per copy, min copy amount $${res.criteria.bots.gmgn.minTraderBuyUsd}.`,
   ];
@@ -349,4 +367,4 @@ function report() {
   return res;
 }
 
-module.exports = { hunt, report, walletFails, copyFails, poolFails, choose, windowSummary, loadCriteria };
+module.exports = { hunt, report, walletFails, copyFails, poolFails, choose, sameTrader, windowSummary, loadCriteria };

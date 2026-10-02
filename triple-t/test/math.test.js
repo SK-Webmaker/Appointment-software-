@@ -178,3 +178,17 @@ test('v2 rules: win rate, long holds, big caps, one-trade profit', () => {
   assert.deepEqual(walletFails(swing, c).map((f) => f.name), ['holds too long', 'win rate', 'buys big caps', 'one trade is the profit']);
   assert.deepEqual(walletFails({ ...good, totalRealizedPnlUsd: -5, bestTradeShareOfProfit: null }, c).map((f) => f.name), ['one trade is the profit']);
 });
+
+const { sameTrader } = require('../src/hunt');
+
+test('choose keeps one wallet per trader', () => {
+  const pos = (list) => list.map(([token, openTs]) => ({ token, openTs }));
+  const twinA = { positions: pos(Array.from({ length: 20 }, (_, i) => [`T${i}`, 1000 + i * 600])) };
+  const twinB = { positions: pos(Array.from({ length: 20 }, (_, i) => [`T${i}`, 1010 + i * 600])) }; // 10s behind A on every coin
+  const other = { positions: pos(Array.from({ length: 20 }, (_, i) => [`T${i}`, 50000 + i * 600])) }; // same coins, never together
+  const rule = { minSharedCoins: 0.5, minSyncBuys: 10, syncWindowSec: 60 };
+  assert.equal(sameTrader(twinA, twinB, rule), true);
+  assert.equal(sameTrader(twinA, other, rule), false);
+  const out = choose([{ r: twinA, score: 3 }, { r: twinB, score: 2 }, { r: other, score: 1 }], { count: 3, maxWellKnown: 2, oneWalletPerTrader: rule });
+  assert.deepEqual(out.map((x) => x.score), [3, 1]);
+});

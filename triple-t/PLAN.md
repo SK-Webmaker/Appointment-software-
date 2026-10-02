@@ -65,7 +65,8 @@ win.
 
 ## 2. The rules (what a wallet must show)
 
-All checks run on the wallet's last 28 days of real trades. Thresholds live in
+The rules run on each wallet's latest 14 days of real trades (28 days are
+pulled so the older 14 can be used for the proof step). Thresholds live in
 `criteria.json`. Version 2 = the videos' rules, your rules, and what the data
 showed actually predicts a wallet *still* winning the following week.
 
@@ -94,6 +95,7 @@ showed actually predicts a wallet *still* winning the following week.
 | 17 | **Copying them did not lose money**: 1s and 3s late, with the bot's real fees and guards | If they win while copiers lose, followers are their exit | 10+ copies |
 | | **The final 10** | | |
 | 18 | Ranked by win rate x green days x sample size; at most 2 well-known wallets | Past copy profit did *not* predict future copy profit (correlation -0.06), the traits above did | well-known = 1,000+ GMGN followers, KOL tag, or 10K+ fomo followers |
+| 19 | **One wallet per trader** | Some traders run several wallets (or one copies another). Two picks that share most of their coins and keep buying within a minute of each other count as one; only the best is kept, so the 10 are really 10 | 50%+ shared coins and 10+ buys within 60s |
 
 "US wallets" (your note): wallets have no country, so I read this as famous
 / KOL wallets and capped them at 2 of 10 (rule 18). Tell me if you meant
@@ -115,7 +117,11 @@ the top of `PICKS.md`.
 
 ## 3. Bot settings
 
-**copyfomo** (fomo traders), per trader:
+The 10 picks go on **GMGN** (it copies any wallet, up to 10). copyfomo can only
+copy fomo traders, and the best fomo trader that passes every rule goes there.
+
+**copyfomo** (no fomo trader qualifies this round; these are the settings for
+when one does):
 
 | Setting | Value | Why |
 |---|---|---|
@@ -131,22 +137,23 @@ the top of `PICKS.md`.
 | Same coin, two traders | First buy wins | Keeps every position at $5 |
 | Max positions | 10 | Caps how much is out at once |
 
-**GMGN copy trade** (non-fomo wallets), per wallet:
+**GMGN copy trade** (the 10 picks), per wallet:
 
 | Setting | Value |
 |---|---|
-| Buy mode | Fixed buy, ~$20 in SOL |
+| Buy mode | Fixed buy, $5 in SOL (about 0.042 SOL) |
 | Sell mode | Auto follow sell |
-| Priority fee | 0.001 SOL (GMGN's suggested 0.002 to 0.006 eats small trades) |
+| Priority fee | 0.0005 SOL. This one matters: in testing, the same wallets made about twice as much per copy at 0.0005 as at 0.001 (+8.5% vs +4%). At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge on $5 copies |
 | Anti-MEV | Off; Lightning mode off (it can copy trades that never happened) |
-| Min copy amount | Their buy of about $50 or more |
+| Min copy amount | 0.4 SOL (their buy of about $50 or more) |
 | Market cap limit | Off (not tested; rule 7 covers it) |
 | Single coin position increase times | 0 (first buys only) |
 
 ## 4. Daily routine (about 20 minutes, all on your phone)
 
-- **Morning, 5 min.** copyfomo `/copies`: what was copied overnight, PnL per
-  trader. FOMO, then Tokens, then Graduated: is the market hot or dead today?
+- **Morning, 5 min.** GMGN, Copy Trade tab: what was copied overnight, PnL per
+  wallet, and any failed copies (a paused task means low SOL). FOMO, then Tokens,
+  then Graduated: is the market hot or dead today?
 - **Once or twice a day, 10 min.** Your own trades (section 5), only on hot
   days. At most 3 new trades a day.
 - **Before bed.** No new manual trades. Any manual position that hasn't had its
@@ -173,24 +180,71 @@ the top of `PICKS.md`.
 
 ## 6. Budget
 
-Only use money you can afford to lose entirely. The amounts below are the
-smallest at which the fees stop eating the edge. Scale up only on proof.
+Only use money you can afford to lose entirely. These are the smallest amounts
+at which fees stop eating the edge and the bots don't run dry. (GMGN pauses a
+copy task after 3 failed copies, for example when there isn't enough SOL.) The
+bankroll figures are measured: the lowest the cash balance would have gone
+while copying the picks over the last 28 days.
 
-*(Filled in after the hunt, because the split depends on how many of the 10
-are fomo traders, who go on copyfomo, versus other wallets, who go on GMGN.)*
+| Pot | Recommended | Lean start | How it's used |
+|---|---|---|---|
+| **GMGN copy bot** | **$500** (about 4.2 SOL): all 10 picks at $5 per copy | **$200**: the top 5 picks at $5 per copy | Measured need: $325 to $515 for 10 picks, $165 to $190 for 5. 55 to 90 copies a day for 10, 19 to 37 for 5 |
+| **copyfomo** | $0 this round | $0 | No fomo trader passes every rule right now. The weekly check re-tests; if one qualifies, give it $50 at $5 per copy |
+| **Your own trades on FOMO** | $50 | $50 | $5 a trade, at most 3 open (section 5) |
+| **Total** | **$550** | **$250** | |
 
-**Scale-up rule.** After 2 weeks and 100+ copies: if live results are in line
-with the backtest, double the per-copy size. Never add money after a losing
-week.
+The forward test covered groups of 10. The 5-wallet lean start is less spread
+out, so expect bigger swings.
+
+**Scale-up rule.** After 2 weeks and 300+ copies: if live results are near the
+backtest, raise the copy size from $5 to $10 (bankroll doubles too). Never add
+money after a losing week.
 
 **Stop rule.** If the total is down 30% from where you started, pause
-everything (copyfomo kill switch, GMGN pause) and we re-run the hunt before
-restarting.
+everything and we re-run the hunt before restarting. A single wallet that is
+down 25% over its last 30+ copies gets swapped out at the weekly check.
 
-## 7. What I can't verify yet
+**Take profit on the pot.** At the weekly check, withdraw anything above your
+starting balance. Nothing is realized until it's realized.
+
+## 7. What the testing showed
+
+Every number below is copy results after the bot's fees, copying 1 second
+behind, in a 14-day period the rules never saw.
+
+| Picked by | Copy result over the next 14 days |
+|---|---|
+| Triple T final rules ($5 copies, 0.0005 SOL fee, one wallet per trader) | **+5.5% per copy** (90% range -1.2% to +13.7%), 4 of 9 wallets in profit |
+| Same rules, $20 copies | +11% per copy (90% range +4% to +19%), 7 of 10 wallets in profit |
+| First version of the rules (videos + your rules only) | +6% per copy, 5 of 10 |
+| Random wallets from the same pool | -5% to -6% |
+| Last fortnight's biggest earners | -3% to +7% (they trade rarely, so this jumps around) |
+
+What that means:
+
+- **The rules beat random wallets by roughly 10 to 17 points in every run.** That
+  gap is the edge.
+- **Individual wallets are close to a coin flip.** About half the picks lost in
+  their next fortnight; the group still made money. That's why it's 10 wallets at a
+  small size, not 2 wallets at a big one, and why there's a weekly swap.
+- **A wallet's past copy profit did not predict its next fortnight** (correlation
+  -0.06). Win rate, green days and spread-out profit did, so the ranking uses
+  those.
+- **Expect less live.** The pool only contains wallets that are active and
+  profitable today, which flatters every group in the test. Real copies also
+  fail sometimes and can land later than 1 to 3 seconds.
+
+## 8. What I can't verify yet
 
 - copyfomo copies a fomo trader on every chain they use. Most also trade on
-  Robinhood chain, but the backtest covers their Solana trades only.
+  Robinhood chain, but the backtest covers their Solana trades only. That
+  matters only if a fomo trader becomes a pick.
+- Half of the current picks are new wallets (1 to 2 weeks old). Traders switch
+  wallets, sometimes to shake off copiers. The weekly check catches a wallet
+  that goes quiet.
+- Most of each wallet's copy profit comes from a few big winners, with many
+  small losses in between. Switching the bot off on a bad day risks missing the
+  trades that pay for everything.
 - copyfomo's 2% fee comes from their docs, which hid the fee section on Sept 8.
   Check the fee on the confirmation screen.
 - A backtest is the past. Wallets change, and a hot market can go cold. That's
