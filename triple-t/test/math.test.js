@@ -75,7 +75,7 @@ test('backtest: wallet fills baseline and delayed copy with costs', async () => 
   };
   const r = await backtestPositions(g, positions, { sizeUsd: 100, delays: [3], slippage: 0, feePct: 0, fixedFeeUsd: 0 });
   // Wallet fills: buy 100 @1, sell half @2, rest @4 -> 300 back on 100.
-  assert.equal(r.walletFills.pnlUsd, 200);
+  assert.equal(r.walletFills.fixed.pnlUsd, 200);
   // Copy @3s: 100/1.1 tokens, half @1.8, half @3.6.
   const tokens = 100 / 1.1;
   const expected = tokens / 2 * 1.8 + tokens / 2 * 3.6 - 100;

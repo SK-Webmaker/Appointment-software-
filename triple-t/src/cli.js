@@ -6,6 +6,7 @@
 //   node src/cli.js fomo-import <export.json>           merge a fomo export into the universe
 //   node src/cli.js prescreen                           which wallets the criteria would deep-dive
 //   node src/cli.js analyze [--only=a,b] [--concurrency=4]   history + backtest + REPORT.md
+//   node src/cli.js rescore                             re-run backtests/gates on saved results (cache only)
 const { discover, loadUniverse, summarize } = require('./discover');
 
 async function main() {
@@ -30,11 +31,14 @@ async function main() {
     const { analyze } = require('./analyze');
     const only = flag('only') ? flag('only').split(',') : null;
     console.log(JSON.stringify(await analyze({ only, concurrency: Number(flag('concurrency') || 4) }), null, 2));
+  } else if (cmd === 'rescore') {
+    const { rescore } = require('./analyze');
+    console.log(JSON.stringify(await rescore(), null, 2));
   } else if (cmd === 'fomo-import') {
     const { importFomoExport } = require('./fomo');
     console.log(JSON.stringify(importFomoExport(args[0]), null, 2));
   } else {
-    console.log('usage: node src/cli.js discover|summary|prescreen|analyze|gmgn <path>|fomo-import <file>');
+    console.log('usage: node src/cli.js discover|summary|prescreen|analyze|rescore|gmgn <path>|fomo-import <file>');
     process.exitCode = 1;
   }
 }

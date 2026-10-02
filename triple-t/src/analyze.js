@@ -53,8 +53,24 @@ function prescreen(u, c) {
   return { pick, eligible: { stats: fromStats.length, winners: fromWinners.length } };
 }
 
+// The backtest view the gates use: fixed or proportional sizing, or whichever
+// did better for this wallet ("best": the copy bot can be set either way).
+function view(bt, f) {
+  const fixed = { mode: 'fixed', fills: bt.walletFills.fixed || bt.walletFills, byDelay: bt.byDelay };
+  const prop = bt.byDelayProportional && bt.walletFills.proportional
+    ? { mode: 'proportional', fills: bt.walletFills.proportional, byDelay: bt.byDelayProportional } : null;
+  if (f.sizing === 'proportional' && prop) return prop;
+  if (f.sizing === 'best' && prop) {
+    const rf = (fixed.byDelay[f.delayForGates] || {}).roi ?? -Infinity;
+    const rp = (prop.byDelay[f.delayForGates] || {}).roi ?? -Infinity;
+    return rp > rf ? prop : fixed;
+  }
+  return fixed;
+}
+
 function finalGates(stats, bt, f) {
-  const d = bt.byDelay[f.delayForGates] || {};
+  const v = view(bt, f);
+  const d = v.byDelay[f.delayForGates] || {};
   const checks = [
     ['closedPositions', stats.closed, stats.closed >= f.minClosedPositions, `>= ${f.minClosedPositions}`],
     ['profitFactor', stats.profitFactor, stats.profitFactor >= f.minProfitFactor, `>= ${f.minProfitFactor}`],
@@ -64,31 +80,37 @@ function finalGates(stats, bt, f) {
     ['edgeRetained', d.edgeRetained, d.edgeRetained >= f.minEdgeRetained, `>= ${f.minEdgeRetained}`],
   ];
   const failed = checks.filter((x) => !x[2]).map(([name, value, , need]) => ({ name, value, need }));
-  return { pass: failed.length === 0, failed };
+  return { pass: failed.length === 0, sizing: v.mode, failed };
 }
 
-async function analyzeWallet(g, address, c, w) {
-  const trades = await walletTrades(g, address, c.history);
-  const { positions, orphanSells } = buildPositions(trades);
+const labelOf = (w) => (w && ((w.gmgn && (w.gmgn.twitter_username || w.gmgn.name)) || (w.kolscan && w.kolscan.name) || (w.fomo && w.fomo.handle))) || null;
+
+// Backtest + gates from positions, and write the result file.
+async function evaluate(g, address, positions, marks, c, w, extra) {
   const stats = walletStats(positions);
-  const marks = {};
-  for (const p of positions) if (p.status !== 'closed' && !(p.token in marks)) marks[p.token] = await latestPrice(g, p.token);
   const bt = await backtestPositions(g, positions, { ...c.backtest, marks });
   const gates = finalGates(stats, bt, c.final);
-  const label = (w && ((w.gmgn && (w.gmgn.twitter_username || w.gmgn.name)) || (w.kolscan && w.kolscan.name) || (w.fomo && w.fomo.handle))) || null;
   const out = {
-    address, label, analyzedAt: new Date().toISOString(), tradesPulled: trades.length, orphanSells,
+    address, label: labelOf(w), analyzedAt: new Date().toISOString(), ...extra,
     sources: w ? Object.keys(w.sources) : [], gmgnTags: (w && w.gmgn && w.gmgn.tags) || [],
     followers: (w && w.gmgn && w.gmgn.follow_count) || null,
     stats, backtest: { ...bt, trades: undefined }, gates,
   };
   fs.mkdirSync(RESULTS, { recursive: true });
-  fs.writeFileSync(path.join(RESULTS, `${address}.json`), JSON.stringify({ ...out, positions, copyTrades: bt.trades }, null, 1));
+  fs.writeFileSync(path.join(RESULTS, `${address}.json`), JSON.stringify({ ...out, marks, positions, copyTrades: bt.trades }, null, 1));
   return out;
 }
 
+async function analyzeWallet(g, address, c, w) {
+  const trades = await walletTrades(g, address, c.history);
+  const { positions, orphanSells } = buildPositions(trades);
+  const marks = {};
+  for (const p of positions) if (p.status !== 'closed' && !(p.token in marks)) marks[p.token] = await latestPrice(g, p.token);
+  return evaluate(g, address, positions, marks, c, w, { tradesPulled: trades.length, orphanSells });
+}
+
 function score(r, c) {
-  const d = r.backtest.byDelay[c.final.delayForGates] || {};
+  const d = view(r.backtest, c.final).byDelay[c.final.delayForGates] || {};
   if (!(d.roi > 0)) return d.roi || -1;
   return d.roi * Math.min(1, r.stats.closed / 30) * (0.5 + (r.stats.greenDayShare || 0) / 2);
 }
@@ -101,21 +123,50 @@ function writeReport(results, c, meta) {
   results.sort((a, b) => score(b, c) - score(a, c));
   fs.writeFileSync(path.join(DATA, 'report.json'), JSON.stringify({ meta, criteria: c, results }, null, 1));
   const delays = c.backtest.delays.map((d) => `${d}s`);
+  const gd = c.final.delayForGates;
   const lines = [
     '# Triple T report',
     '',
     `Generated ${meta.generatedAt}. Universe ${meta.universe} wallets; prescreen eligible ${meta.eligible.stats} by stats + ${meta.eligible.winners} repeat winners; ${results.length} analyzed over the last ${c.history.days} days.`,
-    `Copy simulation: $${c.backtest.sizeUsd} per entry, ${pct(c.backtest.slippage)} slippage per fill, ${pct(c.backtest.feePct)} fee per side + $${c.backtest.fixedFeeUsd}/tx. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
+    `Copy simulation: $${c.backtest.sizeUsd} per entry (fixed) or scaled by their size (proportional, x${c.backtest.propClamp ? c.backtest.propClamp.join('-x') : '0.25-x4'}), ${pct(c.backtest.slippage)} slippage per fill, ${pct(c.backtest.feePct)} fee per side + $${c.backtest.fixedFeeUsd}/tx. Gates use ${c.final.sizing || 'fixed'} sizing at ${gd}. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
     '',
-    `| # | Wallet | Who | Pass | Closed | Win | PF | Med hold | Med size | Wallet ROI | ${delays.map((d) => `Copy ROI @${d}`).join(' | ')} | Edge kept @${c.final.delayForGates} | Failed gates |`,
-    `|---|---|---|---|---|---|---|---|---|---|${delays.map(() => '---').join('|')}|---|---|`,
+    `| # | Wallet | Who | Pass | Closed | Win | PF | Med hold | Med size | Wallet ROI | ${delays.map((d) => `Copy @${d}`).join(' | ')} | Prop. copy @${gd} | Edge kept @${gd} | Failed gates |`,
+    `|---|---|---|---|---|---|---|---|---|---|${delays.map(() => '---').join('|')}|---|---|---|`,
   ];
   results.forEach((r, i) => {
-    const s = r.stats, b = r.backtest;
-    lines.push(`| ${i + 1} | \`${r.address}\` | ${r.label || '-'} | ${r.gates.pass ? 'YES' : 'no'} | ${s.closed} | ${pct(s.winRate)} | ${s.profitFactor === Infinity ? 'inf' : s.profitFactor == null ? '-' : s.profitFactor.toFixed(2)} | ${dur(s.medianHoldSec)} | ${usd(s.medianCostUsd)} | ${pct(b.walletFills.roi)} | ${delays.map((d) => pct(b.byDelay[d] && b.byDelay[d].roi)).join(' | ')} | ${pct(b.byDelay[c.final.delayForGates] && b.byDelay[c.final.delayForGates].edgeRetained)} | ${r.gates.failed.map((f) => f.name).join(', ') || '-'} |`);
+    const s = r.stats, b = r.backtest, v = view(b, c.final);
+    const fixedFills = b.walletFills.fixed || b.walletFills;
+    const prop = b.byDelayProportional && b.byDelayProportional[gd];
+    lines.push(`| ${i + 1} | \`${r.address}\` | ${r.label || '-'} | ${r.gates.pass ? 'YES' : 'no'} | ${s.closed} | ${pct(s.winRate)} | ${s.profitFactor === Infinity ? 'inf' : s.profitFactor == null ? '-' : s.profitFactor.toFixed(2)} | ${dur(s.medianHoldSec)} | ${usd(s.medianCostUsd)} | ${pct(fixedFills.roi)} | ${delays.map((d) => pct(b.byDelay[d] && b.byDelay[d].roi)).join(' | ')} | ${pct(prop && prop.roi)} | ${pct(v.byDelay[gd] && v.byDelay[gd].edgeRetained)} | ${r.gates.failed.map((f) => f.name).join(', ') || '-'} |`);
   });
-  lines.push('', 'Wallet ROI = the wallet\'s own fills at our size and fees. Copy ROI = our simulated fills after the delay. Edge kept = copy PnL / wallet-fills PnL.');
+  lines.push('', 'Wallet ROI = the wallet\'s own fills at our fixed size and fees. Copy @Ns = our simulated fixed-size fills N seconds later. Prop. copy = same, sized like they size. Edge kept = copy PnL / wallet-fills PnL in the gated sizing mode.');
   fs.writeFileSync(path.join(ROOT, 'REPORT.md'), lines.join('\n') + '\n');
+}
+
+// Re-run backtests and gates for every saved result with the current
+// criteria. Uses cached candles; GMGN is only opened on a cache miss.
+async function rescore({ log = console.error } = {}) {
+  const c = loadCriteria();
+  const u = loadUniverse();
+  let g = null;
+  const lazy = { get: async (p) => { if (!g) g = await new Gmgn().open(); return g.get(p); } };
+  const results = [];
+  try {
+    for (const f of fs.readdirSync(RESULTS)) {
+      const r = JSON.parse(fs.readFileSync(path.join(RESULTS, f), 'utf8'));
+      const marks = { ...(r.marks || (r.backtest && r.backtest.config && r.backtest.config.marks) || {}) };
+      for (const p of r.positions) if (p.status !== 'closed' && !(p.token in marks)) marks[p.token] = await latestPrice(lazy, p.token);
+      const out = await evaluate(lazy, r.address, r.positions, marks, c, u.wallets[r.address], { tradesPulled: r.tradesPulled, orphanSells: r.orphanSells, via: r.via });
+      results.push(out);
+    }
+  } finally {
+    if (g) await g.close();
+  }
+  const prev = (() => { try { return JSON.parse(fs.readFileSync(path.join(DATA, 'report.json'), 'utf8')).meta; } catch { return {}; } })();
+  const meta = { ...prev, generatedAt: new Date().toISOString(), universe: Object.keys(u.wallets).length, eligible: prev.eligible || { stats: 0, winners: 0 }, rescored: true };
+  writeReport(results, c, meta);
+  log(`rescored ${results.length}, passed ${results.filter((r) => r.gates.pass).length}`);
+  return { rescored: results.length, passed: results.filter((r) => r.gates.pass).length };
 }
 
 async function analyze({ log = console.error, only = null, concurrency = 4 } = {}) {
@@ -134,8 +185,8 @@ async function analyze({ log = console.error, only = null, concurrency = 4 } = {
         const r = await analyzeWallet(g, address, c, u.wallets[address]);
         r.via = via;
         results.push(r);
-        const d = r.backtest.byDelay[c.final.delayForGates] || {};
-        log(`  ${address.slice(0, 8)} ${via.padEnd(7)} trades ${r.tradesPulled} closed ${r.stats.closed} walletROI ${pct(r.backtest.walletFills.roi)} copyROI@${c.final.delayForGates} ${pct(d.roi)} ${r.gates.pass ? 'PASS' : 'fail'} (${Math.round((Date.now() - t0) / 1000)}s)`);
+        const d = view(r.backtest, c.final).byDelay[c.final.delayForGates] || {};
+        log(`  ${address.slice(0, 8)} ${via.padEnd(7)} trades ${r.tradesPulled} closed ${r.stats.closed} walletROI ${pct(view(r.backtest, c.final).fills.roi)} copyROI@${c.final.delayForGates} ${pct(d.roi)} ${r.gates.pass ? 'PASS' : 'fail'} (${Math.round((Date.now() - t0) / 1000)}s)`);
       } catch (e) {
         log(`  ${address.slice(0, 8)} error: ${e.message}`);
       }
@@ -151,4 +202,4 @@ async function analyze({ log = console.error, only = null, concurrency = 4 } = {
   return { meta, analyzed: results.length, passed: results.filter((r) => r.gates.pass).length };
 }
 
-module.exports = { analyze, prescreen, finalGates, loadCriteria };
+module.exports = { analyze, rescore, prescreen, finalGates, loadCriteria };

@@ -104,10 +104,32 @@ async function runnerTokens(g, { minAthMcap = 1_000_000, max = 60 } = {}) {
   return [...seen.values()].sort((a, b) => b.athMcap - a.athMcap).slice(0, max);
 }
 
+// Snowball: runners taken from analyzed wallets' own big wins (>= minRoi on a
+// real-size position) over the history window. Reaches tokens that ran days or
+// weeks ago, which today's trending lists no longer show.
+function snowballTokens({ minRoi = 2, minCostUsd = 100, max = 80 } = {}) {
+  const dir = path.join(DATA, 'results');
+  const seen = new Map();
+  for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+    let r;
+    try { r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { continue; }
+    for (const p of r.positions || []) {
+      if (p.status !== 'closed' || p.roi < minRoi || p.costUsd < minCostUsd || NOT_MEMES.has(String(p.symbol).toUpperCase())) continue;
+      const t = seen.get(p.token) || { address: p.token, symbol: p.symbol, athMcap: null, openTs: null, foundVia: [] };
+      t.foundVia.push(r.address);
+      seen.set(p.token, t);
+    }
+  }
+  return [...seen.values()].sort((a, b) => b.foundVia.length - a.foundVia.length).slice(0, max);
+}
+
 async function winnersIntersection(g, u, log, opts = {}) {
   resetSource(u, 'winners');
-  const tokens = await runnerTokens(g, opts);
-  log(`  winners: ${tokens.length} runner tokens`);
+  const trending = await runnerTokens(g, opts);
+  const known = new Set(trending.map((t) => t.address));
+  const snow = snowballTokens().filter((t) => !known.has(t.address));
+  const tokens = [...trending, ...snow];
+  log(`  winners: ${trending.length} trending runners + ${snow.length} snowball runners`);
   let hits = 0;
   for (const t of tokens) {
     let traders = [];

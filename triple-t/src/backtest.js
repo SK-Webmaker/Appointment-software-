@@ -13,6 +13,9 @@ const { median } = require('./positions');
 
 const DEFAULTS = {
   sizeUsd: 100,
+  // fixed: every copy is sizeUsd. proportional: sizeUsd scaled by their size
+  // vs their median size (clamped), the way copy bots' "follow ratio" works.
+  propClamp: [0.25, 4],
   delays: [1, 3, 10, 30],
   slippage: 0.02, // 2% worse than the candle on every fill
   feePct: 0.01, // platform fee per side (Axiom / fomo / bots are ~0.75-1%)
@@ -68,13 +71,13 @@ function summarizeTrades(trades) {
 const round = (x, d = 2) => (x == null || !isFinite(x) ? x : Math.round(x * 10 ** d) / 10 ** d);
 
 // Simulate one position at one delay. `px(ts, walletPrice)` gives a fill price.
-async function simulate(p, delay, cfg, px, markPrice) {
+async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
   const fee = (usd) => usd * cfg.feePct + cfg.fixedFeeUsd;
   const entry = await px(p.openTs + delay, p.entryPriceUsd);
   if (!(entry > 0)) return null;
   const buyPrice = entry * (1 + cfg.slippage);
-  let tokens = cfg.sizeUsd / buyPrice;
-  let cash = -cfg.sizeUsd - fee(cfg.sizeUsd);
+  let tokens = size / buyPrice;
+  let cash = -size - fee(size);
   // Wallet holdings over time, so each of their sells maps to a fraction.
   const events = [...p.buys.slice(1).map((b) => ({ ...b, side: 'buy' })), ...p.sells.map((s) => ({ ...s, side: 'sell' }))].sort((a, b) => a.ts - b.ts);
   let held = p.buys[0].amount, endTs = p.openTs;
@@ -96,7 +99,7 @@ async function simulate(p, delay, cfg, px, markPrice) {
     const usd = tokens * (markPrice || 0) * (1 - cfg.slippage);
     cash += usd - (usd > 0 ? fee(usd) : 0);
   }
-  return { token: p.token, symbol: p.symbol, cost: cfg.sizeUsd, pnl: cash, closed, startTs: p.openTs, endTs };
+  return { token: p.token, symbol: p.symbol, cost: size, pnl: cash, closed, startTs: p.openTs, endTs };
 }
 
 // positions: from buildPositions. marks: optional { token: latestPriceUsd }.
@@ -105,25 +108,33 @@ async function backtestPositions(g, positions, opts = {}) {
   const cfg = { ...DEFAULTS, ...rest };
   const tape = new PriceTape(g);
   const usable = positions.filter((p) => p.costUsd >= cfg.minWalletCostUsd && p.buys.length && p.entryPriceUsd > 0);
-  const result = { config: cfg, positions: usable.length, byDelay: {} };
+  const medCost = median(usable.map((p) => p.costUsd)) || 1;
+  const sizeFor = {
+    fixed: () => cfg.sizeUsd,
+    proportional: (p) => cfg.sizeUsd * Math.min(cfg.propClamp[1], Math.max(cfg.propClamp[0], p.costUsd / medCost)),
+  };
+  const result = { config: cfg, positions: usable.length, walletFills: {}, byDelay: {}, byDelayProportional: {} };
 
-  // Baseline: the wallet's own fill prices at our size and fees.
-  const own = [];
-  for (const p of usable) {
-    const t = await simulate(p, 0, { ...cfg, slippage: 0 }, async (_ts, walletPx) => walletPx, marks[p.token]);
-    if (t) own.push(t);
-  }
-  result.walletFills = summarizeTrades(own);
-
-  for (const d of cfg.delays) {
-    const trades = [];
+  for (const mode of ['fixed', 'proportional']) {
+    // Baseline: the wallet's own fill prices at our size and fees.
+    const own = [];
     for (const p of usable) {
-      const t = await simulate(p, d, cfg, (ts, walletPx) => tape.priceAt(p.token, ts, walletPx), marks[p.token]);
-      if (t) trades.push(t);
+      const t = await simulate(p, 0, { ...cfg, slippage: 0 }, async (_ts, walletPx) => walletPx, marks[p.token], sizeFor[mode](p));
+      if (t) own.push(t);
     }
-    result.byDelay[`${d}s`] = summarizeTrades(trades);
-    result.byDelay[`${d}s`].edgeRetained = result.walletFills.pnlUsd > 0 ? round(result.byDelay[`${d}s`].pnlUsd / result.walletFills.pnlUsd, 3) : null;
-    if (d === cfg.delays[0]) result.trades = trades; // keep one trade list for inspection
+    const base = summarizeTrades(own);
+    result.walletFills[mode] = base;
+    const out = mode === 'fixed' ? result.byDelay : result.byDelayProportional;
+    for (const d of cfg.delays) {
+      const trades = [];
+      for (const p of usable) {
+        const t = await simulate(p, d, cfg, (ts, walletPx) => tape.priceAt(p.token, ts, walletPx), marks[p.token], sizeFor[mode](p));
+        if (t) trades.push(t);
+      }
+      out[`${d}s`] = summarizeTrades(trades);
+      out[`${d}s`].edgeRetained = base.pnlUsd > 0 ? round(out[`${d}s`].pnlUsd / base.pnlUsd, 3) : null;
+      if (mode === 'fixed' && d === cfg.delays[0]) result.trades = trades; // one trade list for inspection
+    }
   }
   result.candleCalls = tape.calls;
   result.priceMisses = tape.misses;

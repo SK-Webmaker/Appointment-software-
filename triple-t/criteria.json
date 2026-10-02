@@ -3,7 +3,7 @@
 
   "prescreen": {
     "_about": "Cheap gates on GMGN leaderboard stats, used only to choose which wallets get a full history pull and backtest.",
-    "excludeTags": ["wash_trader", "sandwich_bot", "snipe_bot"],
+    "excludeTags": ["wash_trader", "sandwich_bot", "snipe_bot", "top_dev"],
     "maxHoursSinceActive": 72,
     "minBuys30d": 20,
     "maxTxs30d": 3000,
@@ -22,12 +22,14 @@
     "delays": [1, 3, 10, 30],
     "slippage": 0.02,
     "feePct": 0.01,
-    "fixedFeeUsd": 0.3
+    "fixedFeeUsd": 0.3,
+    "propClamp": [0.25, 4]
   },
 
   "final": {
     "_about": "Gates on the wallet's own reconstructed history and on the copy backtest at `delayForGates` seconds.",
     "delayForGates": "3s",
+    "sizing": "best",
     "minClosedPositions": 15,
     "minProfitFactor": 1.5,
     "maxBestTradeShareOfProfit": 0.5,
