@@ -90,10 +90,17 @@ function finalGates(stats, bt, f) {
 
 const labelOf = (w) => (w && ((w.gmgn && (w.gmgn.twitter_username || w.gmgn.name)) || (w.kolscan && w.kolscan.name) || (w.fomo && w.fomo.handle))) || null;
 
+// Generic backtest settings with the chosen bot's costs and guards on top.
+function backtestConfig(c, marks) {
+  const { _about, ...profile } = (c.bots || {})[c.backtest.bot] || {};
+  const { _about: _a, bot, ...base } = c.backtest;
+  return { ...base, ...profile, marks };
+}
+
 // Backtest + gates from positions, and write the result file.
 async function evaluate(g, address, positions, marks, c, w, extra) {
   const stats = walletStats(positions);
-  const bt = await backtestPositions(g, positions, { ...c.backtest, marks });
+  const bt = await backtestPositions(g, positions, backtestConfig(c, marks));
   const gates = finalGates(stats, bt, c.final);
   const out = {
     address, label: labelOf(w), analyzedAt: new Date().toISOString(), ...extra,
@@ -133,7 +140,8 @@ function writeReport(results, c, meta) {
     '# Triple T report',
     '',
     `Generated ${meta.generatedAt}. Universe ${meta.universe} wallets; prescreen eligible ${meta.eligible.stats} by stats + ${meta.eligible.winners} repeat winners; ${results.length} analyzed over the last ${c.history.days} days.`,
-    `Copy simulation: $${c.backtest.sizeUsd} per entry (fixed) or scaled by their size (proportional, x${c.backtest.propClamp ? c.backtest.propClamp.join('-x') : '0.25-x4'}), ${+(c.backtest.slippage * 100).toFixed(2)}% slippage per fill, ${+(c.backtest.feePct * 100).toFixed(2)}% fee per side + $${c.backtest.fixedFeeUsd}/tx. Gates use ${c.final.sizing || 'fixed'} sizing at ${gd}. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
+    `Bot: ${c.backtest.bot || 'generic'}${(() => { const b = backtestConfig(c, {}); return ` (max chase ${b.maxChase == null ? 'off' : `${b.maxChase * 100}%`}, min trader buy $${b.minTraderBuyUsd || 0}, min ticket $${b.minTicketUsd || 0})`; })()}.`,
+    `Copy simulation: $${backtestConfig(c, {}).sizeUsd} per entry (fixed) or scaled by their size (proportional, x${c.backtest.propClamp ? c.backtest.propClamp.join('-x') : '0.25-x4'}), ${+(backtestConfig(c, {}).slippage * 100).toFixed(2)}% slippage per fill, ${+(backtestConfig(c, {}).feePct * 100).toFixed(2)}% fee per side + $${backtestConfig(c, {}).fixedFeeUsd}/tx. Gates use ${c.final.sizing || 'fixed'} sizing at ${gd}. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
     '',
     `| # | Wallet | Who | Pass | Closed | Win | PF | Med hold | Med size | Wallet ROI | ${delays.map((d) => `Copy @${d}`).join(' | ')} | Prop. copy @${gd} | Edge kept @${gd} | Failed gates |`,
     `|---|---|---|---|---|---|---|---|---|---|${delays.map(() => '---').join('|')}|---|---|---|`,

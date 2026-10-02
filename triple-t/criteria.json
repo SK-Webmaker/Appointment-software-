@@ -18,13 +18,35 @@
   "history": { "days": 14, "maxPages": 60 },
 
   "backtest": {
-    "_about": "User setup: instant copy bot, ~$20 on it. sizeUsd / feePct / fixedFeeUsd to be set from the bot's real settings.",
+    "_about": "Generic copy model. The profile named in `bot` overrides these with that bot's real costs and guards.",
+    "bot": "copyfomo",
     "sizeUsd": 2,
     "delays": [1, 3, 10, 30],
     "slippage": 0.005,
     "feePct": 0.01,
     "fixedFeeUsd": 0.05,
     "propClamp": [0.25, 4]
+  },
+
+  "bots": {
+    "copyfomo": {
+      "_about": "Telegram bot copying fomo traders (SOL + Robinhood chain + Base + BNB). 2% per buy and per sell (docs, hidden since 2026-09-08: confirm on the bot's confirmation screen), network cost passed through, copies from $3. maxChase / minTraderBuyUsd are its settings; values are provisional until validated out of sample.",
+      "sizeUsd": 5,
+      "feePct": 0.02,
+      "fixedFeeUsd": 0.02,
+      "minTicketUsd": 3,
+      "maxChase": 0.10,
+      "minTraderBuyUsd": 50
+    },
+    "gmgn": {
+      "_about": "GMGN copy trade: any Solana wallet, max 10. 1% per buy and per sell plus a priority fee you set (0.001 SOL ~ $0.12 here). No max-chase guard.",
+      "sizeUsd": 5,
+      "feePct": 0.01,
+      "fixedFeeUsd": 0.12,
+      "minTicketUsd": 0,
+      "maxChase": null,
+      "minTraderBuyUsd": 0
+    }
   },
 
   "final": {

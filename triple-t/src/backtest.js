@@ -22,6 +22,11 @@ const DEFAULTS = {
   fixedFeeUsd: 0.3, // priority fee + Jito tip per transaction
   windowSec: 64,
   minWalletCostUsd: 5, // ignore dust test buys
+  // Copy-bot guards, as copyfomo / GMGN expose them. null / 0 = off.
+  maxChase: null, // skip the copy when our entry is more than this above their fill (0.25 = 25%)
+  minTraderBuyUsd: 0, // ignore their buys smaller than this ("minimum trade")
+  mcapBand: null, // [min, max] market cap at their entry; null on either side = open
+  minTicketUsd: 0, // the bot's smallest copy (copyfomo: $3)
 };
 
 class PriceTape {
@@ -75,6 +80,9 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
   const fee = (usd) => usd * cfg.feePct + cfg.fixedFeeUsd;
   const entry = await px(p.openTs + delay, p.entryPriceUsd);
   if (!(entry > 0)) return null;
+  // Max chase: the bot refuses a fill too far above the trader's own.
+  if (cfg.maxChase != null && entry > p.entryPriceUsd * (1 + cfg.maxChase)) return { skipped: true };
+  size = Math.max(size, cfg.minTicketUsd || 0);
   const buyPrice = entry * (1 + cfg.slippage);
   let tokens = size / buyPrice;
   let cash = -size - fee(size);
@@ -107,7 +115,11 @@ async function backtestPositions(g, positions, opts = {}) {
   const { marks = {}, ...rest } = opts;
   const cfg = { ...DEFAULTS, ...rest };
   const tape = new PriceTape(g);
-  const usable = positions.filter((p) => p.costUsd >= cfg.minWalletCostUsd && p.buys.length && p.entryPriceUsd > 0);
+  const band = cfg.mcapBand || [null, null];
+  const inBand = (m) => (band[0] == null || m >= band[0]) && (band[1] == null || m <= band[1]);
+  const usable = positions.filter((p) => p.costUsd >= cfg.minWalletCostUsd && p.buys.length && p.entryPriceUsd > 0
+    && p.buys[0].usd >= (cfg.minTraderBuyUsd || 0)
+    && (!cfg.mcapBand || (p.entryMcapUsd > 0 && inBand(p.entryMcapUsd))));
   const medCost = median(usable.map((p) => p.costUsd)) || 1;
   const sizeFor = {
     fixed: () => cfg.sizeUsd,
@@ -119,7 +131,7 @@ async function backtestPositions(g, positions, opts = {}) {
     // Baseline: the wallet's own fill prices at our size and fees.
     const own = [];
     for (const p of usable) {
-      const t = await simulate(p, 0, { ...cfg, slippage: 0 }, async (_ts, walletPx) => walletPx, marks[p.token], sizeFor[mode](p));
+      const t = await simulate(p, 0, { ...cfg, slippage: 0, maxChase: null }, async (_ts, walletPx) => walletPx, marks[p.token], sizeFor[mode](p));
       if (t) own.push(t);
     }
     const base = summarizeTrades(own);
@@ -127,11 +139,13 @@ async function backtestPositions(g, positions, opts = {}) {
     const out = mode === 'fixed' ? result.byDelay : result.byDelayProportional;
     for (const d of cfg.delays) {
       const trades = [];
+      let skipped = 0;
       for (const p of usable) {
         const t = await simulate(p, d, cfg, (ts, walletPx) => tape.priceAt(p.token, ts, walletPx), marks[p.token], sizeFor[mode](p));
-        if (t) trades.push(t);
+        if (t && t.skipped) skipped++;
+        else if (t) trades.push(t);
       }
-      out[`${d}s`] = summarizeTrades(trades);
+      out[`${d}s`] = { ...summarizeTrades(trades), skippedByChase: skipped };
       out[`${d}s`].edgeRetained = base.pnlUsd > 0 ? round(out[`${d}s`].pnlUsd / base.pnlUsd, 3) : null;
       if (mode === 'fixed' && d === cfg.delays[0]) result.trades = trades; // one trade list for inspection
     }

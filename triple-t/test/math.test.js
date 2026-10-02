@@ -82,3 +82,26 @@ test('backtest: wallet fills baseline and delayed copy with costs', async () => 
   assert.ok(Math.abs(r.byDelay['3s'].pnlUsd - Math.round(expected * 100) / 100) < 0.011);
   assert.ok(r.byDelay['3s'].edgeRetained < 1 && r.byDelay['3s'].edgeRetained > 0.5);
 });
+
+test('backtest guards: max chase skips, min trader buy and mcap band filter', async () => {
+  const { positions } = buildPositions([
+    trade(1000, 'buy', T, 100, 1), trade(1100, 'sell', T, 100, 2), // their buy $100
+    trade(2000, 'buy', U, 5, 1), trade(2100, 'sell', U, 5, 2), // their buy $5
+  ]);
+  const candles = { 1000: 1, 1001: 1.5, 1100: 2, 1101: 2, 2000: 1, 2001: 1.05, 2100: 2, 2101: 2 };
+  const g = { async get(path) {
+    const q = new URLSearchParams(path.split('?')[1]);
+    const from = q.get('from') / 1000, to = q.get('to') / 1000;
+    return { list: Object.entries(candles).filter(([t]) => t >= from && t <= to).map(([t, px]) => ({ time: t * 1000, open: px, high: px, low: px, close: px, volume: 1 })) };
+  } };
+  const base = { sizeUsd: 3, delays: [1], slippage: 0, feePct: 0, fixedFeeUsd: 0, minWalletCostUsd: 1 };
+  let r = await backtestPositions(g, positions, { ...base, maxChase: 0.25 });
+  assert.equal(r.byDelay['1s'].skippedByChase, 1); // T ran 50% before our fill
+  assert.equal(r.byDelay['1s'].trades, 1);
+  r = await backtestPositions(g, positions, { ...base, minTraderBuyUsd: 20 });
+  assert.equal(r.positions, 1); // their $5 probe is ignored
+  r = await backtestPositions(g, positions, { ...base, mcapBand: [2e9, null] });
+  assert.equal(r.positions, 0); // both entries were at a $1b cap
+  r = await backtestPositions(g, positions, { ...base, sizeUsd: 1, minTicketUsd: 3 });
+  assert.equal(r.byDelay['1s'].deployedUsd, 6); // two copies, each lifted to $3
+});
