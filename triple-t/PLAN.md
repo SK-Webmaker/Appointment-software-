@@ -12,7 +12,7 @@ Plan artifact. This section is the same thing in short.
 
 | Pot | Amount | What it does |
 |---|---|---|
-| **GMGN copy bot** | **$35** (about 0.29 SOL) | Copies **3 wallets: picks #1, #4 and #5 in `PICKS.md`**, $2 per copy |
+| **GMGN copy bot** | **$35** (about 0.29 SOL) | Copies **3 wallets from the 2 Oct re-check** (listed in the Triple T Plan artifact, kept off GitHub), $2 per copy |
 | **Your own trades on FOMO** | **$13** | $4 a trade, at most 3 open (section 5) |
 | copyfomo | $0 | No fomo trader passes every rule (see "FOMO traders" below) |
 
@@ -21,9 +21,9 @@ wallet; when it buys, GMGN buys $2 of the same coin for you seconds later, and
 when it sells, GMGN sells the same share of yours. Each buy and sell pays 1% to
 GMGN plus the priority fee.
 
-**Why $2 and 0.0002 SOL.** Over the latest 14 days these three wallets kept up
-to about $21 in coins at once at $2 per copy (about $29 at $3), so $2 leaves a
-buffer inside $35. At 0.0002 SOL priority a $2 copy costs 2.2% per side, the
+**Why $2 and 0.0002 SOL.** Over the latest 14 days the three wallets kept up
+to about $22 in coins at once at $2 per copy, so $2 leaves a buffer inside
+$35. At 0.0002 SOL priority a $2 copy costs 2.2% per side, the
 same share as the $3 / 0.0003 SOL setup the forward test used.
 
 **Set up in GMGN, once per wallet (3 copy tasks).** Log in with Telegram, open
@@ -35,11 +35,12 @@ the wallet's page (gmgn.ai/sol/address/WALLET), tap Copy Trade, then:
 5. Min copy amount 0.4 SOL.
 6. Single coin position increase times 0. Everything else empty.
 
-**What to expect.** In the forward test the picks made about +5.5% per copy
-after fees (range roughly -1% to +14%). At $2 and about 23 copies a day that is
-roughly +$2.50 a day (range -$0.50 to +$6), with down days of $3 to $5. Live
-results will likely come in below the test. The first two weeks are about
-checking that live copies match the backtest before any more money goes in.
+**What to expect.** Two forward tests on 2 Oct gave +5.5% and +0.9% per copy
+after fees, with 4 of 9 and 4 of 10 wallets in profit (section 7). At $2 and
+about 19 copies a day that's roughly -$1 to +$2 a day, and break-even is a real
+possibility. The $25 stop line caps the loss at about $10. The first two weeks
+are a live test: with the user's public wallet address, compare real copies
+with the backtest every week.
 
 **Three wallets is thin.** The test used 10, and single wallets were close to a
 coin flip. Expect bigger swings, and expect me to swap wallets at the weekly
@@ -279,8 +280,8 @@ behind, in a 14-day period the rules never saw.
 
 What that means:
 
-- **The rules beat random wallets by roughly 10 to 17 points in every run.** That
-  gap is the edge.
+- **The rules beat random wallets by roughly 10 to 17 points in the morning
+  runs.** The afternoon re-run below did not confirm it.
 - **Individual wallets are close to a coin flip.** About half the picks lost in
   their next fortnight; the group still made money. That's why it's 10 wallets at a
   small size, not 2 wallets at a big one, and why there's a weekly swap.
@@ -290,6 +291,43 @@ What that means:
 - **Expect less live.** The pool only contains wallets that are active and
   profitable today, which flatters every group in the test. Real copies also
   fail sometimes and can land later than 1 to 3 seconds.
+
+### Re-run on 2 Oct (afternoon, fresh data, $2 copies at 0.0002 SOL)
+
+| Picked by | Copy result over the next 14 days |
+|---|---|
+| Triple T rules | +0.9% per copy (3s late: +0.8%), 4 of 10 wallets in profit |
+| Last fortnight's biggest earners | +24% (206 copies; without the best trade, a loss) |
+| Random wallets from the pool | +5.1% (this morning's random sample: -6%) |
+
+Swapping two or three wallets moved the Triple T group from +5.5% to +0.9%, and
+a different random sample swung from -6% to +5%. A few big winners decide each
+fortnight.
+
+**What predicted the next fortnight's copy profit?** For the 77 backtested
+wallets with 10+ copies in the newer 14 days, the rank correlation between each
+older-14-day trait and newer-14-day copy ROI (3s late) was weak for every trait:
+green days 0.19, closed trades -0.18, hold time -0.11, win rate 0.08, past copy
+ROI 0.08, the rest closer to 0. Wallets that passed every rule on the older 14
+days had a median of -0.6% per copy afterwards; the other wallets in the sample
+(all already active and profitable) had +1.2%. With n = 77, none of this is
+significant.
+
+What that changes:
+
+- The rules still do their job as filters: they throw out bots, wash traders,
+  dumpers (price jumping after their buys) and wallets too fast to copy. They
+  do not reliably pick next fortnight's winners, and the earlier "beats random
+  by 10 to 17 points" did not hold up on fresh data.
+- With $35, the 3 wallets were chosen on things that matter whatever the
+  prediction: the only wallet proven out of sample (passed the rules on the
+  older 14 days, copied at +27% over the newer 14, still passes now), copy
+  results that hold up 10 seconds late (a low priority fee can slow fills),
+  little coin overlap between the three, few rugged copies, and a combined
+  cash need that fits ($22 at most at $2 a copy).
+- Wallet clusters found in the re-check: four wallets share 74-95% of their
+  coins (one trader or a copy cluster), two more pairs share 85-91%. Only one
+  wallet per cluster is ever used.
 
 ## 8. What I can't verify yet
 
