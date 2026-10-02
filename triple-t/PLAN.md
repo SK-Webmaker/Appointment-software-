@@ -66,7 +66,8 @@ win.
 ## 2. The rules (what a wallet must show)
 
 All checks run on the wallet's last 28 days of real trades. Thresholds live in
-`criteria.json`.
+`criteria.json`. Version 2 = the videos' rules, your rules, and what the data
+showed actually predicts a wallet *still* winning the following week.
 
 | # | Rule | Why | Threshold |
 |---|---|---|---|
@@ -76,33 +77,41 @@ All checks run on the wallet's last 28 days of real trades. Thresholds live in
 | 3 | Profitable over 30 days | | |
 | 4 | **Niche: 5,000 GMGN followers or fewer** | Your rule: crowded wallets get front-run and dump on followers | |
 | | **Can it be copied?** | | |
-| 5 | Median hold 3 minutes or more | Second-flips are over before a copy lands | |
-| 6 | 30% or fewer trades closed inside 60 seconds | Same | |
-| 7 | Typical entry at $30K+ market cap | Graduated coins, not launch snipes (videos: migrated filter ~$35K) | |
+| 5 | Median hold 1 minute to 2 hours | Under a minute is over before a copy lands; over 2 hours went cold the next week (only 26% stayed positive) | |
+| 6 | Half or fewer trades closed inside 60 seconds | Same | |
+| 7 | Typical entry $10K to $1M market cap | Below $10K is launch sniping a copy can't match; above $1M went cold the next week (39% positive) | |
 | 8 | 25 coins a day or fewer | Pros: "10 to 20 tokens a day, be selective" | |
-| 9 | Their typical buy is $50 to $10K | Small buys are probes; huge buys are their own pump | |
-| | **Is the edge real?** | | |
+| 9 | Their typical buy is $50 to $1,000 | Small buys are probes; $50-200 buyers held up best (71% vs 50%) | |
+| | **Is the edge real, and does it last?** | | |
 | 10 | 20+ closed trades | Enough proof | |
-| 11 | Profit factor 1.5+ (winners pay for losers 1.5 times over) | "Win rate doesn't matter, winners must be bigger" | |
-| 12 | Still profitable without their single best trade | One lucky 100x isn't a strategy | |
-| 13 | Green on half or more of their trading days | Consistency | |
-| 14 | Trades on 5+ different days | "Show up every day" | |
-| 15 | Mostly meme coins | That's the game | 50%+ launchpad coins |
+| 11 | **Win rate 45% or more** | Best single predictor of still winning next week: 60%+ win rate, 90% stayed positive; under 30%, 43% | |
+| 12 | **Green on 60%+ of trading days** | 65%+ green: 77% stayed positive; under 40%: 44% | |
+| 13 | **No single trade is more than half the profit** | Spread-out profit held up (70-100% positive); one-hit wallets were a coin flip | |
+| 14 | Profit factor 1.5+ | Winners pay for losers; 5+ was the strongest band | |
+| 15 | Trades on 5+ different days; mostly meme coins | Consistency; that's the game | |
 | | **Not dumping on followers** (your rule) | | |
 | 16 | Price jumps 15% or less between their buy and 3 seconds later | A big jump means bots and followers pile in behind them | median |
-| 17 | **Copying them made money**: +5% or better copied 1 second late, still profitable 3 seconds late, with the bot's fees and guards | The test that matters. If they win while copiers lose, followers are their exit | 10+ copies |
+| 17 | **Copying them did not lose money**: 1s and 3s late, with the bot's real fees and guards | If they win while copiers lose, followers are their exit | 10+ copies |
 | | **The final 10** | | |
-| 18 | Best copy results first; at most 2 well-known wallets | Your rule: a few known names are fine, most should be niche | well-known = 1,000+ GMGN followers, KOL tag, or 10K+ fomo followers |
+| 18 | Ranked by win rate x green days x sample size; at most 2 well-known wallets | Past copy profit did *not* predict future copy profit (correlation -0.06), the traits above did | well-known = 1,000+ GMGN followers, KOL tag, or 10K+ fomo followers |
 
 "US wallets" (your note): wallets have no country, so I read this as famous
 / KOL wallets and capped them at 2 of 10 (rule 18). Tell me if you meant
 something else.
 
+**Where the data disagrees with the pros.** "Win rate doesn't matter" is true
+for *making* money: winners must be bigger than losers. But for *choosing who
+to follow*, win rate was the most reliable sign that a trader would keep
+winning. And the fastest traders, who hold under a minute and buy under $10K,
+had the most persistent edge of all, but it's an edge you can't copy: the
+price is already up when your copy lands.
+
 **The proof step.** The same rules are run using only the *older* 14 days of
 data. Those picks are then copied over the *newer* 14 days, which the
 rules never saw. That's compared with copying last fortnight's biggest
-earners, and with copying random wallets. Results are at the top of
-`PICKS.md`.
+earners, and with copying random wallets. The v2 traits were chosen from week
+1 vs week 2 of the older half only, so this test stays honest. Results are at
+the top of `PICKS.md`.
 
 ## 3. Bot settings
 
@@ -112,7 +121,7 @@ earners, and with copying random wallets. Results are at the top of
 |---|---|---|
 | Sizing | Fixed, $5 per copy | Above the $3 minimum, fees stay a % |
 | Minimum trade to follow | $50 | Ignore their probe buys (rule 9) |
-| Market cap band | Min $30K, max off | Rule 7 |
+| Market cap band | Off | Rule 7 already picks traders who buy in the $10K to $1M range; the per-trade filter wasn't tested |
 | First buys only | On | The backtest copies their first buy only |
 | Max chase | 10% | The single best setting in testing: skips copies that would land after the pump |
 | Max impact | Off | |
@@ -131,7 +140,7 @@ earners, and with copying random wallets. Results are at the top of
 | Priority fee | 0.001 SOL (GMGN's suggested 0.002 to 0.006 eats small trades) |
 | Anti-MEV | Off; Lightning mode off (it can copy trades that never happened) |
 | Min copy amount | Their buy of about $50 or more |
-| Market cap min | $30K |
+| Market cap limit | Off (not tested; rule 7 covers it) |
 | Single coin position increase times | 0 (first buys only) |
 
 ## 4. Daily routine (about 20 minutes, all on your phone)

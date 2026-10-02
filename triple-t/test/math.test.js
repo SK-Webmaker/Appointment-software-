@@ -166,3 +166,15 @@ test('walletTrades: covered windows are not truncated, page caps are', async () 
   await walletTrades(g, 'W2', { days: 28, maxPages: 5 });
   assert.equal(g.calls, before); // remembered as too active, no refetch
 });
+
+test('v2 rules: win rate, long holds, big caps, one-trade profit', () => {
+  const c = { minClosed: 20, minWinRate: 0.45, minMedianHoldSec: 60, maxMedianHoldSec: 7200, maxShareHeldUnder60s: 0.5,
+    minMedianEntryMcapUsd: 10000, maxMedianEntryMcapUsd: 1e6, maxPositionsPerDay: 25, firstBuyUsd: [50, 1000],
+    minProfitFactor: 1.5, maxBestTradeShareOfProfit: 0.5, minGreenDayShare: 0.6, minTradingDays: 5, minLaunchpadShare: 0.5 };
+  const good = { closed: 40, winRate: 0.55, medianHoldSec: 600, shareHeldUnder60s: 0.2, medianEntryMcapUsd: 80000, positionsPerDay: 6,
+    medianFirstBuyUsd: 150, profitFactor: 2.5, totalRealizedPnlUsd: 900, bestTradeShareOfProfit: 0.3, greenDayShare: 0.7, tradingDays: 12, launchpadShare: 0.9 };
+  assert.deepEqual(walletFails(good, c), []);
+  const swing = { ...good, medianHoldSec: 20000, medianEntryMcapUsd: 3e6, winRate: 0.3, bestTradeShareOfProfit: 0.8 };
+  assert.deepEqual(walletFails(swing, c).map((f) => f.name), ['holds too long', 'win rate', 'buys big caps', 'one trade is the profit']);
+  assert.deepEqual(walletFails({ ...good, totalRealizedPnlUsd: -5, bestTradeShareOfProfit: null }, c).map((f) => f.name), ['one trade is the profit']);
+});

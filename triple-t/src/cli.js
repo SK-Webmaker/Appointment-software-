@@ -6,6 +6,7 @@
 //   node src/cli.js fomo-import <export.json>           merge a fomo export into the universe
 //   node src/cli.js copyfomo                            match copyfomo's public trader pages to known wallets
 //   node src/cli.js hunt [--concurrency=5]              criteria.json end to end -> PICKS.md (+ forward test)
+//   node src/cli.js report                              re-render PICKS.md from the last hunt
 const { discover, loadUniverse, summarize } = require('./discover');
 
 async function main() {
@@ -29,11 +30,14 @@ async function main() {
     const { hunt } = require('./hunt');
     const r = await hunt({ concurrency: Number(flag('concurrency') || 5) });
     console.log(JSON.stringify({ funnel: r.funnel, proof: r.proof, picks: r.picks.map((p) => p.address) }, null, 2));
+  } else if (cmd === 'report') {
+    const r = require('./hunt').report();
+    console.log(`PICKS.md written: ${r.picks.length} picks${r.fomoPick ? ' + 1 copyfomo pick' : ''}`);
   } else if (cmd === 'fomo-import') {
     const { importFomoExport } = require('./fomo');
     console.log(JSON.stringify(importFomoExport(args[0]), null, 2));
   } else {
-    console.log('usage: node src/cli.js discover|summary|copyfomo|hunt|gmgn <path>|fomo-import <file>');
+    console.log('usage: node src/cli.js discover|summary|copyfomo|hunt|report|gmgn <path>|fomo-import <file>');
     process.exitCode = 1;
   }
 }
