@@ -80,6 +80,7 @@ class Gmgn {
 
   // GET a GMGN API path ("/defi/..."), returning parsed JSON `data`.
   async get(path, { retries = 4 } = {}) {
+    let last = '';
     for (let attempt = 0; attempt <= retries; attempt++) {
       await this.throttle();
       this.calls++;
@@ -93,6 +94,7 @@ class Gmgn {
         }
       }, path).finally(() => this.release(page));
       if (this.verbose) console.error(`[gmgn] ${res.status} ${path.slice(0, 120)}`);
+      last = `${res.status} ${res.text.slice(0, 60).replace(/\s+/g, ' ')}`;
       if (res.status === 200) {
         let body;
         try { body = JSON.parse(res.text); } catch { body = null; }
@@ -105,7 +107,7 @@ class Gmgn {
       if (res.status === 429) this.next = Date.now() + 5000; // back off every tab
       await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
     }
-    throw new Error(`GMGN ${path}: gave up after ${retries + 1} attempts`);
+    throw new Error(`GMGN ${path}: gave up after ${retries + 1} attempts (last: ${last})`);
   }
 
   // Wallet leaderboard. period: 1d|7d|30d. Returns up to `limit` rows.

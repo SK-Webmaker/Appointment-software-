@@ -36,39 +36,63 @@ function slim(r) {
 }
 
 // Trades for `wallet` over the last `days`, newest first. Reuses the cache and
-// only fetches pages newer than what is already stored.
+// only fetches what it is missing. The cache records `coveredSince`: history is
+// complete from that timestamp to `fetchedAt`. `truncated` on the result means
+// the page budget ran out before reaching the start of the window (a wallet
+// trading more than maxPages x 50 times in it); that verdict is remembered for
+// a day so hyperactive wallets are not re-downloaded on every run.
 async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = true } = {}) {
   const file = path.join(ACT_DIR, `${wallet}.json`);
   const cached = readJson(file) || { wallet, trades: [], fetchedAt: null };
-  const sinceTs = Math.floor(Date.now() / 1000) - days * 86400;
-  const have = new Set(cached.trades.map((t) => t.tx + t.side + t.token));
-  const newestCached = cached.trades.length ? cached.trades[0].ts : 0;
-  const oldestCached = cached.trades.length ? cached.trades[cached.trades.length - 1].ts : Infinity;
-  const needBackfill = oldestCached > sinceTs && !cached.complete;
-  if (refresh || needBackfill) {
+  const now = Math.floor(Date.now() / 1000);
+  const sinceTs = now - days * 86400;
+  const fetchedTs = cached.fetchedAt ? Math.floor(Date.parse(cached.fetchedAt) / 1000) : 0;
+  // Caches written before coveredSince existed: their fetch either reached
+  // `days` back or stopped at the page cap with a full budget of rows.
+  if (cached.coveredSince == null && fetchedTs && cached.days) {
+    const start = fetchedTs - cached.days * 86400;
+    const inWindow = cached.trades.filter((t) => t.ts >= start).length;
+    if (cached.complete || inWindow < (maxPages - 1) * 50) cached.coveredSince = start;
+    else cached.tooActive = { at: fetchedTs, days: cached.days };
+  }
+  const result = () => {
+    const out = cached.trades.filter((t) => t.ts >= sinceTs);
+    out.truncated = !cached.complete && !(cached.coveredSince <= sinceTs);
+    return out;
+  };
+  if (cached.tooActive && cached.tooActive.days >= days && now - cached.tooActive.at < 86400) return result();
+
+  const covered = cached.complete || cached.coveredSince <= sinceTs;
+  if (refresh || !covered) {
+    const have = new Set(cached.trades.map((t) => t.tx + t.side + t.token));
+    const newestCached = cached.trades.length ? cached.trades[0].ts : 0;
     const fresh = [];
-    let cursor = null, done = false;
+    let cursor = null, done = false, reachedSince = false, oldestFetched = Infinity;
     for (let page = 0; page < maxPages && !done; page++) {
       const { rows, next } = await g.walletActivityPage(wallet, cursor);
       for (const r of rows.map(slim)) {
-        if (r.ts < sinceTs) { done = true; break; }
-        // Caught up with the cache and it already reaches back far enough.
-        if (have.has(r.tx + r.side + r.token) && !needBackfill && r.ts <= newestCached) { done = true; break; }
-        if (!have.has(r.tx + r.side + r.token)) fresh.push(r);
+        if (r.ts < sinceTs) { done = true; reachedSince = true; break; }
+        oldestFetched = Math.min(oldestFetched, r.ts);
+        const k = r.tx + r.side + r.token;
+        // Caught up with a cache that already reaches back far enough.
+        if (covered && have.has(k) && r.ts <= newestCached) { done = true; break; }
+        if (!have.has(k)) { fresh.push(r); have.add(k); }
       }
       if (!next || !rows.length) { done = true; cached.complete = true; }
       cursor = next;
     }
     cached.trades = [...fresh, ...cached.trades].sort((a, b) => b.ts - a.ts);
+    // Pages run contiguously back from now, so they cover back to what they reached.
+    if (reachedSince) cached.coveredSince = Math.min(cached.coveredSince ?? Infinity, sinceTs);
+    else if (!covered && oldestFetched < Infinity) cached.coveredSince = Math.min(cached.coveredSince ?? Infinity, oldestFetched);
     cached.fetchedAt = new Date().toISOString();
     cached.days = Math.max(cached.days || 0, days);
+    const out = result();
+    cached.tooActive = out.truncated ? { at: now, days } : undefined;
     writeJson(file, cached);
+    return out;
   }
-  const out = cached.trades.filter((t) => t.ts >= sinceTs);
-  // Page cap hit before reaching sinceTs: the window is only partly covered.
-  const oldest = cached.trades.length ? cached.trades[cached.trades.length - 1].ts : 0;
-  out.truncated = !cached.complete && oldest > sinceTs;
-  return out;
+  return result();
 }
 
 // 1-second candles for `token` covering [fromTs, toTs] (unix seconds). Only

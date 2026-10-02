@@ -138,3 +138,31 @@ test('choose caps well-known wallets', () => {
   const out = choose(xs, { count: 3, maxWellKnown: 2 });
   assert.deepEqual(out.map((x) => x.score), [5, 4, 2]);
 });
+
+const { walletTrades } = require('../src/history');
+
+test('walletTrades: covered windows are not truncated, page caps are', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  // A wallet with one trade an hour going back 60 days, served 50 per page.
+  const rows = Array.from({ length: 24 * 60 }, (_, i) => ({ timestamp: now - i * 3600, event_type: i % 2 ? 'sell' : 'buy', token: { address: 'M', symbol: 'M', total_supply: '1' }, token_amount: '1', cost_usd: '1', price_usd: '1', tx_hash: `tx${i}` }));
+  const fake = (rowsPerWallet) => ({ calls: 0, async walletActivityPage(_w, cursor) {
+    this.calls++;
+    const at = cursor ? Number(cursor) : 0;
+    const page = rowsPerWallet.slice(at, at + 50);
+    return { rows: page, next: at + 50 < rowsPerWallet.length ? String(at + 50) : null };
+  } });
+  let g = fake(rows);
+  let out = await walletTrades(g, 'W1', { days: 28, maxPages: 50 });
+  assert.equal(out.truncated, false); // 672 trades, reached the window start
+  assert.ok(out.length >= 671 && out.length <= 673);
+  const calls = g.calls;
+  out = await walletTrades(g, 'W1', { days: 28, maxPages: 50 });
+  assert.equal(out.truncated, false);
+  assert.equal(g.calls - calls, 1); // second run: one page to catch up
+  g = fake(rows);
+  out = await walletTrades(g, 'W2', { days: 28, maxPages: 5 });
+  assert.equal(out.truncated, true); // 250 rows cover ~10 days of 28
+  const before = g.calls;
+  await walletTrades(g, 'W2', { days: 28, maxPages: 5 });
+  assert.equal(g.calls, before); // remembered as too active, no refetch
+});
