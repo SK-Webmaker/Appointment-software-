@@ -16,27 +16,28 @@ const SHORT = process.env.WALLETS ? process.env.WALLETS.split(',') : deepAll.map
 let g = null; const lazy = { get: async (p) => { if (!g) g = await new Gmgn().open(); return g.get(p); } };
 const byPre = Object.fromEntries(deep.map((o) => [o.address.slice(0, 8), o]));
 const share = (a, b) => { const A = new Set(byPre[a].tokens), B = byPre[b].tokens; return B.filter((t) => A.has(t)).length / Math.min(A.size, B.length); };
-function sim(sets) { // sets: [{name, trades}]
+function sim(sets) { // sets: [{name, trades}]; cash moves at the copy's buy and at each copied sell
   const ev = [];
   for (const s of sets) for (const t of s.trades) ev.push({ ts: t.startTs, kind: 'buy', s: s.name, t });
   ev.sort((a, b) => a.ts - b.ts);
-  let cash = START, low = START, done = 0, failed = 0, pauses = 0; const fails = {}, pausedUntil = {}; const held = [];
-  const q = [...ev];
-  const sells = [];
-  for (const e of q) {
-    // settle sells that happened before this buy
-    sells.sort((a, b) => a.ts - b.ts);
-    while (sells.length && sells[0].ts <= e.ts) { const s = sells.shift(); cash += SIZE + s.t.pnl + RENT; s.t._open = false; }
+  let cash = START, low = START, done = 0, failed = 0, pauses = 0; const fails = {}, pausedUntil = {};
+  const pending = []; // [ts, usd] cash still to come from copies we hold
+  let lockedEnd = 0, openN = 0;
+  const settle = (ts) => { pending.sort((a, b) => a[0] - b[0]); while (pending.length && pending[0][0] <= ts) cash += pending.shift()[1]; };
+  for (const e of ev) {
+    settle(e.ts);
     if ((pausedUntil[e.s] || 0) > e.ts) { failed++; continue; }
-    if (cash >= SIZE + RENT + 0.01) {
-      cash -= SIZE + RENT; done++; fails[e.s] = 0; low = Math.min(low, cash);
-      const t = { ...e.t, _open: true }; held.push(t);
-      if (e.t.closed) sells.push({ ts: e.t.endTs, t });
+    const need = e.t.cost + (e.t.buyFee || 0) + RENT;
+    if (cash >= need) {
+      cash -= need; done++; fails[e.s] = 0; low = Math.min(low, cash);
+      const fills = e.t.fills || [];
+      for (const f of fills) pending.push([f[0], f[1]]);
+      if (e.t.closed) pending.push([(fills.length ? fills[fills.length - 1][0] : e.t.endTs), RENT]);
+      else { openN++; lockedEnd += e.t.pnl + e.t.cost + (e.t.buyFee || 0) - fills.reduce((x, f) => x + f[1], 0) + RENT; }
     } else { failed++; fails[e.s] = (fails[e.s] || 0) + 1; if (fails[e.s] >= 3) { pauses++; pausedUntil[e.s] = e.ts + 86400; fails[e.s] = 0; } }
   }
-  for (const s of sells) { cash += SIZE + s.t.pnl + RENT; s.t._open = false; }
-  const openVal = held.filter((t) => t._open).reduce((x, t) => x + SIZE + t.pnl, 0);
-  return { equity: cash + openVal + held.filter((t) => t._open).length * RENT, low, done, failed, pauses, open: held.filter((t) => t._open).length };
+  settle(Infinity);
+  return { equity: cash + lockedEnd, low, done, failed, pauses, open: openN };
 }
 (async () => {
   const marks = {}; const tr = {};

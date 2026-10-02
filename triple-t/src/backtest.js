@@ -93,6 +93,7 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
   // Wallet holdings over time, so each of their sells maps to a fraction.
   const events = [...p.buys.slice(1).map((b) => ({ ...b, side: 'buy' })), ...p.sells.map((s) => ({ ...s, side: 'sell' }))].sort((a, b) => a.ts - b.ts);
   let held = p.buys[0].amount, endTs = p.openTs;
+  const fills = []; // [ts, net cash] of each copied sell, for cash-flow replays
   for (const e of events) {
     if (e.side === 'buy') { held += e.amount; continue; }
     const frac = Math.min(1, e.amount / held);
@@ -102,6 +103,7 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
     const sellTokens = held <= p.bought * 0.02 ? tokens : tokens * frac; // their exit = our full exit
     const usd = sellTokens * price;
     cash += usd - fee(usd);
+    fills.push([e.ts + delay, usd - fee(usd)]);
     tokens -= sellTokens;
     endTs = e.ts;
   }
@@ -111,7 +113,7 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
     const usd = tokens * (markPrice || 0) * (1 - cfg.slippage);
     cash += usd - (usd > 0 ? fee(usd) : 0);
   }
-  return { token: p.token, symbol: p.symbol, cost: size, pnl: cash, closed, startTs: p.openTs, endTs, entryPremium };
+  return { token: p.token, symbol: p.symbol, cost: size, buyFee: fee(size), pnl: cash, closed, startTs: p.openTs, endTs, entryPremium, fills };
 }
 
 // positions: from buildPositions. marks: optional { token: latestPriceUsd }.

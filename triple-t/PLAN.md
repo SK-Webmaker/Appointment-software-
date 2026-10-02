@@ -21,13 +21,21 @@ wallet; when it buys, GMGN buys $2 of the same coin for you seconds later, and
 when it sells, GMGN sells the same share of yours. Each buy and sell pays 1% to
 GMGN plus the priority fee. GMGN won't copy less than 0.05 SOL (about $6).
 
-**Why 2 wallets.** At 0.05 SOL a copy, `scripts/sim-account.js` replays a $35
-account over the latest 14 days for every pair of wallets that passed the rules,
-with buys failing when the cash runs out (GMGN pauses a task after 3 failed
-copies in a row). Wallets that hold coins for days tie up the cash: the one
-wallet proven out of sample (section 7) would have missed 52 of its 70 copies.
-The chosen pair close their trades within minutes and made all 167 copies with
-no shortfall. Cost per side at 0.05 SOL with 0.0003 SOL priority: 1.6%.
+**Why these 2 wallets.** No wallet is a sure thing: of the 27 wallets whose
+copies made money in the older fortnight, 14 made money again in the newer one.
+The two chosen are the best-evidenced of those 14: copies made money in both
+fortnights (+21% then +27%, and +45% then +20%, at $2 copies 3s late after all
+fees), they stay profitable with their single best trade removed, they pass
+every rule today, and they have under 100 followers. The first also passed the
+rules on the older fortnight before making money in the newer one; the
+second's older fortnight had only 14 copies, so its record is thinner.
+
+`scripts/sim-account.js` replays a $35 account at 0.05 SOL a copy (cash comes
+back at each copied sell; buys fail when cash runs out, and GMGN pauses a task
+after 3 failed copies in a row). The pair made all 156 copies with at least $11
+cash left. An earlier version of the replay only returned cash on a full exit,
+which wrongly showed the first wallet missing most copies. Cost per side at
+0.05 SOL with 0.0003 SOL priority: 1.6%.
 
 **Set up in GMGN, once per wallet (2 copy tasks).** Log in with Telegram, open
 the wallet's page (gmgn.ai/sol/address/WALLET), tap Copy Trade, then:
