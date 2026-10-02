@@ -1,0 +1,14 @@
+{
+  "name": "triple-t",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Triple T: meme coin trader tracker. Finds, scores and backtests Solana wallets worth copy trading.",
+  "type": "commonjs",
+  "scripts": {
+    "discover": "node src/cli.js discover",
+    "gmgn": "node src/cli.js gmgn"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
