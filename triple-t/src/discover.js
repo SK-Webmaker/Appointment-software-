@@ -12,7 +12,7 @@ const path = require('path');
 const { Gmgn } = require('./gmgn');
 const { kolscanLeaderboard } = require('./kolscan');
 
-const DATA = path.join(__dirname, '..', 'data');
+const DATA = process.env.TRIPLE_T_DATA || path.join(__dirname, '..', 'data');
 const UNIVERSE = path.join(DATA, 'universe.json');
 
 const PERIODS = ['1d', '7d', '30d'];

@@ -37,7 +37,11 @@ function prescreen(u, c) {
     } else if ((w.sources.winners || []).length >= p.winnersOnly.minRunnerHits) {
       const hits = w.sources.winners;
       const medCost = median(hits.map((h) => h.costUsd));
-      const flagged = hits.some((h) => h.transferIn || (h.makerTags || []).some((t) => /sniper|bundler|insider|dev|rat/i.test(t)));
+      // GMGN tags half of all profitable runner trades "bundler" (bots send
+      // Jito bundles), so only hard insider tags exclude, and only when they
+      // are on most of the wallet's hits. Bundler / transfer-in stay as signals.
+      const insiderHits = hits.filter((h) => (h.makerTags || []).some((t) => /dev_team|creator|rat_trader/.test(t))).length;
+      const flagged = insiderHits / hits.length >= 0.5;
       if (medCost <= p.winnersOnly.maxMedianCostUsd && !flagged) fromWinners.push({ address: w.address, via: 'winners', score: hits.length });
     }
   }

@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "discover": "node src/cli.js discover",
-    "gmgn": "node src/cli.js gmgn"
+    "gmgn": "node src/cli.js gmgn",
+    "analyze": "node src/cli.js analyze",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "playwright": "^1.55.0"
