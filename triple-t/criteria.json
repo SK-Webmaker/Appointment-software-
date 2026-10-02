@@ -87,10 +87,10 @@
       "minTraderBuyUsd": 50
     },
     "gmgn": {
-      "_about": "GMGN copy trade: any Solana wallet, max 10. 1% per buy and per sell plus the priority fee you set. User setup ($65 start): $3 per copy, 0.0003 SOL priority (~$0.036). At this size every 0.0001 SOL of priority fee costs ~0.4% per side. No max-chase guard; its min copy amount stands in for copyfomo's minimum trade.",
-      "sizeUsd": 3,
+      "_about": "GMGN copy trade: any Solana wallet, max 10. 1% per buy and per sell plus the priority fee you set. User setup ($35 start): $2 per copy, 0.0002 SOL priority (~$0.024), 2.2% per side, the same share as $3 at 0.0003 SOL. At $2 every 0.0001 SOL of priority fee costs ~0.6% per side. No max-chase guard; its min copy amount stands in for copyfomo's minimum trade.",
+      "sizeUsd": 2,
       "feePct": 0.01,
-      "fixedFeeUsd": 0.036,
+      "fixedFeeUsd": 0.024,
       "minTicketUsd": 0,
       "maxChase": null,
       "minTraderBuyUsd": 50

@@ -5,42 +5,60 @@ wallet must pass before you copy it, the bot settings, the budget, the daily
 routine and a simple playbook for your own trades. The wallets themselves are
 in `PICKS.md` (kept off GitHub).
 
-## Start here: your $65 setup
+## Start here: your $48 setup ($35 GMGN + $13 FOMO, in USD)
+
+The easiest version of this plan, with the to-do list, lives in the Triple T
+Plan artifact. This section is the same thing in short.
 
 | Pot | Amount | What it does |
 |---|---|---|
-| **GMGN copy bot** | **$50** (about 0.42 SOL) | Copies **3 wallets: picks #1, #4 and #5 in `PICKS.md`**, $3 per copy |
-| **Your own trades on FOMO** | **$15** | $5 a trade, at most 3 open (section 5) |
-| copyfomo | $0 | Waits until a fomo trader passes every rule |
+| **GMGN copy bot** | **$35** (about 0.29 SOL) | Copies **3 wallets: picks #1, #4 and #5 in `PICKS.md`**, $2 per copy |
+| **Your own trades on FOMO** | **$13** | $4 a trade, at most 3 open (section 5) |
+| copyfomo | $0 | No fomo trader passes every rule (see "FOMO traders" below) |
 
-Why these three: of the top five, they need the least cash to run. Together
-they needed $27 to $31 at $3 per copy (about 23 copies a day), so $50 leaves
-a buffer for fees and the ~$0.24 Solana locks per coin you hold. They're also
-among the strongest on the copy test.
+**How GMGN works.** You don't buy coins yourself. A copy task watches one
+wallet; when it buys, GMGN buys $2 of the same coin for you seconds later, and
+when it sells, GMGN sells the same share of yours. Each buy and sell pays 1% to
+GMGN plus the priority fee.
 
-**Set up in GMGN, once per wallet (3 copy tasks):**
-1. Fixed buy, $3 (about 0.025 SOL).
+**Why $2 and 0.0002 SOL.** Over the latest 14 days these three wallets kept up
+to about $21 in coins at once at $2 per copy (about $29 at $3), so $2 leaves a
+buffer inside $35. At 0.0002 SOL priority a $2 copy costs 2.2% per side, the
+same share as the $3 / 0.0003 SOL setup the forward test used.
+
+**Set up in GMGN, once per wallet (3 copy tasks).** Log in with Telegram, open
+the wallet's page (gmgn.ai/sol/address/WALLET), tap Copy Trade, then:
+1. Fixed buy 0.016 SOL (about $2).
 2. Auto follow sell.
-3. Priority fee 0.0003 SOL.
+3. Priority fee 0.0002 SOL, slippage auto.
 4. Anti-MEV off, Lightning mode off.
 5. Min copy amount 0.4 SOL.
-6. Single coin position increase times 0.
+6. Single coin position increase times 0. Everything else empty.
 
-**What to expect.** In the forward test the picks made about +5% per copy
-after fees (range roughly -1% to +14%). At 23 copies a day that's a few
-dollars a day in a good fortnight, and a losing fortnight is realistic too.
-The real goal of the first two weeks is to see whether live copies match the
-backtest before any more money goes in.
+**What to expect.** In the forward test the picks made about +5.5% per copy
+after fees (range roughly -1% to +14%). At $2 and about 23 copies a day that is
+roughly +$2.50 a day (range -$0.50 to +$6), with down days of $3 to $5. Live
+results will likely come in below the test. The first two weeks are about
+checking that live copies match the backtest before any more money goes in.
 
 **Three wallets is thin.** The test used 10, and single wallets were close to a
 coin flip. Expect bigger swings, and expect me to swap wallets at the weekly
 check.
 
-**Stop rule at this size.** If the GMGN balance falls below $35, pause the three
-tasks and tell me.
+**Stop rules.** GMGN below $25: pause the three tasks and tell me. FOMO below
+$7: stop your own trades and review.
 
-**Dead coins.** Each coin you still hold locks about $0.24. Once a week, sell or
-burn dust coins in your wallet to get that back.
+**Dead coins.** Each coin you still hold locks about $0.25. Once a week, sell
+dust coins in your wallet to get that back.
+
+**FOMO traders.** The three wallets are anonymous Solana wallets, not fomo
+accounts. Of the 27 fomo traders copyfomo lists (all 13K to 550K followers),
+none passes the rules on Solana over the latest 14 days: most barely trade
+there now, and the ones that do either lost copiers money (-15% to -40% per
+copy) or see the price jump about 18% right after they buy. The artifact
+lists who is worth watching (under 60K followers, no red flags), who to skip,
+and a 2-minute check to run on any fomo trader before following them. Follow
+for ideas (bubbles), never to copy blindly.
 
 ## 1. What the four videos teach, fluff removed
 
@@ -178,9 +196,9 @@ when one does):
 
 | Setting | Value |
 |---|---|
-| Buy mode | Fixed buy, $3 in SOL (about 0.025 SOL) at the $65 start; $5 once the pot is bigger |
+| Buy mode | Fixed buy, $2 in SOL (about 0.016 SOL) at the $35 start; $3, then $5, once the pot is bigger |
 | Sell mode | Auto follow sell |
-| Priority fee | 0.0003 SOL. This one matters: every 0.0001 SOL is about 0.4% of a $3 copy, on the buy and again on the sell. At $3, going from 0.0005 to 0.0001 SOL lifted each wallet's copy result by 4 to 13 points. At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge. Below 0.0003, copies may land late or fail when Solana is busy |
+| Priority fee | 0.0002 SOL at $2 a copy, 0.0003 SOL at $3. This one matters: every 0.0001 SOL is about 0.6% of a $2 copy (0.4% of a $3 one), on the buy and again on the sell. At $3, going from 0.0005 to 0.0001 SOL lifted each wallet's copy result by 4 to 13 points. At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge. Below 0.0003, copies may land late or fail when Solana is busy |
 | Anti-MEV | Off; Lightning mode off (it can copy trades that never happened) |
 | Min copy amount | 0.4 SOL (their buy of about $50 or more) |
 | Market cap limit | Off (not tested; rule 7 covers it) |
@@ -217,7 +235,7 @@ when one does):
 
 ## 6. Budget
 
-You're starting with $65 (see "Start here" at the top). The table below is
+You're starting with $48 (see "Start here" at the top). The table below is
 where it goes *after* the first two weeks, and only if live copies match the
 backtest. Only use money you can afford to lose entirely. These are the smallest amounts
 at which fees stop eating the edge and the bots don't run dry. (GMGN pauses a
