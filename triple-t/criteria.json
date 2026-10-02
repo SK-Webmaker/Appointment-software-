@@ -1,36 +1,58 @@
 {
-  "_status": "PROVISIONAL. Copy setup now matches the user (instant Telegram copy bot, ~$20 bankroll); quality gates still placeholders until the criteria from the transcripts are agreed.",
+  "_status": "v1 DRAFT for the user's review: built from the four transcripts (Orangie x2, the PvE-scalp video, TJR + Incentos) plus the user's rules (niche wallets, no follower-dumpers). See PLAN.md for the reasoning behind each rule.",
 
-  "prescreen": {
-    "_about": "Cheap gates on GMGN leaderboard stats, used only to choose which wallets get a full history pull and backtest.",
-    "excludeTags": ["wash_trader", "sandwich_bot", "snipe_bot", "top_dev"],
+  "pool": {
+    "_about": "Who gets looked at. Cheap checks on a wallet's GMGN profile before any history is pulled.",
+    "excludeTags": ["wash_trader", "sandwich_bot", "snipe_bot", "top_dev", "bundler_bot"],
     "maxHoursSinceActive": 72,
     "minBuys30d": 20,
-    "maxTxs30d": 3000,
-    "minAvgHoldSec30d": 120,
-    "minRealizedProfit30dUsd": 5000,
-    "minWinrate30d": 0.4,
-    "avgCostUsd30d": [50, 20000],
-    "winnersOnly": { "minRunnerHits": 3, "maxMedianCostUsd": 20000 },
-    "maxDeepDives": 30
+    "maxTxs30d": 2500,
+    "minRealizedProfit30dUsd": 0,
+    "maxGmgnFollowers": 5000,
+    "minRunnerHits": 2
   },
 
-  "history": { "days": 14, "maxPages": 60 },
+  "history": { "days": 28, "splitDays": 14, "maxPages": 50 },
+
+  "wallet": {
+    "_about": "Stage 1, from the wallet's own trades. Copyable style + a real, repeatable edge.",
+    "minClosed": 20,
+    "minMedianHoldSec": 180,
+    "maxShareHeldUnder60s": 0.3,
+    "minMedianEntryMcapUsd": 30000,
+    "maxPositionsPerDay": 25,
+    "firstBuyUsd": [50, 10000],
+    "minProfitFactor": 1.5,
+    "mustProfitWithoutBestTrade": true,
+    "minGreenDayShare": 0.5,
+    "minTradingDays": 5,
+    "minLaunchpadShare": 0.5
+  },
+
+  "copy": {
+    "_about": "Stage 2, the copy backtest with the bot's real fees and guards. Fomo traders go on copyfomo, everyone else on GMGN.",
+    "minRoiAt1s": 0.05,
+    "minRoiAt3s": 0,
+    "minCopies": 10,
+    "maxMedianFollowerJump3s": 0.15
+  },
+
+  "picks": {
+    "count": 10,
+    "maxWellKnown": 2,
+    "wellKnownFollowers": 1000,
+    "wellKnownTags": ["kol", "top_followed", "renowned"]
+  },
 
   "backtest": {
-    "_about": "Generic copy model. The profile named in `bot` overrides these with that bot's real costs and guards.",
-    "bot": "copyfomo",
-    "sizeUsd": 2,
-    "delays": [1, 3, 10, 30],
+    "delays": [1, 3],
     "slippage": 0.005,
-    "feePct": 0.01,
-    "fixedFeeUsd": 0.05,
     "propClamp": [0.25, 4]
   },
 
   "bots": {
     "copyfomo": {
-      "_about": "Telegram bot copying fomo traders (SOL + Robinhood chain + Base + BNB). 2% per buy and per sell (docs, hidden since 2026-09-08: confirm on the bot's confirmation screen), network cost passed through, copies from $3. maxChase / minTraderBuyUsd are its settings; values are provisional until validated out of sample.",
+      "_about": "Telegram bot copying fomo traders (SOL + Robinhood chain + Base + BNB). 2% per buy and per sell (docs, hidden since 2026-09-08: confirm on the bot's confirmation screen), network cost passed through, copies from $3.",
       "sizeUsd": 5,
       "feePct": 0.02,
       "fixedFeeUsd": 0.02,
@@ -39,27 +61,13 @@
       "minTraderBuyUsd": 50
     },
     "gmgn": {
-      "_about": "GMGN copy trade: any Solana wallet, max 10. 1% per buy and per sell plus a priority fee you set (0.001 SOL ~ $0.12 here). No max-chase guard.",
-      "sizeUsd": 5,
+      "_about": "GMGN copy trade: any Solana wallet, max 10. 1% per buy and per sell plus a priority fee you set (0.001 SOL ~ $0.12 here). No max-chase guard, so its min copy amount stands in for copyfomo's minimum trade.",
+      "sizeUsd": 20,
       "feePct": 0.01,
       "fixedFeeUsd": 0.12,
       "minTicketUsd": 0,
       "maxChase": null,
-      "minTraderBuyUsd": 0
+      "minTraderBuyUsd": 50
     }
-  },
-
-  "final": {
-    "_about": "Gates on the wallet's own reconstructed history and on the copy backtest at `delayForGates` seconds.",
-    "delayForGates": "1s",
-    "robustDelay": "3s",
-    "minRobustRoi": 0,
-    "sizing": "best",
-    "minClosedPositions": 15,
-    "minProfitFactor": 1.5,
-    "maxBestTradeShareOfProfit": 0.5,
-    "maxShareHeldUnder60s": 0.3,
-    "minCopyRoi": 0.1,
-    "minEdgeRetained": 0.4
   }
 }

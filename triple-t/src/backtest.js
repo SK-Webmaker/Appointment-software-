@@ -80,8 +80,10 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
   const fee = (usd) => usd * cfg.feePct + cfg.fixedFeeUsd;
   const entry = await px(p.openTs + delay, p.entryPriceUsd);
   if (!(entry > 0)) return null;
-  // Max chase: the bot refuses a fill too far above the trader's own.
-  if (cfg.maxChase != null && entry > p.entryPriceUsd * (1 + cfg.maxChase)) return { skipped: true };
+  // How far the price ran between their fill and ours: followers and bots
+  // piling in behind them. Max chase refuses a fill too far above theirs.
+  const entryPremium = entry / p.entryPriceUsd - 1;
+  if (cfg.maxChase != null && entryPremium > cfg.maxChase) return { skipped: true, entryPremium, token: p.token, startTs: p.openTs };
   size = Math.max(size, cfg.minTicketUsd || 0);
   const buyPrice = entry * (1 + cfg.slippage);
   let tokens = size / buyPrice;
@@ -107,7 +109,7 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
     const usd = tokens * (markPrice || 0) * (1 - cfg.slippage);
     cash += usd - (usd > 0 ? fee(usd) : 0);
   }
-  return { token: p.token, symbol: p.symbol, cost: size, pnl: cash, closed, startTs: p.openTs, endTs };
+  return { token: p.token, symbol: p.symbol, cost: size, pnl: cash, closed, startTs: p.openTs, endTs, entryPremium };
 }
 
 // positions: from buildPositions. marks: optional { token: latestPriceUsd }.
@@ -134,18 +136,23 @@ async function backtestPositions(g, positions, opts = {}) {
       const t = await simulate(p, 0, { ...cfg, slippage: 0, maxChase: null }, async (_ts, walletPx) => walletPx, marks[p.token], sizeFor[mode](p));
       if (t) own.push(t);
     }
+    if (cfg.keepTrades && mode === 'fixed') result.ownTrades = own;
     const base = summarizeTrades(own);
     result.walletFills[mode] = base;
     const out = mode === 'fixed' ? result.byDelay : result.byDelayProportional;
     for (const d of cfg.delays) {
       const trades = [];
+      const all = [];
       let skipped = 0;
       for (const p of usable) {
         const t = await simulate(p, d, cfg, (ts, walletPx) => tape.priceAt(p.token, ts, walletPx), marks[p.token], sizeFor[mode](p));
-        if (t && t.skipped) skipped++;
-        else if (t) trades.push(t);
+        if (!t) continue;
+        all.push(t);
+        if (t.skipped) skipped++;
+        else trades.push(t);
       }
-      out[`${d}s`] = { ...summarizeTrades(trades), skippedByChase: skipped };
+      out[`${d}s`] = { ...summarizeTrades(trades), skippedByChase: skipped, medianEntryPremium: round(median(all.map((t) => t.entryPremium).filter(isFinite)), 4) };
+      if (cfg.keepTrades && mode === 'fixed') (result.tradesByDelay ||= {})[`${d}s`] = all;
       out[`${d}s`].edgeRetained = base.pnlUsd > 0 ? round(out[`${d}s`].pnlUsd / base.pnlUsd, 3) : null;
       if (mode === 'fixed' && d === cfg.delays[0]) result.trades = trades; // one trade list for inspection
     }
@@ -155,4 +162,4 @@ async function backtestPositions(g, positions, opts = {}) {
   return result;
 }
 
-module.exports = { backtestPositions, DEFAULTS };
+module.exports = { backtestPositions, summarizeTrades, DEFAULTS };

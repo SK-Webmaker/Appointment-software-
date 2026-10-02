@@ -3,6 +3,7 @@ node_modules/
 # and publishing the wallets we copy invites crowding that eats the edge.
 data/
 REPORT.md
+PICKS.md
 # fomo exports hold other users' profiles.
 fomo-export*.json
 imports/

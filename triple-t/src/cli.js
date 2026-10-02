@@ -4,9 +4,8 @@
 //   node src/cli.js summary                             counts for the current universe
 //   node src/cli.js gmgn <path>                         raw GMGN GET (debugging)
 //   node src/cli.js fomo-import <export.json>           merge a fomo export into the universe
-//   node src/cli.js prescreen                           which wallets the criteria would deep-dive
-//   node src/cli.js analyze [--only=a,b] [--concurrency=4]   history + backtest + REPORT.md
-//   node src/cli.js rescore                             re-run backtests/gates on saved results (cache only)
+//   node src/cli.js copyfomo                            match copyfomo's public trader pages to known wallets
+//   node src/cli.js hunt [--concurrency=5]              criteria.json end to end -> PICKS.md (+ forward test)
 const { discover, loadUniverse, summarize } = require('./discover');
 
 async function main() {
@@ -23,22 +22,18 @@ async function main() {
     const { Gmgn } = require('./gmgn');
     const g = await new Gmgn({ verbose: true }).open();
     try { console.log(JSON.stringify(await g.get(args[0]), null, 1)); } finally { await g.close(); }
-  } else if (cmd === 'prescreen') {
-    const { prescreen, loadCriteria } = require('./analyze');
-    const { pick, eligible } = prescreen(loadUniverse(), loadCriteria());
-    console.log(JSON.stringify({ eligible, pick }, null, 1));
-  } else if (cmd === 'analyze') {
-    const { analyze } = require('./analyze');
-    const only = flag('only') ? flag('only').split(',') : null;
-    console.log(JSON.stringify(await analyze({ only, concurrency: Number(flag('concurrency') || 4) }), null, 2));
-  } else if (cmd === 'rescore') {
-    const { rescore } = require('./analyze');
-    console.log(JSON.stringify(await rescore(), null, 2));
+  } else if (cmd === 'copyfomo') {
+    const { importCopyfomo } = require('./copyfomo');
+    console.log(JSON.stringify(await importCopyfomo(), null, 2));
+  } else if (cmd === 'hunt') {
+    const { hunt } = require('./hunt');
+    const r = await hunt({ concurrency: Number(flag('concurrency') || 5) });
+    console.log(JSON.stringify({ funnel: r.funnel, proof: r.proof, picks: r.picks.map((p) => p.address) }, null, 2));
   } else if (cmd === 'fomo-import') {
     const { importFomoExport } = require('./fomo');
     console.log(JSON.stringify(importFomoExport(args[0]), null, 2));
   } else {
-    console.log('usage: node src/cli.js discover|summary|prescreen|analyze|rescore|gmgn <path>|fomo-import <file>');
+    console.log('usage: node src/cli.js discover|summary|copyfomo|hunt|gmgn <path>|fomo-import <file>');
     process.exitCode = 1;
   }
 }

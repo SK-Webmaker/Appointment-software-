@@ -64,7 +64,11 @@ async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = tru
     cached.days = Math.max(cached.days || 0, days);
     writeJson(file, cached);
   }
-  return cached.trades.filter((t) => t.ts >= sinceTs);
+  const out = cached.trades.filter((t) => t.ts >= sinceTs);
+  // Page cap hit before reaching sinceTs: the window is only partly covered.
+  const oldest = cached.trades.length ? cached.trades[cached.trades.length - 1].ts : 0;
+  out.truncated = !cached.complete && oldest > sinceTs;
+  return out;
 }
 
 // 1-second candles for `token` covering [fromTs, toTs] (unix seconds). Only

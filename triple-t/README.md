@@ -20,22 +20,25 @@ backtest, **1-second price candles** around every trade.
 ## Pipeline
 
 ```
-discover  ->  data/universe.json        every wallet from every source, merged by address
-prescreen ->  cheap gates on leaderboard stats, picks who gets a deep dive
-analyze   ->  history -> positions -> stats -> copy backtest -> final gates -> REPORT.md
+discover  ->  data/universe.json     every wallet from every source, merged by address
+copyfomo  ->  tags the fomo traders copyfomo profiles (matched by their partial address)
+hunt      ->  criteria.json end to end: profile checks -> 28 days of trades -> wallet
+              rules -> copy backtest with the bot's fees and guards -> 10 picks
+              -> PICKS.md, plus a forward test (rules on the older 14 days,
+              results over the newer 14)
 ```
 
 ```bash
 cd triple-t && npm install
-node src/cli.js discover            # ~2 min
-node src/cli.js prescreen           # dry run: who would be analyzed
-node src/cli.js analyze             # history + backtest for the shortlist
-node src/cli.js analyze --only=<wallet1>,<wallet2>
-node src/cli.js fomo-import fomo-export-YYYY-MM-DD.json
+node src/cli.js discover            # ~3 min
+node src/cli.js copyfomo            # ~30 s
+node src/cli.js hunt                # 1-3 h; everything is cached, reruns are faster
+npm test
 ```
 
-Everything is cached under `data/cache/`, so changing criteria or delay
-assumptions and re-running costs no new API calls.
+`PLAN.md` explains every rule, the bot settings, budget, routine and the manual
+playbook. Everything is cached under `data/cache/`, so changing a threshold and
+re-running costs few new API calls.
 
 ## The backtest
 
@@ -58,11 +61,12 @@ looks like it never sold.
 
 ## Criteria
 
-All thresholds live in `criteria.json`. The current file is **provisional**: it
-only removes wallets that cannot be copied at all, so the pipeline can be proven
-end to end. It gets replaced with the criteria we agree on.
+All thresholds live in `criteria.json`; `PLAN.md` section 2 explains each one
+and where it comes from (the four trader videos plus the user's own rules).
+Copy-bot costs and guards are profiles in the same file (`bots.copyfomo`,
+`bots.gmgn`).
 
 ## Privacy
 
-`data/`, `REPORT.md` and fomo exports are git-ignored. The repo is public, and
+`data/`, `REPORT.md`, `PICKS.md` and fomo exports are git-ignored. The repo is public, and
 publishing the wallets we copy would invite the crowding that kills copy-trade edge.

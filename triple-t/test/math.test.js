@@ -105,3 +105,36 @@ test('backtest guards: max chase skips, min trader buy and mcap band filter', as
   r = await backtestPositions(g, positions, { ...base, sizeUsd: 1, minTicketUsd: 3 });
   assert.equal(r.byDelay['1s'].deployedUsd, 6); // two copies, each lifted to $3
 });
+
+const { slicePositions } = require('../src/positions');
+const { walletFails, copyFails, choose } = require('../src/hunt');
+
+test('slicePositions as of a date hides what happened after it', () => {
+  const { positions } = buildPositions([trade(100, 'buy', T, 100, 1), trade(200, 'sell', T, 50, 2), trade(400, 'sell', T, 50, 3)]);
+  const [p] = slicePositions(positions, 0, 300, { asOf: 300 });
+  assert.equal(p.status, 'partial'); // the second sell came after 300
+  assert.equal(p.proceedsUsd, 100);
+  assert.equal(p.closeTs, null);
+  assert.equal(slicePositions(positions, 150, 300).length, 0); // opened before the window
+});
+
+test('rules: wallet and copy gates report what failed', () => {
+  const c = { minClosed: 20, minMedianHoldSec: 180, maxShareHeldUnder60s: 0.3, minMedianEntryMcapUsd: 30000, maxPositionsPerDay: 25,
+    firstBuyUsd: [50, 10000], minProfitFactor: 1.5, mustProfitWithoutBestTrade: true, minGreenDayShare: 0.5, minTradingDays: 5, minLaunchpadShare: 0.5 };
+  const good = { closed: 40, medianHoldSec: 900, shareHeldUnder60s: 0.1, medianEntryMcapUsd: 120000, positionsPerDay: 6, medianFirstBuyUsd: 400,
+    profitFactor: 2.2, pnlWithoutBestTradeUsd: 500, greenDayShare: 0.6, tradingDays: 12, launchpadShare: 0.9 };
+  assert.deepEqual(walletFails(good, c), []);
+  const sniper = { ...good, medianHoldSec: 8, shareHeldUnder60s: 0.95, medianEntryMcapUsd: 4000 };
+  assert.deepEqual(walletFails(sniper, c).map((f) => f.name), ['median hold', 'flips under 60s', 'entry market cap']);
+  assert.deepEqual(walletFails({ ...good, shareHeldUnder60s: null, profitFactor: Infinity }, c).map((f) => f.name), ['flips under 60s']);
+  const cc = { minRoiAt1s: 0.05, minRoiAt3s: 0, minCopies: 10, maxMedianFollowerJump3s: 0.15 };
+  const sum = (r1, r3, n, jump) => ({ at1s: { roi: r1, trades: n }, at3s: { roi: r3, trades: n }, followerJump3s: jump });
+  assert.deepEqual(copyFails(sum(0.2, 0.1, 30, 0.05), cc), []);
+  assert.deepEqual(copyFails(sum(0.2, -0.1, 30, 0.4), cc).map((f) => f.name), ['copy ROI at 3s', 'price jump after their buy']);
+});
+
+test('choose caps well-known wallets', () => {
+  const xs = [{ score: 5, wellKnown: true }, { score: 4, wellKnown: true }, { score: 3, wellKnown: true }, { score: 2, wellKnown: false }, { score: 1, wellKnown: false }];
+  const out = choose(xs, { count: 3, maxWellKnown: 2 });
+  assert.deepEqual(out.map((x) => x.score), [5, 4, 2]);
+});

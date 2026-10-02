@@ -7,7 +7,7 @@
   "scripts": {
     "discover": "node src/cli.js discover",
     "gmgn": "node src/cli.js gmgn",
-    "analyze": "node src/cli.js analyze",
+    "hunt": "node src/cli.js hunt",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {

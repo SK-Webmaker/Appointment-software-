@@ -108,11 +108,12 @@ async function runnerTokens(g, { minAthMcap = 1_000_000, max = 60 } = {}) {
 // real-size position) over the history window. Reaches tokens that ran days or
 // weeks ago, which today's trending lists no longer show.
 function snowballTokens({ minRoi = 2, minCostUsd = 100, max = 80 } = {}) {
-  const dir = path.join(DATA, 'results');
+  const files = ['results', 'hunt'].map((d) => path.join(DATA, d)).filter((d) => fs.existsSync(d))
+    .flatMap((d) => fs.readdirSync(d).filter((f) => f.endsWith('.json') && f !== 'result.json').map((f) => path.join(d, f)));
   const seen = new Map();
-  for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+  for (const file of files) {
     let r;
-    try { r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { continue; }
+    try { r = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { continue; }
     for (const p of r.positions || []) {
       if (p.status !== 'closed' || p.roi < minRoi || p.costUsd < minCostUsd || NOT_MEMES.has(String(p.symbol).toUpperCase())) continue;
       const t = seen.get(p.token) || { address: p.token, symbol: p.symbol, athMcap: null, openTs: null, foundVia: [] };

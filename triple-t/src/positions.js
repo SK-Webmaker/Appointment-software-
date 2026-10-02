@@ -98,12 +98,15 @@ function walletStats(positions, { nowTs = Math.floor(Date.now() / 1000) } = {}) 
     avgLossUsd: losses.length ? -grossLoss / losses.length : null,
     medianRoi: median(rois),
     medianCostUsd: median(closed.map((p) => p.costUsd)),
+    medianFirstBuyUsd: median(positions.map((p) => p.buys[0] && p.buys[0].usd).filter((x) => x > 0)),
     medianHoldSec: median(closed.map((p) => p.holdSec)),
     shareHeldUnder60s: closed.length ? closed.filter((p) => p.holdSec < 60).length / closed.length : null,
     medianEntryMcapUsd: median(positions.map((p) => p.entryMcapUsd).filter((x) => x > 0)),
     avgBuysPerPosition: positions.length ? positions.reduce((s, p) => s + p.buys.length, 0) / positions.length : null,
     positionsPerDay: positions.length / spanDays,
     activeDays: days.size,
+    tradingDays: new Set(positions.map((p) => Math.floor(p.openTs / 86400))).size,
+    lastTradeTs: positions.reduce((m, p) => Math.max(m, p.closeTs || 0, ...p.sells.map((x) => x.ts), ...p.buys.map((x) => x.ts)), 0),
     greenDayShare: days.size ? [...days.values()].filter((v) => v > 0).length / days.size : null,
     worstLosingStreak: worstStreak,
     maxDrawdownUsd: maxDd,
@@ -116,4 +119,21 @@ function walletStats(positions, { nowTs = Math.floor(Date.now() / 1000) } = {}) 
   };
 }
 
-module.exports = { buildPositions, walletStats, median };
+// Positions opened in [fromTs, toTs). With `asOf`, judge them as they stood at
+// that moment: anything that closed later is treated as still open, so a
+// selection made "as of" a date never sees what happened after it.
+function slicePositions(positions, fromTs, toTs, { asOf = null } = {}) {
+  return positions.filter((p) => p.openTs >= fromTs && p.openTs < toTs).map((p) => {
+    if (asOf == null || !p.closeTs || p.closeTs < asOf) return p;
+    const sells = p.sells.filter((x) => x.ts < asOf);
+    const sold = sells.reduce((s, x) => s + x.amount, 0);
+    const proceeds = sells.reduce((s, x) => s + x.usd, 0);
+    const buys = p.buys.filter((x) => x.ts < asOf);
+    const bought = buys.reduce((s, x) => s + x.amount, 0);
+    const cost = buys.reduce((s, x) => s + x.usd, 0);
+    return { ...p, buys, sells, bought, sold, costUsd: cost, proceedsUsd: proceeds, closeTs: null, holdSec: null, roi: null,
+      status: sold > 0 ? 'partial' : 'open', realizedPnlUsd: proceeds - cost * (bought ? sold / bought : 0) };
+  });
+}
+
+module.exports = { buildPositions, walletStats, slicePositions, median };
