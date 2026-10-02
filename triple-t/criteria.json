@@ -1,5 +1,5 @@
 {
-  "_status": "PROVISIONAL. Only 'can this wallet be copied at all' gates plus loose quality bars, to prove the pipeline end to end. Replace with the criteria we agree on.",
+  "_status": "PROVISIONAL. Copy setup now matches the user (instant Telegram copy bot, ~$20 bankroll); quality gates still placeholders until the criteria from the transcripts are agreed.",
 
   "prescreen": {
     "_about": "Cheap gates on GMGN leaderboard stats, used only to choose which wallets get a full history pull and backtest.",
@@ -18,17 +18,20 @@
   "history": { "days": 14, "maxPages": 60 },
 
   "backtest": {
-    "sizeUsd": 100,
+    "_about": "User setup: instant copy bot, ~$20 on it. sizeUsd / feePct / fixedFeeUsd to be set from the bot's real settings.",
+    "sizeUsd": 2,
     "delays": [1, 3, 10, 30],
-    "slippage": 0.02,
+    "slippage": 0.005,
     "feePct": 0.01,
-    "fixedFeeUsd": 0.3,
+    "fixedFeeUsd": 0.05,
     "propClamp": [0.25, 4]
   },
 
   "final": {
     "_about": "Gates on the wallet's own reconstructed history and on the copy backtest at `delayForGates` seconds.",
-    "delayForGates": "3s",
+    "delayForGates": "1s",
+    "robustDelay": "3s",
+    "minRobustRoi": 0,
     "sizing": "best",
     "minClosedPositions": 15,
     "minProfitFactor": 1.5,

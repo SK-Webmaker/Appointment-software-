@@ -79,6 +79,11 @@ function finalGates(stats, bt, f) {
     [`copyRoi@${f.delayForGates}`, d.roi, d.roi >= f.minCopyRoi, `>= ${f.minCopyRoi}`],
     ['edgeRetained', d.edgeRetained, d.edgeRetained >= f.minEdgeRetained, `>= ${f.minEdgeRetained}`],
   ];
+  // Safety margin: still profitable if the copy lands later than planned.
+  if (f.robustDelay) {
+    const r = v.byDelay[f.robustDelay] || {};
+    checks.push([`copyRoi@${f.robustDelay}`, r.roi, r.roi >= f.minRobustRoi, `>= ${f.minRobustRoi}`]);
+  }
   const failed = checks.filter((x) => !x[2]).map(([name, value, , need]) => ({ name, value, need }));
   return { pass: failed.length === 0, sizing: v.mode, failed };
 }
@@ -128,7 +133,7 @@ function writeReport(results, c, meta) {
     '# Triple T report',
     '',
     `Generated ${meta.generatedAt}. Universe ${meta.universe} wallets; prescreen eligible ${meta.eligible.stats} by stats + ${meta.eligible.winners} repeat winners; ${results.length} analyzed over the last ${c.history.days} days.`,
-    `Copy simulation: $${c.backtest.sizeUsd} per entry (fixed) or scaled by their size (proportional, x${c.backtest.propClamp ? c.backtest.propClamp.join('-x') : '0.25-x4'}), ${pct(c.backtest.slippage)} slippage per fill, ${pct(c.backtest.feePct)} fee per side + $${c.backtest.fixedFeeUsd}/tx. Gates use ${c.final.sizing || 'fixed'} sizing at ${gd}. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
+    `Copy simulation: $${c.backtest.sizeUsd} per entry (fixed) or scaled by their size (proportional, x${c.backtest.propClamp ? c.backtest.propClamp.join('-x') : '0.25-x4'}), ${+(c.backtest.slippage * 100).toFixed(2)}% slippage per fill, ${+(c.backtest.feePct * 100).toFixed(2)}% fee per side + $${c.backtest.fixedFeeUsd}/tx. Gates use ${c.final.sizing || 'fixed'} sizing at ${gd}. Criteria status: ${c._status ? 'PROVISIONAL' : 'agreed'}.`,
     '',
     `| # | Wallet | Who | Pass | Closed | Win | PF | Med hold | Med size | Wallet ROI | ${delays.map((d) => `Copy @${d}`).join(' | ')} | Prop. copy @${gd} | Edge kept @${gd} | Failed gates |`,
     `|---|---|---|---|---|---|---|---|---|---|${delays.map(() => '---').join('|')}|---|---|---|`,
