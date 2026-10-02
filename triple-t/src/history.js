@@ -109,6 +109,17 @@ async function candles1s(g, token, fromTs, toTs) {
   return list;
 }
 
+// Every 1s candle window already cached for `token`, whatever its bounds.
+function cachedCandleWindows(token) {
+  const dir = path.join(CANDLE_DIR, token);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).map((f) => {
+    const m = f.match(/^(\d+)-(\d+)\.json$/);
+    const candles = m && readJson(path.join(dir, f));
+    return m && candles ? { from: Number(m[1]), to: Number(m[2]), candles } : null;
+  }).filter(Boolean);
+}
+
 // Latest traded price (1m candles over the last 3 days). 0 when the token has
 // not traded at all in that time: for a meme coin that means it is dead.
 async function latestPrice(g, token) {
@@ -123,4 +134,4 @@ async function latestPrice(g, token) {
   }
 }
 
-module.exports = { walletTrades, candles1s, latestPrice, slim, CACHE };
+module.exports = { walletTrades, candles1s, cachedCandleWindows, latestPrice, slim, CACHE };

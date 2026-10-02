@@ -8,7 +8,7 @@
 // the last 1s candle at or before x (no candle = nobody traded = unchanged).
 // Delay 0 with the wallet's own fills is the baseline: what the wallet's edge
 // was worth at our size before copy lag.
-const { candles1s } = require('./history');
+const { candles1s, cachedCandleWindows } = require('./history');
 const { median } = require('./positions');
 
 const DEFAULTS = {
@@ -20,7 +20,7 @@ const DEFAULTS = {
   slippage: 0.02, // 2% worse than the candle on every fill
   feePct: 0.01, // platform fee per side (Axiom / fomo / bots are ~0.75-1%)
   fixedFeeUsd: 0.3, // priority fee + Jito tip per transaction
-  windowSec: 64,
+  windowSec: 480, // one candle request covers 8 minutes (endpoint returns up to 500)
   minWalletCostUsd: 5, // ignore dust test buys
   // Copy-bot guards, as copyfomo / GMGN expose them. null / 0 = off.
   maxChase: null, // skip the copy when our entry is more than this above their fill (0.25 = 25%)
@@ -33,15 +33,17 @@ class PriceTape {
   constructor(g) { this.g = g; this.windows = new Map(); this.calls = 0; this.misses = 0; }
 
   async priceAt(token, x, fallback) {
-    const list = this.windows.get(token) || [];
-    let win = list.find((w) => x >= w.from && x <= w.to);
+    // First touch of a token: start from every window already on disk.
+    if (!this.windows.has(token)) this.windows.set(token, cachedCandleWindows(token));
+    const list = this.windows.get(token);
+    // Needs at least 2s of the window before x, so the candle at x is in it.
+    let win = list.find((w) => x - 2 >= w.from && x <= w.to);
     if (!win) {
       const from = x - 2, to = x + DEFAULTS.windowSec;
       let candles = [];
       try { candles = await candles1s(this.g, token, from, to); this.calls++; } catch { candles = []; }
       win = { from, to, candles };
       list.push(win);
-      this.windows.set(token, list);
     }
     let px = null;
     for (const c of win.candles) { if (c.t <= x) px = c.c; else break; }

@@ -148,7 +148,7 @@ async function hunt({ log = console.error, concurrency = 5, stage2Limit = 70, se
   const now = Math.floor(Date.now() / 1000);
   const start = now - c.history.days * 86400;
   const split = now - c.history.splitDays * 86400;
-  const g = await new Gmgn({ tabs: concurrency, minGapMs: 200 }).open();
+  const g = await new Gmgn({ tabs: concurrency, minGapMs: 130 }).open();
   const funnel = { candidates: 0, pool: 0, poolRejects: {}, stage1: 0, stage1Rejects: {}, stage1Pass: 0, stage1PassOld: 0, backtested: 0, picks: 0 };
   const recs = new Map();
   let naive = [], random = [];
