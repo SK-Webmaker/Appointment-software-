@@ -12,41 +12,45 @@ Plan artifact. This section is the same thing in short.
 
 | Pot | Amount | What it does |
 |---|---|---|
-| **GMGN copy bot** | **$35** (about 0.29 SOL) | Copies **3 wallets from the 2 Oct re-check** (listed in the Triple T Plan artifact, kept off GitHub), $2 per copy |
+| **GMGN copy bot** | **$35** (about 0.28 SOL) | Copies **2 wallets from the 2 Oct re-check** (listed in the Triple T Plan artifact, kept off GitHub) at 0.05 SOL (about $6) per copy, GMGN's minimum |
 | **Your own trades on FOMO** | **$13** | $4 a trade, at most 3 open (section 5) |
 | copyfomo | $0 | No fomo trader passes every rule (see "FOMO traders" below) |
 
 **How GMGN works.** You don't buy coins yourself. A copy task watches one
 wallet; when it buys, GMGN buys $2 of the same coin for you seconds later, and
 when it sells, GMGN sells the same share of yours. Each buy and sell pays 1% to
-GMGN plus the priority fee.
+GMGN plus the priority fee. GMGN won't copy less than 0.05 SOL (about $6).
 
-**Why $2 and 0.0002 SOL.** Over the latest 14 days the three wallets kept up
-to about $22 in coins at once at $2 per copy, so $2 leaves a buffer inside
-$35. At 0.0002 SOL priority a $2 copy costs 2.2% per side, the
-same share as the $3 / 0.0003 SOL setup the forward test used.
+**Why 2 wallets.** At 0.05 SOL a copy, `scripts/sim-account.js` replays a $35
+account over the latest 14 days for every pair of wallets that passed the rules,
+with buys failing when the cash runs out (GMGN pauses a task after 3 failed
+copies in a row). Wallets that hold coins for days tie up the cash: the one
+wallet proven out of sample (section 7) would have missed 52 of its 70 copies.
+The chosen pair close their trades within minutes and made all 167 copies with
+no shortfall. Cost per side at 0.05 SOL with 0.0003 SOL priority: 1.6%.
 
-**Set up in GMGN, once per wallet (3 copy tasks).** Log in with Telegram, open
+**Set up in GMGN, once per wallet (2 copy tasks).** Log in with Telegram, open
 the wallet's page (gmgn.ai/sol/address/WALLET), tap Copy Trade, then:
-1. Fixed buy 0.016 SOL (about $2).
+1. Fixed buy 0.05 SOL (about $6, GMGN's minimum).
 2. Auto follow sell.
-3. Priority fee 0.0002 SOL, slippage auto.
+3. Priority fee 0.0003 SOL, slippage auto.
 4. Anti-MEV off, Lightning mode off.
 5. Min copy amount 0.4 SOL.
 6. Single coin position increase times 0. Everything else empty.
 
 **What to expect.** Two forward tests on 2 Oct gave +5.5% and +0.9% per copy
-after fees, with 4 of 9 and 4 of 10 wallets in profit (section 7). At $2 and
-about 19 copies a day that's roughly -$1 to +$2 a day, and break-even is a real
-possibility. The $25 stop line caps the loss at about $10. The first two weeks
+after fees, with 4 of 9 and 4 of 10 wallets in profit (section 7). At $6 and
+about 12 copies a day that's roughly -$2 to +$4 a day, and break-even is a real
+possibility. A bad day can cost $10 to $14. The $20 stop line caps the loss at
+about $15. The first two weeks
 are a live test: with the user's public wallet address, compare real copies
 with the backtest every week.
 
-**Three wallets is thin.** The test used 10, and single wallets were close to a
+**Two wallets is thin.** The test used 10, and single wallets were close to a
 coin flip. Expect bigger swings, and expect me to swap wallets at the weekly
 check.
 
-**Stop rules.** GMGN below $25: pause the three tasks and tell me. FOMO below
+**Stop rules.** GMGN below $20: pause both tasks and tell me. FOMO below
 $7: stop your own trades and review.
 
 **Dead coins.** Each coin you still hold locks about $0.25. Once a week, sell
@@ -197,9 +201,9 @@ when one does):
 
 | Setting | Value |
 |---|---|
-| Buy mode | Fixed buy, $2 in SOL (about 0.016 SOL) at the $35 start; $3, then $5, once the pot is bigger |
+| Buy mode | Fixed buy 0.05 SOL (about $6), GMGN's minimum |
 | Sell mode | Auto follow sell |
-| Priority fee | 0.0002 SOL at $2 a copy, 0.0003 SOL at $3. This one matters: every 0.0001 SOL is about 0.6% of a $2 copy (0.4% of a $3 one), on the buy and again on the sell. At $3, going from 0.0005 to 0.0001 SOL lifted each wallet's copy result by 4 to 13 points. At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge. Below 0.0003, copies may land late or fail when Solana is busy |
+| Priority fee | 0.0003 SOL. This one matters: every 0.0001 SOL is about 0.2% of a $6 copy, on the buy and again on the sell. At $3, going from 0.0005 to 0.0001 SOL lifted each wallet's copy result by 4 to 13 points. At GMGN's suggested 0.002 to 0.006, the fee alone wipes out the edge. Below 0.0003, copies may land late or fail when Solana is busy |
 | Anti-MEV | Off; Lightning mode off (it can copy trades that never happened) |
 | Min copy amount | 0.4 SOL (their buy of about $50 or more) |
 | Market cap limit | Off (not tested; rule 7 covers it) |
