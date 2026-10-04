@@ -30,7 +30,7 @@ const DEFAULTS = {
 };
 
 class PriceTape {
-  constructor(g) { this.g = g; this.windows = new Map(); this.calls = 0; this.misses = 0; }
+  constructor(g, chain = 'sol') { this.g = g; this.chain = chain; this.windows = new Map(); this.calls = 0; this.misses = 0; }
 
   async priceAt(token, x, fallback) {
     // First touch of a token: start from every window already on disk.
@@ -41,7 +41,7 @@ class PriceTape {
     if (!win) {
       const from = x - 2, to = x + DEFAULTS.windowSec;
       let candles = [];
-      try { candles = await candles1s(this.g, token, from, to); this.calls++; } catch { candles = []; }
+      try { candles = await candles1s(this.g, token, from, to, this.chain); this.calls++; } catch { candles = []; }
       win = { from, to, candles };
       list.push(win);
     }
@@ -120,7 +120,7 @@ async function simulate(p, delay, cfg, px, markPrice, size = cfg.sizeUsd) {
 async function backtestPositions(g, positions, opts = {}) {
   const { marks = {}, ...rest } = opts;
   const cfg = { ...DEFAULTS, ...rest };
-  const tape = new PriceTape(g);
+  const tape = new PriceTape(g, cfg.chain || 'sol');
   const band = cfg.mcapBand || [null, null];
   const inBand = (m) => (band[0] == null || m >= band[0]) && (band[1] == null || m <= band[1]);
   const usable = positions.filter((p) => p.costUsd >= cfg.minWalletCostUsd && p.buys.length && p.entryPriceUsd > 0

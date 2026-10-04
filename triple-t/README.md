@@ -38,6 +38,9 @@ node src/cli.js report              # re-render PICKS.md from the last hunt
 node scripts/deep-check.js          # every pick-able wallet at $2 copies: 1/3/5/10s late, weekly, rugs, overlap
 node scripts/predict.js             # which older-window traits predicted later copy profit
 node scripts/sim-account.js         # replay a $35 account at 0.05 SOL a copy: missed copies when cash runs out
+node scripts/consistency.js         # 4-week consistency (profit days, weekly P&L, losing streaks) from saved histories
+node scripts/consistency-refresh.js # refresh consistent wallets + FOMO traders (Solana and Robinhood chain) and score them
+node scripts/follow-test.js '[{"address":"…","chain":"sol"}]'  # follow 3s/10s/30s late; price jump after their buys
 npm test
 ```
 

@@ -120,12 +120,12 @@ class Gmgn {
 
   // One page of a wallet's buys/sells, newest first. Pass the returned `next`
   // cursor to continue. Each row is one swap with USD cost and price.
-  async walletActivityPage(wallet, cursor = null, limit = 50) {
+  async walletActivityPage(wallet, cursor = null, limit = 50, chain = 'sol') {
     const q = new URLSearchParams({ wallet, limit: String(limit) });
     q.append('type', 'buy');
     q.append('type', 'sell');
     if (cursor) q.set('cursor', cursor);
-    const data = await this.get(`/vas/api/v1/wallet_activity/sol?${q}`);
+    const data = await this.get(`/vas/api/v1/wallet_activity/${chain}?${q}`);
     return { rows: data.activities || [], next: data.next || null };
   }
 

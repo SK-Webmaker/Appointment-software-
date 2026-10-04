@@ -41,8 +41,8 @@ function slim(r) {
 // the page budget ran out before reaching the start of the window (a wallet
 // trading more than maxPages x 50 times in it); that verdict is remembered for
 // a day so hyperactive wallets are not re-downloaded on every run.
-async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = true } = {}) {
-  const file = path.join(ACT_DIR, `${wallet}.json`);
+async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = true, chain = 'sol' } = {}) {
+  const file = path.join(ACT_DIR, chain === 'sol' ? `${wallet}.json` : `${chain}-${wallet}.json`);
   const cached = readJson(file) || { wallet, trades: [], fetchedAt: null };
   const now = Math.floor(Date.now() / 1000);
   const sinceTs = now - days * 86400;
@@ -69,7 +69,7 @@ async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = tru
     const fresh = [];
     let cursor = null, done = false, reachedSince = false, oldestFetched = Infinity;
     for (let page = 0; page < maxPages && !done; page++) {
-      const { rows, next } = await g.walletActivityPage(wallet, cursor);
+      const { rows, next } = await g.walletActivityPage(wallet, cursor, 50, chain);
       for (const r of rows.map(slim)) {
         if (r.ts < sinceTs) { done = true; reachedSince = true; break; }
         oldestFetched = Math.min(oldestFetched, r.ts);
@@ -97,12 +97,12 @@ async function walletTrades(g, wallet, { days = 30, maxPages = 80, refresh = tru
 
 // 1-second candles for `token` covering [fromTs, toTs] (unix seconds). Only
 // seconds with trades have candles. Cached per token per window.
-async function candles1s(g, token, fromTs, toTs) {
+async function candles1s(g, token, fromTs, toTs, chain = 'sol') {
   const file = path.join(CANDLE_DIR, token, `${fromTs}-${toTs}.json`);
   const hit = readJson(file);
   if (hit) return hit;
   const q = new URLSearchParams({ resolution: '1s', from: String(fromTs * 1000), to: String(toTs * 1000), limit: '500' });
-  const data = await g.get(`/api/v1/token_candles/sol/${token}?${q}`);
+  const data = await g.get(`/api/v1/token_candles/${chain}/${token}?${q}`);
   const list = ((data && data.list) || []).map((c) => ({ t: Math.floor(c.time / 1000), o: +c.open, h: +c.high, l: +c.low, c: +c.close, v: +c.volume }))
     .sort((a, b) => a.t - b.t);
   writeJson(file, list);
@@ -122,11 +122,11 @@ function cachedCandleWindows(token) {
 
 // Latest traded price (1m candles over the last 3 days). 0 when the token has
 // not traded at all in that time: for a meme coin that means it is dead.
-async function latestPrice(g, token) {
+async function latestPrice(g, token, chain = 'sol') {
   const to = Math.floor(Date.now() / 1000), from = to - 3 * 86400;
   const q = new URLSearchParams({ resolution: '1m', from: String(from * 1000), to: String(to * 1000), limit: '1' });
   try {
-    const data = await g.get(`/api/v1/token_candles/sol/${token}?${q}`);
+    const data = await g.get(`/api/v1/token_candles/${chain}/${token}?${q}`);
     const list = (data && data.list) || [];
     return list.length ? +list[list.length - 1].close : 0;
   } catch {
