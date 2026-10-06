@@ -20,7 +20,8 @@ Ask once for anything missing. Do not invent prices, reviews, awards or follower
 `create_project` in workspace "sachi's Lovable" with this in the first message, then iterate with `send_message`:
 > Simple marketing website for <business>. Static pages only: no login, no database, no Lovable Cloud,
 > no server functions, no forms that need a backend (contact = tap-to-call, mailto, Google Maps link,
-> socials). Never mention Lovable anywhere: page titles, meta tags, social preview image, favicon,
+> socials). Put every image in public/images/ and reference it as /images/<file> (never import images
+> from src/assets). Never mention Lovable anywhere: page titles, meta tags, social preview image, favicon,
 > README, package name, comments. Social/canonical URLs use https://<client-domain>/.
 Then send the owner the `preview_url` to show the client.
 
@@ -43,8 +44,9 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
 
 ## 5. Hand off a paid site
 1. Copy the Lovable project into a scratch folder: `list_files` + `read_file` for every text file
-   (skip `.lovable/`, `AGENTS.md`, `roadmap.md`, lockfiles). Binary files (images, favicon) cannot be read
-   through `read_file`: if the project is connected to GitHub, clone it instead. Otherwise ask the owner.
+   (skip `.lovable/`, `AGENTS.md`, `roadmap.md`, lockfiles). Images and other binary files (marked
+   `binary: true`) can't be read that way; download them from the live site:
+   `.claude/skills/website-sale/fetch-assets.sh <preview_url or published url> <dir> public/favicon.ico public/images/...`
 2. Remove Lovable code: delete `src/lib/lovable-error-reporting.ts` and its imports/calls; in
    `__root.tsx` and route `head()` replace any `*.lovable.app` URL with the client's domain.
 3. Build both ZIPs: `.claude/skills/website-sale/build-handoff.sh <dir> <slug> <out-dir>`
