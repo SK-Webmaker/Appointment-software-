@@ -1,0 +1,276 @@
+@import "tailwindcss" source(none);
+@source "../src";
+
+/* ------------------------------------------------------------------ fonts
+   Self-hosted (Latin subset) so the opening sequence never waits on a third
+   party. Bodoni Moda and Montserrat are variable fonts. */
+@font-face {
+  font-family: "Bodoni Moda";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/bodoni-moda-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Bodoni Moda";
+  font-style: italic;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("/fonts/bodoni-moda-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/montserrat-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Pinyon Script";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/pinyon-script-normal.woff2") format("woff2");
+}
+
+/* ----------------------------------------------------------------- tokens
+   Colours sampled from Helena's own price-list artwork — see BRAND-BRIEF.md.
+   Timing is NOT tokenised on purpose: Tailwind v4 has no duration/ease theme
+   keys we can rely on, so components use arbitrary values
+   (duration-[…], ease-[cubic-bezier(0.22,1,0.36,1)]). */
+@theme {
+  --color-ivory: #fbf9f1;
+  --color-card: #fefef4;
+  --color-linen: #f3eee3;
+  --color-champagne: #d8cdb8;
+  --color-bronze: #957546;
+  --color-bronze-deep: #7a5e36;
+  --color-espresso: #241a14;
+  --color-ink: #16110d;
+  --color-mocha: #6e5a4a;
+  --color-gold: #c9a876;
+  --color-cream: #f3ebdd;
+
+  --font-display: "Bodoni Moda", Didot, Georgia, serif;
+  --font-sans: "Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: "Pinyon Script", cursive;
+
+  --tracking-label: 0.28em;
+
+  --animate-marquee: marquee 38s linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+  --nav-h: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--nav-h) + 12px);
+    background: var(--color-ivory);
+  }
+
+  body {
+    @apply bg-ivory font-sans text-espresso antialiased;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-champagne);
+    color: var(--color-espresso);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display font-normal;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-bronze);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.lenis) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Bodoni Moda's automatic optical size thins hairlines to nothing at display
+   sizes (an H reads as "I I", an em dash disappears). Pin it: 24 for
+   headings, 11 for small display text. */
+.font-display,
+h1,
+h2,
+h3 {
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 24;
+}
+.opsz-sm {
+  font-variation-settings: "opsz" 11 !important;
+}
+
+/* --------------------------------------------------------------- utilities */
+
+/* The arch from her price list: a semicircle over a straight-sided card. */
+@utility arch {
+  border-radius: 9999px 9999px 0 0;
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-bronze-deep);
+}
+
+@utility btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-primary {
+  @apply btn bg-espresso text-cream shadow-[0_10px_30px_-12px_rgba(36,26,20,0.55)] hover:bg-ink;
+}
+
+@utility btn-gold {
+  @apply btn bg-gold text-ink hover:bg-cream;
+}
+
+@utility btn-ghost {
+  @apply btn border border-espresso/25 text-espresso hover:border-espresso hover:bg-espresso hover:text-cream;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Plain CSS outside any layer, so it is always emitted (bug #2). */
+
+/* A slow highlight that travels across primary buttons, like light on satin. */
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 248, 230, 0.28), transparent);
+  animation: sheen 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The opening curtain is server-rendered so it covers the first paint. If
+   JavaScript never runs, this lifts it anyway — it can never trap anyone. */
+.curtain {
+  animation: curtain-failsafe 0.8s ease 3.4s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Lenis (from lenis/dist/lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .sheen::after,
+  .curtain {
+    display: none !important;
+  }
+}
