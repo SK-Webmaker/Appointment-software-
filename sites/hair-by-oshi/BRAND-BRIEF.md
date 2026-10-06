@@ -26,7 +26,7 @@ prices), the site leaves it out rather than guessing.
 | Booking | **Instagram DM only** — no public phone, email or booking system |
 | Prices | Not published — she quotes by message. The site shows none |
 | Brand lines | "HEALTHY HAIR — CONFIDENT YOU" · "BEAUTY. SCIENCE. CARE." · "Science that goes deep. Beauty that lasts." |
-| Heritage | "Kinda chic for a Sri Lankan girl building her little dream in Melbourne 🇱🇰" |
+| Heritage | "Kinda chic for a Sri Lankan girl building her little dream in Melbourne 🇱🇰" (not on the site — the owner preferred a simple "Hi, it's Oshi") |
 
 **Keratin is deliberately left off the site** at the client's request, even
 though her bio and older posts still mention it.
@@ -115,9 +115,8 @@ the logo is the heart, in a soft, muted mauve.
   Allura for the script "Oshi" — the closest open font to her logo.
 - **Shape:** the capsule — a lock of hair, her arched mirror, the arched door
   of the suite. Photos sit in capsules and arches.
-- **Motion:** light moving across dark hair — the hero capsule holds Oshi
-  herself and, as it opens to full screen, she dissolves into her glossy
-  dark-hair work; strands of light draw themselves across chapter I; a
+- **Motion:** Oshi at the centre — the hero capsule holds her portrait and,
+  as you scroll, her work is dealt out around her like a mood board; strands of light draw themselves across chapter I; a
   single strand down the left edge tracks the journey; nano-particles travel
   into a strand's layers.
 

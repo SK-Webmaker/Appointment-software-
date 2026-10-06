@@ -77,7 +77,7 @@ export function Footer() {
         </div>
       </div>
 
-      {/* Decorative script, drawn as SVG so it scales to the width and isn't read as text. */}
+      {/* Decorative script, drawn as SVG so it scales to the width and isn’t read as text. */}
       <svg viewBox="0 0 1000 240" className="pointer-events-none mt-6 block w-full select-none" aria-hidden="true" focusable="false">
         <text x="500" y="185" textAnchor="middle" textLength={940} lengthAdjust="spacingAndGlyphs" fill="#E3CBA8" fillOpacity="0.08" style={{ fontFamily: '"Allura", cursive', fontSize: 190 }}>
           Hair by Oshi

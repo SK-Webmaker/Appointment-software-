@@ -5,7 +5,7 @@ import { SERVICE_BY_ID, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
 /**
- * The always-there call to action. On phones it's a bar in the thumb zone; on
+ * The always-there call to action. On phones it’s a bar in the thumb zone; on
  * desktop a small pill. It waits until the opening scene has played, and steps
  * aside while the booking chapter itself is on screen.
  */

@@ -22,9 +22,9 @@ email, and no prices on purpose — do not add any unless asked.
 
 ## Do not change without being asked
 - **Keratin stays off the site** (the owner asked for it to be removed).
-- **The motion.** The hero capsule holds Oshi's portrait and opens to full
-  screen on scroll, dissolving into her glossy hair work; chapter II draws
-  strands of light; the gallery travels sideways while the page is
+- **The motion.** The hero capsule holds Oshi's portrait; on scroll it glides
+  to the centre and her work is dealt out around her like a mood board;
+  chapter II draws strands of light; the gallery travels sideways while the page is
   pinned; nano-particles travel into the hair cross-section; the "Always"
   cards stack. These are scroll-linked framer-motion transforms, not fade-ins.
 - **Reduced motion.** Every animated component reads `useReducedMotionSafe()`

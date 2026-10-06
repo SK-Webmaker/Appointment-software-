@@ -14,7 +14,7 @@ export function Heart({ className = "", strokeWidth = 1.6 }: { className?: strin
 
 /**
  * Her wordmark, rebuilt in type: "HAIR BY" between two rules over a script
- * "Oshi" with the heart. `size` is the script's font size in px.
+ * "Oshi" with the heart. `size` is the script’s font size in px.
  */
 export function Wordmark({
   size = 34,

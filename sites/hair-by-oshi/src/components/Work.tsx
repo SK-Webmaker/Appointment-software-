@@ -62,7 +62,7 @@ export function Work() {
           style={{ x: pinned ? x : 0 }}
           data-qa="layered"
         >
-          {/* The opening panel: the chapter's words */}
+          {/* The opening panel: the chapter’s words */}
           <div className="w-[min(84vw,500px)] shrink-0 snap-start self-center pr-4 md:pr-10">
             <ChapterLabel id="work" />
             <h2 id="work-title" className="mt-6 text-[clamp(40px,10vw,84px)] font-light leading-[0.98] text-ink">

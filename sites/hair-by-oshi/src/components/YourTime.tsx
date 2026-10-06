@@ -35,11 +35,11 @@ export function YourTime() {
         <div className="mt-8 grid gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
           <div>
             <h2 id="time-title" className="max-w-[17ch] text-[clamp(36px,7vw,84px)] font-light leading-[1] text-ink">
-              <MaskLines lines={[<>More than getting</>, <>your hair done…</>, <em className="text-cocoa">it's your time.</em>]} />
+              <MaskLines lines={[<>More than getting</>, <>your hair done…</>, <em className="text-cocoa">it’s your time.</em>]} />
             </h2>
             <Reveal>
               <p className="mt-8 max-w-[44ch] text-[16.5px] leading-[1.8] text-mocha md:text-[17.5px]">
-                “My suite is your space for a few hours. Whether you want to chat the whole appointment, work, read, watch Netflix, or enjoy a peaceful silent appointment, I'll match your vibe.”
+                “My suite is your space for a few hours. Whether you want to chat the whole appointment, work, read, watch Netflix, or enjoy a peaceful silent appointment, I’ll match your vibe.”
               </p>
             </Reveal>
 
@@ -81,7 +81,7 @@ export function YourTime() {
                     {chosen ? (
                       <>
                         <span className="font-display text-[19px] italic text-cocoa">“{chosen.line}”</span>
-                        <span className="mt-1.5 block text-[13px] text-mocha">Saved — it'll be in your booking message.</span>
+                        <span className="mt-1.5 block text-[13px] text-mocha">Saved — it’ll be in your booking message.</span>
                       </>
                     ) : (
                       <>

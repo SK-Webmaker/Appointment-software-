@@ -35,17 +35,17 @@ export function Book() {
           <div className="rounded-t-[999px] bg-cream px-6 pb-12 pt-28 text-center shadow-[0_40px_90px_-40px_rgba(0,0,0,0.7)] sm:rounded-t-[400px] sm:px-14 sm:pt-32 md:pb-16">
             <Wordmark size={46} />
             <h2 id="book-title" className="mx-auto mt-8 max-w-[15ch] text-[clamp(38px,8.6vw,80px)] font-light leading-[0.98] text-ink">
-              <MaskLines lines={[<>Let's create beautiful hair</>, <em className="text-cocoa">together.</em>]} />
+              <MaskLines lines={[<>Let’s create beautiful hair</>, <em className="text-cocoa">together.</em>]} />
             </h2>
             <Reveal>
               <p className="mx-auto mt-6 max-w-[42ch] text-[16.5px] leading-[1.75] text-mocha">
-                Bookings are by Instagram DM. Tell Oshi what you'd love and the days that suit you — your message writes itself.
+                Bookings are by Instagram DM. Tell Oshi what you’d love and the days that suit you — your message writes itself.
               </p>
             </Reveal>
 
             <Reveal delay={0.06} className="mx-auto mt-10 max-w-[560px] text-left">
               <fieldset>
-                <legend className="text-[12px] font-medium uppercase tracking-[0.22em] text-ink">I'm interested in</legend>
+                <legend className="text-[12px] font-medium uppercase tracking-[0.22em] text-ink">I’m interested in</legend>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {SERVICES.map((s) => {
                     const on = isSelected(s.id);

@@ -13,7 +13,7 @@ const TONES = [
   { card: "bg-umber text-cream", accent: "text-honey", meta: "text-cream/75" },
 ];
 
-/** Chapter V — "Things I'll ALWAYS do as your hairdresser", stacking as you scroll. */
+/** Chapter V — "Things I’ll ALWAYS do as your hairdresser", stacking as you scroll. */
 export function Always() {
   const stack = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: stack, offset: ["start start", "end end"] });
@@ -23,11 +23,11 @@ export function Always() {
       <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="always" light />
         <h2 id="always-title" className="mt-8 max-w-[18ch] text-[clamp(38px,8vw,92px)] font-light leading-[0.98]">
-          <MaskLines lines={[<>Things I'll always do</>, <em className="text-champagne">as your hairdresser…</em>]} />
+          <MaskLines lines={[<>Things I’ll always do</>, <em className="text-champagne">as your hairdresser…</em>]} />
         </h2>
         <Reveal>
           <p className="mt-8 max-w-[46ch] text-[16.5px] leading-[1.8] text-cream/80 md:text-[17.5px]">
-            …even if you don't want to hear them. “My goal is never to simply give you what you ask for without considering your hair history, condition and what is realistically achievable.”
+            …even if you don’t want to hear them. “My goal is never to simply give you what you ask for without considering your hair history, condition and what is realistically achievable.”
           </p>
         </Reveal>
 
@@ -39,7 +39,7 @@ export function Always() {
 
         <Reveal className="mt-16 text-center">
           <p className="mx-auto max-w-[30ch] font-display text-[clamp(26px,4vw,40px)] font-light leading-[1.2]">
-            If you value honesty, education and a stylist who genuinely wants the best for your hair, <em className="text-champagne">you're in the right chair ✨</em>
+            If you value honesty, education and a stylist who genuinely wants the best for your hair, <em className="text-champagne">you’re in the right chair ✨</em>
           </p>
           <p className="mt-5 text-[12px] font-medium uppercase tracking-[0.24em] text-honey">— {SITE.founder}</p>
         </Reveal>

@@ -34,7 +34,7 @@ export function Nanoplasty() {
           </Reveal>
           <Reveal delay={0.1}>
             <p className="font-display text-[clamp(28px,4.2vw,48px)] font-light leading-[1.15] text-ink">
-              “An amazing result from Nanoplasty. I just can't get over how amazing this treatment is and how <em className="text-cocoa">healthy it makes your hair feel.</em>”
+              “An amazing result from Nanoplasty. I just can’t get over how amazing this treatment is and how <em className="text-cocoa">healthy it makes your hair feel.</em>”
             </p>
             <p className="mt-6 max-w-[46ch] text-[15.5px] leading-[1.8] text-mocha">
               Oshi did a special training to learn more and gain more knowledge about the product — “knowledge is key 🔑”. Drag the handle to compare.

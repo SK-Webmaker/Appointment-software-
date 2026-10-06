@@ -35,11 +35,11 @@ bun run typecheck      # tsc with Lovable's strict flags
 1. **Opening** — three strands of light draw down an espresso ground; her
    script "Oshi" and the heart arrive.
 2. **Hero** — "Healthy hair. Confident you." (her tagline) beside Oshi
-   herself, in a capsule. Scrolling opens the capsule to full screen and she
-   dissolves into her work — glossy dark hair — as "Beautiful hair starts with
-   honesty" arrives.
-3. **I · Oshi** — "Kinda chic for a Sri Lankan girl building her little dream
-   in Melbourne", her story, and two moments from her feed.
+   herself, in a capsule. As you scroll, the words step back, the capsule
+   glides to the centre and her work is dealt out around her like a mood
+   board; then "Beautiful hair starts with honesty" settles underneath.
+3. **I · Oshi** — "Hi, it's *Oshi*" (her name in the script from her logo,
+   the heart drawing itself in), her story, and two moments from her feed.
 4. **II · Dark hair** — "I specialise in dark, thick hair…" lights up word by
    word; strands of light draw themselves across the page.
 5. **III · The work** — the page pins and her colour work travels sideways as
@@ -84,9 +84,10 @@ whether to list cuts, and the domain (`url` in `src/site.config.ts`).
 - **`useReducedMotionSafe()` instead of framer's `useReducedMotion()`** — the
   framer hook reads the preference during the first render, which differs
   from the server render and breaks hydration.
-- **The hero photo is clipped to the capsule with a measured `clip-path`**,
-  not a resized box, so text and buttons never collide with it. Oshi's
-  portrait layer follows the same measured edges, then fades out.
+- **The hero capsule starts from a measured layout slot** and then moves by
+  transform to the centre of the stage, so the text and buttons never
+  collide with it; the photos dealt out around it are positioned from the
+  same measurements (`FAN_LANDSCAPE` / `FAN_PORTRAIT` in `Hero.tsx`).
 - **No bold purple.** The palette is tonal on purpose (the owner's call);
   her logo's purple survives only as a muted mauve heart.
 - **The gallery's height is measured** (`Work.tsx`): the section is as tall as

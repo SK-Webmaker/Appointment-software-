@@ -3,12 +3,12 @@
  * the address or a service here and the whole site follows — no component
  * holds a fact of its own.
  *
- * Every fact and every quote comes from Oshi's own public Instagram,
+ * Every fact and every quote comes from Oshi’s own public Instagram,
  * @hair_by_oshi_ (read 6 October 2026), or the Freedom Suites Oakleigh
  * listing. Sources and open questions: BRAND-BRIEF.md.
  *
- * Deliberately NOT on the site: prices (she doesn't publish any), keratin
- * (removed at the client's request), reviews, opening hours (only her days
+ * Deliberately NOT on the site: prices (she doesn’t publish any), keratin
+ * (removed at the client’s request), reviews, opening hours (only her days
  * are public), and anything the old Lovable draft invented.
  *
  * TODO: confirm with Oshi before launch —
@@ -30,7 +30,7 @@ export const SITE = {
   city: "Melbourne",
   state: "VIC",
   postcode: "3167",
-  // TODO: confirm — the Freedom Suites Oakleigh address; her suite number isn't public.
+  // TODO: confirm — the Freedom Suites Oakleigh address; her suite number isn’t public.
   venue: "Freedom Suites Oakleigh",
   street: "350 Warrigal Rd",
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=Freedom+Suites+Oakleigh+350+Warrigal+Rd+Oakleigh+South+VIC+3167",
@@ -42,7 +42,7 @@ export const SITE = {
   instagramUrl: "https://www.instagram.com/hair_by_oshi_/",
   // Opens a DM thread directly in the Instagram app (or web).
   instagramDm: "https://ig.me/m/hair_by_oshi_",
-  // TODO: replace with the real domain once it's live; used for canonical and social cards.
+  // TODO: replace with the real domain once it’s live; used for canonical and social cards.
   url: "https://hair-by-oshi.lovable.app",
 } as const;
 
@@ -59,10 +59,10 @@ export const CHAPTERS = [
 export type ChapterId = (typeof CHAPTERS)[number]["id"];
 
 // ------------------------------------------------------------- services
-// Her bio lists COLOUR + NANOPLASTY (+ keratin, left off at the client's
+// Her bio lists COLOUR + NANOPLASTY (+ keratin, left off at the client’s
 // request). The colour services are the ones she names herself: "Grey
 // blending ✓ Root touch-ups ✓ Lower-maintenance colour ✓ Softer grow-outs
-// ✓ Budget-friendly plans" and "If you're booking in for a colour
+// ✓ Budget-friendly plans" and "If you’re booking in for a colour
 // correction…". No prices — she quotes by message.
 
 export type Service = {
@@ -101,7 +101,7 @@ export const SERVICES: Service[] = [
     id: "advice",
     name: "Not sure yet — help me choose",
     short: "Help me choose",
-    note: "Tell Oshi where your hair is now and where you'd love it to be.",
+    note: "Tell Oshi where your hair is now and where you’d love it to be.",
   },
 ];
 
@@ -112,7 +112,7 @@ export const HAIR_LENGTHS = ["Short", "Shoulder", "Long", "Very long"] as const;
 export const HAIR_TEXTURES = ["Fine", "Medium", "Thick"] as const;
 export const HAIR_HISTORY = ["Natural, never coloured", "Box dye", "Salon colour", "Lightened / bleached", "Smoothing treatment"] as const;
 
-/** "My suite is your space for a few hours… I'll match your vibe." */
+/** "My suite is your space for a few hours… I’ll match your vibe." */
 export const VIBES = [
   {
     id: "chat",
@@ -132,7 +132,7 @@ export const VIBES = [
   {
     id: "quiet",
     label: "A peaceful, quiet one",
-    line: "I'll happily pop my headphones on, listen to a podcast, and let you enjoy your time.",
+    line: "I’ll happily pop my headphones on, listen to a podcast, and let you enjoy your time.",
   },
 ] as const;
 
@@ -185,7 +185,7 @@ export const WORK: Work[] = [
     image: "balayage-back",
     widths: [480, 800, 1200],
     title: "Dark, with light",
-    caption: "New colour 🫶🏽",
+    caption: "New colour ♥",
     alt: "Dark brown hair with caramel pieces, curled into loose waves, from behind",
   },
   {
@@ -205,13 +205,13 @@ export const WORK: Work[] = [
   },
 ];
 
-// ------------------------------------------------------- things I'll always do
-// From her carousel "Things I'll ALWAYS do as your hairdresser… even if you
-// don't want to hear them" (verbatim, one card each).
+// ------------------------------------------------------- things I’ll always do
+// From her carousel "Things I’ll ALWAYS do as your hairdresser… even if you
+// don’t want to hear them" (verbatim, one card each).
 export const ALWAYS = [
   {
     lead: "I will educate you",
-    rest: "on what's realistically achievable, how we'll get there and how to care for your hair afterwards.",
+    rest: "on what’s realistically achievable, how we’ll get there and how to care for your hair afterwards.",
     image: "nano-after",
     widths: [480, 720],
     alt: "Long, sleek, smooth hair with soft blonde pieces after Nanoplasty",

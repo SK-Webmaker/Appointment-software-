@@ -70,13 +70,13 @@ export function BookingSheet() {
 
   const sendInstagram = async () => {
     const ok = await copyText(message);
-    setToast(ok ? `Message copied — paste it into the chat with ${SITE.founder}.` : `Opening Instagram — tell ${SITE.founder} what you'd like to book.`);
+    setToast(ok ? `Message copied — paste it into the chat with ${SITE.founder}.` : `Opening Instagram — tell ${SITE.founder} what you’d like to book.`);
     window.open(SITE.instagramDm, "_blank", "noopener,noreferrer");
   };
 
   const copyOnly = async () => {
     const ok = await copyText(message);
-    setToast(ok ? "Copied to your clipboard." : "Couldn't copy — select the message and copy it manually.");
+    setToast(ok ? "Copied to your clipboard." : "Couldn’t copy — select the message and copy it manually.");
   };
 
   const toggleHistory = (h: string) => setHistory((cur) => HAIR_HISTORY.filter((x) => (x === h ? !cur.includes(x) : cur.includes(x))));
@@ -121,7 +121,7 @@ export function BookingSheet() {
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6 md:px-8" data-lenis-prevent>
-              <Group label="I'm interested in">
+              <Group label="I’m interested in">
                 {SERVICES.map((s) => (
                   <Chip key={s.id} on={isSelected(s.id)} onClick={() => toggle(s.id)}>
                     {s.short}
@@ -172,13 +172,13 @@ export function BookingSheet() {
                   <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" className={inputCls} placeholder="e.g. Priya" />
                 </Field>
                 <Field label="Anything else" optional>
-                  <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none py-3`} placeholder="The look you're dreaming of, an event date…" />
+                  <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className={`${inputCls} resize-none py-3`} placeholder="The look you’re dreaming of, an event date…" />
                 </Field>
               </div>
 
               <p className="mt-5 flex gap-3 rounded-2xl bg-latte px-4 py-3.5 text-[14px] leading-relaxed text-ink/85">
                 <Camera size={18} strokeWidth={1.6} className="mt-0.5 shrink-0 text-cocoa" />
-                In the chat, add a photo of your hair as it is now and your inspo — it helps Oshi plan what's realistically achievable.
+                In the chat, add a photo of your hair as it is now and your inspo — it helps Oshi plan what’s realistically achievable.
               </p>
 
               <details className="group mt-5 rounded-2xl border border-ink/10 bg-card px-5 py-4">

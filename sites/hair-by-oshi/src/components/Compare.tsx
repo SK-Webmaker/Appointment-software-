@@ -31,7 +31,7 @@ export function Compare() {
     <div ref={ref} className="relative select-none overflow-hidden rounded-t-full bg-sand shadow-[0_40px_80px_-40px_rgba(34,22,31,0.6)]" data-qa="layered">
       <Img name="nano-after" widths={[480, 720]} sizes="(min-width:1024px) 420px, 86vw" alt="After Nanoplasty: long, sleek, smooth hair with soft blonde pieces, seen from behind" className="aspect-[3/4.4] w-full object-cover" />
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
-        <Img name="nano-before" widths={[480, 720]} sizes="(min-width:1024px) 420px, 86vw" alt="Before Nanoplasty: the same client's long hair, wavy and frizzy, seen from behind" className="h-full w-full object-cover" />
+        <Img name="nano-before" widths={[480, 720]} sizes="(min-width:1024px) 420px, 86vw" alt="Before Nanoplasty: the same client’s long hair, wavy and frizzy, seen from behind" className="h-full w-full object-cover" />
       </div>
 
       {/* divider + handle */}

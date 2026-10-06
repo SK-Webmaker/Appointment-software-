@@ -46,27 +46,20 @@ export function Oshi() {
               className="absolute -bottom-6 left-3 hidden w-[26%] max-w-[150px] overflow-hidden rounded-t-full border-[6px] border-cream shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:block"
               style={{ y: reduce ? 0 : yMirror }}
             >
-              <Img name="oshi-mirror" widths={[480]} sizes="150px" alt="Oshi's mirror selfie in a black coat, framed by an arched mirror" className="aspect-[3/4] w-full object-cover" style={{ objectPosition: "50% 40%" }} />
+              <Img name="oshi-mirror" widths={[480]} sizes="150px" alt="Oshi’s mirror selfie in a black coat, framed by an arched mirror" className="aspect-[3/4] w-full object-cover" style={{ objectPosition: "50% 40%" }} />
             </motion.figure>
           </div>
 
           {/* Words */}
           <div>
             <p className="eyebrow">Meet {SITE.fullName}</p>
-            <h2 id="oshi-title" className="mt-5 text-[clamp(34px,5.4vw,64px)] font-light leading-[1.04] text-ink">
-              <MaskLines
-                lines={[
-                  <>“Kinda chic for a Sri Lankan girl</>,
-                  <>
-                    building her <em className="text-cocoa">little dream</em>
-                  </>,
-                  <>in Melbourne.” 🇱🇰</>,
-                ]}
-              />
+            <h2 id="oshi-title" className="mt-5 text-[clamp(44px,7vw,84px)] font-light leading-[1] text-ink">
+              <MaskLines lines={[<>Hi, it’s</>]} />
+              <Signature />
             </h2>
             <Reveal delay={0.1}>
               <p className="mt-7 max-w-[46ch] text-[16.5px] leading-[1.8] text-mocha md:text-[17.5px]">
-                {SITE.fullName} is the colourist behind {SITE.name}. She trained at Box Hill Institute, built a loyal clientele in Glen Waverley and Doncaster, and on {SITE.movedIn} opened her own permanent suite in {SITE.suburbShort} — “such a huge milestone for me, and I couldn't have done it without my amazing clients.”
+                {SITE.fullName} is the colourist behind {SITE.name}. She trained at Box Hill Institute, built a loyal clientele in Glen Waverley and Doncaster, and on {SITE.movedIn} opened her own permanent suite in {SITE.suburbShort} — “such a huge milestone for me, and I couldn’t have done it without my amazing clients.”
               </p>
             </Reveal>
             <Reveal delay={0.16}>
@@ -97,15 +90,47 @@ export function Oshi() {
             </div>
           </Reveal>
           <Reveal delay={0.08} className="grid overflow-hidden rounded-[28px] bg-cocoa text-cream sm:grid-cols-[0.9fr_1.1fr]">
-            <Img name="oshi-basin" widths={[480, 660]} sizes="(min-width:768px) 22vw, (min-width:640px) 45vw, 100vw" alt="At the basin, washing a client's hair before a colour" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 66%" }} />
+            <Img name="oshi-basin" widths={[480, 660]} sizes="(min-width:768px) 22vw, (min-width:640px) 45vw, 100vw" alt="At the basin, washing a client’s hair before a colour" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 66%" }} />
             <div className="flex flex-col justify-center p-7 md:p-8">
               <p className="text-[11.5px] font-medium uppercase tracking-[0.22em] text-champagne">Start a business</p>
-              <p className="mt-3 font-display text-[23px] font-light leading-[1.25] md:text-[26px]">“No matter what you do in life, someone will always have an opinion. So don't let them shrink you.” 💞</p>
+              <p className="mt-3 font-display text-[23px] font-light leading-[1.25] md:text-[26px]">“No matter what you do in life, someone will always have an opinion. So don’t let them shrink you.” 💞</p>
               <p className="mt-3 text-[14.5px] leading-relaxed text-cream/80">Build that business. Book that flight. Love, grow — find yourself.</p>
             </div>
           </Reveal>
         </div>
       </div>
     </section>
+  );
+}
+
+/** Her name in the script from her logo, with the heart drawing itself in. */
+function Signature() {
+  const reduce = useReducedMotionSafe();
+  return (
+    <motion.span
+      className="relative mt-1 inline-block pr-[0.42em] font-script text-[1.55em] font-normal leading-[0.95] text-cocoa"
+      initial={reduce ? false : "hidden"}
+      whileInView="show"
+      viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+      variants={{
+        hidden: { opacity: 0, y: 24 },
+        show: { opacity: 1, y: 0, transition: { duration: 1.2, delay: 0.15, ease: [0.22, 1, 0.36, 1] } },
+      }}
+    >
+      Oshi
+      <svg viewBox="0 0 24 22" className="absolute right-0 top-[0.1em] h-[0.32em] w-[0.35em] overflow-visible text-mauve" fill="none" aria-hidden="true">
+        <motion.path
+          d="M12 20.2s-7.6-4.6-9.6-9.2C.9 7.4 3.1 3 6.9 3c2.1 0 3.7 1.3 5.1 3.2C13.4 4.3 15 3 17.1 3c3.8 0 6 4.4 4.5 8-2 4.6-9.6 9.2-9.6 9.2z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          variants={{
+            hidden: { pathLength: 0 },
+            show: { pathLength: 1, transition: { duration: 1.1, delay: 0.75, ease: [0.65, 0, 0.35, 1] } },
+          }}
+        />
+      </svg>
+    </motion.span>
   );
 }
