@@ -53,13 +53,12 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
    It stops with exit 2/3 if "lovable" appears anywhere. Fix the files and re-run; never bypass it.
 4. Browser check: `node .claude/skills/website-sale/check-site.mjs <SITE_DIR printed above>`
    It must print `OK`. Look at the `check-1280.png` / `check-390.png` screenshots yourself.
-5. Upload both ZIPs to the owner's business Google Drive (Composio `googledrive`, alias "business"),
-   share each as "anyone with the link can view", then email the client the two links with the delivery
-   email below. Gmail blocks ZIPs that contain .js files, so never attach the ZIPs.
-   **Send every client email from kariobooking18@gmail.com** (Composio `gmail`, alias "business",
-   not the default personal account yewankiri@gmail.com). Never send from Resend's
-   mail.hairbyshacamberwell.com; that domain belongs to a client.
-   If either connection isn't active, give the owner the ZIPs (SendUserFile) and the email text instead.
+5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in. The owner uploads them
+   to Google Drive, shares the links and sends the email. (Uploading the ZIPs to a public host so Drive can
+   pick them up was refused for security, and Gmail blocks ZIPs that contain .js files, so they can't be attached.)
+   Client emails that need no files (preview + payment link) may be sent from kairobooking18@gmail.com
+   (Composio `gmail`, alias "business"). Each send needs the owner's approval in Composio.
+   Never use the personal account yewankiri@gmail.com, or Resend's mail.hairbyshacamberwell.com (a client's domain).
 6. `.claude/skills/website-sale/stripe-mark-delivered.sh <plink_id>`. This turns the link off and
    records delivery so it is never paid or delivered twice.
 7. Tell the owner, in one line: "<Business> paid $350 and the files were delivered."
