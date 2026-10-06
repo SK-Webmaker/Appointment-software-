@@ -2,7 +2,7 @@
 # Create a payment link for one client.
 # Usage: stripe-link.sh "Business Name" client@email.com [handover|managed]
 #   handover (default): $350 AUD once. Client keeps the site.
-#   managed:            $550 AUD today + $30 AUD every month (Stripe charges the same card automatically).
+#   managed:            $550 AUD build + $30 AUD/month. Day one = $580 (Stripe bills month 1 at sign-up), then $30 monthly.
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
 NAME="$1"; EMAIL="$2"; PLAN="${3:-handover}"; CURRENCY=aud
@@ -23,7 +23,7 @@ case "$PLAN" in
     SETUP=$(curl -sS $S/prices -d product="$P1" -d unit_amount=55000 -d currency=$CURRENCY | json '["id"]')
     MONTHLY=$(curl -sS $S/prices -d product="$P2" -d unit_amount=3000 -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
     ITEMS=(-d "line_items[0][price]=$SETUP" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$MONTHLY" -d "line_items[1][quantity]=1")
-    SUBMIT="\$550 today for your website, then \$30 a month for ongoing management and updates. Cancel any time by messaging us."
+    SUBMIT="Today: \$550 website + \$30 first month = \$580. Then \$30 a month for ongoing management and updates. Cancel any time by messaging us."
     DONE="Thank you! Your website is going live. For any changes, just message us." ;;
   *) echo "plan must be handover or managed"; exit 1 ;;
 esac
