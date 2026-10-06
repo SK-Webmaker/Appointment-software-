@@ -6,12 +6,12 @@ const ITEMS = ["Dark hair specialist", "Colour", "Nanoplasty", "Grey blending", 
 export function Marquee() {
   const row = [...ITEMS, ...ITEMS];
   return (
-    <div className="relative overflow-hidden border-y border-plum/10 bg-mist py-5 text-plum" aria-hidden="true">
+    <div className="relative overflow-hidden border-y border-cocoa/10 bg-latte py-5 text-cocoa" aria-hidden="true">
       <div className="flex w-max animate-marquee items-center gap-10 whitespace-nowrap will-change-transform">
         {row.map((t, i) => (
           <span key={i} className="flex items-center gap-10 font-display text-[26px] font-light italic leading-none md:text-[34px]">
             {t}
-            <Heart className="h-4 w-[18px] text-violet" strokeWidth={2} />
+            <Heart className="h-4 w-[18px] text-mauve" strokeWidth={2} />
           </span>
         ))}
       </div>

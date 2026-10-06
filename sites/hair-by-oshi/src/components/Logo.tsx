@@ -1,4 +1,4 @@
-/** The lavender heart over the "i" in her logo. */
+/** The heart over the "i" in her logo, in a muted mauve. */
 export function Heart({ className = "", strokeWidth = 1.6 }: { className?: string; strokeWidth?: number }) {
   return (
     <svg viewBox="0 0 24 22" className={className} fill="none" aria-hidden="true" focusable="false">
@@ -25,7 +25,7 @@ export function Wordmark({
   tone?: "dark" | "light";
   className?: string;
 }) {
-  const ink = tone === "dark" ? "text-plum" : "text-cream";
+  const ink = tone === "dark" ? "text-cocoa" : "text-cream";
   const rule = tone === "dark" ? "bg-ink/25" : "bg-cream/35";
   const small = tone === "dark" ? "text-ink" : "text-cream/85";
   return (
@@ -37,7 +37,7 @@ export function Wordmark({
       </span>
       <span className={`relative font-script ${ink}`} style={{ fontSize: size, lineHeight: 0.95, marginTop: size * -0.02 }}>
         Oshi
-        <Heart className="absolute -right-[0.26em] top-[0.04em] h-[0.27em] w-[0.3em] text-lavender" strokeWidth={2} />
+        <Heart className="absolute -right-[0.26em] top-[0.04em] h-[0.27em] w-[0.3em] text-mauve" strokeWidth={2} />
       </span>
     </span>
   );

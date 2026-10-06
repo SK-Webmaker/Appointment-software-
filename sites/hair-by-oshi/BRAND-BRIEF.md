@@ -16,7 +16,7 @@ prices), the site leaves it out rather than guessing.
 
 | | |
 |---|---|
-| Name | **Hair by Oshi** (logo: "HAIR BY" between rules over a purple script "Oshi" with a lavender heart) |
+| Name | **Hair by Oshi** (logo: "HAIR BY" between rules over a script "Oshi" with a heart — purple in her logo, cocoa and muted mauve on the site) |
 | Stylist | **Oshi Dias** — profile title *Oakleigh Hairdresser \| Dark Hair Specialist* |
 | Bio | "OSHI DIAS · COLOUR + NANOPLASTY + KERATIN · DM TO BOOK · 🗓️ MON, TUE, FRI & SAT · OAKLEIGH" |
 | Days | **Monday, Tuesday, Friday & Saturday** (times not public) |
@@ -94,23 +94,30 @@ though her bio and older posts still mention it.
 
 ## Visual identity
 
+The palette is tonal, taken from her work itself rather than her purple logo
+(the owner found the purple too loud next to the photos): espresso roots,
+chocolate lengths, caramel and honey ribbons, on warm cream. The only nod to
+the logo is the heart, in a soft, muted mauve.
+
 | Token | Hex | Source / use |
 |---|---|---|
-| plum | `#512B76` | the purple of her logo — buttons, accents (10:1 on cream) |
-| violet | `#6B3FA0` | lighter plum for small accents on light grounds |
-| lavender | `#B8A2D9` | the heart in her logo — accents on dark grounds |
-| honey | `#D9A05B` | "a beautiful honey blonde 🍯" — highlights on dark grounds only |
-| night | `#1D1220` | the dark hair she specialises in — dark chapters |
-| cream / sand / mist | `#FAF6F0` / `#F1E9DF` / `#EEE8F4` | grounds |
-| ink / mocha | `#22161F` / `#6A5866` | text |
+| cocoa | `#4A3328` | chocolate brunette — buttons, the "Oshi" wordmark (10:1 on cream) |
+| caramel | `#80593A` | caramel ribbons — accents, eyebrows, italics on light grounds (5.5:1) |
+| champagne | `#E3CBA8` | soft blonde — accents on dark grounds (11:1 on espresso) |
+| honey | `#D2A26B` | "a beautiful honey blonde 🍯" — buttons and highlights on dark grounds |
+| espresso / umber | `#1F1612` / `#2E211B` | the dark hair she specialises in — dark chapters |
+| mauve | `#B9A3B5` | the heart from her logo, muted — decorative only |
+| cream / sand / latte | `#F7F1EA` / `#EEE4D8` / `#EFE6DF` | grounds |
+| ink / mocha | `#231915` / `#6B574B` | text |
 
 - **Type:** Fraunces (soft, warm serif, `SOFT` 60) for headings; Jost (a
   Futura-like sans, close to her logo's "HAIR BY") for text and labels;
   Allura for the script "Oshi" — the closest open font to her logo.
 - **Shape:** the capsule — a lock of hair, her arched mirror, the arched door
   of the suite. Photos sit in capsules and arches.
-- **Motion:** light moving across dark hair — the hero capsule opens to a
-  full-screen gloss; strands of light draw themselves across chapter I; a
+- **Motion:** light moving across dark hair — the hero capsule holds Oshi
+  herself and, as it opens to full screen, she dissolves into her glossy
+  dark-hair work; strands of light draw themselves across chapter I; a
   single strand down the left edge tracks the journey; nano-particles travel
   into a strand's layers.
 

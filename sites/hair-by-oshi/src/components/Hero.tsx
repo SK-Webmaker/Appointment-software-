@@ -13,11 +13,13 @@ type Box = { top: number; right: number; bottom: number; left: number; width: nu
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+// Her portrait melts into the dark hair beneath it at the bottom of the capsule.
+const FADE = "linear-gradient(to bottom, #000 86%, transparent 100%)";
 
 /**
- * Opening scene. A lock of her glossy dark-brunette work sits in a capsule;
- * as you scroll, the capsule opens out to the full screen and her line
- * "Beautiful hair starts with honesty" arrives over it. The capsule's position
+ * Opening scene. Oshi herself sits in a capsule; as you scroll, the capsule
+ * opens out to the full screen and she dissolves into her work — glossy dark
+ * hair — as her line "Beautiful hair starts with honesty" arrives over it. The capsule's position
  * is measured from a layout slot, so text and buttons never collide with it.
  */
 export function Hero() {
@@ -68,6 +70,21 @@ export function Hero() {
   });
   const frameOpacity = useTransform(scrollYProgress, (v) => 1 - clamp01(v / 0.12));
 
+  // Oshi's portrait rides the opening capsule exactly, then dissolves into her
+  // work: by the time the capsule is full screen, it's all glossy dark hair.
+  const edge = (side: "top" | "right" | "bottom" | "left") => (v: number) => {
+    const b = box.current;
+    if (!b) return 0;
+    const k = reduceRef.current ? 0 : easeInOut(clamp01(v / 0.62));
+    return lerp(b[side], 0, k);
+  };
+  const pTop = useTransform(scrollYProgress, edge("top"));
+  const pRight = useTransform(scrollYProgress, edge("right"));
+  const pBottom = useTransform(scrollYProgress, edge("bottom"));
+  const pLeft = useTransform(scrollYProgress, edge("left"));
+  const portraitOpacity = useTransform(scrollYProgress, [0.1, 0.42], [1, 0]);
+  const portraitScale = useTransform(scrollYProgress, [0, 0.4], [1.18, 1.3]);
+
   const imgScale = useTransform(scrollYProgress, [0, 0.7], [1.16, 1]);
   const imgY = useTransform(scrollYProgress, [0, 1], ["0%", "-6%"]);
   const introOpacity = useTransform(scrollYProgress, [0, 0.26], [1, 0]);
@@ -86,24 +103,43 @@ export function Hero() {
       aria-label="Welcome"
     >
       <div ref={stageRef} className="sticky top-0 h-[100svh] min-h-[600px] w-full overflow-hidden bg-cream">
-        {/* soft lavender light in the empty corner */}
-        <div className="pointer-events-none absolute -right-32 top-16 h-[460px] w-[460px] rounded-full bg-lavender/30 blur-3xl" aria-hidden="true" />
+        {/* soft champagne light in the empty corner */}
+        <div className="pointer-events-none absolute -right-32 top-16 h-[460px] w-[460px] rounded-full bg-champagne/50 blur-3xl" aria-hidden="true" />
         <div className="pointer-events-none absolute -left-40 bottom-0 h-[360px] w-[360px] rounded-full bg-honey/15 blur-3xl" aria-hidden="true" />
 
         {/* The photograph, clipped to the capsule */}
-        <motion.div className="absolute inset-0 z-0 bg-night will-change-[clip-path]" style={{ clipPath }} data-qa="layered">
+        <motion.div className="absolute inset-0 z-0 bg-espresso will-change-[clip-path]" style={{ clipPath }} data-qa="layered">
           <motion.div className="h-[112%] w-full" style={reduce ? { scale: 1, y: "0%" } : { scale: imgScale, y: imgY }}>
             <Img
               name="hair-gloss"
               widths={[480, 800, 1200]}
               sizes="100vw"
-              priority
               alt="Oshi's work: thick, glossy, dark chocolate-brown hair falling straight down the back"
               className="h-full w-full object-cover"
               style={{ objectPosition: "50% 32%" }}
             />
           </motion.div>
-          <motion.div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/45 to-night/10" style={{ opacity: reduce ? 0 : veil }} aria-hidden="true" />
+          <motion.div
+            className="absolute overflow-hidden"
+            style={
+              reduce
+                ? { top: pTop, right: pRight, bottom: pBottom, left: pLeft, opacity: 1 }
+                : { top: pTop, right: pRight, bottom: pBottom, left: pLeft, opacity: portraitOpacity }
+            }
+          >
+            <motion.div className="h-full w-full" style={{ scale: reduce ? 1.18 : portraitScale, transformOrigin: "50% 100%", maskImage: FADE, WebkitMaskImage: FADE }}>
+              <Img
+                name="oshi-hallway"
+                widths={[480, 800, 1200, 1320]}
+                sizes="(min-width:1024px) 60vw, 100vw"
+                priority
+                alt="Oshi Dias smiling in the hallway outside her suite in Oakleigh, under a glowing brass lamp"
+                className="h-full w-full object-cover"
+                style={{ objectPosition: "50% 62%" }}
+              />
+            </motion.div>
+          </motion.div>
+          <motion.div className="absolute inset-0 bg-gradient-to-t from-espresso/90 via-espresso/45 to-espresso/10" style={{ opacity: reduce ? 0 : veil }} aria-hidden="true" />
         </motion.div>
 
         {/* Opening layout */}
@@ -112,10 +148,10 @@ export function Hero() {
           style={reduce ? { opacity: 1, y: 0, pointerEvents: "auto" } : { opacity: introOpacity, y: introY, pointerEvents: introEvents }}
         >
           <div className="lg:flex lg:flex-col lg:justify-center lg:pb-10">
-            <p className="flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.24em] text-plum md:text-[11.5px]">
+            <p className="flex items-center gap-2.5 text-[11px] font-medium uppercase tracking-[0.24em] text-cocoa md:text-[11.5px]">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet/50" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-violet" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-caramel/50" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-caramel" />
               </span>
               <span>
                 {SITE.suburbShort} · {SITE.specialty}
@@ -128,7 +164,7 @@ export function Hero() {
                 lines={[
                   <>Healthy hair.</>,
                   <>
-                    Confident <em className="text-plum">you.</em>
+                    Confident <em className="text-cocoa">you.</em>
                   </>,
                 ]}
               />
@@ -139,7 +175,7 @@ export function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.65, duration: 1, ease: [0.22, 1, 0.36, 1] }}
             >
-              Colour and Nanoplasty by {SITE.fullName} — a colourist who specialises in dark, thick hair — in her private suite in {SITE.suburbShort}.
+              Hi, I'm {SITE.founder} — a colourist who specialises in dark, thick hair. Colour and Nanoplasty, one client at a time, in my private suite in {SITE.suburbShort}.
             </motion.p>
             <motion.div
               className="mt-10 hidden flex-wrap items-center gap-4 lg:flex"
@@ -167,12 +203,12 @@ export function Hero() {
           {/* The capsule slot: an empty box the photograph is clipped to. */}
           <div className="relative flex min-h-0 items-stretch justify-center py-5 lg:py-0 lg:pb-4">
             <div ref={slotRef} className="relative h-full w-[min(64%,300px)] sm:w-[min(52%,330px)] lg:h-[min(78vh,780px)] lg:w-[min(100%,400px)] lg:self-end">
-              <motion.div className="capsule absolute -inset-[10px] border border-plum/35" style={{ opacity: reduce ? 1 : frameOpacity }} aria-hidden="true" />
+              <motion.div className="capsule absolute -inset-[10px] border border-cocoa/35" style={{ opacity: reduce ? 1 : frameOpacity }} aria-hidden="true" />
               <div className="absolute -bottom-3 -left-14 hidden sm:block lg:-left-20 lg:bottom-12">
                 <RoundBadge size={124} className="drop-shadow-sm" />
               </div>
-              <p className="absolute -right-10 bottom-6 hidden rotate-180 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.3em] text-plum [writing-mode:vertical-rl] lg:block">
-                Dark chocolate gloss · by {SITE.founder}
+              <p className="absolute -right-10 bottom-6 hidden rotate-180 whitespace-nowrap text-[10.5px] font-medium uppercase tracking-[0.3em] text-cocoa [writing-mode:vertical-rl] lg:block">
+                {SITE.fullName} · your colourist
               </p>
             </div>
           </div>
@@ -195,14 +231,14 @@ export function Hero() {
           >
             <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-honey">{SITE.values.join(" · ")}</p>
             <p className="mt-4 max-w-[13ch] font-display text-[clamp(46px,11vw,128px)] font-light leading-[0.95]">
-              Beautiful hair starts with <em className="text-lavender">honesty.</em>
+              Beautiful hair starts with <em className="text-champagne">honesty.</em>
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <a href="#dark-hair" className="btn-honey sheen" tabIndex={-1}>
+              <a href="#oshi" className="btn-honey sheen" tabIndex={-1}>
                 Begin <ArrowDown size={16} strokeWidth={1.8} />
               </a>
               <p className="max-w-[40ch] text-[15px] leading-relaxed text-cream/85">
-                “I'll always explain the process, protect the health of your hair and create a result that works for your lifestyle — not just for the photo.”
+                “I'll always explain the process, protect the health of your hair and create a result that works for your lifestyle — not just for the photo.” <span className="whitespace-nowrap text-honey">— {SITE.founder}</span>
               </p>
             </div>
           </motion.div>
@@ -218,7 +254,7 @@ export function Hero() {
             <span className="text-[10.5px] font-medium uppercase tracking-[0.3em] text-mocha">Scroll</span>
             <span className="relative h-10 w-px overflow-hidden bg-ink/15">
               <motion.span
-                className="absolute inset-x-0 top-0 h-1/2 bg-plum"
+                className="absolute inset-x-0 top-0 h-1/2 bg-cocoa"
                 animate={{ y: ["-100%", "200%"] }}
                 transition={{ duration: 1.8, repeat: Infinity, ease: [0.65, 0, 0.35, 1] }}
               />

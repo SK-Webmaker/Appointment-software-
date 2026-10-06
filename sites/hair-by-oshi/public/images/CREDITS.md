@@ -19,7 +19,8 @@ hair — the photo is otherwise untouched). No stock photography is used.
 | `hype` | [DbT0_CgyMQs](https://www.instagram.com/p/DbT0_CgyMQs/) — "save this for your next hair appointment" | Reel cover |
 | `your-time` | [Dbc0jruAQNj](https://www.instagram.com/p/Dbc0jruAQNj/) — "Your hair appointment is more than just getting your hair done… it's your time" | Slide 3 (no text) |
 | `suite-doors`, `suite-hall` | [DGX1LPVhk1B](https://www.instagram.com/p/DGX1LPVhk1B/) — the Oakleigh move announcement | Reel frames, "Located in Oakleigh" text cropped off |
-| `oshi-hallway` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) — "…don't let them shrink you 💞" | Top half of slide 1 (above the caption) |
+| `oshi-hallway` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) — "…don't let them shrink you 💞" | Top half of slide 1 (above the caption) — the hero portrait |
+| `oshi-call` | [DGX1LPVhk1B](https://www.instagram.com/p/DGX1LPVhk1B/) — the Oakleigh move announcement | Reel cover, between the "Incoming call" text and the call buttons |
 | `oshi-basin` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) | Colour half of slide 8 |
 | `oshi-portrait` | [DZolNHdgT51](https://www.instagram.com/p/DZolNHdgT51/) — her box-dye explainer | Her portrait from slide 1 |
 | `oshi-mirror` | [DcK8pTDgULZ](https://www.instagram.com/p/DcK8pTDgULZ/) — "Kinda chic for a Sri Lankan girl…" | Top of the image, above the caption |

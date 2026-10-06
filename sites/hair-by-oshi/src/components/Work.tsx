@@ -8,7 +8,7 @@ import { MaskLines } from "./Reveal";
 import { SITE, WORK } from "@/site.config";
 
 /**
- * Chapter II — her work. The page pauses and the gallery travels sideways as
+ * Chapter III — her work. The page pauses and the gallery travels sideways as
  * you scroll down, one look at a time. With reduced motion it is a plain
  * swipeable row.
  */
@@ -66,12 +66,12 @@ export function Work() {
           <div className="w-[min(84vw,500px)] shrink-0 snap-start self-center pr-4 md:pr-10">
             <ChapterLabel id="work" />
             <h2 id="work-title" className="mt-6 text-[clamp(40px,10vw,84px)] font-light leading-[0.98] text-ink">
-              <MaskLines lines={[<>Real hair,</>, <em className="text-plum">real results.</em>]} />
+              <MaskLines lines={[<>Real hair,</>, <em className="text-cocoa">real results.</em>]} />
             </h2>
             <p className="mt-6 max-w-[36ch] text-[16px] leading-[1.75] text-mocha md:text-[17px]">
               “Behind a real colour transformation are hours of work, knowledge and carefully made decisions to keep your hair healthy.”
             </p>
-            <p className="mt-6 flex items-center gap-3 text-[12px] font-medium uppercase tracking-[0.22em] text-plum">
+            <p className="mt-6 flex items-center gap-3 text-[12px] font-medium uppercase tracking-[0.22em] text-cocoa">
               {pinned ? "Keep scrolling" : "Swipe"} <ArrowRight size={15} strokeWidth={1.8} />
             </p>
           </div>
@@ -89,7 +89,7 @@ export function Work() {
                 />
               </div>
               <figcaption className="mt-4 flex items-start gap-4">
-                <span className="pt-1.5 font-display text-[14px] italic text-plum">{String(i + 1).padStart(2, "0")}</span>
+                <span className="pt-1.5 font-display text-[14px] italic text-cocoa">{String(i + 1).padStart(2, "0")}</span>
                 <span>
                   <span className="block font-display text-[23px] font-light leading-tight text-ink md:text-[26px]">{w.title}</span>
                   <span className="mt-1 block text-[14.5px] leading-snug text-mocha">“{w.caption}”</span>
@@ -101,7 +101,7 @@ export function Work() {
           {/* The closing panel */}
           <div className="flex w-[min(78vw,380px)] shrink-0 snap-end flex-col items-start justify-center self-center pl-2 md:pl-8">
             <p className="font-display text-[clamp(28px,4vw,40px)] font-light leading-[1.1] text-ink">
-              More on her <em className="text-plum">Instagram.</em>
+              More on her <em className="text-cocoa">Instagram.</em>
             </p>
             <p className="mt-4 max-w-[30ch] text-[15px] leading-relaxed text-mocha">Her latest transformations live there. “Save the inspo, girls, but remember your starting point matters.”</p>
             <a href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="btn-ghost mt-7">
@@ -112,11 +112,11 @@ export function Work() {
 
         {pinned && (
           <div className="mx-auto mt-8 flex w-full max-w-[1440px] items-center gap-5 px-5 md:mt-10 md:px-10 xl:px-24" aria-hidden="true">
-            <span className="w-14 font-display text-[15px] italic text-plum">
+            <span className="w-14 font-display text-[15px] italic text-cocoa">
               {String(index).padStart(2, "0")} / {String(WORK.length).padStart(2, "0")}
             </span>
             <span className="relative h-px flex-1 bg-ink/15">
-              <motion.span className="absolute inset-0 origin-left bg-plum" style={{ scaleX: bar }} />
+              <motion.span className="absolute inset-0 origin-left bg-cocoa" style={{ scaleX: bar }} />
             </span>
           </div>
         )}

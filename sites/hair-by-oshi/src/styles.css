@@ -35,26 +35,28 @@
 }
 
 /* ----------------------------------------------------------------- tokens
-   Plum and lavender come from her logo (the purple "Oshi" and its heart);
-   honey from her favourite tone ("a beautiful honey blonde 🍯"); night is
-   the colour of the dark hair she specialises in. See BRAND-BRIEF.md.
-   Contrast (WCAG): ink 16:1, mocha 6.1:1, plum 10:1, violet 6.9:1 on cream;
-   cream 16.8:1, lavender 7.9:1, honey 7.9:1 on night.
+   A tonal palette taken from her work itself — espresso roots, chocolate
+   lengths, caramel and honey ribbons, on warm cream. The only nod to her
+   purple logo is the heart, kept in a soft, muted mauve. See BRAND-BRIEF.md.
+   Contrast (WCAG): ink 15:1, mocha 6.1:1, cocoa 10:1, caramel 5.5:1 on cream;
+   cream 15.8:1, champagne 11:1, honey 7.7:1 on espresso.
    Timing is NOT tokenised on purpose: components use arbitrary values
    (duration-[…], ease-[cubic-bezier(0.22,1,0.36,1)]). */
 @theme {
-  --color-cream: #faf6f0;
-  --color-sand: #f1e9df;
-  --color-mist: #eee8f4;
-  --color-card: #fffdf9;
-  --color-ink: #22161f;
-  --color-mocha: #6a5866;
-  --color-plum: #512b76;
-  --color-violet: #6b3fa0;
-  --color-plum-deep: #3b1f57;
-  --color-night: #1d1220;
-  --color-lavender: #b8a2d9;
-  --color-honey: #d9a05b;
+  --color-cream: #f7f1ea;
+  --color-sand: #eee4d8;
+  --color-latte: #efe6df;
+  --color-card: #fffcf8;
+  --color-ink: #231915;
+  --color-mocha: #6b574b;
+  --color-cocoa: #4a3328;
+  --color-cocoa-deep: #36241c;
+  --color-caramel: #80593a;
+  --color-espresso: #1f1612;
+  --color-umber: #2e211b;
+  --color-champagne: #e3cba8;
+  --color-honey: #d2a26b;
+  --color-mauve: #b9a3b5;
 
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -96,8 +98,8 @@
   }
 
   ::selection {
-    background: var(--color-lavender);
-    color: var(--color-night);
+    background: var(--color-champagne);
+    color: var(--color-espresso);
   }
 
   h1,
@@ -122,7 +124,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-violet);
+    outline: 2px solid var(--color-caramel);
     outline-offset: 3px;
     border-radius: 4px;
   }
@@ -144,7 +146,7 @@ h3 {
 
 /* --------------------------------------------------------------- utilities */
 
-/* The capsule: a lock of hair, her mirror, the arch of her suite's door. */
+/* The capsule: a lock of hair, her arched mirror, the arched door of her suite. */
 @utility capsule {
   border-radius: 9999px;
 }
@@ -155,7 +157,7 @@ h3 {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
-  color: var(--color-plum);
+  color: var(--color-caramel);
 }
 
 @utility btn {
@@ -181,19 +183,19 @@ h3 {
 }
 
 @utility btn-primary {
-  @apply btn bg-plum text-cream shadow-[0_12px_30px_-12px_rgba(81,43,118,0.65)] hover:bg-plum-deep;
+  @apply btn bg-cocoa text-cream shadow-[0_12px_30px_-12px_rgba(54,36,28,0.6)] hover:bg-cocoa-deep;
 }
 
 @utility btn-honey {
-  @apply btn bg-honey text-night hover:bg-cream;
+  @apply btn bg-honey text-espresso hover:bg-cream;
 }
 
 @utility btn-ghost {
-  @apply btn border border-ink/25 text-ink hover:border-plum hover:bg-plum hover:text-cream;
+  @apply btn border border-ink/25 text-ink hover:border-cocoa hover:bg-cocoa hover:text-cream;
 }
 
 @utility btn-ghost-light {
-  @apply btn border border-cream/35 text-cream hover:border-cream hover:bg-cream hover:text-night;
+  @apply btn border border-cream/35 text-cream hover:border-cream hover:bg-cream hover:text-espresso;
 }
 
 @utility no-scrollbar {

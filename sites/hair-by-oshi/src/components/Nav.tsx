@@ -7,9 +7,9 @@ import { useBooking } from "@/context/booking";
 import { lockScroll } from "@/lib/smooth";
 
 const LINKS = [
+  { href: "#oshi", label: "Meet Oshi" },
   { href: "#work", label: "The work" },
   { href: "#nanoplasty", label: "Nanoplasty" },
-  { href: "#oshi", label: "Meet Oshi" },
   { href: "#your-time", label: "The suite" },
 ];
 
@@ -49,21 +49,21 @@ export function Nav() {
             {LINKS.map((l) => (
               <a key={l.href} href={l.href} className="group relative text-[12px] font-medium uppercase tracking-[0.22em] text-ink/80 transition-colors hover:text-ink">
                 {l.label}
-                <span className="absolute -bottom-1.5 left-0 h-px w-full origin-left scale-x-0 bg-plum transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100" />
+                <span className="absolute -bottom-1.5 left-0 h-px w-full origin-left scale-x-0 bg-cocoa transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100" />
               </a>
             ))}
-            <a href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center text-ink/80 transition-colors hover:text-plum">
+            <a href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="grid h-11 w-11 place-items-center text-ink/80 transition-colors hover:text-cocoa">
               <Instagram size={18} strokeWidth={1.6} />
               <span className="sr-only">Instagram @{SITE.instagramHandle} (opens in a new tab)</span>
             </a>
             <button onClick={openSheet} className="btn-primary sheen min-h-[44px] px-6 text-[11.5px]">
-              Book now{selected.length > 0 && <span className="ml-0.5 rounded-full bg-honey px-1.5 text-[10.5px] leading-[18px] text-night">{selected.length}</span>}
+              Book now{selected.length > 0 && <span className="ml-0.5 rounded-full bg-honey px-1.5 text-[10.5px] leading-[18px] text-espresso">{selected.length}</span>}
             </button>
           </div>
 
           <div className="flex items-center gap-2 lg:hidden">
             <button onClick={openSheet} className="btn-primary min-h-[44px] px-4 text-[11px] tracking-[0.18em]">
-              Book{selected.length > 0 && <span className="rounded-full bg-honey px-1.5 text-[10.5px] leading-[18px] text-night">{selected.length}</span>}
+              Book{selected.length > 0 && <span className="rounded-full bg-honey px-1.5 text-[10.5px] leading-[18px] text-espresso">{selected.length}</span>}
             </button>
             <button
               onClick={() => setOpen(true)}
@@ -76,7 +76,7 @@ export function Nav() {
             </button>
           </div>
         </nav>
-        <motion.div className="h-[2px] origin-left bg-gradient-to-r from-plum via-lavender to-honey" style={{ scaleX: progress }} aria-hidden="true" />
+        <motion.div className="h-[2px] origin-left bg-gradient-to-r from-cocoa via-champagne to-honey" style={{ scaleX: progress }} aria-hidden="true" />
       </header>
 
       <AnimatePresence>
@@ -86,7 +86,7 @@ export function Nav() {
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
-            className="fixed inset-0 z-[60] flex flex-col bg-night text-cream"
+            className="fixed inset-0 z-[60] flex flex-col bg-espresso text-cream"
             initial={{ clipPath: "circle(0% at 92% 4%)" }}
             animate={{ clipPath: "circle(150% at 92% 4%)" }}
             exit={{ clipPath: "circle(0% at 92% 4%)" }}

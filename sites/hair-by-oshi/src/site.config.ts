@@ -47,11 +47,11 @@ export const SITE = {
 } as const;
 
 export const CHAPTERS = [
-  { id: "dark-hair", numeral: "I", label: "Dark hair" },
-  { id: "work", numeral: "II", label: "The work" },
-  { id: "nanoplasty", numeral: "III", label: "Nanoplasty" },
-  { id: "always", numeral: "IV", label: "Always" },
-  { id: "oshi", numeral: "V", label: "Oshi" },
+  { id: "oshi", numeral: "I", label: "Oshi" },
+  { id: "dark-hair", numeral: "II", label: "Dark hair" },
+  { id: "work", numeral: "III", label: "The work" },
+  { id: "nanoplasty", numeral: "IV", label: "Nanoplasty" },
+  { id: "always", numeral: "V", label: "Always" },
   { id: "your-time", numeral: "VI", label: "Your time" },
   { id: "book", numeral: "VII", label: "Book" },
 ] as const;

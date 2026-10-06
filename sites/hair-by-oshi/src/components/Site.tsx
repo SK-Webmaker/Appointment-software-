@@ -27,7 +27,7 @@ export function Site() {
       <BookingProvider>
         <a
           href="#book"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:rounded-full focus:bg-night focus:px-5 focus:py-3 focus:text-cream"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[90] focus:rounded-full focus:bg-espresso focus:px-5 focus:py-3 focus:text-cream"
         >
           Skip to booking
         </a>
@@ -36,12 +36,12 @@ export function Site() {
         <StrandRail />
         <main>
           <Hero />
+          <Oshi />
           <DarkHair />
           <Work />
           <Marquee />
           <Nanoplasty />
           <Always />
-          <Oshi />
           <YourTime />
           <Book />
         </main>

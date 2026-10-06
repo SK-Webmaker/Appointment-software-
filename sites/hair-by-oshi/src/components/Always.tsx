@@ -7,23 +7,23 @@ import { MaskLines, Reveal } from "./Reveal";
 import { ALWAYS, SITE } from "@/site.config";
 
 const TONES = [
-  { card: "bg-plum text-cream", accent: "text-lavender", meta: "text-cream/75" },
-  { card: "bg-cream text-ink", accent: "text-plum", meta: "text-mocha" },
-  { card: "bg-mist text-ink", accent: "text-violet", meta: "text-mocha" },
-  { card: "bg-[#2B1A30] text-cream", accent: "text-honey", meta: "text-cream/75" },
+  { card: "bg-cocoa text-cream", accent: "text-champagne", meta: "text-cream/75" },
+  { card: "bg-cream text-ink", accent: "text-caramel", meta: "text-mocha" },
+  { card: "bg-latte text-ink", accent: "text-caramel", meta: "text-mocha" },
+  { card: "bg-umber text-cream", accent: "text-honey", meta: "text-cream/75" },
 ];
 
-/** Chapter IV — "Things I'll ALWAYS do as your hairdresser", stacking as you scroll. */
+/** Chapter V — "Things I'll ALWAYS do as your hairdresser", stacking as you scroll. */
 export function Always() {
   const stack = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: stack, offset: ["start start", "end end"] });
 
   return (
-    <section id="always" className="grain relative bg-night pb-24 pt-24 text-cream md:pb-32 md:pt-36" aria-labelledby="always-title">
+    <section id="always" className="grain relative bg-espresso pb-24 pt-24 text-cream md:pb-32 md:pt-36" aria-labelledby="always-title">
       <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="always" light />
         <h2 id="always-title" className="mt-8 max-w-[18ch] text-[clamp(38px,8vw,92px)] font-light leading-[0.98]">
-          <MaskLines lines={[<>Things I'll always do</>, <em className="text-lavender">as your hairdresser…</em>]} />
+          <MaskLines lines={[<>Things I'll always do</>, <em className="text-champagne">as your hairdresser…</em>]} />
         </h2>
         <Reveal>
           <p className="mt-8 max-w-[46ch] text-[16.5px] leading-[1.8] text-cream/80 md:text-[17.5px]">
@@ -39,7 +39,7 @@ export function Always() {
 
         <Reveal className="mt-16 text-center">
           <p className="mx-auto max-w-[30ch] font-display text-[clamp(26px,4vw,40px)] font-light leading-[1.2]">
-            If you value honesty, education and a stylist who genuinely wants the best for your hair, <em className="text-lavender">you're in the right chair ✨</em>
+            If you value honesty, education and a stylist who genuinely wants the best for your hair, <em className="text-champagne">you're in the right chair ✨</em>
           </p>
           <p className="mt-5 text-[12px] font-medium uppercase tracking-[0.24em] text-honey">— {SITE.founder}</p>
         </Reveal>

@@ -13,15 +13,18 @@ email, and no prices on purpose — do not add any unless asked.
 ## Where things live
 - **All business facts and quotes** are in `src/site.config.ts`. Change them
   there only — never hard-code a fact in a component.
-- One chapter per file in `src/components/` (`Hero`, `DarkHair`, `Work`,
-  `Nanoplasty`, `Always`, `Oshi`, `YourTime`, `Book`). `Site.tsx` composes them.
-- Colours and fonts are tokens in `src/styles.css` (`@theme`). Plum and
-  lavender come from her logo — keep them.
+- One chapter per file in `src/components/` (`Hero`, `Oshi`, `DarkHair`, `Work`,
+  `Nanoplasty`, `Always`, `YourTime`, `Book`). `Site.tsx` composes them.
+- Colours and fonts are tokens in `src/styles.css` (`@theme`): a soft,
+  tonal chocolate / caramel / honey / cream palette taken from her hair work.
+  The owner asked for no bold purple — keep it that way (the logo heart is a
+  muted mauve, nothing more).
 
 ## Do not change without being asked
 - **Keratin stays off the site** (the owner asked for it to be removed).
-- **The motion.** The hero capsule opens to full screen on scroll; chapter I
-  draws strands of light; the gallery travels sideways while the page is
+- **The motion.** The hero capsule holds Oshi's portrait and opens to full
+  screen on scroll, dissolving into her glossy hair work; chapter II draws
+  strands of light; the gallery travels sideways while the page is
   pinned; nano-particles travel into the hair cross-section; the "Always"
   cards stack. These are scroll-linked framer-motion transforms, not fade-ins.
 - **Reduced motion.** Every animated component reads `useReducedMotionSafe()`

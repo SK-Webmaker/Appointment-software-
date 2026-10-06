@@ -12,21 +12,21 @@ const STRANDS = Array.from({ length: 9 }, (_, i) => {
   const a = 70 + (i % 3) * 18;
   return {
     d: `M-40 ${y} C 180 ${y - a}, 330 ${y + a}, 520 ${y} S 860 ${y - a}, 1040 ${y + 10}`,
-    color: i % 4 === 1 ? "#D9A05B" : i % 2 === 0 ? "#B8A2D9" : "#6B3FA0",
+    color: i % 4 === 1 ? "#D2A26B" : i % 2 === 0 ? "#E3CBA8" : "#9C7350",
     width: i % 3 === 0 ? 1.4 : 0.9,
     delay: i * 0.035,
   };
 });
 
-/** Chapter I — who she is for, in her own words, with strands of light drawing across. */
+/** Chapter II — who she is for, in her own words, with strands of light drawing across. */
 export function DarkHair() {
   const strandsRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotionSafe();
   const { scrollYProgress } = useScroll({ target: strandsRef, offset: ["start end", "end start"] });
 
   return (
-    <section id="dark-hair" className="grain relative overflow-hidden bg-night pb-20 pt-24 text-cream md:pb-28 md:pt-36" aria-labelledby="dark-hair-title">
-      <div className="pointer-events-none absolute -left-40 top-20 h-[520px] w-[520px] rounded-full bg-plum/40 blur-3xl" aria-hidden="true" />
+    <section id="dark-hair" className="grain relative overflow-hidden bg-espresso pb-20 pt-24 text-cream md:pb-28 md:pt-36" aria-labelledby="dark-hair-title">
+      <div className="pointer-events-none absolute -left-40 top-20 h-[520px] w-[520px] rounded-full bg-cocoa/40 blur-3xl" aria-hidden="true" />
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="dark-hair" light />
         <h2 id="dark-hair-title" className="sr-only">
@@ -38,8 +38,8 @@ export function DarkHair() {
             className="max-w-[22ch] font-display text-[clamp(31px,7.2vw,76px)] font-light leading-[1.1] text-cream"
             text="“I specialise in dark, thick hair, so I understand that beautiful transformations can take time, patience and sometimes more than one session.”"
           />
-          <Reveal className="mt-8 flex items-center gap-4 text-[12.5px] font-medium uppercase tracking-[0.22em] text-lavender">
-            <span className="h-px w-12 bg-lavender/60" />
+          <Reveal className="mt-8 flex items-center gap-4 text-[12.5px] font-medium uppercase tracking-[0.22em] text-champagne">
+            <span className="h-px w-12 bg-champagne/60" />
             {SITE.fullName}
           </Reveal>
           <div className="pointer-events-none absolute -top-20 right-0 hidden md:block lg:-top-6 lg:right-4">

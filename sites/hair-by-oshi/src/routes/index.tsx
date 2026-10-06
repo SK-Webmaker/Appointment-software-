@@ -26,9 +26,9 @@ export const Route = createFileRoute("/")({
       {
         rel: "preload",
         as: "image",
-        href: "/images/hair-gloss-800.webp",
-        imageSrcSet: "/images/hair-gloss-480.webp 480w, /images/hair-gloss-800.webp 800w, /images/hair-gloss-1200.webp 1200w",
-        imageSizes: "100vw",
+        href: "/images/oshi-hallway-800.webp",
+        imageSrcSet: "/images/oshi-hallway-480.webp 480w, /images/oshi-hallway-800.webp 800w, /images/oshi-hallway-1200.webp 1200w, /images/oshi-hallway-1320.webp 1320w",
+        imageSizes: "(min-width:1024px) 60vw, 100vw",
         fetchPriority: "high",
       },
     ],

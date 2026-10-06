@@ -4,23 +4,23 @@ import { useId } from "react";
 
 const HEART = "M12 20.2s-7.6-4.6-9.6-9.2C.9 7.4 3.1 3 6.9 3c2.1 0 3.7 1.3 5.1 3.2C13.4 4.3 15 3 17.1 3c3.8 0 6 4.4 4.5 8-2 4.6-9.6 9.2-9.6 9.2z";
 
-/** Her tagline on a circle around the lavender heart, turning slowly as the page scrolls. */
+/** Her tagline on a circle around the heart, turning slowly as the page scrolls. */
 export function RoundBadge({
   size = 132,
   className = "",
-  tone = "plum",
+  tone = "cocoa",
   text = "HEALTHY HAIR · CONFIDENT YOU · ",
 }: {
   size?: number;
   className?: string;
-  tone?: "plum" | "cream";
+  tone?: "cocoa" | "cream";
   text?: string;
 }) {
   const id = `badge-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const reduce = useReducedMotionSafe();
   const { scrollY } = useScroll();
   const rotate = useTransform(scrollY, (v) => v / 6);
-  const color = tone === "cream" ? "#FAF6F0" : "#512B76";
+  const color = tone === "cream" ? "#F7F1EA" : "#4A3328";
 
   return (
     <span className={`relative inline-block ${className}`} style={{ width: size, height: size }} aria-hidden="true">
@@ -35,7 +35,7 @@ export function RoundBadge({
           </textPath>
         </text>
       </motion.svg>
-      <svg viewBox="0 0 24 22" className="absolute left-1/2 top-1/2 h-[22%] w-[24%] -translate-x-1/2 -translate-y-1/2 text-lavender" fill="none">
+      <svg viewBox="0 0 24 22" className="absolute left-1/2 top-1/2 h-[22%] w-[24%] -translate-x-1/2 -translate-y-1/2 text-mauve" fill="none">
         <path d={HEART} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     </span>

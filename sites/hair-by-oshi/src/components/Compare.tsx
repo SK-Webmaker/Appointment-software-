@@ -36,14 +36,14 @@ export function Compare() {
 
       {/* divider + handle */}
       <div className="pointer-events-none absolute inset-y-0 w-px bg-cream/90" style={{ left: `${pos}%` }} aria-hidden="true">
-        <span className="absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-cream text-plum shadow-lg">
+        <span className="absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-cream text-cocoa shadow-lg">
           <MoveHorizontal size={20} strokeWidth={1.8} />
         </span>
       </div>
-      <span className="pointer-events-none absolute bottom-5 left-5 rounded-full bg-night/75 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-cream" aria-hidden="true">
+      <span className="pointer-events-none absolute bottom-5 left-5 rounded-full bg-espresso/75 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-cream" aria-hidden="true">
         Before
       </span>
-      <span className="pointer-events-none absolute bottom-5 right-5 rounded-full bg-cream/90 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-plum" aria-hidden="true">
+      <span className="pointer-events-none absolute bottom-5 right-5 rounded-full bg-cream/90 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-cocoa" aria-hidden="true">
         After
       </span>
 

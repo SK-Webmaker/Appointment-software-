@@ -6,7 +6,7 @@ import { SITE } from "@/site.config";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 /**
- * A short brand reveal: three strands of hair draw themselves down a night
+ * A short brand reveal: three strands of hair draw themselves down an espresso
  * ground, then her script "Oshi" and the heart arrive. Rendered on the
  * server so it is the first paint, it lifts ~1.5s after the page comes
  * alive. Reduced motion skips it; a CSS fail-safe (.curtain) lifts it even if
@@ -33,7 +33,7 @@ export function Curtain() {
       {show && (
         <motion.div
           key="curtain"
-          className="curtain fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-night"
+          className="curtain fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-espresso"
           initial={{ clipPath: "inset(0% 0% 0% 0%)" }}
           exit={{ clipPath: "inset(0% 0% 100% 0%)" }}
           transition={{ duration: 1.05, ease: [0.76, 0, 0.24, 1] }}
@@ -41,9 +41,9 @@ export function Curtain() {
         >
           <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" fill="none">
             {[
-              { d: "M150 -20 C 120 160, 220 260, 170 420 S 140 700, 200 820", c: "#B8A2D9", w: 1.2, delay: 0 },
-              { d: "M200 -20 C 175 170, 265 280, 215 430 S 190 690, 245 820", c: "#D9A05B", w: 1, delay: 0.08 },
-              { d: "M250 -20 C 230 150, 310 290, 262 440 S 236 700, 290 820", c: "#B8A2D9", w: 0.8, delay: 0.16 },
+              { d: "M150 -20 C 120 160, 220 260, 170 420 S 140 700, 200 820", c: "#E3CBA8", w: 1.2, delay: 0 },
+              { d: "M200 -20 C 175 170, 265 280, 215 430 S 190 690, 245 820", c: "#D2A26B", w: 1, delay: 0.08 },
+              { d: "M250 -20 C 230 150, 310 290, 262 440 S 236 700, 290 820", c: "#E3CBA8", w: 0.8, delay: 0.16 },
             ].map((s) => (
               <motion.path
                 key={s.d}
@@ -72,7 +72,7 @@ export function Curtain() {
               Oshi
               <motion.svg
                 viewBox="0 0 24 22"
-                className="absolute -right-6 top-2 h-6 w-7 text-lavender"
+                className="absolute -right-6 top-2 h-6 w-7 text-mauve"
                 fill="none"
                 initial={{ scale: 0.4, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}

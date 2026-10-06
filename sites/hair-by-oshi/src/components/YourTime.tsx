@@ -35,7 +35,7 @@ export function YourTime() {
         <div className="mt-8 grid gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20">
           <div>
             <h2 id="time-title" className="max-w-[17ch] text-[clamp(36px,7vw,84px)] font-light leading-[1] text-ink">
-              <MaskLines lines={[<>More than getting</>, <>your hair done…</>, <em className="text-plum">it's your time.</em>]} />
+              <MaskLines lines={[<>More than getting</>, <>your hair done…</>, <em className="text-cocoa">it's your time.</em>]} />
             </h2>
             <Reveal>
               <p className="mt-8 max-w-[44ch] text-[16.5px] leading-[1.8] text-mocha md:text-[17.5px]">
@@ -58,17 +58,17 @@ export function YourTime() {
                         aria-pressed={on}
                         onClick={() => setVibe(on ? null : v.id)}
                         className={`flex min-h-[64px] items-center gap-3 rounded-2xl border px-4 py-3 text-left text-[14.5px] leading-snug transition-colors duration-300 ${
-                          on ? "border-plum bg-plum text-cream" : "border-ink/15 bg-card text-ink hover:border-plum"
+                          on ? "border-cocoa bg-cocoa text-cream" : "border-ink/15 bg-card text-ink hover:border-cocoa"
                         }`}
                       >
-                        <Icon size={20} strokeWidth={1.6} className={`shrink-0 ${on ? "text-lavender" : "text-plum"}`} />
+                        <Icon size={20} strokeWidth={1.6} className={`shrink-0 ${on ? "text-champagne" : "text-cocoa"}`} />
                         {v.label}
                       </button>
                     );
                   })}
                 </div>
               </fieldset>
-              <div className="mt-5 min-h-[96px] rounded-2xl border border-dashed border-plum/25 px-5 py-4" aria-live="polite">
+              <div className="mt-5 min-h-[96px] rounded-2xl border border-dashed border-cocoa/25 px-5 py-4" aria-live="polite">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.p
                     key={chosen?.id ?? "none"}
@@ -80,12 +80,12 @@ export function YourTime() {
                   >
                     {chosen ? (
                       <>
-                        <span className="font-display text-[19px] italic text-plum">“{chosen.line}”</span>
+                        <span className="font-display text-[19px] italic text-cocoa">“{chosen.line}”</span>
                         <span className="mt-1.5 block text-[13px] text-mocha">Saved — it'll be in your booking message.</span>
                       </>
                     ) : (
                       <>
-                        <Coffee size={16} strokeWidth={1.7} className="mr-2 inline align-[-2px] text-plum" />
+                        <Coffee size={16} strokeWidth={1.7} className="mr-2 inline align-[-2px] text-cocoa" />
                         “Grab a coffee, help yourself to some snacks, get comfortable…” Pick one and Oshi will know before you arrive.
                       </>
                     )}
@@ -107,14 +107,14 @@ export function YourTime() {
         </div>
 
         {/* Where */}
-        <div className="mt-20 grid overflow-hidden rounded-[32px] bg-night text-cream md:mt-28 md:grid-cols-[1fr_1fr]">
+        <div className="mt-20 grid overflow-hidden rounded-[32px] bg-espresso text-cream md:mt-28 md:grid-cols-[1fr_1fr]">
           <div className="relative min-h-[260px] md:min-h-[420px]">
             <Img name="suite-hall" widths={[480, 720]} sizes="(min-width:768px) 50vw, 100vw" alt="The hallway at Freedom Suites in Oakleigh: terrazzo floor, gallery wall, round brass mirror and a velvet sofa" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: "50% 45%" }} />
           </div>
           <div className="flex flex-col justify-center p-7 md:p-14">
             <p className="text-[11.5px] font-medium uppercase tracking-label text-honey">Located in {SITE.suburbShort}</p>
             <p className="mt-4 font-display text-[clamp(30px,4vw,46px)] font-light leading-[1.08]">
-              A private suite at <em className="text-lavender">{SITE.venue}.</em>
+              A private suite at <em className="text-champagne">{SITE.venue}.</em>
             </p>
             <address className="mt-6 text-[16px] not-italic leading-relaxed text-cream/80">
               {SITE.street}, {SITE.suburb} {SITE.state} {SITE.postcode}

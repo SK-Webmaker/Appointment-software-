@@ -21,7 +21,7 @@ export function BookingBar() {
       raf = 0;
       const vh = window.innerHeight;
       const top = (id: string) => document.getElementById(id)?.getBoundingClientRect() ?? null;
-      const first = top("dark-hair");
+      const first = top("oshi");
       const book = top("book");
       const footer = document.querySelector("footer")?.getBoundingClientRect();
       const pastHero = !!first && first.top < vh * 0.9;
@@ -54,7 +54,7 @@ export function BookingBar() {
         >
           <button
             onClick={openSheet}
-            className="group flex w-full items-center justify-between gap-4 rounded-full bg-night py-2 pl-6 pr-2 text-left text-cream shadow-[0_18px_40px_-14px_rgba(29,18,32,0.75)] ring-1 ring-lavender/25 md:w-auto md:min-w-[340px]"
+            className="group flex w-full items-center justify-between gap-4 rounded-full bg-espresso py-2 pl-6 pr-2 text-left text-cream shadow-[0_18px_40px_-14px_rgba(31,22,18,0.75)] ring-1 ring-champagne/25 md:w-auto md:min-w-[340px]"
           >
             <span className="min-w-0">
               <AnimatePresence mode="wait" initial={false}>
@@ -82,7 +82,7 @@ export function BookingBar() {
                 </motion.span>
               </AnimatePresence>
             </span>
-            <span className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-honey px-5 text-[11.5px] font-medium uppercase tracking-[0.18em] text-night transition-colors group-hover:bg-cream">
+            <span className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-honey px-5 text-[11.5px] font-medium uppercase tracking-[0.18em] text-espresso transition-colors group-hover:bg-cream">
               Book <ArrowUpRight size={16} strokeWidth={2} />
             </span>
           </button>

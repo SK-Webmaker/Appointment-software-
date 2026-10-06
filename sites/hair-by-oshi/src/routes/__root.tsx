@@ -19,7 +19,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <p className="eyebrow">Page not found</p>
         <h1 className="mt-4 text-[44px] leading-none text-ink">
-          This page <em className="text-plum">wandered off.</em>
+          This page <em className="text-cocoa">wandered off.</em>
         </h1>
         <p className="mt-4 text-[15px] text-mocha">The page you're looking for doesn't exist or has moved.</p>
         <div className="mt-8">
@@ -69,7 +69,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "author", content: SITE.name },
-      { name: "theme-color", content: "#FAF6F0" },
+      { name: "theme-color", content: "#F7F1EA" },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: SITE.name },
       { property: "og:locale", content: "en_AU" },

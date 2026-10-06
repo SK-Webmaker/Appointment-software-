@@ -89,7 +89,7 @@ export function BookingSheet() {
             type="button"
             aria-label="Close booking"
             tabIndex={-1}
-            className="absolute inset-0 h-full w-full cursor-default bg-night/60 backdrop-blur-[3px]"
+            className="absolute inset-0 h-full w-full cursor-default bg-espresso/60 backdrop-blur-[3px]"
             onClick={closeSheet}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -112,10 +112,10 @@ export function BookingSheet() {
               <div>
                 <p className="eyebrow">{SITE.name} · DM to book</p>
                 <h2 id="sheet-title" className="mt-2 font-display text-[32px] font-light leading-[1.05] text-ink">
-                  Your booking <em className="text-plum">message</em>
+                  Your booking <em className="text-cocoa">message</em>
                 </h2>
               </div>
-              <button onClick={closeSheet} data-autofocus className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-ink/15 text-ink hover:bg-plum hover:text-cream" aria-label="Close">
+              <button onClick={closeSheet} data-autofocus className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-ink/15 text-ink hover:bg-cocoa hover:text-cream" aria-label="Close">
                 <X size={20} strokeWidth={1.6} />
               </button>
             </div>
@@ -176,18 +176,18 @@ export function BookingSheet() {
                 </Field>
               </div>
 
-              <p className="mt-5 flex gap-3 rounded-2xl bg-mist px-4 py-3.5 text-[14px] leading-relaxed text-ink/85">
-                <Camera size={18} strokeWidth={1.6} className="mt-0.5 shrink-0 text-plum" />
+              <p className="mt-5 flex gap-3 rounded-2xl bg-latte px-4 py-3.5 text-[14px] leading-relaxed text-ink/85">
+                <Camera size={18} strokeWidth={1.6} className="mt-0.5 shrink-0 text-cocoa" />
                 In the chat, add a photo of your hair as it is now and your inspo — it helps Oshi plan what's realistically achievable.
               </p>
 
               <details className="group mt-5 rounded-2xl border border-ink/10 bg-card px-5 py-4">
                 <summary className="flex min-h-[28px] cursor-pointer list-none items-center justify-between text-[12px] font-medium uppercase tracking-[0.2em] text-ink">
                   Preview your message
-                  <span className="text-[18px] text-plum transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+                  <span className="text-[18px] text-cocoa transition-transform group-open:rotate-45" aria-hidden="true">+</span>
                 </summary>
                 <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-[14px] leading-relaxed text-mocha">{message}</pre>
-                <button onClick={copyOnly} className="mt-3 inline-flex min-h-[40px] items-center gap-2 text-[12px] font-medium uppercase tracking-[0.16em] text-plum hover:text-ink">
+                <button onClick={copyOnly} className="mt-3 inline-flex min-h-[40px] items-center gap-2 text-[12px] font-medium uppercase tracking-[0.16em] text-cocoa hover:text-ink">
                   <Copy size={14} strokeWidth={1.8} /> Copy message
                 </button>
               </details>
@@ -207,7 +207,7 @@ export function BookingSheet() {
               {toast && (
                 <motion.div
                   role="status"
-                  className="pointer-events-none absolute inset-x-6 bottom-32 flex items-center gap-3 rounded-2xl bg-night px-5 py-4 text-[14px] text-cream shadow-xl md:bottom-36"
+                  className="pointer-events-none absolute inset-x-6 bottom-32 flex items-center gap-3 rounded-2xl bg-espresso px-5 py-4 text-[14px] text-cream shadow-xl md:bottom-36"
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
@@ -224,7 +224,7 @@ export function BookingSheet() {
 }
 
 const inputCls =
-  "w-full min-h-[48px] rounded-xl border border-ink/15 bg-card px-4 text-[16px] text-ink placeholder:text-mocha/70 focus:border-plum focus:outline-none focus:ring-2 focus:ring-plum/20";
+  "w-full min-h-[48px] rounded-xl border border-ink/15 bg-card px-4 text-[16px] text-ink placeholder:text-mocha/70 focus:border-cocoa focus:outline-none focus:ring-2 focus:ring-cocoa/20";
 
 function Group({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -245,7 +245,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
       aria-pressed={on}
       onClick={onClick}
       className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-4 text-[14px] transition-colors duration-300 ${
-        on ? "border-plum bg-plum text-cream" : "border-ink/20 bg-card text-ink hover:border-plum"
+        on ? "border-cocoa bg-cocoa text-cream" : "border-ink/20 bg-card text-ink hover:border-cocoa"
       }`}
     >
       {on && <Check size={14} strokeWidth={2.2} />}

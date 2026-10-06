@@ -58,9 +58,9 @@ export function StrandRail() {
           <motion.path d={STRAND} stroke="url(#strand-grad)" strokeWidth="1.6" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ pathLength: fill }} />
           <defs>
             <linearGradient id="strand-grad" x1="0" y1="0" x2="0" y2="480" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stopColor="#6B3FA0" />
-              <stop offset="0.55" stopColor="#B8A2D9" />
-              <stop offset="1" stopColor="#D9A05B" />
+              <stop offset="0" stopColor="#80593A" />
+              <stop offset="0.55" stopColor="#D2A26B" />
+              <stop offset="1" stopColor="#E3CBA8" />
             </linearGradient>
           </defs>
         </svg>
