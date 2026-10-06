@@ -32,8 +32,8 @@ real contact details, and no placeholder text.
 ```bash
 .claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email>
 ```
-Prints the link and `livemode=`. A `livemode=False` link is test mode: real cards will not work;
-tell the owner. Each link takes exactly one payment. Send the client the preview + payment link
+Prints the link and `livemode=`. The owner's key is LIVE: every link takes real money, so only
+create links for real, approved clients (switch off any mistake at once with stripe-mark-delivered.sh). Each link takes exactly one payment. Send the client the preview + payment link
 (email in step 5, or give the owner the text to forward).
 
 ## 4. Check payments (hourly routine, or when the owner asks)
@@ -53,9 +53,13 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
    It stops with exit 2/3 if "lovable" appears anywhere. Fix the files and re-run; never bypass it.
 4. Browser check: `node .claude/skills/website-sale/check-site.mjs <SITE_DIR printed above>`
    It must print `OK`. Look at the `check-1280.png` / `check-390.png` screenshots yourself.
-5. Email the client the two ZIPs and the delivery email below. Only send from the owner's own
-   verified Resend domain. **Never** send from a client's domain (e.g. mail.hairbyshacamberwell.com).
-   If no owner domain is set up, give the owner the ZIPs (SendUserFile) and the email text instead.
+5. Upload both ZIPs to the owner's business Google Drive (Composio `googledrive`, alias "business"),
+   share each as "anyone with the link can view", then email the client the two links with the delivery
+   email below. Gmail blocks ZIPs that contain .js files, so never attach the ZIPs.
+   **Send every client email from kariobooking18@gmail.com** (Composio `gmail`, alias "business",
+   not the default personal account yewankiri@gmail.com). Never send from Resend's
+   mail.hairbyshacamberwell.com; that domain belongs to a client.
+   If either connection isn't active, give the owner the ZIPs (SendUserFile) and the email text instead.
 6. `.claude/skills/website-sale/stripe-mark-delivered.sh <plink_id>`. This turns the link off and
    records delivery so it is never paid or delivered twice.
 7. Tell the owner, in one line: "<Business> paid $350 and the files were delivered."
@@ -70,7 +74,7 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
 
 **Delivery**
 > Subject: Your website is yours. Here's how to put it online
-> Hi <name>, thank you! Attached are two files:
+> Hi <name>, thank you! Here are your two files (download links):
 > - <slug>-website.zip: your website
 > - <slug>-code.zip: keep this safe. Any web developer can use it to make changes in the future.
 >

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/skills/website-sale/stripe-link.sh *)",
+      "Bash(.claude/skills/website-sale/stripe-check.sh)",
+      "Bash(.claude/skills/website-sale/stripe-mark-delivered.sh *)"
+    ]
+  }
+}
