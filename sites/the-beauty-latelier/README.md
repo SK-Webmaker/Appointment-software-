@@ -119,15 +119,26 @@ Call, clipboard, reload).
 Last run: **all checks passed**; Lighthouse desktop 98 performance, 97–100
 accessibility / best practices / SEO.
 
-## Getting it into Lovable (no credits)
+## Lovable (no credits spent)
 
-Lovable can't import an existing repo, but it two-way-syncs the repo it
-creates for a project. So:
+| | |
+|---|---|
+| Live site | https://the-beauty-latelier.lovable.app |
+| Lovable project | https://lovable.dev/projects/d1d0891d-a0dd-4093-a9ea-ee3302c4ad7a |
+| Synced repo | `SK-Webmaker/dark-hair-glow` (name came from the remix source; `main` syncs both ways) |
 
-1. Open the Lovable project **The Beauty L'atelier** → **GitHub → Connect**.
-   Lovable creates a repo under `SK-Webmaker`.
-2. Push this folder into it:
-   `scripts/push-to-lovable.sh https://github.com/SK-Webmaker/<that-repo>.git`
-3. Lovable syncs within seconds; **Publish** from the editor.
+The project was created by remixing an existing one (free), connected to
+GitHub, and this folder was pushed into the repo Lovable created. Pushing
+never spends credits — only messages to Lovable's agent do. To push a new
+version from this folder:
 
-Pushing never spends credits — only messages to Lovable's agent do.
+```sh
+scripts/push-to-lovable.sh https://github.com/SK-Webmaker/dark-hair-glow.git
+```
+
+Then **Publish** in Lovable (or ask Claude to). Edits made inside Lovable
+land in `dark-hair-glow` — pull them back here before working locally.
+
+**Hide the "Edit with Lovable" badge** (Project settings → hide badge; the
+workspace is on Pro): on phones it sits on top of the hero's "The menu"
+button.
