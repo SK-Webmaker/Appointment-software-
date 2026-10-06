@@ -58,7 +58,7 @@ export function Work() {
       <div className={pinned ? "sticky top-0 flex h-[100svh] flex-col justify-center overflow-hidden" : "py-24 md:py-32"}>
         <motion.div
           ref={trackRef}
-          className={`flex w-max items-end gap-4 px-5 pt-16 md:gap-8 md:px-10 xl:px-24 ${pinned ? "" : "no-scrollbar max-w-[100vw] snap-x snap-mandatory overflow-x-auto"}`}
+          className={`flex w-max items-end gap-4 px-5 pt-16 ${pinned ? "will-change-transform" : ""} md:gap-8 md:px-10 xl:px-24 ${pinned ? "" : "no-scrollbar max-w-[100vw] snap-x snap-mandatory overflow-x-auto"}`}
           style={{ x: pinned ? x : 0 }}
           data-qa="layered"
         >

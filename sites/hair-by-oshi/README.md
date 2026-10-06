@@ -94,8 +94,19 @@ whether to list cuts, and the domain (`url` in `src/site.config.ts`).
   the sideways travel. With reduced motion it is a swipeable row instead.
 - **The curtain is server-rendered** with a CSS fail-safe (`.curtain`) that
   lifts it after 3.4s even if JavaScript never runs.
-- **`lockScroll()`** must wrap any new modal — it stops Lenis as well as the
-  page.
+- **`lockScroll()`** must wrap any new modal: `const release = lockScroll()`
+  when it opens, `release()` when it closes. It stops Lenis as well as the
+  page, and holds stack, so the curtain, menu and sheet can't strand each
+  other. (The curtain used to keep its lock until unmount, which froze touch
+  scrolling on phones — the audit below checks a real finger swipe.)
+- **Touch devices get no Lenis** — native momentum scrolling is smoother there,
+  and Lenis only added per-touch work. Jump links honour the html
+  `scroll-padding-top` on both paths, so sections land just under the header.
+- **No `blur()` glows or blend modes on scrolling sections** — soft light is a
+  `radial-gradient`, and elements that move with the scroll carry
+  `will-change-transform` (only ones that never scale up, so text stays crisp).
+- **Section edges are measured on load/resize, not per frame** (`BookingBar`,
+  the chapter rail): reading layout mid-scroll makes the browser redo it.
 - **Footer year is `__BUILD_YEAR__`** — reading the clock during render breaks
   hydration.
 
@@ -108,6 +119,9 @@ TARGET=http://127.0.0.1:4173/ node test/qa.cjs              # all gates, 10 widt
 TARGET=http://127.0.0.1:4173/ node test/a11y-overlays.cjs   # axe with sheet and menu open
 TARGET=http://127.0.0.1:4173/ node test/hydration.cjs       # SSR hydration
 TARGET=http://127.0.0.1:4173/ node test/shots.cjs           # scroll-journey screenshots
+TARGET=http://127.0.0.1:4173/ node test/audit.cjs           # every link, sticky scene, lock, menu, sheet — desktop + phone + reduced motion
+TARGET=http://127.0.0.1:4173/ MODE=desktop node test/smooth.cjs   # frame times while wheel-scrolling
+TARGET=http://127.0.0.1:4173/ MODE=phone node test/smooth.cjs     # frame times while finger-swiping, CPU 4x slower
 ```
 
 `test/qa.cjs` checks, at 320–1920px: no horizontal overflow, no clipped or

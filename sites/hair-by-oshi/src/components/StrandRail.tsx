@@ -33,14 +33,24 @@ export function StrandRail() {
       if (e?.isIntersecting) setActive(null);
     }, { rootMargin: "0px 0px -40% 0px" });
     if (footer) fio.observe(footer);
+    // Where the first chapter starts, in page coordinates — measured on resize,
+    // not on every scroll event.
+    let firstTop = Infinity;
+    const measure = () => {
+      const r = els[0]?.getBoundingClientRect();
+      firstTop = r ? r.top + window.scrollY : Infinity;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(document.body);
     const top = () => {
-      const first = els[0]?.getBoundingClientRect();
-      if (first && first.top > window.innerHeight * 0.5) setActive(null);
+      if (firstTop - window.scrollY > window.innerHeight * 0.5) setActive(null);
     };
     window.addEventListener("scroll", top, { passive: true });
     return () => {
       io.disconnect();
       fio.disconnect();
+      ro.disconnect();
       window.removeEventListener("scroll", top);
     };
   }, []);

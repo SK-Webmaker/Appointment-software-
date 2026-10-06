@@ -19,7 +19,7 @@ export function Always() {
   const { scrollYProgress } = useScroll({ target: stack, offset: ["start start", "end end"] });
 
   return (
-    <section id="always" className="grain relative bg-espresso pb-24 pt-24 text-cream md:pb-32 md:pt-36" aria-labelledby="always-title">
+    <section id="always" className="relative bg-espresso pb-24 pt-24 text-cream md:pb-32 md:pt-36" aria-labelledby="always-title">
       <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="always" light />
         <h2 id="always-title" className="mt-8 max-w-[18ch] text-[clamp(38px,8vw,92px)] font-light leading-[0.98]">
@@ -77,10 +77,10 @@ function Card({
     <div className="sticky mb-[16svh] last:mb-0 md:mb-[18vh]" style={{ top: `calc(var(--nav-h) + 16px + ${i * 14}px)` }}>
       <motion.article
         style={{ scale: reduce ? 1 : scale, transformOrigin: "50% 0%" }}
-        className={`relative grid overflow-hidden rounded-[32px] shadow-[0_-24px_60px_-30px_rgba(0,0,0,0.6)] md:min-h-[64vh] md:grid-cols-[0.8fr_1.2fr] ${tone.card}`}
+        className={`relative grid overflow-hidden rounded-[32px] will-change-transform shadow-[0_-24px_60px_-30px_rgba(0,0,0,0.6)] md:min-h-[64vh] md:grid-cols-[0.8fr_1.2fr] ${tone.card}`}
       >
         <div className="relative h-[26svh] min-h-[150px] overflow-hidden md:h-auto">
-          <motion.div className="absolute inset-0 h-[112%]" style={{ y: reduce ? "0%" : imgY }}>
+          <motion.div className="absolute inset-0 h-[112%] will-change-transform" style={{ y: reduce ? "0%" : imgY }}>
             <Img name={image} widths={[...widths]} sizes="(min-width:768px) 40vw, 100vw" alt={alt} className="h-full w-full object-cover" style={{ objectPosition: "50% 30%" }} />
           </motion.div>
         </div>

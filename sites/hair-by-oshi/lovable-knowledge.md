@@ -32,9 +32,16 @@ email, and no prices on purpose — do not add any unless asked.
   pattern — framer's own hook breaks server-side hydration.
 - **Timing uses arbitrary Tailwind values** (`ease-[cubic-bezier(0.22,1,0.36,1)]`),
   never custom theme keys.
-- **Lenis smooth scroll** (`src/lib/smooth.ts`): any new modal must call
-  `lockScroll(true/false)`, and any scrollable panel inside one needs
+- **Lenis smooth scroll** (`src/lib/smooth.ts`, desktop only — touch devices
+  keep native scrolling): any new modal must call `const release =
+  lockScroll()` when it opens and `release()` when it closes, and any
+  scrollable panel inside one needs
   `data-lenis-prevent`.
+- **Keep scrolling smooth:** no `blur()` filter glows or `mix-blend-mode` on
+  sections that scroll — soft light is a `radial-gradient`. Photos that move
+  with the scroll carry `will-change-transform`; don't read layout
+  (`getBoundingClientRect`) on every scroll event. Check with
+  `test/smooth.cjs` and `test/audit.cjs` (see README).
 - **Nothing reads the clock during render** — the footer year is
   `__BUILD_YEAR__`, injected in `vite.config.ts`.
 - **Photos are all hers** (see `public/images/CREDITS.md`). Never add stock

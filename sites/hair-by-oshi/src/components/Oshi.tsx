@@ -25,7 +25,7 @@ export function Oshi() {
           {/* Collage */}
           <div ref={collage} className="relative mx-auto w-full max-w-[640px] pb-24 sm:pb-16" data-qa="layered">
             <div className="relative aspect-[4/3] overflow-hidden rounded-[28px] bg-sand shadow-[0_40px_80px_-40px_rgba(34,22,31,0.55)]">
-              <motion.div className="absolute inset-x-0 -top-[6%] h-[112%]" style={{ y: reduce ? "0%" : yMain }}>
+              <motion.div className="absolute inset-x-0 -top-[6%] h-[112%] will-change-transform" style={{ y: reduce ? "0%" : yMain }}>
                 <Img
                   name="oshi-call"
                   widths={[480, 720]}
@@ -37,13 +37,13 @@ export function Oshi() {
               </motion.div>
             </div>
             <motion.figure
-              className="absolute -bottom-2 right-3 w-[34%] max-w-[190px] overflow-hidden rounded-full border-[6px] border-cream bg-card shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:right-6"
+              className="absolute -bottom-2 right-3 w-[34%] will-change-transform max-w-[190px] overflow-hidden rounded-full border-[6px] border-cream bg-card shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:right-6"
               style={{ y: reduce ? 0 : yPortrait }}
             >
               <Img name="oshi-portrait" widths={[440]} sizes="190px" alt="Portrait of Oshi Dias, honey-blonde ribbons in her dark hair, wrapped in a cream knit" className="aspect-[9/16] w-full object-cover" style={{ objectPosition: "50% 22%" }} />
             </motion.figure>
             <motion.figure
-              className="absolute -bottom-6 left-3 hidden w-[26%] max-w-[150px] overflow-hidden rounded-t-full border-[6px] border-cream shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:block"
+              className="absolute -bottom-6 left-3 hidden w-[26%] will-change-transform max-w-[150px] overflow-hidden rounded-t-full border-[6px] border-cream shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:block"
               style={{ y: reduce ? 0 : yMirror }}
             >
               <Img name="oshi-mirror" widths={[480]} sizes="150px" alt="Oshi’s mirror selfie in a black coat, framed by an arched mirror" className="aspect-[3/4] w-full object-cover" style={{ objectPosition: "50% 40%" }} />

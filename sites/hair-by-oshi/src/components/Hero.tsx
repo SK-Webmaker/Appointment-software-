@@ -129,12 +129,12 @@ export function Hero() {
     >
       <div ref={stageRef} className="sticky top-0 h-[100svh] min-h-[600px] w-full overflow-hidden bg-cream">
         {/* soft light in the empty corners */}
-        <div className="pointer-events-none absolute -right-32 top-16 h-[460px] w-[460px] rounded-full bg-champagne/50 blur-3xl" aria-hidden="true" />
-        <div className="pointer-events-none absolute -left-40 bottom-0 h-[360px] w-[360px] rounded-full bg-honey/15 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-40 top-8 h-[560px] w-[560px] bg-[radial-gradient(closest-side,rgb(227_203_168/0.5),transparent)]" aria-hidden="true" />
+        <div className="pointer-events-none absolute -left-48 -bottom-10 h-[460px] w-[460px] bg-[radial-gradient(closest-side,rgb(210_162_107/0.16),transparent)]" aria-hidden="true" />
         {/* a warm halo that gathers behind her as the board forms */}
         {!reduce && target && (
           <motion.div
-            className="pointer-events-none absolute rounded-full bg-champagne/60 blur-3xl"
+            className="pointer-events-none absolute bg-[radial-gradient(closest-side,rgb(227_203_168/0.7),transparent)]"
             style={{ left: target.cx - target.h * 0.7, top: target.cy - target.h * 0.7, width: target.h * 1.4, height: target.h * 1.4, opacity: glow }}
             aria-hidden="true"
           />
@@ -153,7 +153,7 @@ export function Hero() {
 
         {/* Oshi, in the capsule. Hidden until the slot is measured. */}
         <motion.div
-          className={`absolute z-10 ${g ? "" : "invisible"}`}
+          className={`absolute z-10 will-change-transform ${g ? "" : "invisible"}`}
           style={{
             left: g?.slot.x ?? 0,
             top: g?.slot.y ?? 0,
@@ -335,7 +335,7 @@ function FanCard({
   const opacity = useTransform(progress, (v) => clamp01(t(v) * 2.5));
   return (
     <motion.div
-      className="absolute overflow-hidden rounded-t-full bg-sand shadow-[0_30px_60px_-30px_rgba(35,25,21,0.55)] ring-[5px] ring-cream"
+      className="absolute overflow-hidden rounded-t-full bg-sand shadow-[0_30px_60px_-30px_rgba(35,25,21,0.55)] ring-[5px] ring-cream will-change-transform"
       style={{ left: cx - w / 2, top: cy - h / 2, width: w, height: h, x, y, rotate, scale, opacity }}
     >
       <Img name={image} widths={widths} sizes={`${Math.round(w)}px`} alt="" className="h-full w-full object-cover" />

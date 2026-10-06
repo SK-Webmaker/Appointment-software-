@@ -20,18 +20,19 @@ export function Book() {
   const reduce = useReducedMotionSafe();
   const { openSheet, selected, isSelected, toggle, days, toggleDay } = useBooking();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const cardScale = useTransform(scrollYProgress, [0, 0.4], [0.93, 1]);
+  // The capsule rises into place (a translate, so it can glide on the GPU without softening the text).
+  const cardY = useTransform(scrollYProgress, [0, 0.4], [80, 0]);
   const glowY = useTransform(scrollYProgress, [0, 1], ["-20%", "20%"]);
   const correction = isSelected("correction");
 
   return (
-    <section id="book" ref={ref} className="grain relative overflow-hidden bg-espresso pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
-      <motion.div className="pointer-events-none absolute left-1/2 top-0 h-[900px] w-[900px] -translate-x-1/2 rounded-full bg-cocoa/50 blur-[120px]" style={{ y: reduce ? "0%" : glowY }} aria-hidden="true" />
+    <section id="book" ref={ref} className="relative overflow-hidden bg-espresso pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
+      <motion.div className="pointer-events-none absolute left-1/2 top-0 h-[1100px] w-[1100px] -translate-x-1/2 will-change-transform bg-[radial-gradient(closest-side,rgb(74_51_40/0.65),transparent)]" style={{ y: reduce ? "0%" : glowY }} aria-hidden="true" />
 
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="book" light className="justify-center" />
 
-        <motion.div style={{ scale: reduce ? 1 : cardScale }} className="relative mx-auto mt-10 max-w-[780px]">
+        <motion.div style={{ y: reduce ? 0 : cardY }} className="relative mx-auto mt-10 max-w-[780px] will-change-transform">
           <div className="rounded-t-[999px] bg-cream px-6 pb-12 pt-28 text-center shadow-[0_40px_90px_-40px_rgba(0,0,0,0.7)] sm:rounded-t-[400px] sm:px-14 sm:pt-32 md:pb-16">
             <Wordmark size={46} />
             <h2 id="book-title" className="mx-auto mt-8 max-w-[15ch] text-[clamp(38px,8.6vw,80px)] font-light leading-[0.98] text-ink">

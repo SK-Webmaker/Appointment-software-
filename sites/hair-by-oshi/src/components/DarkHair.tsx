@@ -26,7 +26,7 @@ export function DarkHair() {
 
   return (
     <section id="dark-hair" className="grain relative overflow-hidden bg-espresso pb-20 pt-24 text-cream md:pb-28 md:pt-36" aria-labelledby="dark-hair-title">
-      <div className="pointer-events-none absolute -left-40 top-20 h-[520px] w-[520px] rounded-full bg-cocoa/40 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-40 top-20 h-[620px] w-[620px] bg-[radial-gradient(closest-side,rgb(74_51_40/0.55),transparent)]" aria-hidden="true" />
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="dark-hair" light />
         <h2 id="dark-hair-title" className="sr-only">

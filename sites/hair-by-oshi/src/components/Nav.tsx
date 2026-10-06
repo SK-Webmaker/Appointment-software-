@@ -24,12 +24,12 @@ export function Nav() {
 
   useEffect(() => {
     if (!open) return undefined;
-    lockScroll(true);
+    const release = lockScroll();
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      lockScroll(false);
+      release();
     };
   }, [open]);
 
@@ -37,7 +37,7 @@ export function Nav() {
     <>
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,backdrop-filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          solid ? "bg-cream/85 shadow-[0_1px_0_rgba(34,22,31,0.08)] backdrop-blur-xl" : "bg-transparent"
+          solid ? "bg-cream/90 shadow-[0_1px_0_rgba(34,22,31,0.08)] backdrop-blur-md" : "bg-transparent"
         }`}
       >
         <nav className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-5 md:px-10 xl:px-24" aria-label="Main">

@@ -16,11 +16,18 @@ import { StrandRail } from "./StrandRail";
 import { Work } from "./Work";
 import { YourTime } from "./YourTime";
 import { BookingProvider } from "@/context/booking";
-import { startSmoothScroll } from "@/lib/smooth";
+import { settleHashJump, startSmoothScroll } from "@/lib/smooth";
 
 /** The whole page, chapter by chapter. Composition only. */
 export function Site() {
-  useEffect(() => startSmoothScroll(), []);
+  useEffect(() => {
+    const stopSmooth = startSmoothScroll();
+    const stopHash = settleHashJump();
+    return () => {
+      stopHash();
+      stopSmooth();
+    };
+  }, []);
 
   return (
     <MotionConfig reducedMotion="user">

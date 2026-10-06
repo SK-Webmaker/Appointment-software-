@@ -17,28 +17,52 @@ export function BookingBar() {
 
   // Position-based rather than an IntersectionObserver: a jump link can carry
   // the page straight past the hero without any edge ever being "crossed".
+  // Section edges are measured in page coordinates on load and resize, never
+  // while scrolling — reading layout mid-scroll makes the browser redo it.
   useEffect(() => {
+    let marks = { first: Infinity, bookTop: Infinity, bookBottom: -Infinity, footerTop: Infinity };
+    const measure = () => {
+      const abs = (el: Element | null | undefined) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { top: r.top + window.scrollY, bottom: r.bottom + window.scrollY };
+      };
+      const first = abs(document.getElementById("atelier"));
+      const book = abs(document.getElementById("book"));
+      const footer = abs(document.querySelector("footer"));
+      marks = {
+        first: first?.top ?? Infinity,
+        bookTop: book?.top ?? Infinity,
+        bookBottom: book?.bottom ?? -Infinity,
+        footerTop: footer?.top ?? Infinity,
+      };
+    };
     let raf = 0;
     const update = () => {
       raf = 0;
+      const y = window.scrollY;
       const vh = window.innerHeight;
-      const top = (id: string) => document.getElementById(id)?.getBoundingClientRect() ?? null;
-      const atelier = top("atelier");
-      const book = top("book");
-      const footer = document.querySelector("footer")?.getBoundingClientRect();
-      const pastHero = !!atelier && atelier.top < vh * 0.9;
-      const onBook = !!book && book.top < vh * 0.85 && book.bottom > 0;
-      const onFooter = !!footer && footer.top < vh;
+      const pastHero = marks.first - y < vh * 0.9;
+      const onBook = marks.bookTop - y < vh * 0.85 && marks.bookBottom - y > 0;
+      const onFooter = marks.footerTop - y < vh;
       setShow(pastHero && !onBook && !onFooter);
     };
     const onScroll = () => (raf ||= requestAnimationFrame(update));
+    const remeasure = () => {
+      measure();
+      onScroll();
+    };
+    measure();
     update();
+    const ro = new ResizeObserver(remeasure);
+    ro.observe(document.body);
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", remeasure);
     return () => {
       cancelAnimationFrame(raf);
+      ro.disconnect();
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", remeasure);
     };
   }, []);
 

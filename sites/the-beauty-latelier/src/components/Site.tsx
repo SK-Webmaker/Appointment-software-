@@ -15,11 +15,18 @@ import { NailArt } from "./NailArt";
 import { Nav } from "./Nav";
 import { Pillars } from "./Pillars";
 import { BookingProvider } from "@/context/booking";
-import { startSmoothScroll } from "@/lib/smooth";
+import { settleHashJump, startSmoothScroll } from "@/lib/smooth";
 
 /** The whole page, chapter by chapter. Composition only. */
 export function Site() {
-  useEffect(() => startSmoothScroll(), []);
+  useEffect(() => {
+    const stopSmooth = startSmoothScroll();
+    const stopHash = settleHashJump();
+    return () => {
+      stopHash();
+      stopSmooth();
+    };
+  }, []);
 
   return (
     <MotionConfig reducedMotion="user">

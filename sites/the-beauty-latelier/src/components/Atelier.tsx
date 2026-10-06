@@ -41,13 +41,13 @@ export function Atelier() {
         {/* Details from her launch post, drifting at different speeds */}
         <div ref={collage} className="mt-24 grid items-center gap-14 md:mt-36 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20">
           <div className="relative mx-auto h-[440px] w-full max-w-[560px] sm:h-[560px]" data-qa="layered">
-            <motion.figure className="absolute left-0 top-0 w-[54%] overflow-hidden rounded-t-full shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : ySlow }}>
+            <motion.figure className="absolute left-0 top-0 w-[54%] overflow-hidden will-change-transform rounded-t-full shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : ySlow }}>
               <Img name="detail-silk" widths={[480, 800, 1200]} sizes="(min-width:1024px) 300px, 54vw" alt="A paisley silk scarf in gold and brown beside an iced matcha" className="aspect-[3/4] w-full object-cover" />
             </motion.figure>
-            <motion.figure className="absolute right-0 top-[18%] w-[42%] overflow-hidden rounded-[2px] shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : yFast }}>
+            <motion.figure className="absolute right-0 top-[18%] w-[42%] overflow-hidden will-change-transform rounded-[2px] shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : yFast }}>
               <Img name="detail-coffee" widths={[480, 800]} sizes="(min-width:1024px) 240px, 42vw" alt="Coffee in a white cup with a gold rim and gold-spotted saucer" className="aspect-square w-full object-cover" />
             </motion.figure>
-            <motion.figure className="absolute bottom-0 left-[26%] w-[40%] overflow-hidden rounded-t-full border-[6px] border-ivory shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : yMid }}>
+            <motion.figure className="absolute bottom-0 left-[26%] w-[40%] overflow-hidden will-change-transform rounded-t-full border-[6px] border-ivory shadow-[0_30px_60px_-30px_rgba(36,26,20,0.45)]" style={{ y: reduce ? 0 : yMid }}>
               <Img name="detail-heels" widths={[480, 800]} sizes="(min-width:1024px) 220px, 40vw" alt="Black patent pointed heels on a pale stone floor" className="aspect-[3/4] w-full object-cover" />
             </motion.figure>
           </div>

@@ -49,7 +49,7 @@ export function Menu() {
         </div>
 
         {/* Tabs — sticky under the nav on phones so you can switch while browsing */}
-        <div className="sticky top-[66px] z-30 -mx-5 mt-12 border-b border-espresso/10 bg-linen/90 px-5 py-3 backdrop-blur-lg md:static md:border-0 md:mx-0 md:mt-16 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+        <div className="sticky top-[66px] z-30 -mx-5 mt-12 border-b border-espresso/10 bg-linen/95 px-5 py-3 backdrop-blur-sm md:static md:border-0 md:mx-0 md:mt-16 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
           <div role="tablist" aria-label="Service categories" onKeyDown={onKey} data-qa="scroller" className="no-scrollbar flex gap-1.5 overflow-x-auto md:gap-3">
             {CATEGORIES.map((c, i) => {
               const on = c.id === active;

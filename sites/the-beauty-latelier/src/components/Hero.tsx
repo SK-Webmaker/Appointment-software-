@@ -86,11 +86,11 @@ export function Hero() {
     >
       <div ref={stageRef} className="sticky top-0 h-[100svh] min-h-[600px] w-full overflow-hidden bg-ivory">
         {/* soft satin in the empty corners */}
-        <div className="pointer-events-none absolute -right-24 top-24 h-[420px] w-[420px] rounded-full bg-champagne/40 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-32 top-16 h-[520px] w-[520px] bg-[radial-gradient(closest-side,rgb(216_205_184/0.45),transparent)]" aria-hidden="true" />
 
         {/* The photograph, clipped to the arch */}
         <motion.div className="absolute inset-0 z-0 will-change-[clip-path]" style={{ clipPath }} data-qa="layered">
-          <motion.div className="h-full w-full" style={{ scale: reduce ? 1 : imgScale }}>
+          <motion.div className="h-full w-full will-change-transform" style={{ scale: reduce ? 1 : imgScale }}>
             <Img
               name="nails-gelx-tier4"
               widths={[480, 800, 1200]}

@@ -65,7 +65,7 @@ function Card({
     <div className="sticky mb-6 last:mb-0" style={{ top: `calc(var(--nav-h) + 20px + ${i * 18}px)` }}>
       <motion.article
         style={{ scale: reduce ? 1 : scale, transformOrigin: "50% 0%" }}
-        className={`relative flex min-h-[52svh] flex-col justify-between overflow-hidden rounded-t-[999px] px-7 pb-10 pt-24 shadow-[0_-20px_50px_-30px_rgba(36,26,20,0.35)] sm:rounded-t-[340px] md:min-h-[62vh] md:px-16 md:pb-14 md:pt-32 ${tone}`}
+        className={`relative flex min-h-[52svh] will-change-transform flex-col justify-between overflow-hidden rounded-t-[999px] px-7 pb-10 pt-24 shadow-[0_-20px_50px_-30px_rgba(36,26,20,0.35)] sm:rounded-t-[340px] md:min-h-[62vh] md:px-16 md:pb-14 md:pt-32 ${tone}`}
       >
         <p className={`text-center text-[11px] font-semibold uppercase tracking-label ${accent}`}>Promise {n}</p>
         <p className="mx-auto mt-8 max-w-[18ch] text-center font-display text-[clamp(36px,8.4vw,104px)] leading-[1] md:mt-10">

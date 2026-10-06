@@ -26,7 +26,7 @@ export function RoundBadge({
       width={size}
       height={size}
       className={className}
-      style={{ rotate: reduce ? 0 : rotate }}
+      style={{ rotate: reduce ? 0 : rotate, willChange: "transform" }}
       aria-hidden="true"
     >
       <defs>

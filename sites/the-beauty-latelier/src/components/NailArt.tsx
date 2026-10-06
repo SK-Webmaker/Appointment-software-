@@ -21,7 +21,7 @@ export function NailArt() {
 
   return (
     <section id="nail-art" className="grain relative overflow-hidden bg-espresso pb-24 pt-24 text-cream md:pb-36 md:pt-32" aria-labelledby="nail-art-title">
-      <div className="pointer-events-none absolute -left-40 top-1/3 h-[520px] w-[520px] rounded-full bg-bronze/20 blur-[120px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-48 top-1/3 h-[680px] w-[680px] bg-[radial-gradient(closest-side,rgb(149_117_70/0.22),transparent)]" aria-hidden="true" />
       <div className="relative mx-auto grid max-w-[1440px] gap-14 px-5 md:px-10 xl:px-24 lg:grid-cols-[0.9fr_1.1fr] lg:gap-24">
         <div className="lg:sticky lg:top-24 lg:self-start">
           <ChapterLabel id="nail-art" light />
@@ -30,7 +30,7 @@ export function NailArt() {
           </h2>
 
           <div ref={photo} className="arch relative mt-10 overflow-hidden lg:mt-12" data-qa="layered">
-            <motion.div style={{ y: reduce ? "0%" : photoY }} className="scale-[1.18]">
+            <motion.div style={{ y: reduce ? "0%" : photoY }} className="scale-[1.18] will-change-transform">
               <Img
                 name="nails-gelx-tier4-b"
                 widths={[480, 800, 1200]}

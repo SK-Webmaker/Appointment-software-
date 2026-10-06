@@ -23,11 +23,12 @@ export function Book() {
   const { openSheet, selected } = useBooking();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const bgY = useTransform(scrollYProgress, [0, 1], ["-10%", "10%"]);
-  const archScale = useTransform(scrollYProgress, [0, 0.4], [0.92, 1]);
+  // The arch rises into place (a translate, so it can glide on the GPU without softening the text).
+  const archY = useTransform(scrollYProgress, [0, 0.4], [80, 0]);
 
   return (
     <section id="book" ref={ref} className="relative overflow-hidden bg-champagne pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
-      <motion.div className="absolute inset-0 -top-[10%] h-[120%]" style={{ y: reduce ? "0%" : bgY }} aria-hidden="true">
+      <motion.div className="absolute inset-0 -top-[10%] h-[120%] will-change-transform" style={{ y: reduce ? "0%" : bgY }} aria-hidden="true">
         <Img name="satin" widths={[480, 800, 1200, 1600]} sizes="100vw" alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-champagne/25" />
       </motion.div>
@@ -35,7 +36,7 @@ export function Book() {
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="book" ink className="justify-center" />
 
-        <motion.div style={{ scale: reduce ? 1 : archScale }} className="relative mx-auto mt-10 max-w-[760px]">
+        <motion.div style={{ y: reduce ? 0 : archY }} className="relative mx-auto mt-10 max-w-[760px] will-change-transform">
           <div className="arch relative bg-card px-6 pb-12 pt-28 text-center shadow-[0_40px_90px_-40px_rgba(36,26,20,0.55)] sm:px-14 sm:pt-36 md:pb-16">
             <div className="absolute left-1/2 top-6 -translate-x-1/2 sm:top-9">
               <RoundBadge size={92} />

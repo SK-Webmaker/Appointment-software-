@@ -97,10 +97,10 @@ export function YourTime() {
 
           {/* The suite */}
           <div ref={gallery} className="relative min-h-[430px] sm:min-h-[720px] lg:min-h-[720px]" data-qa="layered">
-            <motion.figure className="absolute left-0 top-0 w-[58%] overflow-hidden rounded-t-full shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)]" style={{ y: reduce ? 0 : yA }}>
+            <motion.figure className="absolute left-0 top-0 w-[58%] overflow-hidden will-change-transform rounded-t-full shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)]" style={{ y: reduce ? 0 : yA }}>
               <Img name="your-time" widths={[480, 720]} sizes="(min-width:1024px) 340px, 62vw" alt="A quiet appointment: the stylist works with headphones on while the client types on her laptop" className="aspect-[3/4] w-full object-cover" />
             </motion.figure>
-            <motion.figure className="absolute bottom-0 right-0 w-[48%] overflow-hidden rounded-[24px] border-[6px] border-sand shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)]" style={{ y: reduce ? 0 : yB }}>
+            <motion.figure className="absolute bottom-0 right-0 w-[48%] overflow-hidden will-change-transform rounded-[24px] border-[6px] border-sand shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)]" style={{ y: reduce ? 0 : yB }}>
               <Img name="suite-doors" widths={[480, 720]} sizes="(min-width:1024px) 300px, 52vw" alt="The suites' kitchenette: black cabinetry, brass taps, hanging plants and an arched cobalt-blue door" className="aspect-[4/5] w-full object-cover" />
             </motion.figure>
           </div>

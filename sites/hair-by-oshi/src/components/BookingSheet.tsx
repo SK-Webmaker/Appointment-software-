@@ -35,7 +35,7 @@ export function BookingSheet() {
   useEffect(() => {
     if (!sheetOpen) return undefined;
     opener.current = document.activeElement as HTMLElement;
-    lockScroll(true);
+    const release = lockScroll();
     const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus(), 60);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeSheet();
@@ -57,7 +57,7 @@ export function BookingSheet() {
     return () => {
       window.clearTimeout(t);
       window.removeEventListener("keydown", onKey);
-      lockScroll(false);
+      release();
       opener.current?.focus?.();
     };
   }, [sheetOpen, closeSheet]);

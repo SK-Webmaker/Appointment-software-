@@ -24,7 +24,7 @@ export function RoundBadge({
 
   return (
     <span className={`relative inline-block ${className}`} style={{ width: size, height: size }} aria-hidden="true">
-      <motion.svg viewBox="0 0 200 200" width={size} height={size} className="absolute inset-0" style={{ rotate: reduce ? 0 : rotate }}>
+      <motion.svg viewBox="0 0 200 200" width={size} height={size} className="absolute inset-0 will-change-transform" style={{ rotate: reduce ? 0 : rotate }}>
         <defs>
           <path id={id} d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0" />
         </defs>

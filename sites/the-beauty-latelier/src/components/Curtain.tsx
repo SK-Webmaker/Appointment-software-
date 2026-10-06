@@ -16,11 +16,16 @@ export function Curtain() {
       setShow(false);
       return undefined;
     }
-    lockScroll(true);
-    const t = window.setTimeout(() => setShow(false), 1450);
+    // Hold the page still while the curtain is up — and let go the moment it
+    // lifts (the component stays mounted, so this can't wait for cleanup).
+    const release = lockScroll();
+    const t = window.setTimeout(() => {
+      setShow(false);
+      release();
+    }, 1450);
     return () => {
       window.clearTimeout(t);
-      lockScroll(false);
+      release();
     };
   }, []);
 

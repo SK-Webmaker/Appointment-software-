@@ -68,9 +68,9 @@ export function Founder() {
         </div>
 
         <div ref={portrait} className="relative order-1 mx-auto w-full max-w-[520px] lg:order-2 lg:mt-24">
-          <motion.div className="arch absolute -inset-3 border border-bronze/40 md:-inset-5" style={{ y: reduce ? 0 : frameY }} aria-hidden="true" />
+          <motion.div className="arch absolute -inset-3 border border-bronze/40 will-change-transform md:-inset-5" style={{ y: reduce ? 0 : frameY }} aria-hidden="true" />
           <div className="arch relative overflow-hidden bg-espresso" data-qa="layered">
-            <motion.div style={{ y: reduce ? "0%" : imgY }} className="scale-[1.16]">
+            <motion.div style={{ y: reduce ? "0%" : imgY }} className="scale-[1.16] will-change-transform">
               <Img
                 name="helena"
                 widths={[480, 800, 1080]}
