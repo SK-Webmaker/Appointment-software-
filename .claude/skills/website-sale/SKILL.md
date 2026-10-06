@@ -74,7 +74,7 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
 
 ## 6. Managed plan ($550 + $30/month)
 Same intake, build and preview as above. Then:
-1. Payment link: `stripe-link.sh "<Business>" <email> managed`. Stripe charges $550 now and $30 every
+1. Payment link: `stripe-link.sh "<Business>" <email> managed`. Stripe charges $580 at sign-up ($550 + month 1), then $30 every
    month after on the same card, with no action needed from us. Each link takes one sign-up.
 2. When `stripe-check.sh` shows it `PAID_NOT_DELIVERED` with plan `managed`, don't build ZIPs. The site
    stays in the owner's Lovable account:
@@ -96,7 +96,7 @@ Same intake, build and preview as above. Then:
 > Subject: Your new website is ready to view
 > Hi <name>, your website is ready to look at: <preview link>
 > Happy with it? Pay here and it's yours to keep: <payment link> ($350, one-time).
-> (Managed plan instead: "Pay here to go live: <payment link>. $550 today, then $30 a month for hosting,
+> (Managed plan instead: "Pay here to go live: <payment link>. $580 today ($550 website + first month), then $30 a month for hosting,
 > updates and changes. Just message us whenever you need something changed. Cancel any time.")
 > Once paid, we'll email your website files with simple steps to put it online. It's a final sale once delivered.
 
