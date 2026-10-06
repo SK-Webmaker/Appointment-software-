@@ -1,19 +1,37 @@
 #!/usr/bin/env bash
-# Create a one-off $350 AUD payment link for one client's website.
-# Usage: stripe-link.sh "Business Name" client@email.com
+# Create a payment link for one client.
+# Usage: stripe-link.sh "Business Name" client@email.com [handover|managed]
+#   handover (default): $350 AUD once. Client keeps the site.
+#   managed:            $550 AUD today + $30 AUD every month (Stripe charges the same card automatically).
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
-NAME="$1"; EMAIL="$2"; PRICE_CENTS="${PRICE_CENTS:-35000}"; CURRENCY="${CURRENCY:-aud}"
+NAME="$1"; EMAIL="$2"; PLAN="${3:-handover}"; CURRENCY=aud
 S=https://api.stripe.com/v1
 json() { python3 -c 'import sys,json;d=json.load(sys.stdin);e=d.get("error");sys.exit("Stripe error: "+e["message"]) if e else print(d'"$1"')'; }
+product() { curl -sS $S/products -d name="$1" -d "metadata[kind]=website-sale" | json '["id"]'; }
 
-PRODUCT=$(curl -sS $S/products -d name="Website — $NAME" -d "metadata[kind]=website-sale" | json '["id"]')
-PRICE=$(curl -sS $S/prices -d product="$PRODUCT" -d unit_amount="$PRICE_CENTS" -d currency="$CURRENCY" | json '["id"]')
-curl -sS $S/payment_links \
-  -d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1" \
-  -d "metadata[kind]=website-sale" -d "metadata[business]=$NAME" -d "metadata[client_email]=$EMAIL" \
+case "$PLAN" in
+  handover)
+    P=$(product "Website — $NAME")
+    PRICE=$(curl -sS $S/prices -d product="$P" -d unit_amount=35000 -d currency=$CURRENCY | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
+    SUBMIT="One-time payment. The website is yours to keep. Final sale once your files are delivered."
+    DONE="Thank you! Your website files are on their way to your email." ;;
+  managed)
+    P1=$(product "Website build — $NAME")
+    P2=$(product "Website management — $NAME")
+    SETUP=$(curl -sS $S/prices -d product="$P1" -d unit_amount=55000 -d currency=$CURRENCY | json '["id"]')
+    MONTHLY=$(curl -sS $S/prices -d product="$P2" -d unit_amount=3000 -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$SETUP" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$MONTHLY" -d "line_items[1][quantity]=1")
+    SUBMIT="\$550 today for your website, then \$30 a month for ongoing management and updates. Cancel any time by messaging us."
+    DONE="Thank you! Your website is going live. For any changes, just message us." ;;
+  *) echo "plan must be handover or managed"; exit 1 ;;
+esac
+
+curl -sS $S/payment_links "${ITEMS[@]}" \
+  -d "metadata[kind]=website-sale" -d "metadata[plan]=$PLAN" -d "metadata[business]=$NAME" -d "metadata[client_email]=$EMAIL" \
   -d "restrictions[completed_sessions][limit]=1" \
-  -d "custom_text[submit][message]=One-time payment. The website is yours to keep. Final sale once your files are delivered." \
+  --data-urlencode "custom_text[submit][message]=$SUBMIT" \
   -d "after_completion[type]=hosted_confirmation" \
-  -d "after_completion[hosted_confirmation][custom_message]=Thank you! Your website files are on their way to your email." \
-  | json '["url"]+"  ("+d["id"]+", livemode="+str(d["livemode"])+")"'
+  --data-urlencode "after_completion[hosted_confirmation][custom_message]=$DONE" \
+  | json '["url"]+"  ("+d["id"]+", plan='"$PLAN"', livemode="+str(d["livemode"])+")"'
