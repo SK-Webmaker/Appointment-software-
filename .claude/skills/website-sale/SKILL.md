@@ -1,9 +1,18 @@
 ---
 name: website-sale
-description: The $350 "website only" deal: build a small-business website in Lovable, take payment with a Stripe payment link, then hand the client a website they own outright (Netlify Drop ZIP + code ZIP), with no Lovable trace and no ongoing support. Use when the owner says "new website for <business>", "send <business> the payment link", "check website payments", or "hand off <business>".
+description: Selling small-business websites built in Lovable, paid by Stripe payment link. Two plans. "handover": $350 once, and the client gets a website they own outright (Netlify Drop ZIP + code ZIP) with no Lovable trace and no support. "managed": $550 today + $30/month, and we keep hosting and updating the site. Use when the owner says "new website for <business>", "send <business> the payment link", "check website payments", or "hand off <business>".
 ---
 
-# $350 website sale: build → pay → hand off → done
+# Website sales: two plans
+
+| Plan | Price | After payment |
+|---|---|---|
+| `handover` | $350 AUD once | Sections 1–5: client gets the files, then we're done |
+| `managed` | $550 AUD today + $30 AUD/month | Section 6: we host the site and make changes on request |
+
+Ask the owner which plan if they don't say. Everything below is the handover plan unless marked managed.
+
+# $350 handover: build → pay → hand off → done
 
 The deal: $350 AUD once. We build the site; once paid, the client gets it and owns it. No hosting,
 no edits and no support after delivery. Clients must never see that the site was made with Lovable or AI.
@@ -30,7 +39,7 @@ real contact details, and no placeholder text.
 
 ## 3. Payment link (when the client approves the preview)
 ```bash
-.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email>
+.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email> handover   # or: managed
 ```
 Prints the link and `livemode=`. The owner's key is LIVE: every link takes real money, so only
 create links for real, approved clients (switch off any mistake at once with stripe-mark-delivered.sh). Each link takes exactly one payment. Send the client the preview + payment link
@@ -63,12 +72,32 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
    records delivery so it is never paid or delivered twice.
 7. Tell the owner, in one line: "<Business> paid $350 and the files were delivered."
 
+## 6. Managed plan ($550 + $30/month)
+Same intake, build and preview as above. Then:
+1. Payment link: `stripe-link.sh "<Business>" <email> managed`. Stripe charges $550 now and $30 every
+   month after on the same card, with no action needed from us. Each link takes one sign-up.
+2. When `stripe-check.sh` shows it `PAID_NOT_DELIVERED` with plan `managed`, don't build ZIPs. The site
+   stays in the owner's Lovable account:
+   - Publish the Lovable project, then connect the client's domain in Lovable (Project → Settings → Domains;
+     needs the owner's paid Lovable plan). The domain is bought in the client's name; give the owner
+     the DNS steps Lovable shows, to pass on.
+   - Then run `stripe-mark-delivered.sh <plink_id>` (switches the sign-up link off) and tell the owner it's live.
+3. Changes: when the owner relays a client's request ("update <business>: <change>"), `send_message`
+   to that Lovable project, check the preview, publish, and confirm to the owner in one line.
+   Included: small updates (text, photos, hours, prices, a new section). Anything bigger, ask the owner.
+4. Cancelling: the key can't touch subscriptions. The owner cancels in the Stripe dashboard
+   (Customers → the client → subscription → Cancel). After that, unpublish the site only if the owner says so.
+5. Missed payments: Stripe retries the card and emails the client by itself. The owner sees failures in
+   Stripe → Subscriptions. Never take a site offline for non-payment unless the owner says so.
+
 ## Emails (sign as the owner's business, never mention AI or Lovable)
 
 **Preview + payment**
 > Subject: Your new website is ready to view
 > Hi <name>, your website is ready to look at: <preview link>
 > Happy with it? Pay here and it's yours to keep: <payment link> ($350, one-time).
+> (Managed plan instead: "Pay here to go live: <payment link>. $550 today, then $30 a month for hosting,
+> updates and changes. Just message us whenever you need something changed. Cancel any time.")
 > Once paid, we'll email your website files with simple steps to put it online. It's a final sale once delivered.
 
 **Delivery**
