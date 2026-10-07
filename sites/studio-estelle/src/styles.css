@@ -1,0 +1,312 @@
+@import "tailwindcss" source(none);
+@source "../src";
+
+/* ------------------------------------------------------------------ fonts
+   Self-hosted (Latin subset) so the opening sequence never waits on a third
+   party. Her logo pairs a flowing script ("Studio") with high-contrast serif
+   capitals ("ESTELLE"): Parisienne and Bodoni Moda. Jost is the text face.
+   Bodoni Moda and Jost are variable fonts. */
+@font-face {
+  font-family: "Bodoni Moda";
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/bodoni-moda-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Bodoni Moda";
+  font-style: italic;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url("/fonts/bodoni-moda-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Jost";
+  font-style: normal;
+  font-weight: 300 600;
+  font-display: swap;
+  src: url("/fonts/jost-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Parisienne";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/parisienne-normal.woff2") format("woff2");
+}
+
+/* ----------------------------------------------------------------- tokens
+   Her colours: the candy pink of her myths posts, the mint of her bond posts,
+   the blush and chocolate brown of her logo, and the soft pink of her gown
+   illustration.
+   Contrast (WCAG): ink 13.6:1, ash 6.4:1, rose 5.8:1 on ivory; ash 5.7:1,
+   rose 5.2:1 on stone; ink 8.7:1, plum 5.3:1 on candy; ivory 14.8:1,
+   pearl 11.5:1, silk 9.4:1 on noir.
+   Timing is NOT tokenised on purpose: components use arbitrary values
+   (duration-[…], ease-[cubic-bezier(0.22,1,0.36,1)]). */
+@theme {
+  --color-ivory: #fbf4f2;
+  --color-stone: #f6e6e6;
+  --color-card: #fffdfc;
+  --color-mint: #e4fbe8;
+  --color-candy: #f8b0cb;
+  --color-ink: #372412;
+  --color-ash: #6b554c;
+  --color-onyx: #3b2618;
+  --color-onyx-deep: #2a1a10;
+  --color-rose: #97455f;
+  --color-plum: #7a2e48;
+  --color-noir: #2e1d14;
+  --color-coal: #3d281b;
+  --color-pearl: #f9cfdf;
+  --color-silk: #f7b2cd;
+  --color-mist: #e3b7c4;
+
+  --font-display: "Bodoni Moda", Didot, Georgia, serif;
+  --font-sans: "Jost", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: "Parisienne", cursive;
+
+  --tracking-label: 0.26em;
+
+  --animate-marquee: marquee 40s linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+  --nav-h: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--nav-h) + 12px);
+    background: var(--color-ivory);
+  }
+
+  body {
+    @apply bg-ivory font-sans text-ink antialiased;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-pearl);
+    color: var(--color-noir);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rose);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.lenis) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Bodoni Moda's automatic optical size thins hairlines to nothing at display
+   sizes (an H reads as "I I", an em dash disappears). Pin it: 24 for
+   headings and display text. */
+.font-display,
+h1,
+h2,
+h3 {
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 24;
+}
+
+/* --------------------------------------------------------------- utilities */
+
+/* The capsule: the long, narrow line of a gown — and her full-length mirror. */
+@utility capsule {
+  border-radius: 9999px;
+}
+
+/* The arch: the arched mirror in her fitting room. */
+@utility arch {
+  border-radius: 9999px 9999px 28px 28px;
+}
+
+/* A chapter that arrives as a sheet sliding up over the one before: an arched
+   top like her fitting-room mirror and a soft shadow cast onto the page
+   behind. The overlap matches the bottom padding of the hero's last scene,
+   so the sheet meets its button exactly as the hero lets go. Every chapter
+   is its own stacking context, painted in page order. */
+@utility sheet {
+  position: relative;
+  isolation: isolate;
+  margin-top: -36px;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  box-shadow: 0 -26px 48px -34px rgba(46, 29, 20, 0.4);
+  @media (min-width: 768px) {
+    margin-top: -48px;
+    border-top-left-radius: 48px;
+    border-top-right-radius: 48px;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-rose);
+}
+
+@utility btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-primary {
+  @apply btn bg-onyx text-ivory shadow-[0_12px_30px_-12px_rgba(46,29,20,0.55)] hover:bg-onyx-deep;
+}
+
+@utility btn-honey {
+  @apply btn bg-silk text-noir hover:bg-ivory;
+}
+
+@utility btn-ghost {
+  @apply btn border border-ink/25 text-ink hover:border-onyx hover:bg-onyx hover:text-ivory;
+}
+
+@utility btn-ghost-light {
+  @apply btn border border-ivory/35 text-ivory hover:border-ivory hover:bg-ivory hover:text-noir;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Plain CSS outside any layer, so it is always emitted. */
+
+/* Light travelling across a button, like light across sequins. */
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 248, 0.26), transparent);
+  animation: sheen 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The opening curtain is server-rendered so it covers the first paint. If
+   JavaScript never runs, this lifts it anyway — it can never trap anyone. */
+.curtain {
+  animation: curtain-failsafe 0.8s ease 3.4s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Lenis (from lenis/dist/lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .sheen::after,
+  .curtain {
+    display: none !important;
+  }
+}
