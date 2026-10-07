@@ -6,8 +6,10 @@ import { BOND, SITE } from "@/site.config";
 /** Chapter IV — her "what is a bond" carousel, on the mint of her bond posts. */
 export function Bond() {
   return (
-    <section id="bond" className="sheet overflow-hidden bg-mint pb-24 pt-24 md:pb-32 md:pt-36" aria-labelledby="bond-title">
-      <div className="pointer-events-none absolute -right-56 -top-20 h-[640px] w-[640px] bg-[radial-gradient(closest-side,rgb(255_253_252/0.85),transparent)]" aria-hidden="true" />
+    <section id="bond" className="sheet bg-mint pb-24 pt-24 md:pb-32 md:pt-36" aria-labelledby="bond-title">
+      <div className="glow-clip" aria-hidden="true">
+        <div className="absolute -right-56 -top-24 h-[640px] w-[640px] bg-[radial-gradient(closest-side,rgb(255_253_252/0.85),transparent)]" />
+      </div>
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="bond" />
         <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-20">

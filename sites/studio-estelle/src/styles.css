@@ -182,6 +182,19 @@ h3 {
   }
 }
 
+/* Soft light inside a sheet: a plain rectangular clip that starts below the
+   arched top. Sheets themselves never clip — a rounded clip around anything
+   that animates (a reveal, a drifting glow) costs a mask on every frame. */
+@utility glow-clip {
+  position: absolute;
+  inset: 32px 0 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  @media (min-width: 768px) {
+    inset: 48px 0 0 0;
+  }
+}
+
 @utility eyebrow {
   font-family: var(--font-sans);
   font-size: 11.5px;

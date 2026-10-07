@@ -25,8 +25,10 @@ export function Book() {
   const glowY = useTransform(scrollYProgress, [0, 1], ["-20%", "20%"]);
 
   return (
-    <section id="book" ref={ref} className="sheet overflow-hidden bg-noir pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
-      <motion.div className="pointer-events-none absolute left-1/2 top-0 h-[1100px] w-[1100px] -translate-x-1/2 will-change-transform bg-[radial-gradient(closest-side,rgb(151_69_95/0.4),transparent)]" style={{ y: reduce ? "0%" : glowY }} aria-hidden="true" />
+    <section id="book" ref={ref} className="sheet bg-noir pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
+      <div className="glow-clip" aria-hidden="true">
+        <motion.div className="absolute left-1/2 top-0 h-[1100px] w-[1100px] -translate-x-1/2 will-change-transform bg-[radial-gradient(closest-side,rgb(151_69_95/0.4),transparent)]" style={{ y: reduce ? "0%" : glowY }} />
+      </div>
 
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="book" light className="justify-center" />
