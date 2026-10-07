@@ -18,7 +18,7 @@ export function Prices() {
   const photoY = useTransform(scrollYProgress, [0, 1], ["-6%", "6%"]);
 
   return (
-    <section id="prices" className="sheet bg-noir pb-24 pt-24 text-ivory md:pb-32 md:pt-36" aria-labelledby="prices-title">
+    <section id="prices" className="sheet bg-noir [--sheet-prev:var(--color-stone)] pb-24 pt-24 text-ivory md:pb-32 md:pt-36" aria-labelledby="prices-title">
       <div className="glow-clip" aria-hidden="true">
         <div className="absolute -left-48 top-1/4 h-[680px] w-[680px] bg-[radial-gradient(closest-side,rgb(151_69_95/0.32),transparent)]" />
       </div>

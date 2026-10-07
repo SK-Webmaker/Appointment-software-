@@ -164,21 +164,38 @@ h3 {
 }
 
 /* A chapter that arrives as a sheet sliding up over the one before: an arched
-   top like her fitting-room mirror and a soft shadow cast onto the page
-   behind. The overlap matches the bottom padding of the hero's last scene,
-   so the sheet meets its button exactly as the hero lets go. Every chapter
-   is its own stacking context, painted in page order. */
+   top like her fitting-room mirror. The previous chapter's colour
+   (--sheet-prev) is painted into the two top corners, so the edge reads as
+   one sheet over another WITHOUT the sections overlapping — overlapping
+   sections chain into page-sized compositor layers (~14 MB each on a
+   phone) and cost dropped frames. */
 @utility sheet {
   position: relative;
   isolation: isolate;
-  margin-top: -36px;
-  border-top-left-radius: 32px;
-  border-top-right-radius: 32px;
-  box-shadow: 0 -26px 48px -34px rgba(46, 29, 20, 0.4);
+  /* Paints only inside its own rectangle (a cheap, square clip): animations
+     inside one chapter can then never make the browser promote the next
+     chapters to compositor layers. Sticky children still work. */
+  contain: paint;
+  --sheet-r: 32px;
   @media (min-width: 768px) {
-    margin-top: -48px;
-    border-top-left-radius: 48px;
-    border-top-right-radius: 48px;
+    --sheet-r: 48px;
+  }
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: var(--sheet-r);
+    height: var(--sheet-r);
+    pointer-events: none;
+  }
+  &::before {
+    left: 0;
+    background: radial-gradient(circle at 100% 100%, transparent calc(var(--sheet-r) - 1px), var(--sheet-prev, transparent) var(--sheet-r));
+  }
+  &::after {
+    right: 0;
+    background: radial-gradient(circle at 0 100%, transparent calc(var(--sheet-r) - 1px), var(--sheet-prev, transparent) var(--sheet-r));
   }
 }
 

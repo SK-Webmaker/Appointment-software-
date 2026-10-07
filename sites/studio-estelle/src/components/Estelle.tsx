@@ -22,7 +22,7 @@ export function Estelle() {
   const photoY = useTransform(scrollYProgress, [0, 1], ["-6%", "6%"]);
 
   return (
-    <section id="estelle" className="sheet bg-stone pb-24 pt-24 md:pb-32 md:pt-36" aria-labelledby="estelle-title">
+    <section id="estelle" className="sheet bg-stone [--sheet-prev:var(--color-ivory)] pb-24 pt-24 md:pb-32 md:pt-36" aria-labelledby="estelle-title">
       <div className="glow-clip" aria-hidden="true">
         <div className="absolute -right-48 top-16 h-[620px] w-[620px] bg-[radial-gradient(closest-side,rgb(249_207_223/0.55),transparent)]" />
       </div>

@@ -19,7 +19,7 @@ export function Myths() {
   const { scrollYProgress } = useScroll({ target: stack, offset: ["start start", "end end"] });
 
   return (
-    <section id="myths" className="sheet bg-candy pb-24 pt-24 text-ink md:pb-32 md:pt-36" aria-labelledby="myths-title">
+    <section id="myths" className="sheet bg-candy [--sheet-prev:var(--color-noir)] pb-24 pt-24 text-ink md:pb-32 md:pt-36" aria-labelledby="myths-title">
       <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
         <ChapterLabel id="myths" />
         <h2 id="myths-title" className="mt-8 max-w-[16ch] text-[clamp(38px,8.4vw,96px)] leading-[1]">

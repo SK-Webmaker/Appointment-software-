@@ -22,12 +22,11 @@ export function Book() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   // The arch rises into place (a translate, so it can glide on the GPU without softening the text).
   const cardY = useTransform(scrollYProgress, [0, 0.4], [80, 0]);
-  const glowY = useTransform(scrollYProgress, [0, 1], ["-20%", "20%"]);
 
   return (
-    <section id="book" ref={ref} className="sheet bg-noir pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
+    <section id="book" ref={ref} className="sheet bg-noir [--sheet-prev:var(--color-mint)] pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
       <div className="glow-clip" aria-hidden="true">
-        <motion.div className="absolute left-1/2 top-0 h-[1100px] w-[1100px] -translate-x-1/2 will-change-transform bg-[radial-gradient(closest-side,rgb(151_69_95/0.4),transparent)]" style={{ y: reduce ? "0%" : glowY }} />
+        <div className="absolute left-1/2 top-0 h-[1100px] w-[1100px] -translate-x-1/2 bg-[radial-gradient(closest-side,rgb(151_69_95/0.4),transparent)]" />
       </div>
 
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
