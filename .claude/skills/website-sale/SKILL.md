@@ -69,7 +69,7 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
    It stops with exit 2/3 if "lovable" appears anywhere. Fix the files and re-run; never bypass it.
 4. Browser check: `node .claude/skills/website-sale/check-site.mjs <SITE_DIR printed above>`
    It must print `OK`. Look at the `check-1280.png` / `check-390.png` screenshots yourself.
-5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in. The owner uploads them
+5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in (point clients to the video made from client-video-guide.md). The owner uploads them
    to Google Drive, shares the links and sends the email. (Uploading the ZIPs to a public host so Drive can
    pick them up was refused for security, and Gmail blocks ZIPs that contain .js files, so they can't be attached.)
    Client emails that need no files (preview + payment link) may be sent from kairobooking18@gmail.com
