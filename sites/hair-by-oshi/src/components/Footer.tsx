@@ -5,10 +5,10 @@ import { Reveal } from "./Reveal";
 import { SITE } from "@/site.config";
 
 const FEED = [
-  { name: "honey-roots", alt: "Honey-blonde waves with blended roots" },
-  { name: "cherry-red", alt: "Curled cherry-red hair" },
-  { name: "balayage-front", alt: "Glossy dark-brown waves with caramel pieces" },
-  { name: "summer-tones", alt: "Creamy summer blonde" },
+  { name: "honey-roots", widths: [480, 640], alt: "Honey-blonde waves with blended roots" },
+  { name: "cherry-red", widths: [480, 720], alt: "Curled cherry-red hair" },
+  { name: "balayage-front", widths: [480, 800], alt: "Glossy dark-brown waves with caramel pieces" },
+  { name: "summer-tones", widths: [480, 630], alt: "Creamy summer blonde" },
 ];
 
 export function Footer() {
@@ -27,7 +27,7 @@ export function Footer() {
         <div className="mt-10 grid grid-cols-4 gap-2 md:gap-4">
           {FEED.map((f) => (
             <a key={f.name} href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-full">
-              <Img name={f.name} widths={[480]} sizes="25vw" alt="" className="aspect-[9/16] w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
+              <Img name={f.name} widths={f.widths} sizes="(min-width:1440px) 312px, 25vw" alt="" className="aspect-[9/16] w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
               <span className="absolute inset-0 bg-espresso/0 transition-colors duration-500 group-hover:bg-espresso/25" />
               <span className="sr-only">{f.alt} — view on Instagram</span>
             </a>

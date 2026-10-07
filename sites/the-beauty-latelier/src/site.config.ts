@@ -82,7 +82,7 @@ export const CATEGORIES: Category[] = [
     blurb: "Sets built for your hands — from a clean shellac to sculpted Gel-X with art.",
     image: {
       name: "nails-gelx-tier4",
-      widths: [480, 800, 1200],
+      widths: [480, 800, 1200, 1320],
       alt: "Helena's Gel-X almond set with gold bow charms, tortoiseshell and burgundy accents",
       position: "50% 65%",
     },

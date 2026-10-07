@@ -5,10 +5,10 @@ import { SITE } from "@/site.config";
 import { telHref } from "@/lib/booking";
 
 const FEED = [
-  { name: "nails-gelx-tier4", widths: [480], alt: "Gel-X Tier 4 nails beside a fern" },
-  { name: "detail-coffee", widths: [480], alt: "Coffee in a gold-rimmed cup" },
-  { name: "nails-gelx-tier4-b", widths: [480], alt: "Gel-X Tier 4 nails over dried roses" },
-  { name: "detail-silk", widths: [480], alt: "Paisley silk and iced matcha" },
+  { name: "nails-gelx-tier4", widths: [480, 800], alt: "Gel-X Tier 4 nails beside a fern" },
+  { name: "detail-coffee", widths: [480, 800], alt: "Coffee in a gold-rimmed cup" },
+  { name: "nails-gelx-tier4-b", widths: [480, 800], alt: "Gel-X Tier 4 nails over dried roses" },
+  { name: "detail-silk", widths: [480, 800], alt: "Paisley silk and iced matcha" },
 ];
 
 export function Footer() {
@@ -27,7 +27,7 @@ export function Footer() {
         <div className="mt-8 grid grid-cols-4 gap-2 md:gap-4">
           {FEED.map((f) => (
             <a key={f.name} href={SITE.instagramUrl} target="_blank" rel="noreferrer" className="group relative block overflow-hidden rounded-t-full" aria-label={`${f.alt} — view on Instagram`}>
-              <Img name={f.name} widths={f.widths} sizes="25vw" alt="" className="aspect-[3/4] w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
+              <Img name={f.name} widths={f.widths} sizes="(min-width:1440px) 312px, 25vw" alt="" className="aspect-[3/4] w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-105" />
               <span className="absolute inset-0 bg-ink/0 transition-colors duration-500 group-hover:bg-ink/25" />
             </a>
           ))}

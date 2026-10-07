@@ -93,7 +93,7 @@ export function Hero() {
           <motion.div className="h-full w-full will-change-transform" style={{ scale: reduce ? 1 : imgScale }}>
             <Img
               name="nails-gelx-tier4"
-              widths={[480, 800, 1200]}
+              widths={[480, 800, 1200, 1320]}
               sizes="100vw"
               priority
               alt="Helena's Gel-X set, Tier 4 nail art: almond nails with gold bows, tortoiseshell and burgundy, beside a fern and a gold candle"

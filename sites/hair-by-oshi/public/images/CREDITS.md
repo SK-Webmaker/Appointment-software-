@@ -16,14 +16,14 @@ hair — the photo is otherwise untouched). No stock photography is used.
 | `volume` | [Db2ylnLBnmw](https://www.instagram.com/p/Db2ylnLBnmw/) — "…just do whatever you like girl 💅" | Reel cover |
 | `freedom-waves` | [Dc-ejxBhETO](https://www.instagram.com/p/Dc-ejxBhETO/) — "Oh my ❄️☁️" | Reel cover |
 | `nano-before`, `nano-after` | [ChJ3y0qhZqc](https://www.instagram.com/p/ChJ3y0qhZqc/) — "An amazing result from Nanoplasty ❤️" | Reel frames |
-| `hype` | [DbT0_CgyMQs](https://www.instagram.com/p/DbT0_CgyMQs/) — "save this for your next hair appointment" | Reel cover |
+| `oshi-hero` | [DbT0_CgyMQs](https://www.instagram.com/p/DbT0_CgyMQs/) — "save this for your next hair appointment" | Reel cover, full frame — the hero photo: Oshi behind a client at the reveal |
+| `hype-reveal` | [Ddn1KINyAym](https://www.instagram.com/p/Ddn1KINyAym/) — "summer tones are really starting strong" | Reel frame, Oshi with her client at the reveal (the "Always" hype card) |
 | `your-time` | [Dbc0jruAQNj](https://www.instagram.com/p/Dbc0jruAQNj/) — "Your hair appointment is more than just getting your hair done… it's your time" | Slide 3 (no text) |
 | `suite-doors`, `suite-hall` | [DGX1LPVhk1B](https://www.instagram.com/p/DGX1LPVhk1B/) — the Oakleigh move announcement | Reel frames, "Located in Oakleigh" text cropped off |
-| `oshi-hallway` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) — "…don't let them shrink you 💞" | Top half of slide 1 (above the caption) — the hero portrait |
-| `oshi-call` | [DGX1LPVhk1B](https://www.instagram.com/p/DGX1LPVhk1B/) — the Oakleigh move announcement | Reel cover, between the "Incoming call" text and the call buttons |
 | `oshi-basin` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) | Colour half of slide 8 |
 | `oshi-portrait` | [DZolNHdgT51](https://www.instagram.com/p/DZolNHdgT51/) — her box-dye explainer | Her portrait from slide 1 |
-| `oshi-mirror` | [DcK8pTDgULZ](https://www.instagram.com/p/DcK8pTDgULZ/) — "Kinda chic for a Sri Lankan girl…" | Top of the image, above the caption |
+| `oshi-coat` | [DcK8pTDgULZ](https://www.instagram.com/p/DcK8pTDgULZ/) — "Kinda chic for a Sri Lankan girl…" | Her mirror selfie, cropped above the caption — the main "Meet Oshi" photo |
+| `oshi-blowdry` | [Dbh9LhyAdIU](https://www.instagram.com/p/Dbh9LhyAdIU/) — "…don't let them shrink you 💞" | Colour half of slide 2 ("Start a business"), cropped above the caption |
 | `big-chop` | [DW0yHnoAZeg](https://www.instagram.com/p/DW0yHnoAZeg/) — hair donation | Top of the reel cover, above the captions |
 
 Clients appear in several of these photos exactly as Oshi posted them

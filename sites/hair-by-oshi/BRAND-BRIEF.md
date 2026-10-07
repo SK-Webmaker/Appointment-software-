@@ -115,8 +115,8 @@ the logo is the heart, in a soft, muted mauve.
   Allura for the script "Oshi" — the closest open font to her logo.
 - **Shape:** the capsule — a lock of hair, her arched mirror, the arched door
   of the suite. Photos sit in capsules and arches.
-- **Motion:** Oshi at the centre — the hero capsule holds her portrait and,
-  as you scroll, her work is dealt out around her like a mood board; strands
+- **Motion:** Oshi at the centre — the hero capsule holds Oshi in her work
+  black, laughing behind a client at the reveal, and, as you scroll, her work is dealt out around her like a mood board; strands
   of light draw themselves across chapter II; a single strand down the left
   edge tracks the journey; nano-particles travel into a strand's layers.
 

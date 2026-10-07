@@ -27,12 +27,12 @@ export function Oshi() {
             <div className="relative aspect-[4/3] overflow-hidden rounded-[28px] bg-sand shadow-[0_40px_80px_-40px_rgba(34,22,31,0.55)]">
               <motion.div className="absolute inset-x-0 -top-[6%] h-[112%] will-change-transform" style={{ y: reduce ? "0%" : yMain }}>
                 <Img
-                  name="oshi-call"
-                  widths={[480, 720]}
+                  name="oshi-coat"
+                  widths={[480, 840]}
                   sizes="(min-width:1024px) 640px, 92vw"
-                  alt="Oshi looking back over her shoulder with a smile, honey ribbons through her dark hair"
+                  alt="Oshi’s mirror selfie in a long black coat and white top, framed by an arched mirror"
                   className="h-full w-full object-cover"
-                  style={{ objectPosition: "50% 30%" }}
+                  style={{ objectPosition: "50% 45%" }}
                 />
               </motion.div>
             </div>
@@ -46,7 +46,7 @@ export function Oshi() {
               className="absolute -bottom-6 left-3 hidden w-[26%] will-change-transform max-w-[150px] overflow-hidden rounded-t-full border-[6px] border-cream shadow-[0_30px_60px_-30px_rgba(34,22,31,0.55)] sm:block"
               style={{ y: reduce ? 0 : yMirror }}
             >
-              <Img name="oshi-mirror" widths={[480]} sizes="150px" alt="Oshi’s mirror selfie in a black coat, framed by an arched mirror" className="aspect-[3/4] w-full object-cover" style={{ objectPosition: "50% 40%" }} />
+              <Img name="oshi-blowdry" widths={[440]} sizes="150px" alt="Oshi at work in a black top, blow-drying a client’s hair with a round brush" className="aspect-[3/4] w-full object-cover" style={{ objectPosition: "50% 20%" }} />
             </motion.figure>
           </div>
 
@@ -82,7 +82,7 @@ export function Oshi() {
         {/* Two moments from her feed */}
         <div className="mt-24 grid gap-6 md:mt-32 md:grid-cols-2">
           <Reveal className="grid overflow-hidden rounded-[28px] bg-sand sm:grid-cols-[0.9fr_1.1fr]">
-            <Img name="big-chop" widths={[480, 640]} sizes="(min-width:768px) 22vw, (min-width:640px) 45vw, 100vw" alt="A client and her stylist smiling and holding up a long ponytail cut for donation" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 62%" }} />
+            <Img name="big-chop" widths={[480, 640]} sizes="(min-width:640px) 340px, 100vw" alt="A client and her stylist smiling and holding up a long ponytail cut for donation" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 62%" }} />
             <div className="flex flex-col justify-center p-7 md:p-8">
               <p className="text-[11.5px] font-medium uppercase tracking-[0.22em] text-cocoa">A big chop, donated</p>
               <p className="mt-3 font-display text-[23px] font-light leading-[1.25] text-ink md:text-[26px]">“So proud to be part of moments like this — new hair, new confidence, and a beautiful cause.” 💛</p>
@@ -90,7 +90,7 @@ export function Oshi() {
             </div>
           </Reveal>
           <Reveal delay={0.08} className="grid overflow-hidden rounded-[28px] bg-cocoa text-cream sm:grid-cols-[0.9fr_1.1fr]">
-            <Img name="oshi-basin" widths={[480, 660]} sizes="(min-width:768px) 22vw, (min-width:640px) 45vw, 100vw" alt="At the basin, washing a client’s hair before a colour" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 66%" }} />
+            <Img name="oshi-basin" widths={[480, 660]} sizes="(min-width:640px) 340px, 100vw" alt="At the basin, washing a client’s hair before a colour" className="aspect-[4/3] h-full w-full object-cover sm:aspect-auto" style={{ objectPosition: "50% 66%" }} />
             <div className="flex flex-col justify-center p-7 md:p-8">
               <p className="text-[11.5px] font-medium uppercase tracking-[0.22em] text-champagne">Start a business</p>
               <p className="mt-3 font-display text-[23px] font-light leading-[1.25] md:text-[26px]">“No matter what you do in life, someone will always have an opinion. So don’t let them shrink you.” 💞</p>

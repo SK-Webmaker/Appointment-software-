@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
         rel: "preload",
         as: "image",
         href: "/images/nails-gelx-tier4-800.webp",
-        imageSrcSet: "/images/nails-gelx-tier4-480.webp 480w, /images/nails-gelx-tier4-800.webp 800w, /images/nails-gelx-tier4-1200.webp 1200w",
+        imageSrcSet: "/images/nails-gelx-tier4-480.webp 480w, /images/nails-gelx-tier4-800.webp 800w, /images/nails-gelx-tier4-1200.webp 1200w, /images/nails-gelx-tier4-1320.webp 1320w",
         imageSizes: "100vw",
         fetchPriority: "high",
       },

@@ -233,9 +233,10 @@ export const ALWAYS = [
   {
     lead: "And yes… I will absolutely hype you up",
     rest: "when we turn that chair around, because seeing you feel beautiful is my favourite part.",
-    image: "hype",
+    image: "hype-reveal",
     widths: [480, 720],
-    alt: "A client laughing as she sees her new glossy brunette blow-dry, her stylist smiling behind her",
+    position: "50% 12%",
+    alt: "Oshi laughing behind a client as she sees her new soft, dimensional blonde for the first time",
   },
 ] as const;
 

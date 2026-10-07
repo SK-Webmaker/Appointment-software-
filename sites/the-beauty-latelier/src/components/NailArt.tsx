@@ -33,7 +33,7 @@ export function NailArt() {
             <motion.div style={{ y: reduce ? "0%" : photoY }} className="scale-[1.18] will-change-transform">
               <Img
                 name="nails-gelx-tier4-b"
-                widths={[480, 800, 1200]}
+                widths={[480, 800, 1200, 1320]}
                 sizes="(min-width:1024px) 38vw, 100vw"
                 alt="Helena's Gel-X Tier 4 set held over dried roses — gold bow charms, rhinestones and burgundy tortoiseshell"
                 className="aspect-[4/5] w-full object-cover"

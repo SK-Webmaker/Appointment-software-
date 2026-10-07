@@ -47,6 +47,9 @@ const FAN_PORTRAIT = [
  * underneath. The capsule starts from a measured layout slot, so the text and
  * buttons never collide with it.
  */
+/** Shared with the preload in routes/index.tsx so both pick the same file. */
+export const HERO_SIZES = "(min-width:1024px) 420px, 70vw";
+
 export function Hero() {
   const stageRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
@@ -166,13 +169,13 @@ export function Hero() {
           <motion.div className="capsule absolute -inset-[10px] border border-cocoa/35" style={{ opacity: reduce ? 1 : ringOpacity }} aria-hidden="true" />
           <div className="capsule relative h-full w-full overflow-hidden bg-sand shadow-[0_40px_80px_-40px_rgba(35,25,21,0.55)]">
             <Img
-              name="oshi-hallway"
-              widths={[480, 800, 1200, 1320]}
-              sizes="(min-width:1024px) 420px, 70vw"
+              name="oshi-hero"
+              widths={[480, 720]}
+              sizes={HERO_SIZES}
               priority
-              alt="Oshi Dias smiling in the hallway outside her suite in Oakleigh, under a glowing brass lamp"
-              className="h-full w-full origin-bottom scale-[1.18] object-cover"
-              style={{ objectPosition: "50% 62%" }}
+              alt="Oshi Dias in a black turtleneck and apron, laughing behind a client who loves her new glossy brunette blow-dry"
+              className="h-full w-full object-cover"
+              style={{ objectPosition: "50% 0%" }}
             />
           </div>
         </motion.div>

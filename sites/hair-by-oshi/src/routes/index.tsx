@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HERO_SIZES } from "@/components/Hero";
 import { Site } from "@/components/Site";
 import { SERVICES, SITE } from "@/site.config";
 
@@ -26,9 +27,9 @@ export const Route = createFileRoute("/")({
       {
         rel: "preload",
         as: "image",
-        href: "/images/oshi-hallway-800.webp",
-        imageSrcSet: "/images/oshi-hallway-480.webp 480w, /images/oshi-hallway-800.webp 800w, /images/oshi-hallway-1200.webp 1200w, /images/oshi-hallway-1320.webp 1320w",
-        imageSizes: "(min-width:1024px) 60vw, 100vw",
+        href: "/images/oshi-hero-720.webp",
+        imageSrcSet: "/images/oshi-hero-480.webp 480w, /images/oshi-hero-720.webp 720w",
+        imageSizes: HERO_SIZES,
         fetchPriority: "high",
       },
     ],

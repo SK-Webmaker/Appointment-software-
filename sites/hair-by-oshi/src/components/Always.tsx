@@ -57,6 +57,7 @@ function Card({
   image,
   widths,
   alt,
+  position = "50% 30%",
 }: {
   i: number;
   total: number;
@@ -66,6 +67,7 @@ function Card({
   image: string;
   widths: readonly number[];
   alt: string;
+  position?: string;
 }) {
   const reduce = useReducedMotionSafe();
   const tone = TONES[i % TONES.length] ?? TONES[0]!;
@@ -81,7 +83,7 @@ function Card({
       >
         <div className="relative h-[26svh] min-h-[150px] overflow-hidden md:h-auto">
           <motion.div className="absolute inset-0 h-[112%] will-change-transform" style={{ y: reduce ? "0%" : imgY }}>
-            <Img name={image} widths={[...widths]} sizes="(min-width:768px) 40vw, 100vw" alt={alt} className="h-full w-full object-cover" style={{ objectPosition: "50% 30%" }} />
+            <Img name={image} widths={[...widths]} sizes="(min-width:768px) 600px, 100vw" alt={alt} className="h-full w-full object-cover" style={{ objectPosition: position }} />
           </motion.div>
         </div>
         <div className="flex flex-col justify-between gap-6 p-6 sm:p-7 md:gap-8 md:p-14">

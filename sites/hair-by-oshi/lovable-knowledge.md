@@ -22,7 +22,9 @@ email, and no prices on purpose — do not add any unless asked.
 
 ## Do not change without being asked
 - **Keratin stays off the site** (the owner asked for it to be removed).
-- **The motion.** The hero capsule holds Oshi's portrait; on scroll it glides
+- **The motion.** The hero capsule holds Oshi (in her work black, behind a
+  client at the reveal — keep a photo where she is clearly dressed at any
+  crop); on scroll it glides
   to the centre and her work is dealt out around her like a mood board;
   chapter II draws strands of light; the gallery travels sideways while the page is
   pinned; nano-particles travel into the hair cross-section; the "Always"

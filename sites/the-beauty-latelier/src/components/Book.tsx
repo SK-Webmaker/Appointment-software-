@@ -29,7 +29,7 @@ export function Book() {
   return (
     <section id="book" ref={ref} className="relative overflow-hidden bg-champagne pb-24 pt-24 md:pb-32 md:pt-32" aria-labelledby="book-title">
       <motion.div className="absolute inset-0 -top-[10%] h-[120%] will-change-transform" style={{ y: reduce ? "0%" : bgY }} aria-hidden="true">
-        <Img name="satin" widths={[480, 800, 1200, 1600]} sizes="100vw" alt="" className="h-full w-full object-cover" />
+        <Img name="satin" widths={[480, 800, 1200, 1600]} sizes="(max-width:767px) 200vw, 100vw" alt="" className="h-full w-full object-cover" />
         <div className="absolute inset-0 bg-champagne/25" />
       </motion.div>
 

@@ -35,7 +35,9 @@ bun run typecheck      # tsc with Lovable's strict flags
 1. **Opening** — three strands of light draw down an espresso ground; her
    script "Oshi" and the heart arrive.
 2. **Hero** — "Healthy hair. Confident you." (her tagline) beside Oshi
-   herself, in a capsule. As you scroll, the words step back, the capsule
+   herself, in a capsule — laughing behind a client at the reveal (her
+   own reel cover; chosen so she is clearly dressed in her work black,
+   turtleneck and apron, at any crop). As you scroll, the words step back, the capsule
    glides to the centre and her work is dealt out around her like a mood
    board; then "Beautiful hair starts with honesty" settles underneath.
 3. **I · Oshi** — "Hi, it's *Oshi*" (her name in the script from her logo,
