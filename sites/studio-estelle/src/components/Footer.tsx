@@ -13,7 +13,7 @@ const FEED = [
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden bg-noir text-ivory [contain:paint]" aria-label="Footer">
+    <footer className="relative overflow-hidden bg-noir text-ivory" aria-label="Footer">
       <div className="mx-auto max-w-[1440px] px-5 pt-20 md:px-10 md:pt-28 xl:px-24">
         <Reveal className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <Wordmark size={72} tone="light" className="self-start sm:hidden" />

@@ -124,8 +124,9 @@ export function Hero() {
     <section
       id="top"
       ref={sectionRef}
-      // contain: paint keeps the scene's scroll-linked fades from promoting the chapters after it to layers
-      className={reduce ? "relative isolate [contain:paint]" : "relative isolate h-[250svh] [contain:paint] lg:h-[260vh]"}
+      // With reduced motion the hero is one screen; its bottom padding is what
+      // the next chapter's sheet slides over, so the buttons stay clear.
+      className={reduce ? "relative isolate pb-9 md:pb-12" : "relative isolate h-[250svh] lg:h-[260vh]"}
       aria-label="Welcome"
     >
       <div ref={stageRef} className="sticky top-0 h-[100svh] min-h-[600px] w-full overflow-hidden bg-ivory">
