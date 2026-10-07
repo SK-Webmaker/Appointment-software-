@@ -10,9 +10,24 @@ const STRAND = "M6 0 C 14 40, -2 80, 6 120 S 14 200, 6 240 S -2 320, 6 360 S 14 
 
 /**
  * The scroll journey, on large screens: a silk ribbon down the left edge
- * that fills as you travel, with the five chapters marked along it.
+ * that fills as you travel, with the five chapters marked along it. Only
+ * screens wide enough to show it mount it, so phones and tablets never pay
+ * for tracking the scroll on its behalf. (Nothing renders on the server or
+ * the first client render, so hydration always matches.)
  */
 export function StrandRail() {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1280px)");
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return wide ? <Rail /> : null;
+}
+
+function Rail() {
   const [active, setActive] = useState<ChapterId | null>(null);
   const { scrollYProgress } = useScroll();
   const fill = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.001 });
