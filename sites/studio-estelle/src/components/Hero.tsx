@@ -136,7 +136,7 @@ export function Hero() {
         {/* a soft pink light that gathers behind her as the rail forms */}
         {!reduce && target && (
           <motion.div
-            className="pointer-events-none absolute bg-[radial-gradient(closest-side,rgb(249_207_223/0.7),transparent)]"
+            className="pointer-events-none absolute bg-[radial-gradient(closest-side,rgb(249_207_223/0.7),transparent)] will-change-[opacity]"
             style={{ left: target.cx - target.h * 0.7, top: target.cy - target.h * 0.7, width: target.h * 1.4, height: target.h * 1.4, opacity: glow }}
             aria-hidden="true"
           />
@@ -163,7 +163,8 @@ export function Hero() {
           }}
           data-qa="layered"
         >
-          <motion.div className="capsule absolute -inset-[10px] border border-rose/40" style={{ opacity: reduce ? 1 : ringOpacity }} aria-hidden="true" />
+          {/* its own layer, so fading the ring never repaints the photo */}
+          <motion.div className="capsule absolute -inset-[10px] border border-rose/40 will-change-[opacity]" style={{ opacity: reduce ? 1 : ringOpacity }} aria-hidden="true" />
           <div className="capsule relative h-full w-full overflow-hidden bg-stone shadow-[0_40px_80px_-40px_rgba(46,29,20,0.5)]">
             <Img
               name="nara-front"
@@ -177,9 +178,9 @@ export function Hero() {
           </div>
         </motion.div>
 
-        {/* Opening layout */}
+        {/* Opening layout — a layer of its own while it fades, so the text is never repainted mid-scroll */}
         <motion.div
-          className="relative z-20 mx-auto grid h-full max-w-[1440px] grid-rows-[auto_1fr_auto] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[84px] md:px-10 lg:grid-cols-[1.1fr_0.9fr] lg:grid-rows-1 lg:gap-16 lg:pb-12 lg:pt-28 xl:px-24"
+          className={`relative z-20 mx-auto grid h-full max-w-[1440px] grid-rows-[auto_1fr_auto] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-[84px] md:px-10 lg:grid-cols-[1.1fr_0.9fr] lg:grid-rows-1 lg:gap-16 lg:pb-12 lg:pt-28 xl:px-24 ${reduce ? "" : "will-change-[transform,opacity]"}`}
           style={reduce ? { opacity: 1, y: 0, pointerEvents: "auto" } : { opacity: introOpacity, y: introY, pointerEvents: introEvents }}
         >
           <div className="lg:flex lg:flex-col lg:justify-center lg:pb-10">
@@ -262,7 +263,7 @@ export function Hero() {
         {/* Once the rail has formed — a scene that only exists with motion on */}
         {!reduce && (
           <motion.div
-            className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[1120px] flex-col items-center px-5 pb-[max(2.25rem,env(safe-area-inset-bottom))] text-center lg:pb-12"
+            className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[1120px] flex-col items-center px-5 pb-[max(2.25rem,env(safe-area-inset-bottom))] text-center will-change-[transform,opacity] lg:pb-12"
             style={{ opacity: outroOpacity, y: outroY, pointerEvents: outroEvents }}
           >
             <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-rose">{OCCASIONS.slice(0, 4).join(" · ")}</p>
