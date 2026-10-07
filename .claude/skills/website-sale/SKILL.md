@@ -10,7 +10,14 @@ description: Selling small-business websites built in Lovable, paid by Stripe pa
 | `handover` | $350 AUD once | Sections 1–5: client gets the files, then we're done |
 | `managed` | $550 AUD today + $30 AUD/month | Section 6: we host the site and make changes on request |
 
-Ask the owner which plan if they don't say. Everything below is the handover plan unless marked managed.
+Ask the owner which plan if they don't say.
+
+**Reusable links** (the owner sends these to clients themselves; they never switch off; checkout asks for "Business name"):
+- $350 handover: https://buy.stripe.com/aFa28qeiG0Ph5mE5fYcfK02 (plink_1UO1LkA3ztX1T5c4orrnyyQT)
+- $550 + $30/month managed: https://buy.stripe.com/3cIfZg3E21Tl3ew23McfK03 (plink_1UO1LmA3ztX1T5c4HLTrmzsw)
+
+`stripe-check.sh` lists every payment on these as `PAID <session> <plan> <business> <email>`. Match the business
+name to the client, and never run `stripe-mark-delivered.sh` on a reusable link. Everything below is the handover plan unless marked managed.
 
 # $350 handover: build → pay → hand off → done
 
