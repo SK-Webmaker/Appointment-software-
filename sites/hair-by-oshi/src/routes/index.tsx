@@ -16,6 +16,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: `${SITE.name} — healthy hair, confident you` },
       { property: "og:description", content: `Colour and Nanoplasty for dark, thick hair by ${SITE.fullName}, in her private suite in ${SITE.suburbShort}. DM to book.` },
       { property: "og:url", content: `${SITE.url}/` },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:image", content: OG_IMAGE },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },

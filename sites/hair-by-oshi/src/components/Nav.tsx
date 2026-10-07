@@ -1,10 +1,11 @@
 import { AnimatePresence, motion, useMotionValueEvent, useScroll, useSpring } from "framer-motion";
 import { Instagram, Menu as MenuIcon, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "./Logo";
 import { SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { lockScroll } from "@/lib/smooth";
+import { useReducedMotionSafe } from "@/lib/motion";
 
 const LINKS = [
   { href: "#oshi", label: "Meet Oshi" },
@@ -17,6 +18,9 @@ export function Nav() {
   const { scrollY, scrollYProgress } = useScroll();
   const [solid, setSolid] = useState(false);
   const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  const reduce = useReducedMotionSafe();
   const { openSheet, selected } = useBooking();
   const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30, restDelta: 0.001 });
 
@@ -25,11 +29,28 @@ export function Nav() {
   useEffect(() => {
     if (!open) return undefined;
     const release = lockScroll();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const timer = window.setTimeout(() => menu.current?.querySelector<HTMLButtonElement>("button")?.focus(), 60);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Tab" || !menu.current) return;
+      const items = menu.current.querySelectorAll<HTMLElement>('a[href],button:not([disabled])');
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener("keydown", onKey);
       release();
+      menuTrigger.current?.focus();
     };
   }, [open]);
 
@@ -66,6 +87,7 @@ export function Nav() {
               Book{selected.length > 0 && <span className="rounded-full bg-honey px-1.5 text-[10.5px] leading-[18px] text-espresso">{selected.length}</span>}
             </button>
             <button
+              ref={menuTrigger}
               onClick={() => setOpen(true)}
               className="grid h-11 w-11 place-items-center rounded-full text-ink"
               aria-label="Open menu"
@@ -82,15 +104,16 @@ export function Nav() {
       <AnimatePresence>
         {open && (
           <motion.div
+            ref={menu}
             id="mobile-menu"
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
             className="fixed inset-0 z-[60] flex flex-col bg-espresso text-cream"
-            initial={{ clipPath: "circle(0% at 92% 4%)" }}
+            initial={reduce ? false : { clipPath: "circle(0% at 92% 4%)" }}
             animate={{ clipPath: "circle(150% at 92% 4%)" }}
             exit={{ clipPath: "circle(0% at 92% 4%)" }}
-            transition={{ duration: 0.75, ease: [0.76, 0, 0.24, 1] }}
+            transition={{ duration: reduce ? 0 : 0.75, ease: [0.76, 0, 0.24, 1] }}
           >
             <div className="flex h-16 items-center justify-between px-5">
               <Wordmark size={30} tone="light" />
@@ -102,9 +125,9 @@ export function Nav() {
               {LINKS.map((l, i) => (
                 <motion.li
                   key={l.href}
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={reduce ? false : { opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.25 + i * 0.07, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                  transition={{ delay: reduce ? 0 : 0.25 + i * 0.07, duration: reduce ? 0 : 0.8, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <a href={l.href} onClick={() => setOpen(false)} className="flex items-baseline gap-4 py-2.5 font-display text-[42px] font-light leading-tight">
                     <span className="font-sans text-[11.5px] tracking-[0.2em] text-honey">0{i + 1}</span>

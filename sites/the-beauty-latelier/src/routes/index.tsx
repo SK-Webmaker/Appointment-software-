@@ -15,6 +15,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: `${SITE.name} — where beauty becomes confidence` },
       { property: "og:description", content: `Nails, lashes, brows, skin and hair by ${SITE.founder}, in a private studio in ${SITE.suburb}, ${SITE.city}. Re-opening ${SITE.reopening}.` },
       { property: "og:url", content: `${SITE.url}/` },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { property: "og:image", content: OG_IMAGE },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
