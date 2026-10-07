@@ -77,7 +77,7 @@ Build with `NITRO_PRESET=node_server bun run build`, serve
 | Every feature | `node test/audit.cjs` | all ✓ on desktop, phone and reduced motion (links land, pinned scenes pin, sheet and menu lock and release, bar appears and steps aside) |
 | Mobile menu | `node test/menu-focus.cjs` | focus kept inside, Escape closes, focus returns, page unlocked |
 | Smoothness | `MODE=desktop node test/smooth.cjs` and `MODE=phone …` | p50 16.7 ms; janky frames (> 34 ms) ≤ 1% overall and ≤ 3% in any chapter; no long tasks > 50 ms; layout shift 0 |
-| Photo sharpness | `node test/imgq.cjs` | every photo uses the best file its source allows (no `→` fixes left) |
+| Photo sharpness | `node test/imgq.cjs` | no photo shown softer than 1.5× where a larger file would fix it, on phone, tablet, laptop and desktop (exits 1 otherwise); source-limited photos are listed for swapping |
 | Eyes on the flow | `node test/flow.cjs` and `node test/shots.cjs` | the hero frames and every chapter hand-off at 375, 768 and 1440 look right: nothing covered, nothing jumps |
 
 Then the same suite against the live URL after publishing.

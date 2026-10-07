@@ -37,11 +37,15 @@ const DEVICES = [
           if (cs.visibility === "hidden" || Number(cs.opacity) === 0) continue;
           const nw = img.naturalWidth, nh = img.naturalHeight;
           const fit = cs.objectFit;
-          const k = fit === "cover" ? Math.max(r.width / nw, r.height / nh) : fit === "contain" ? Math.min(r.width / nw, r.height / nh) : r.width / nw;
           const name = (img.currentSrc || img.src).split("/").pop();
+          // naturalWidth of a srcset image is density-corrected, so measure
+          // against the real pixel width of the file the browser chose.
+          const fw = parseInt((name.match(/-(\d+)\.\w+$/) || [])[1], 10) || nw;
+          const fh = (fw * nh) / nw;
+          const k = fit === "cover" ? Math.max(r.width / fw, r.height / fh) : fit === "contain" ? Math.min(r.width / fw, r.height / fh) : r.width / fw;
           const cands = (img.srcset || "").split(",").map((s) => s.trim().split(" ")).filter((x) => x[0]).map((x) => [x[0].split("/").pop(), parseInt(x[1])]);
-          const maxW = Math.max(nw, ...cands.map((c) => c[1] || 0));
-          const kBest = k * nw / maxW;
+          const maxW = Math.max(fw, ...cands.map((c) => c[1] || 0));
+          const kBest = (k * fw) / maxW;
           const sec = img.closest("section[id], footer, header, [role=dialog]");
           const where = sec ? (sec.id || sec.tagName.toLowerCase()) : "?";
           out.push({ name, where, sizes: img.sizes, nw, nh, w: Math.round(r.width), h: Math.round(r.height), up: +(k * dpr).toFixed(2), best: +(kBest * dpr).toFixed(2), maxW });
@@ -74,5 +78,14 @@ const DEVICES = [
     console.log(n.padEnd(30) + cells.join(""));
   }
   console.log("\nNumbers = device pixels per photo pixel at its largest on screen (1.00 = pixel-perfect; ! >1.5 soft; !! >2 blurry). Then the file the browser chose; →N = what it would be with the largest file that exists.");
-  require("fs").writeFileSync(process.env.OUT || "/dev/null", JSON.stringify(all, null, 1));
+  // Gate: a photo shown softer than 1.5x is a failure when a larger file
+  // would fix it (wrong sizes or a missing width). Where the original photo
+  // itself is the limit it is reported, not failed.
+  const soft = [];
+  for (const n of names) for (const d of devs) { const r = all[n][d]; if (r && r.up > 1.5) soft.push({ n, d, r }); }
+  const fixable = soft.filter(({ r }) => r.best <= 1.5);
+  for (const { n, d, r } of soft) console.log(`${fixable.some((f) => f.r === r) ? "FIX " : "src "} ${r.up.toFixed(2)}x  ${n}  ${d}  file ${r.name}  sizes="${r.sizes}"  best possible ${r.best.toFixed(2)}x`);
+  console.log(fixable.length ? `\n${fixable.length} photo(s) softer than 1.5x that a larger file would fix.` : "\nNo photo is softer than 1.5x where a sharper file exists.");
+  if (process.env.OUT) require("fs").writeFileSync(process.env.OUT, JSON.stringify(all, null, 1));
+  process.exit(fixable.length ? 1 : 0);
 })();
