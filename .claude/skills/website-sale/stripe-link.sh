@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Create a payment link for one client.
-# Usage: stripe-link.sh "Business Name" client@email.com [handover|managed]
+# Usage: stripe-link.sh "Business Name" client@email.com [handover|managed] [reusable]
+#   reusable: no one-payment limit; the checkout asks for the business name. Never switch these off with stripe-mark-delivered.sh.
 #   handover (default): $350 AUD once. Client keeps the site.
 #   managed:            $550 AUD build + $30 AUD/month. Day one = $580 (Stripe bills month 1 at sign-up), then $30 monthly.
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
-NAME="$1"; EMAIL="$2"; PLAN="${3:-handover}"; CURRENCY=aud
+NAME="$1"; EMAIL="$2"; PLAN="${3:-handover}"; MODE="${4:-single}"; CURRENCY=aud
 S=https://api.stripe.com/v1
 json() { python3 -c 'import sys,json;d=json.load(sys.stdin);e=d.get("error");sys.exit("Stripe error: "+e["message"]) if e else print(d'"$1"')'; }
 product() { curl -sS $S/products -d name="$1" -d "metadata[kind]=website-sale" | json '["id"]'; }
@@ -28,9 +29,15 @@ case "$PLAN" in
   *) echo "plan must be handover or managed"; exit 1 ;;
 esac
 
-curl -sS $S/payment_links "${ITEMS[@]}" \
+if [ "$MODE" = reusable ]; then
+  EXTRA=(-d "metadata[reusable]=true" -d "custom_fields[0][key]=business" -d "custom_fields[0][type]=text"
+         -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
+else
+  EXTRA=(-d "restrictions[completed_sessions][limit]=1")
+fi
+
+curl -sS $S/payment_links "${ITEMS[@]}" "${EXTRA[@]}" \
   -d "metadata[kind]=website-sale" -d "metadata[plan]=$PLAN" -d "metadata[business]=$NAME" -d "metadata[client_email]=$EMAIL" \
-  -d "restrictions[completed_sessions][limit]=1" \
   --data-urlencode "custom_text[submit][message]=$SUBMIT" \
   -d "after_completion[type]=hosted_confirmation" \
   --data-urlencode "after_completion[hosted_confirmation][custom_message]=$DONE" \
