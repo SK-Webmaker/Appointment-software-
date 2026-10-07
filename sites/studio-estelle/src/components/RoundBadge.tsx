@@ -23,7 +23,10 @@ export function RoundBadge({
   const color = tone === "cream" ? "#FBF4F2" : "#3B2618";
 
   return (
-    <span className={`relative inline-block ${className}`} style={{ width: size, height: size }} aria-hidden="true">
+    // Clipped to its own square: the text is a circle inside it, so nothing
+    // visible is lost, but the turning square's corners never poke past the
+    // edge of a phone screen (which would make the phone zoom the page out).
+    <span className={`relative inline-block overflow-hidden ${className}`} style={{ width: size, height: size }} aria-hidden="true">
       <motion.svg viewBox="0 0 200 200" width={size} height={size} className="absolute inset-0 will-change-transform" style={{ rotate: reduce ? 0 : rotate }}>
         <defs>
           <path id={id} d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0" />

@@ -182,8 +182,20 @@ const geometry = () => {
     await settle(page);
     const g = await page.evaluate(geometry);
     g.overflow.forEach((x) => fail("390 animated", `overflow ${x}`));
+    // Walk the whole page: at every point it must stay exactly one phone wide.
+    // Anything that rotates or drifts past the edge mid-scroll (a turning
+    // badge, a sliding card) makes a phone zoom the whole page out.
+    const wide = [];
+    const total = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y <= total; y += 250) {
+      await page.evaluate((y) => window.scrollTo(0, y), y);
+      await page.waitForTimeout(60);
+      const w = await page.evaluate(() => Math.max(innerWidth, document.documentElement.scrollWidth));
+      if (w > 391) wide.push(`at ${y}px the page is ${w}px wide`);
+    }
+    wide.slice(0, 5).forEach((x) => fail("390 animated", x));
     errs.forEach((x) => fail("390 animated", `error ${x}`));
-    console.log(`animated 390: overflow ${g.overflow.length}, errors ${errs.length}`);
+    console.log(`animated 390: overflow ${g.overflow.length + wide.length}, errors ${errs.length}`);
     await ctx.close();
   }
 
@@ -292,7 +304,7 @@ const geometry = () => {
 
   await browser.close();
   report();
-})().catch((e) => { fail("crash", e.message.split("\n")[0]); report(); });
+})().catch((e) => { fail("crash", e.message.split("\n").slice(0, 14).join("\n    ")); report(); });
 
 function report() {
   console.log(problems.length ? `\n${problems.length} problem(s):\n- ${problems.join("\n- ")}` : "\nAll checks passed.");
