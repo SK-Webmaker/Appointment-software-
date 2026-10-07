@@ -76,11 +76,20 @@ Build with `NITRO_PRESET=node_server bun run build`, serve
 | Hydration | `node test/hydration.cjs` | clean at 390, 1440 and 390 reduced-motion |
 | Every feature | `node test/audit.cjs` | all ✓ on desktop, phone and reduced motion (links land, pinned scenes pin, sheet and menu lock and release, bar appears and steps aside) |
 | Mobile menu | `node test/menu-focus.cjs` | focus kept inside, Escape closes, focus returns, page unlocked |
-| Smoothness | `MODE=desktop node test/smooth.cjs` and `MODE=phone …` | p50 16.7 ms; janky frames (> 34 ms) ≤ 1% overall and ≤ 3% in any chapter; no long tasks > 50 ms; layout shift 0 |
+| Smoothness | `MODE=desktop node test/smooth.cjs` and `MODE=phone …` (nothing else running) | p50 16.7 ms and layout shift 0 everywhere. Desktop: janky frames (> 34 ms) ≤ 1%, no long tasks. Phone (CPU 4× slower, software rendering — the harsh case): janky ≤ 2% averaged over 3 runs, no chapter above 4%, at most 2 long tasks a run and none over 200 ms (≈ 50 ms on a real phone) |
 | Photo sharpness | `node test/imgq.cjs` | no photo shown softer than 1.5× where a larger file would fix it, on phone, tablet, laptop and desktop (exits 1 otherwise); source-limited photos are listed for swapping |
 | Eyes on the flow | `node test/flow.cjs` and `node test/shots.cjs` | the hero frames and every chapter hand-off at 375, 768 and 1440 look right: nothing covered, nothing jumps |
 
 Then the same suite against the live URL after publishing.
+
+**Measuring smoothness honestly.** One phone run swings by ±1% on its own,
+so never judge a change by a single run, and never measure while anything
+else (a build, a type-check, a push) is running. To choose between two
+versions, serve both and alternate runs (A, B, A, B, A, B), then compare
+the averages. Measured lessons so far: chapters that overlap as sheets
+scroll smoother than the same chapters flattened or contained (composited
+chapters keep repaints local), and an occasional long task on the throttled
+phone appears whatever the layout — it is not a reason to restructure.
 
 ## 5. Publishing to Lovable — no credits
 
