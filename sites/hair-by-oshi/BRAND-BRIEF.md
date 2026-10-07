@@ -116,9 +116,9 @@ the logo is the heart, in a soft, muted mauve.
 - **Shape:** the capsule — a lock of hair, her arched mirror, the arched door
   of the suite. Photos sit in capsules and arches.
 - **Motion:** Oshi at the centre — the hero capsule holds her portrait and,
-  as you scroll, her work is dealt out around her like a mood board; strands of light draw themselves across chapter I; a
-  single strand down the left edge tracks the journey; nano-particles travel
-  into a strand's layers.
+  as you scroll, her work is dealt out around her like a mood board; strands
+  of light draw themselves across chapter II; a single strand down the left
+  edge tracks the journey; nano-particles travel into a strand's layers.
 
 ## To confirm with Oshi before launch
 
