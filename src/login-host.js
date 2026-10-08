@@ -18,6 +18,7 @@ import { hit as rateHit, clientIp } from './ratelimit.js';
 import { secureForRequest } from './auth.js';
 import { verifyTurnstileWith } from './turnstile.js';
 import { VERSION } from './version.js';
+import { appStoreBanner } from './app-store.js';
 import { BASE_DOMAIN } from './tenant.js';
 import {
   findAccounts, mintHandoff, salonOrigin, lockedFor, recordFailure, clearFailures,
@@ -123,6 +124,8 @@ function serveAsset(res, pathname) {
       };
       let html = String(data);
       for (const [k, v] of Object.entries(fill)) html = html.replaceAll(k, escAttr(v));
+      // Digits only by construction, so it goes in as a tag rather than a value.
+      html = html.replace('<!--app-store-->', appStoreBanner());
       body = Buffer.from(html);
     }
     res.writeHead(200, { 'Content-Type': a.type, 'Cache-Control': a.cache });

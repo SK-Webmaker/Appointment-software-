@@ -52,6 +52,7 @@ export async function startKairo({ env = {}, dataDir = null, timeoutMs = 20000 }
       KAIRO_DATA_DIR: dir,
       KAIRO_RATELIMIT: 'off',      // suites that test the limiter turn it back on
       KAIRO_BREACH_CHECK: 'off',   // never hit the network from a test
+      KAIRO_APP_STORE_LOOKUP: 'off',
       ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

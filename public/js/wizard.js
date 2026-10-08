@@ -3,6 +3,7 @@
 // services, team, and reminders — then applies everything in one call.
 import { api } from './api.js';
 import { esc, icon, toast, LOGO_SVG, copyText } from './ui.js';
+import { inApp } from './native.js';
 
 // Starter service menus by business type: [name, category, duration_min,
 // price, price_type?]. price_type omitted = 'fixed'; 'from' marks services
@@ -94,6 +95,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       deposit_value: s.deposit_value || '20',
     },
     logo: '', cover: '',
+    appStore: '',   // the iPhone app's listing, once Apple has one (/api/app/config)
     services: [],   // {name, category, duration_min, price, on}
     team: firstRun ? [{ name: '', title: '' }] : [],
   };
@@ -104,6 +106,11 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
   const overlay = document.createElement('div');
   overlay.className = 'wiz-overlay';
   document.body.appendChild(overlay);
+
+  api.get('/api/app/config').then((c) => {
+    data.appStore = c.app_store_url || '';
+    if (data.appStore && steps[idx] === 'install') render();
+  }).catch(() => { /* the home-screen steps stand */ });
 
   const cur = () => data.settings.currency || '$';
 
@@ -309,13 +316,22 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         no address bar. Takes about fifteen seconds.</p>
       <div class="wiz-install">
         <div class="wi-col">
+          ${inApp() ? `
+          <div class="wi-head">${icon('phone', 15)} iPhone</div>
+          <ol><li>You're in the Kairo app already — nothing to do</li></ol>` : data.appStore ? `
+          <div class="wi-head">${icon('phone', 15)} iPhone</div>
+          <ol>
+            <li><a class="btn primary small" href="${esc(data.appStore)}" target="_blank" rel="noopener noreferrer">Get Kairo on the App Store</a></li>
+            <li>Open it and sign in with the email and password you use here</li>
+            <li>Allow notifications<span>That's how you hear the moment somebody books</span></li>
+          </ol>` : `
           <div class="wi-head">${icon('phone', 15)} iPhone &amp; iPad</div>
           <ol>
             <li>Open <b>${esc(siteUrl)}</b> in <b>Safari</b><span>It has to be Safari — Chrome on iPhone can't do this</span></li>
             <li>Tap the <b>Share</b> button${icon('share', 13)}<span>The square with an arrow, at the bottom</span></li>
             <li>Scroll down and tap <b>Add to Home Screen</b></li>
             <li>Tap <b>Add</b> — done</li>
-          </ol>
+          </ol>`}
         </div>
         <div class="wi-col">
           <div class="wi-head">${icon('grid', 15)} Android</div>

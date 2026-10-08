@@ -151,7 +151,9 @@ export async function renderSettings(container, params) {
   // in. Asked rather than stored: "is there a phone" is a fact about the world
   // and a settings row would be a copy of it that goes stale the moment
   // somebody signs out. Never fatal - the card is honest about not knowing.
-  const push = await api.get('/api/app/config').then((c) => c.push).catch(() => null);
+  const appConfig = await api.get('/api/app/config').catch(() => null);
+  const push = appConfig ? appConfig.push : null;
+  const appStore = (appConfig && appConfig.app_store_url) || '';
   // The link the owner copies into their Instagram bio. It has to be the
   // business's real address, not whatever they happen to have typed into the
   // address bar — an owner signed in at the raw hosting URL would otherwise
@@ -589,7 +591,9 @@ export async function renderSettings(container, params) {
       ? 'Push isn\'t switched on for this server yet, so these are saved but nothing will arrive.'
       : push.devices > 0
         ? `<b>${push.devices} phone${push.devices === 1 ? '' : 's'} signed in.</b>`
-        : '<b>No phone is signed in yet</b> — install Kairo on your phone and sign in, and these start working.'}</div>
+        : appStore
+          ? `<b>No phone is signed in yet</b> — <a href="${esc(appStore)}" target="_blank" rel="noopener noreferrer">get Kairo from the App Store</a> and sign in, and these start working.`
+          : '<b>No phone is signed in yet</b> — install Kairo on your phone and sign in, and these start working.'}</div>
         <form id="set-apppush" style="display:flex;flex-direction:column;gap:11px">
           ${[
     ['push_new_booking', 'When somebody books', 'The one that earns the app its place on your home screen — you find out from your own book, not from an email tonight.', '1'],

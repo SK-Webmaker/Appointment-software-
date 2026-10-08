@@ -17,6 +17,7 @@ import { turnstileEnabled } from './src/turnstile.js';
 import { VERSION } from './src/version.js';
 import { isLoginHost, loginHost } from './src/central-login.js';
 import { handleLoginHost } from './src/login-host.js';
+import { appStoreBanner } from './src/app-store.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -107,7 +108,7 @@ function serveStatic(res, urlPath) {
         fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (err2, shell) => {
           if (err2) { res.writeHead(404); res.end('Not found'); return; }
           res.writeHead(200, { 'Content-Type': MIME['.html'] });
-          res.end(shell);
+          res.end(withAppBanner(shell));
         });
         return;
       }
@@ -119,8 +120,17 @@ function serveStatic(res, urlPath) {
       'Content-Type': MIME[ext] || 'application/octet-stream',
       'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
     });
-    res.end(data);
+    res.end(rel === '/index.html' ? withAppBanner(data) : data);
   });
+}
+
+// The workspace shell, and only the workspace shell, carries the Smart App
+// Banner once the listing is known: an owner in Safari on an iPhone is offered
+// the app. Never the booking page — that is the salon's customers, and the app
+// is not for them.
+function withAppBanner(html) {
+  const tag = appStoreBanner();
+  return tag ? Buffer.from(String(html).replace('<!--app-store-->', tag)) : html;
 }
 
 // Content-Security-Policy: scripts and connections are locked to same-origin

@@ -8,6 +8,7 @@
 // It disappears entirely once everything required is done. A checklist that
 // never goes away is furniture.
 import { db, getSetting, publicUrl, platformHandles, canSendEmail } from './db.js';
+import { appStoreUrl } from './app-store.js';
 
 const on = (k, d = '0') => getSetting(k, d) === '1';
 const set = (k) => String(getSetting(k, '') || '').trim() !== '';
@@ -124,7 +125,12 @@ export function checklist() {
   // Detected, not ticked: a phone that signed in is a phone that has the app.
   // The tick is kept only as a fallback for an owner who uses the web app on
   // their phone and will never register a device.
+  //
+  // Once the App Store listing is known the button goes straight to it — the
+  // real app is the one with notifications. Until then it explains the
+  // home-screen version, as it always did.
   const phones = db.prepare("SELECT COUNT(*) AS n FROM devices WHERE failed_at = ''").get().n;
+  const store = appStoreUrl();
   items.push({
     id: 'app',
     title: 'Put Kairo on your phone',
@@ -133,7 +139,7 @@ export function checklist() {
     done: phones > 0 || on('checklist_app_installed'),
     detail: phones === 1 ? '1 phone signed in' : phones > 1 ? `${phones} phones signed in` : '',
     tickable: 'checklist_app_installed',
-    action: { label: 'How', hash: '#/settings' },
+    action: store ? { label: 'Get the iPhone app', url: store, external: true } : { label: 'How', hash: '#/settings' },
   });
 
   const requiredLeft = items.filter((i) => i.required && !i.done).length;

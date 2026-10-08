@@ -44,10 +44,11 @@ attribution).
 
 Anything that **deletes**, that **reaches a client on its own**, or that
 **moves money**: deleting anything, sending a campaign, running an automation
-now, retrying a message, cancelling or no-showing an appointment, sending an
-invite, merging clients, refunds, card sales and emailing a backup. Kai prepares
-it and the chat shows a card with **Confirm** / **Don't**. Nothing runs until
-Confirm is pressed. Writing something else instead counts as **Don't**.
+now, retrying a message, sending a test text or email, cancelling or
+no-showing an appointment, sending an invite, merging clients, refunds, card
+sales and emailing a backup. Kai prepares it and the chat shows a card with
+**Confirm** / **Don't**. Nothing runs until Confirm is pressed. Writing
+something else instead counts as **Don't**.
 
 Ordinary edits (adding, updating, booking, noting) just happen, and each one is
 listed in the chat as a receipt: ✓ what was done, or ✕ and why it was refused.

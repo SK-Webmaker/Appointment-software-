@@ -94,6 +94,7 @@ import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
   waitlistEnabled, autofillEnabled,
 } from './waitlist.js';
+import { appStoreUrl } from './app-store.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -3341,6 +3342,8 @@ route('GET', '/api/app/config', async ({ user }) => ({
     logo: getSetting('brand_logo', ''),
   },
   booking_url: publicUrl() ? `${publicUrl()}/book` : '',
+  // '' until Apple's listing is known (src/app-store.js).
+  app_store_url: appStoreUrl(),
   push: {
     available: pushConfigured(),
     devices: devicesFor(user.id).length,

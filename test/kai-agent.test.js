@@ -219,6 +219,7 @@ test('sending to clients, refunds, card sales and cancelling all wait for Confir
     { method: 'POST', path: '/api/appointments/1/cancel', body: {} },
     { method: 'PATCH', path: '/api/appointments/1/status', body: { status: 'cancelled' } },
     { method: 'POST', path: '/api/automations/winback/run' },
+    { method: 'POST', path: '/api/messages/test', body: { channel: 'sms', to: '+61400000000' } },
   ];
   for (const g of gated) {
     mock.state.script = [calls({ ...g, summary: 'x' }), say('ok')];

@@ -52,6 +52,7 @@ const CONFIRM = [
   { method: 'POST', path: /^\/api\/invoices\/\d+\/refund$/ },
   { method: 'POST', path: /^\/api\/clients\/\d+\/merge$/ },
   { method: 'POST', path: /^\/api\/messages\/\d+\/retry$/ },
+  { method: 'POST', path: /^\/api\/messages\/test$/ },
   { method: 'POST', path: /^\/api\/appointments\/\d+\/cancel$/ },
   { method: 'POST', path: /^\/api\/invites(\/\d+\/confirm)?$/ },
   { method: 'POST', path: /^\/api\/pos\/sale$/ },

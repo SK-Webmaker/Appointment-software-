@@ -36,6 +36,11 @@ on:
         description: 'Also archive and upload to TestFlight'
         type: boolean
         default: false
+      version:
+        description: 'App Store version number, e.g. 1.0.1 (blank: from the tag, else 1.0.0)'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -147,6 +152,8 @@ jobs:
       - name: Archive
         if: steps.secrets.outputs.ready == 'true'
         working-directory: ios
+        env:
+          WANTED_VERSION: ${{ inputs.version }}
         run: |
           set -o pipefail
           # MARKETING_VERSION is CFBundleShortVersionString, and App Store
@@ -160,6 +167,11 @@ jobs:
           #
           # So the shape is checked rather than the emptiness. Anything that is
           # not a version number is not one, and 1.0.0 is used instead.
+          #
+          # A dispatch can name the version outright (the "version" input), for
+          # the next App Store version after 1.0.0. It goes through the same
+          # shape check, and arrives through env rather than being pasted into
+          # this script.
           #
           # The archive is UNSIGNED, and the export below is what signs it.
           #
@@ -184,7 +196,7 @@ jobs:
           # step then signs for app-store-connect, and a DISTRIBUTION profile
           # enumerates no devices at all — so nothing has to be registered, and
           # there is still no Mac and no iPhone anywhere in this.
-          VERSION="${GITHUB_REF_NAME#ios-v}"; VERSION="${VERSION#v}"
+          VERSION="${WANTED_VERSION:-${GITHUB_REF_NAME#ios-v}}"; VERSION="${VERSION#v}"
           case "$VERSION" in
             *[!0-9.]*|''|.*|*.) VERSION="1.0.0" ;;
           esac

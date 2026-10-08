@@ -128,8 +128,10 @@ function consentHtml() {
       and the records it looks up or changes for you — for example a client's name, appointments or
       notes — are sent to Anthropic in the United States. Anthropic processes them only to answer you
       and doesn't use them to train its AI.</p>
-    <p>Nothing is sent until you turn Kai on, and you can turn it off at any time.
-      <a href="https://kairobookings.com/legal/sub-processors" target="_blank" rel="noreferrer">Who sees what</a></p>
+    <p>Nothing is sent until you turn Kai on, and you can turn it off at any time.${window.kairoNative ? ''
+      // Not in the iPhone app: the website it opens also sells Kairo, and the
+      // app links to nothing that sells (App Review 3.1.1).
+      : ' <a href="https://kairobookings.com/legal/sub-processors" target="_blank" rel="noreferrer">Who sees what</a>'}</p>
     <div class="kc-consent-actions">
       <button type="button" class="btn primary" data-consent="yes">${icon('check', 14)} Turn on Kai</button>
       <button type="button" class="btn ghost" data-consent="no">Not now</button>

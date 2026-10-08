@@ -1,0 +1,77 @@
+WHAT CHANGED IN 1.0.1
+Nothing in how the app works. This version updates the listing details and
+describes Kai (section 4), an optional assistant in the workspace.
+
+1. HOW TO REVIEW
+Open the app. The first screen is "Sign in to Kairo".
+  Email:     demo@kairobookings.com
+  Password:  <DEMO PASSWORD>
+Tap Sign in. The app opens the demo business (Luxe Hair Studio) and remembers
+it; later launches go straight in. Notifications are asked for after sign-in.
+
+The demo business is fully populated - three stylists, thirteen services,
+fourteen clients, past history and six weeks of upcoming bookings - so every
+screen has content. All of it is sample data: no real business or client.
+
+  Calendar - tap the menu, then Calendar. Tap an empty slot to book.
+  Clients  - visit history, totals, notes.
+  Billing  - build an invoice from an appointment, record a payment.
+  Account  - "Closing your account" > Close my account: in-app deletion per
+             5.1.1(v), confirmed with the password and the business name.
+             Please stop at the final button if you can: completing it
+             really closes this demo business for later reviews.
+  Sign out - in the menu; the app returns to the sign-in screen.
+
+There is no in-app purchase or purchase path anywhere in the app. There is no
+shared or user-generated content, so no reporting or blocking is needed: the
+only content is the business's own book.
+
+2. PURPOSE AND AUDIENCE
+Kairo is an appointment book for small salons and barbershops, typically one
+to five staff. It gives them their own booking page, a diary built for salon
+work, client records with history, and invoicing.
+
+It is bought once on kairobookings.com. No subscription, no commission. This
+app is the free phone companion to that account: it sells nothing, links to
+nothing that sells, and is sign-in only.
+
+Audience: any salon, barber, beauty, nail or massage business that takes
+appointments. Sold publicly, not to one company or a closed group.
+
+3. EXTERNAL SERVICES
+  Hosting/database  Render (per-business databases, Singapore)
+  Push              Apple Push Notification service
+  Email             Resend
+  SMS               ClickSend (or Twilio if the business connects one)
+  Card payments     Stripe or Square, connected to the BUSINESS's own account.
+                    Card details never reach Kairo's servers.
+  Cloudflare        DNS, email routing, and bot checks on some forms
+  Password safety   Have I Been Pwned range API (hash prefix only)
+  AI assistant      Anthropic (Claude), for Kai only, and only after consent
+
+No analytics, advertising SDKs, crash-reporting SDKs or data brokers.
+
+4. KAI (OPTIONAL ASSISTANT, 5.1.2(i))
+"Ask Kai" is at the top of the workspace. When the AI assistant is switched on,
+the first tap shows "Before you start": it names Claude and Anthropic, says
+what is sent (what the user types and the records Kai looks up or changes for
+them), that it goes to the United States, and that Anthropic does not train
+on it. Nothing is sent until that user taps "Turn on Kai"; "Not now" leaves it
+off, and "Turn Kai off" is under every chat. Deleting, refunding, cancelling
+or sending a campaign always waits for the user to tap Confirm. When the
+assistant is not switched on, Kai offers built-in shortcuts only and sends
+nothing to any AI service.
+
+5. REGIONAL DIFFERENCES
+None. English only; no feature varies by country.
+
+6. REGULATED INDUSTRY / PROTECTED MATERIAL
+Not a regulated industry app and not a medical device. No health claims.
+
+Health is declared in App Privacy for one reason: a salon can type free-text
+notes against a client, which sometimes record an allergy or patch-test
+result. Australia's Privacy Act treats that as health information, so we
+declared it. Kairo stores it for the business and never reads or shares it.
+https://kairobookings.com/legal/privacy
+
+No third-party copyrighted material. Support: support@kairobookings.com

@@ -276,6 +276,26 @@ const MUTATIONS = {
     find: "  'clicksend_login_password',",
     replace: '',
   },
+  'app-banner-on-the-booking-page': {
+    file: 'server.js', suites: ['app-store'],
+    find: "    res.end(rel === '/index.html' ? withAppBanner(data) : data);",
+    replace: "    res.end(ext === '.html' ? withAppBanner(String(data).replace('</head>', '<!--app-store--></head>')) : data);",
+  },
+  'app-store-takes-any-listing': {
+    file: 'src/app-store.js', suites: ['app-store'],
+    find: "      const hit = (body.results || []).find((r) => r.bundleId === BUNDLE_ID);",
+    replace: "      const hit = (body.results || [])[0];",
+  },
+  'app-store-id-unchecked': {
+    file: 'src/app-store.js', suites: ['app-store'],
+    find: "  if (/^\\d{6,12}$/.test(pinned)) return pinned;",
+    replace: "  if (pinned) return pinned;",
+  },
+  'kai-sends-test-messages-unasked': {
+    file: 'src/kai-catalogue.js', suites: ['kai-agent'],
+    find: "  { method: 'POST', path: /^\\/api\\/messages\\/test$/ },\n",
+    replace: '',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',
