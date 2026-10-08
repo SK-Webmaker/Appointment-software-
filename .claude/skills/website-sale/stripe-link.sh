@@ -3,6 +3,7 @@
 # Usage: stripe-link.sh "Business Name" client@email.com [handover|managed] [reusable]
 #   reusable: no one-payment limit; the checkout asks for the business name. Never switch these off with stripe-mark-delivered.sh.
 #   handover (default): $350 AUD once. Client keeps the site.
+#   monthly-<dollars>:  that amount every month, nothing up front (e.g. monthly-35). Cancel any time.
 #   managed:            $550 AUD build + $30 AUD/month. Day one = $580 (Stripe bills month 1 at sign-up), then $30 monthly.
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
@@ -26,7 +27,14 @@ case "$PLAN" in
     ITEMS=(-d "line_items[0][price]=$SETUP" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$MONTHLY" -d "line_items[1][quantity]=1")
     SUBMIT="Today: \$550 website + \$30 first month = \$580. Then \$30 a month for ongoing management and updates. Cancel any time by messaging us."
     DONE="Thank you! Your website is going live. For any changes, just message us." ;;
-  *) echo "plan must be handover or managed"; exit 1 ;;
+  monthly-*)
+    AMT="${PLAN#monthly-}"; [[ "$AMT" =~ ^[0-9]+$ ]] || { echo "use monthly-<whole dollars>"; exit 1; }
+    P=$(product "Website care, monthly — $NAME")
+    PRICE=$(curl -sS $S/prices -d product="$P" -d unit_amount=$((AMT*100)) -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
+    SUBMIT="\$$AMT a month, charged automatically. No lock-in: cancel any time by messaging us."
+    DONE="Thank you! You're all set. To cancel at any time, just message us." ;;
+  *) echo "plan must be handover, managed or monthly-<dollars>"; exit 1 ;;
 esac
 
 if [ "$MODE" = reusable ]; then
@@ -34,6 +42,9 @@ if [ "$MODE" = reusable ]; then
          -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
 else
   EXTRA=(-d "restrictions[completed_sessions][limit]=1")
+fi
+if [[ "$PLAN" == monthly-* && "$MODE" != reusable ]]; then
+  EXTRA+=(-d "custom_fields[0][key]=business" -d "custom_fields[0][type]=text" -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
 fi
 
 curl -sS $S/payment_links "${ITEMS[@]}" "${EXTRA[@]}" \
