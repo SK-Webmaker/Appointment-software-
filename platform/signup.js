@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 import { db, record, setState, openTask, getSetting } from './db.js';
 import { hashPassword } from '../src/auth.js';
 import { checkPassword, checkBreached } from '../src/password.js';
+import { appStoreUrl } from '../src/app-store.js';
 import * as shard from './shard.js';
 import * as stripe from './stripe.js';
 import * as abr from './abr.js';
@@ -24,7 +25,9 @@ import * as notify from './notify.js';
 
 export const BASE_DOMAIN = () => String(process.env.KAIRO_BASE_DOMAIN || 'kairobookings.com').trim().toLowerCase();
 export const PRICE_CENTS = () => Number(process.env.KAIRO_PRICE_CENTS || 41000);
-export const APP_URL = () => String(process.env.KAIRO_APP_URL || 'https://apps.apple.com/');
+// The listing itself once Apple has one (src/app-store.js finds it), the
+// store's front page until then. KAIRO_APP_URL still wins if set.
+export const APP_URL = () => String(process.env.KAIRO_APP_URL || appStoreUrl() || 'https://apps.apple.com/');
 export const PLATFORM_ORIGIN = () => String(process.env.PLATFORM_ORIGIN || 'https://kairobookings.com').replace(/\/+$/, '');
 /** No reason needed inside this many days. After it, the consumer law decides. */
 export const REFUND_DAYS = Number(process.env.KAIRO_REFUND_DAYS || 14);

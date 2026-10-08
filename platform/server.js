@@ -15,6 +15,7 @@ import * as signup from './signup.js';
 import * as stripe from './stripe.js';
 import * as shard from './shard.js';
 import * as connect from './connect.js';
+import { appStoreId } from '../src/app-store.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -391,6 +392,7 @@ async function api(req, res, url, ip) {
 setInterval(() => { try { signup.expireStale(); } catch (err) { console.error('expiry:', err.message); } }, 60 * 60 * 1000).unref?.();
 
 server.listen(PORT, HOST, () => {
+  appStoreId(); // start finding the App Store listing now, so the first welcome email links to it
   const price = (signup.PRICE_CENTS() / 100).toFixed(2);
   console.log('');
   console.log('  ◆ Kairo platform');

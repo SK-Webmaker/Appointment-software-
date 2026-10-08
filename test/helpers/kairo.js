@@ -203,6 +203,7 @@ export async function startPlatform({ shardUrl, platformKey, env = {}, dataDir =
       KAIRO_SHARD_URL: shardUrl,
       KAIRO_PLATFORM_KEY: platformKey,
       KAIRO_BREACH_CHECK: 'off',
+      KAIRO_APP_STORE_LOOKUP: 'off',
       ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
