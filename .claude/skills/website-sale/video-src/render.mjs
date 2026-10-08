@@ -19,7 +19,11 @@ await page.goto("file://" + join(here, "index.html"));
 await page.evaluate(() => window.ready);
 await page.waitForTimeout(500);
 
-if (mode === "stills") {
+if (mode === "sfx") {
+  const ev = await page.evaluate(() => window.sfxEvents());
+  (await import("node:fs")).writeFileSync(join(here, "sfx.json"), JSON.stringify(ev));
+  console.log(ev.length, "sfx events");
+} else if (mode === "stills") {
   mkdirSync(join(here, "stills"), { recursive: true });
   // play forward from 0 so one-shot effects (confetti) trigger as in the real render
   const times = rest.map(Number).sort((a, b) => a - b);

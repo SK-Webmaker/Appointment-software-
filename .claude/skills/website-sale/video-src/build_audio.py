@@ -4,9 +4,9 @@ import json, subprocess, wave, pathlib, sys
 HERE = pathlib.Path(__file__).parent
 VOICE = HERE / "voices" / (sys.argv[1] if len(sys.argv) > 1 else "en_GB-cori-high")
 RATE = 22050
-CARD = 2.8        # chapter title card, silent
-LEAD = 0.5        # pause before first beat of a scene
-GAP = 0.55        # pause between beats
+CARD = 2.6        # chapter title card
+LEAD = 0.4
+GAP = 0.45
 TAIL = 0.9        # pause after last beat
 
 script = json.loads((HERE / "script.json").read_text())
@@ -19,7 +19,7 @@ def silence(sec):
 
 for s in script:
     scene = {"id": s["id"], "start": round(t, 3), "beats": []}
-    for k in ("chapter", "title", "caption"):
+    for k in ("chapter", "title", "caption", "check"):
         if k in s: scene[k] = s[k]
     if "chapter" in s:
         scene["card"] = CARD; silence(CARD)
@@ -27,7 +27,7 @@ for s in script:
     for i, text in enumerate(s["beats"]):
         f = clips / f"{s['id']}-{i}.wav"
         subprocess.run([str(HERE / "venv/bin/piper"), "-m", f"{VOICE}.onnx", "-f", str(f),
-                        "--length-scale", "1.06", "--sentence-silence", "0.25"],
+                        "--length-scale", "0.98", "--sentence-silence", "0.25"],
                        input=text.encode(), check=True, capture_output=True)
         with wave.open(str(f)) as w:
             assert w.getframerate() == RATE and w.getsampwidth() == 2 and w.getnchannels() == 1
