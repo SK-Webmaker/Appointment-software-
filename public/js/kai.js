@@ -568,7 +568,8 @@ function load(q) {
 // hands-free case the owner asked for, and it works because everything Kai does
 // this way can be taken back by saying "undo".
 
-const SpeechRecognition = typeof window !== 'undefined'
+// Not inside the iPhone app — see kai-chat.js.
+const SpeechRecognition = typeof window !== 'undefined' && !window.kairoNative
   && (window.SpeechRecognition || window.webkitSpeechRecognition);
 let rec = null;
 let listening = false;

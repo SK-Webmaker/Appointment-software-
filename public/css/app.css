@@ -3479,3 +3479,13 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .cs-pass { display: flex; gap: 6px; }
 .cs-pass input { flex: 1; min-width: 0; }
 .cs-login-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Kai's one-time "Turn on Kai" panel, and its off switch. */
+.kc.needs-consent .kc-compose { display: none; }
+.kc-consent p { text-align: left; }
+.kc-consent p b { color: var(--text); }
+.kc-consent a { color: var(--accent); }
+.kc-consent-actions { display: flex; justify-content: center; gap: 10px; margin-top: 6px; }
+.kc-consent-actions .btn { min-height: 44px; }
+.kc-off { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.kc.needs-consent .kc-off-wrap { display: none; }

@@ -3213,9 +3213,33 @@ function kaiLimited(user, { counts = true } = {}) {
   setSetting('kai_usage_day', `${bizToday()}:${used + 1}`);
 }
 
-route('GET', '/api/kai/status', async () => ({
-  agent: kaiAgent.agentEnabled(), used_today: kaiUsedToday(), daily_limit: KAI_DAILY_LIMIT(),
+/**
+ * Each owner's own yes to Kai, before anything they type reaches Anthropic.
+ *
+ * Kai sends what the owner asks, and the records it looks up to answer, to a
+ * third-party AI. App Review guideline 5.1.2(i) asks for explicit permission
+ * before an app does that, and it is the right thing anyway: the chat shows
+ * what is shared and with whom, and nothing is sent until the owner presses
+ * "Turn on Kai". Per user, not per salon — a receptionist's yes is not the
+ * owner's — and revocable from the chat at any time.
+ */
+const kaiConsentKey = (user) => `kai_consent_${user.id}`;
+const kaiConsented = (user) => Boolean(getSetting(kaiConsentKey(user), ''));
+
+route('GET', '/api/kai/status', async ({ user }) => ({
+  agent: kaiAgent.agentEnabled(), consented: kaiConsented(user),
+  used_today: kaiUsedToday(), daily_limit: KAI_DAILY_LIMIT(),
 }));
+
+route('POST', '/api/kai/consent', async ({ user }) => {
+  setSetting(kaiConsentKey(user), new Date().toISOString());
+  return { consented: true };
+});
+
+route('DELETE', '/api/kai/consent', async ({ user }) => {
+  setSetting(kaiConsentKey(user), '');
+  return { consented: false };
+});
 
 route('GET', '/api/kai/chats', async ({ user }) => ({ chats: kaiAgent.listChats(user.id) }));
 
@@ -3233,6 +3257,9 @@ route('DELETE', '/api/kai/chats/:id', async ({ params, user }) => {
 route('POST', '/api/kai/chats', async ({ req, user }) => {
   if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
   const b = checkBody(await readJson(req), { message: s.str(4000, { required: true }), chat_id: s.num({ min: 1 }) });
+  if (!kaiConsented(user)) {
+    throw Object.assign(httpError(428, 'Turn on Kai first — it needs your OK to send what you ask to Anthropic.'), { data: { consent_required: true } });
+  }
   kaiLimited(user);
   return kaiAgent.send({ userId: user.id, chatId: b.chat_id ? Number(b.chat_id) : null, text: str(b.message, 4000), ...kaiDeps(req, user) });
 });
@@ -3240,6 +3267,7 @@ route('POST', '/api/kai/chats', async ({ req, user }) => {
 route('POST', '/api/kai/chats/:id/confirm', async ({ req, params, user }) => {
   if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
   const b = checkBody(await readJson(req), { approve: s.bool() });
+  if (!kaiConsented(user)) throw Object.assign(httpError(428, 'Turn on Kai first.'), { data: { consent_required: true } });
   // Answering a Confirm card finishes a message already counted.
   kaiLimited(user, { counts: false });
   return kaiAgent.confirm({ userId: user.id, chatId: params.id, approve: b.approve === true, ...kaiDeps(req, user) });

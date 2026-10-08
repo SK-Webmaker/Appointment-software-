@@ -6,6 +6,22 @@ the window chair"*, *"book Riley for a cut tomorrow at 2 with Maya"*, *"move
 that to 3:30"*, *"block out Friday afternoon"*, *"put balayage up to $240"*,
 *"how did last week go?"* — and Kai does it, then says what it did.
 
+## Each owner says yes first
+
+Kai sends what the owner asks — and the records it looks up to answer — to
+Anthropic. The first time an owner opens Kai they see **Before you start**:
+what is shared, with whom, where, that Anthropic doesn't train on it, and two
+buttons, **Turn on Kai** and **Not now**. Nothing is sent until they choose
+Turn on Kai; the server refuses with 428 until then (`POST /api/kai/consent`),
+and **Turn Kai off** under the composer withdraws it (`DELETE
+/api/kai/consent`). Per user, not per salon. This is App Review guideline
+5.1.2(i) — explicit permission before personal data goes to a third-party AI —
+and it is what an owner deserves to be told anyway.
+
+Inside the iPhone app the web microphone button is hidden: the app doesn't ask
+for microphone or speech permission, and the iPhone keyboard's own dictation
+does the same job.
+
 ## What it can do
 
 Anything the owner can do by hand. Kai has no list of abilities of its own: it

@@ -67,6 +67,8 @@ before(async () => {
   mock = await startMock();
   k = await startKairo({ env: { KAIRO_ANTHROPIC_API_KEY: 'test-key', KAIRO_ANTHROPIC_BASE_URL: `http://127.0.0.1:${mock.port}` } });
   ({ cookie } = await k.login());
+  // This owner has turned Kai on (the consent itself is tested below).
+  await k.api('POST', '/api/kai/consent', { cookie, body: {} });
   // A finished setup, so the owner app is the workspace rather than the wizard.
   await k.api('POST', '/api/setup/skip', { cookie, body: { keep_samples: true } });
 });
@@ -418,6 +420,7 @@ test("a salon's daily Kai allowance stops at the limit, and a Confirm answer doe
   const k2 = await startKairo({ env: { KAIRO_ANTHROPIC_API_KEY: 'test-key', KAIRO_ANTHROPIC_BASE_URL: `http://127.0.0.1:${mock.port}`, KAIRO_KAI_DAILY_LIMIT: '2' } });
   try {
     const { cookie: c2 } = await k2.login();
+    await k2.api('POST', '/api/kai/consent', { cookie: c2, body: {} });
     const send = (message) => k2.api('POST', '/api/kai/chats', { cookie: c2, body: { message } });
     const victim = (await k2.api('POST', '/api/clients', { cookie: c2, body: { first_name: 'Cap', last_name: 'Test' } })).json;
     mock.state.script = [calls({ method: 'DELETE', path: `/api/clients/${victim.id}`, summary: 'Delete Cap Test' }), say('Deleted.')];
@@ -436,5 +439,32 @@ test("a salon's daily Kai allowance stops at the limit, and a Confirm answer doe
     assert.equal((await k2.api('GET', '/api/clients', { cookie: c2 })).status, 200);
   } finally {
     await k2.stop();
+  }
+});
+
+test('nothing reaches Anthropic until the owner turns Kai on, and turning it off stops it again', async () => {
+  const k3 = await startKairo({ env: { KAIRO_ANTHROPIC_API_KEY: 'test-key', KAIRO_ANTHROPIC_BASE_URL: `http://127.0.0.1:${mock.port}` } });
+  try {
+    const { cookie: c3 } = await k3.login();
+    const before = mock.state.requests.length;
+    assert.equal((await k3.api('GET', '/api/kai/status', { cookie: c3 })).json.consented, false);
+    const refused = await k3.api('POST', '/api/kai/chats', { cookie: c3, body: { message: 'hello' } });
+    assert.equal(refused.status, 428);
+    assert.equal(refused.json.consent_required, true);
+    assert.equal(mock.state.requests.length, before, 'nothing was sent to the model');
+
+    assert.equal((await k3.api('POST', '/api/kai/consent', { cookie: c3, body: {} })).json.consented, true);
+    mock.state.script = [say('Hello!')];
+    assert.equal((await k3.api('POST', '/api/kai/chats', { cookie: c3, body: { message: 'hello' } })).status, 200);
+    assert.equal(mock.state.requests.length, before + 1);
+
+    assert.equal((await k3.api('DELETE', '/api/kai/consent', { cookie: c3 })).json.consented, false);
+    assert.equal((await k3.api('POST', '/api/kai/chats', { cookie: c3, body: { message: 'again' } })).status, 428);
+    assert.equal(mock.state.requests.length, before + 1, 'off means off');
+    // Consent cannot be given or taken by Kai itself.
+    const { catalogue } = await import('../src/kai-catalogue.js');
+    assert.ok(!catalogue().some((a) => a.path.startsWith('/api/kai')));
+  } finally {
+    await k3.stop();
   }
 });

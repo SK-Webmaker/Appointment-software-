@@ -261,6 +261,11 @@ const MUTATIONS = {
     find: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? AND user_id = ?').get(id, userId);",
     replace: "  const row = db.prepare('SELECT * FROM kai_chats WHERE id = ? OR user_id = ?').get(id, userId);",
   },
+  'kai-talks-to-anthropic-without-consent': {
+    file: 'src/api.js', suites: ['kai-agent'],
+    find: "  if (!kaiConsented(user)) {\n    throw Object.assign(httpError(428,",
+    replace: "  if (false) {\n    throw Object.assign(httpError(428,",
+  },
   'kai-has-no-daily-cap': {
     file: 'src/api.js', suites: ['kai-agent'],
     find: '  if (used >= KAI_DAILY_LIMIT()) {',

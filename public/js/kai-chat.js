@@ -21,13 +21,17 @@ import { api } from './api.js';
 
 let el = null;
 let ready = false;        // the server has an agent key
+let consented = false;    // this owner has said yes to sharing with Anthropic
 let chatId = null;
 let events = [];
 let working = false;
 let changed = false;      // something was written — refresh the page on close
 let chats = [];
 
-const SpeechRecognition = typeof window !== 'undefined'
+// Not inside the iPhone app: its web view would need microphone and speech
+// permissions the app does not ask for, and the iPhone keyboard's own
+// dictation button already does this job there.
+const SpeechRecognition = typeof window !== 'undefined' && !window.kairoNative
   && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 const SUGGESTIONS = [
@@ -111,8 +115,36 @@ function emptyHtml() {
   </div>`;
 }
 
+/**
+ * Before the first message: what Kai shares, with whom, and a real choice.
+ * Nothing the owner types reaches Anthropic until "Turn on Kai" is pressed
+ * (the server refuses with 428 until then, too).
+ */
+function consentHtml() {
+  return `<div class="kc-empty kc-consent">
+    <div class="kc-empty-orb">${kairoOrb(72, 'kc-consent')}</div>
+    <h2>Before you start</h2>
+    <p>Kai runs on <b>Claude</b>, an AI made by <b>Anthropic</b>. To do what you ask, what you type to Kai
+      and the records it looks up or changes for you — for example a client's name, appointments or
+      notes — are sent to Anthropic in the United States. Anthropic processes them only to answer you
+      and doesn't use them to train its AI.</p>
+    <p>Nothing is sent until you turn Kai on, and you can turn it off at any time.
+      <a href="https://kairobookings.com/legal/sub-processors" target="_blank" rel="noreferrer">Who sees what</a></p>
+    <div class="kc-consent-actions">
+      <button type="button" class="btn primary" data-consent="yes">${icon('check', 14)} Turn on Kai</button>
+      <button type="button" class="btn ghost" data-consent="no">Not now</button>
+    </div>
+  </div>`;
+}
+
 function paint({ scroll = true } = {}) {
   const stream = el.querySelector('#kc-stream');
+  el.classList.toggle('needs-consent', !consented);
+  if (!consented) {
+    stream.innerHTML = consentHtml();
+    setStatus('Needs your OK');
+    return;
+  }
   stream.innerHTML = events.length
     ? events.map(eventHtml).join('') + (working ? `<div class="kc-msg kc-kai kc-typing"><div class="kc-ava">${kairoOrb(26, 'kc-t')}</div>
         <div class="kc-bubble"><span class="kc-dots"><i></i><i></i><i></i></span></div></div>` : '')
@@ -171,6 +203,7 @@ async function send(text) {
     absorb(r);
     refreshList();
   } catch (err) {
+    if (err.status === 428) { consented = false; events.pop(); return; }
     events.push({ t: 'error', text: err.message || "Couldn't reach Kai — check your connection and try again." });
   } finally {
     working = false;
@@ -310,7 +343,8 @@ export async function mountKaiChat(root) {
             ${SpeechRecognition ? `<button type="button" class="kc-icon kc-mic" id="kc-mic" aria-label="Speak to Kai" title="Speak">${icon('mic', 17)}</button>` : ''}
             <button type="submit" class="kc-send" id="kc-send" aria-label="Send">${icon('send', 16)}</button>
           </form>
-          <div class="kc-note">Kai changes things in your business for you. Deleting, messaging clients and payments always wait for your Confirm.</div>
+          <div class="kc-note">Kai changes things in your business for you. Deleting, messaging clients and payments always wait for your Confirm.
+            Runs on Claude by Anthropic<span class="kc-off-wrap"> · <button type="button" class="kc-off" id="kc-off">Turn Kai off</button></span></div>
         </main>
       </div>
     </div>`;
@@ -330,7 +364,22 @@ export async function mountKaiChat(root) {
   el.querySelector('#kc-mic')?.addEventListener('click', listen);
   el.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeKaiChat(); });
 
-  el.querySelector('#kc-stream').addEventListener('click', (e) => {
+  el.querySelector('#kc-off').addEventListener('click', async () => {
+    try { await api.del('/api/kai/consent'); } catch (err) { toast(err.message); return; }
+    consented = false;
+    toast('Kai is off — nothing more is sent to Anthropic');
+    paint();
+  });
+  el.querySelector('#kc-stream').addEventListener('click', async (e) => {
+    const yes = e.target.closest('[data-consent]');
+    if (yes) {
+      if (yes.dataset.consent !== 'yes') { closeKaiChat(); return; }
+      try { await api.post('/api/kai/consent', {}); } catch (err) { toast(err.message); return; }
+      consented = true;
+      paint();
+      if (!matchMedia('(pointer: coarse)').matches) q.focus();
+      return;
+    }
     const sug = e.target.closest('[data-suggest]');
     if (sug) { q.value = sug.dataset.suggest; grow(q); q.focus(); return; }
     const ap = e.target.closest('[data-approve]');
@@ -352,6 +401,10 @@ export async function mountKaiChat(root) {
     if (item) openChat(Number(item.dataset.chat));
   });
 
-  try { ready = Boolean((await api.get('/api/kai/status')).agent); } catch { ready = false; }
+  try {
+    const st = await api.get('/api/kai/status');
+    ready = Boolean(st.agent);
+    consented = Boolean(st.consented);
+  } catch { ready = false; }
   return ready;
 }
