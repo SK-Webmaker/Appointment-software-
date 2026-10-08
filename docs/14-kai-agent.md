@@ -18,6 +18,17 @@ and **Turn Kai off** under the composer withdraws it (`DELETE
 5.1.2(i) — explicit permission before personal data goes to a third-party AI —
 and it is what an owner deserves to be told anyway.
 
+Above every person's yes sits the business's own switch: **Settings → Kai, the
+AI assistant → Allow Kai in this business** (`kai_enabled`, on by default).
+Off, nobody in that salon can use Kai — the button opens the built-in
+shortcuts and the server answers 503 — which is what a salon that objects to
+Anthropic as a new sub-processor (its right under the DPA) is given. The
+platform's control API can set it too.
+
+The consent screen links to the sub-processor list on kairobookings.com, except
+inside the iPhone app: that site also sells Kairo, and the app links to nothing
+that sells (App Review 3.1.1).
+
 Inside the iPhone app the web microphone button is hidden: the app doesn't ask
 for microphone or speech permission, and the iPhone keyboard's own dictation
 does the same job.

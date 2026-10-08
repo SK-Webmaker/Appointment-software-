@@ -2,6 +2,7 @@
 // payments/deposits, locations, booking link, password.
 import { api } from '../api.js';
 import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, openExternal, shareLink, copyText } from '../ui.js';
+import { refreshKaiStatus } from '../kai-chat.js';
 import { state, refreshLookups } from '../app.js';
 import { openSmsSetup } from './sms-setup.js';
 import { SCHEMES } from '../schemes.js';
@@ -151,7 +152,10 @@ export async function renderSettings(container, params) {
   // in. Asked rather than stored: "is there a phone" is a fact about the world
   // and a settings row would be a copy of it that goes stale the moment
   // somebody signs out. Never fatal - the card is honest about not knowing.
-  const appConfig = await api.get('/api/app/config').catch(() => null);
+  const [appConfig, kai] = await Promise.all([
+    api.get('/api/app/config').catch(() => null),
+    api.get('/api/kai/status').catch(() => null),
+  ]);
   const push = appConfig ? appConfig.push : null;
   const appStore = (appConfig && appConfig.app_store_url) || '';
   // The link the owner copies into their Instagram bio. It has to be the
@@ -618,6 +622,21 @@ export async function renderSettings(container, params) {
           the email and SMS settings below, and they go to the customer, not to you.</div>
       </div>
 
+      ${kai && kai.server ? `
+      <div class="card" data-sec="kai">
+        <div class="card-title">Kai, the AI assistant</div>
+        <div class="card-sub" style="margin-bottom:16px">Kai does things in your book when you ask in plain
+          words. It runs on Claude, made by Anthropic, and each person is asked before their first chat.
+          Switch it off here and nobody in this business can use it.</div>
+        <form id="set-kai" style="display:flex;flex-direction:column;gap:11px">
+          <label class="opt-out">
+            <input type="checkbox" class="chk" name="kai_enabled" ${kai.salon_enabled ? 'checked' : ''}>
+            <span><b>Allow Kai in this business</b><span>Off means Kai only offers its built-in shortcuts and nothing is sent to Anthropic.</span></span>
+          </label>
+          <button class="btn primary" style="align-self:flex-start">${icon('check')} Save</button>
+        </form>
+      </div>` : ''}
+
       <div class="card" data-sec="sms">
         <div class="card-title">SMS (text messages)</div>
         <!-- Credit is prepaid: when it runs out, texts simply stop. The number
@@ -1048,6 +1067,11 @@ export async function renderSettings(container, params) {
     e.preventDefault();
     saveSettings(e.target, ['push_new_booking', 'push_cancellation', 'push_payment_check',
       'push_daily_summary', 'push_summary_hour', 'push_enquiry']);
+  });
+  container.querySelector('#set-kai')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveSettings(e.target, ['kai_enabled']);
+    refreshKaiStatus(); // so the Kai button opens the right Kai straight away
   });
   // The hour only matters if the summary is on, so it appears with it.
   container.querySelector('#set-apppush')?.addEventListener('change', (e) => {

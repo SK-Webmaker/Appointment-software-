@@ -469,3 +469,24 @@ test('nothing reaches Anthropic until the owner turns Kai on, and turning it off
     await k3.stop();
   }
 });
+
+test("a business that switches Kai off keeps it off for everyone in it, whatever each person said", async () => {
+  const before = mock.state.requests.length;
+  const off = await k.api('PUT', '/api/settings', { cookie, body: { kai_enabled: '0' } });
+  assert.equal(off.status, 200);
+  try {
+    const st = (await k.api('GET', '/api/kai/status', { cookie })).json;
+    assert.equal(st.agent, false, 'the Kai button opens the built-in shortcuts');
+    assert.equal(st.server, true);
+    assert.equal(st.salon_enabled, false);
+    assert.equal(st.consented, true, "this person's own yes is still on record");
+    const refused = await k.api('POST', '/api/kai/chats', { cookie, body: { message: 'hello' } });
+    assert.equal(refused.status, 503);
+    assert.match(refused.json.error, /switched off for this business/);
+    assert.equal((await k.api('POST', '/api/kai/chats/1/confirm', { cookie, body: { approve: true } })).status, 503);
+    assert.equal(mock.state.requests.length, before, 'nothing was sent to the model');
+  } finally {
+    await k.api('PUT', '/api/settings', { cookie, body: { kai_enabled: '1' } });
+  }
+  assert.equal((await k.api('GET', '/api/kai/status', { cookie })).json.agent, true);
+});

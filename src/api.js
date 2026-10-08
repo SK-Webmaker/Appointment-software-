@@ -708,6 +708,8 @@ export const EDITABLE_SETTINGS = new Set([
   'push_new_booking', 'push_cancellation', 'push_payment_check',
   'push_daily_summary', 'push_summary_hour', 'push_enquiry',
   'enquiries_enabled', 'enquiries_note',
+  // The salon's own no to Kai, over every user's yes (see kaiOn).
+  'kai_enabled',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -3227,8 +3229,22 @@ function kaiLimited(user, { counts = true } = {}) {
 const kaiConsentKey = (user) => `kai_consent_${user.id}`;
 const kaiConsented = (user) => Boolean(getSetting(kaiConsentKey(user), ''));
 
+/**
+ * Whether Kai may run here at all: the server has a key, and the salon has not
+ * switched it off. The switch is the business's, above any one person's yes —
+ * a salon that objects to a new sub-processor (the DPA gives it that right)
+ * can keep Kai off for everyone in it, from Settings.
+ */
+const kaiSalonAllows = () => getSetting('kai_enabled', '1') !== '0';
+const kaiOn = () => kaiAgent.agentEnabled() && kaiSalonAllows();
+function kaiRequireOn() {
+  if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
+  if (!kaiSalonAllows()) throw httpError(503, 'Kai is switched off for this business — an owner can turn it back on in Settings');
+}
+
 route('GET', '/api/kai/status', async ({ user }) => ({
-  agent: kaiAgent.agentEnabled(), consented: kaiConsented(user),
+  agent: kaiOn(), consented: kaiConsented(user),
+  server: kaiAgent.agentEnabled(), salon_enabled: kaiSalonAllows(),
   used_today: kaiUsedToday(), daily_limit: KAI_DAILY_LIMIT(),
 }));
 
@@ -3256,7 +3272,7 @@ route('DELETE', '/api/kai/chats/:id', async ({ params, user }) => {
 });
 
 route('POST', '/api/kai/chats', async ({ req, user }) => {
-  if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
+  kaiRequireOn();
   const b = checkBody(await readJson(req), { message: s.str(4000, { required: true }), chat_id: s.num({ min: 1 }) });
   if (!kaiConsented(user)) {
     throw Object.assign(httpError(428, 'Turn on Kai first — it needs your OK to send what you ask to Anthropic.'), { data: { consent_required: true } });
@@ -3266,7 +3282,7 @@ route('POST', '/api/kai/chats', async ({ req, user }) => {
 });
 
 route('POST', '/api/kai/chats/:id/confirm', async ({ req, params, user }) => {
-  if (!kaiAgent.agentEnabled()) throw httpError(503, 'Kai is not switched on for this server');
+  kaiRequireOn();
   const b = checkBody(await readJson(req), { approve: s.bool() });
   if (!kaiConsented(user)) throw Object.assign(httpError(428, 'Turn on Kai first.'), { data: { consent_required: true } });
   // Answering a Confirm card finishes a message already counted.

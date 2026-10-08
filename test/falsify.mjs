@@ -296,6 +296,11 @@ const MUTATIONS = {
     find: "  { method: 'POST', path: /^\\/api\\/messages\\/test$/ },\n",
     replace: '',
   },
+  'kai-ignores-the-salon-switch': {
+    file: 'src/api.js', suites: ['kai-agent'],
+    find: "const kaiSalonAllows = () => getSetting('kai_enabled', '1') !== '0';",
+    replace: 'const kaiSalonAllows = () => true;',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

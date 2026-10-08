@@ -403,6 +403,11 @@ export async function mountKaiChat(root) {
     if (item) openChat(Number(item.dataset.chat));
   });
 
+  return refreshKaiStatus();
+}
+
+/** Ask the server again whether Kai runs here (after Settings changes it). */
+export async function refreshKaiStatus() {
   try {
     const st = await api.get('/api/kai/status');
     ready = Boolean(st.agent);
