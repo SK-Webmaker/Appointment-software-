@@ -6,7 +6,7 @@ Rebuild (from this folder, in a scratch copy):
 1. `python3 -m venv venv && ./venv/bin/pip install piper-tts`, then download the voice
    `en_GB-cori-high.onnx` + `.onnx.json` from huggingface.co/rhasspy/piper-voices into `voices/`.
 2. Edit narration in `script.json` → `./venv/bin/python build_audio.py` (writes narration.wav + timeline.json).
-3. `./venv/bin/python music.py` (soft music bed).
+3. `node render.mjs sfx` (sound-effect cue times), then `./venv/bin/python sound.py` (music bed + sound effects).
 4. `node render.mjs stills 23 60 120` to preview; `node render.mjs video 30` for the full render (~25 min).
 5. Mix: see the ffmpeg command in SKILL history (voice loudnorm, music ducked by sidechaincompress).
 
