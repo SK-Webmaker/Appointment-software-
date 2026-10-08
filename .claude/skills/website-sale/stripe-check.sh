@@ -10,6 +10,15 @@ if d.get("error"): sys.exit("Stripe error: " + d["error"]["message"])
 for l in d["data"]:
     m = l.get("metadata", {})
     if m.get("kind") != "website-sale": continue
+    if m.get("reusable"):
+        link_id = l["id"]
+        r = json.loads(subprocess.check_output(["curl", "-sS", f"https://api.stripe.com/v1/checkout/sessions?payment_link={link_id}&status=complete&limit=100"]))
+        for s in r.get("data", []):
+            if s.get("payment_status") != "paid": continue
+            biz = next((f.get("text", {}).get("value") for f in s.get("custom_fields", []) if f.get("key") == "business"), "") or ""
+            email = (s.get("customer_details") or {}).get("email", "")
+            print("\t".join(["PAID", s["id"], m.get("plan", "handover"), biz, email]))
+        continue
     if m.get("delivered"): status = "DELIVERED"
     else:
         link_id = l["id"]

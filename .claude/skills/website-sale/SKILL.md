@@ -10,7 +10,14 @@ description: Selling small-business websites built in Lovable, paid by Stripe pa
 | `handover` | $350 AUD once | Sections 1–5: client gets the files, then we're done |
 | `managed` | $550 AUD today + $30 AUD/month | Section 6: we host the site and make changes on request |
 
-Ask the owner which plan if they don't say. Everything below is the handover plan unless marked managed.
+Ask the owner which plan if they don't say.
+
+**Reusable links** (the owner sends these to clients themselves; they never switch off; checkout asks for "Business name"):
+- $350 handover: https://buy.stripe.com/aFa28qeiG0Ph5mE5fYcfK02 (plink_1UO1LkA3ztX1T5c4orrnyyQT)
+- $550 + $30/month managed: https://buy.stripe.com/3cIfZg3E21Tl3ew23McfK03 (plink_1UO1LmA3ztX1T5c4HLTrmzsw)
+
+`stripe-check.sh` lists every payment on these as `PAID <session> <plan> <business> <email>`. Match the business
+name to the client, and never run `stripe-mark-delivered.sh` on a reusable link. Everything below is the handover plan unless marked managed.
 
 # $350 handover: build → pay → hand off → done
 
@@ -62,7 +69,7 @@ Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
    It stops with exit 2/3 if "lovable" appears anywhere. Fix the files and re-run; never bypass it.
 4. Browser check: `node .claude/skills/website-sale/check-site.mjs <SITE_DIR printed above>`
    It must print `OK`. Look at the `check-1280.png` / `check-390.png` screenshots yourself.
-5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in. The owner uploads them
+5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in (point clients to the video made from client-video-guide.md). The owner uploads them
    to Google Drive, shares the links and sends the email. (Uploading the ZIPs to a public host so Drive can
    pick them up was refused for security, and Gmail blocks ZIPs that contain .js files, so they can't be attached.)
    Client emails that need no files (preview + payment link) may be sent from kairobooking18@gmail.com

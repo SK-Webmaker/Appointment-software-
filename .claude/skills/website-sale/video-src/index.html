@@ -1,0 +1,456 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="fonts/local.css" rel="stylesheet">
+<style>
+:root{--teal:#2dd4bf;--blue:#60a5fa;--violet:#a78bfa;--ink:#0b1020;--grad:linear-gradient(100deg,#2dd4bf 0%,#60a5fa 55%,#a78bfa 100%)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--ink)}
+body{font-family:Inter,system-ui,sans-serif;color:#e8edf7;-webkit-font-smoothing:antialiased}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+#bg{position:absolute;inset:0;background:radial-gradient(1200px 800px at 50% 40%,#131a33 0%,#0b1020 70%)}
+.orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.55}
+.o1{width:760px;height:760px;background:#14b8a6}.o2{width:680px;height:680px;background:#6366f1}.o3{width:560px;height:560px;background:#0ea5e9}
+#grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(900px 600px at 50% 50%,#000 30%,transparent 80%)}
+.scene{position:absolute;inset:0;opacity:0}
+.abs{position:absolute}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.eyebrow{font:700 22px Inter;letter-spacing:.32em;text-transform:uppercase;color:#8fa3c7}
+.h1{font:800 104px/1.04 Inter;letter-spacing:-.035em;text-align:center}
+.h2{font:800 64px/1.1 Inter;letter-spacing:-.03em}
+.mono{font-family:'JetBrains Mono',monospace}
+.pill{display:inline-flex;align-items:center;gap:12px;padding:14px 26px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font:600 24px Inter;color:#e2e8f0}
+.pill svg{width:26px;height:26px}
+.glass{background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.13);border-radius:28px;box-shadow:0 30px 80px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.white{background:#fff;color:#0f172a;border-radius:24px;box-shadow:0 40px 120px rgba(0,0,0,.5)}
+/* browser */
+.browser{position:absolute;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 50px 140px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.08);color:#0f172a;transform-origin:0 0}
+.browser .bar{height:58px;background:#f1f5f9;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid #e2e8f0}
+.browser .dot{width:13px;height:13px;border-radius:50%}
+.browser .url{flex:1;margin-left:18px;height:36px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;display:flex;align-items:center;gap:10px;padding:0 16px;font:500 18px Inter;color:#334155}
+.browser .url svg{width:16px;height:16px;flex:none}
+.browser .page{position:absolute;top:58px;left:0;right:0;bottom:0;background:#fff}
+.view{position:absolute;inset:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 28px;border-radius:12px;font:600 20px Inter;white-space:nowrap}
+.btn.teal{background:#0d9488;color:#fff}.btn.dark{background:#0f172a;color:#fff}.btn.ghost{background:#f1f5f9;color:#0f172a}
+.btn.green{background:#16a34a;color:#fff}.btn.orange{background:#ea580c;color:#fff}
+.input{height:60px;border:2px solid #cbd5e1;border-radius:12px;display:flex;align-items:center;padding:0 18px;font:500 22px Inter;color:#0f172a;background:#fff}
+.input.focus{border-color:#0d9488;box-shadow:0 0 0 4px rgba(13,148,136,.15)}
+.ph{color:#94a3b8}
+.caret{display:inline-block;width:2px;height:26px;background:#0f172a;margin-left:2px;vertical-align:middle}
+.barph{height:16px;border-radius:8px;background:#e2e8f0}
+.muted{color:#64748b}
+/* overlay chrome */
+#stepper{position:absolute;z-index:46;top:44px;left:50%;transform:translateX(-50%);display:flex;gap:10px;opacity:0}
+.st{display:flex;align-items:center;gap:10px;padding:10px 18px 10px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);font:600 17px Inter;color:#8fa3c7;transition:none}
+.st b{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);font:700 15px Inter;color:#cbd5e1}
+.st.on{background:rgba(45,212,191,.12);border-color:rgba(45,212,191,.45);color:#fff}
+.st.on b{background:var(--grad);color:#06231f}
+.st.done b{background:#14b8a6;color:#06231f}
+#caption{position:absolute;z-index:46;bottom:56px;left:50%;display:flex;align-items:center;gap:18px;padding:20px 34px 20px 22px;border-radius:20px;background:rgba(9,13,28,.78);border:1px solid rgba(255,255,255,.12);box-shadow:0 20px 60px rgba(0,0,0,.45);font:600 28px Inter;color:#f1f5f9;white-space:nowrap;opacity:0}
+#caption .bar{width:6px;height:38px;border-radius:3px;background:var(--grad)}
+#card{position:absolute;z-index:60;inset:0;background:radial-gradient(1100px 700px at 30% 40%,#16204a 0%,#0a0f22 70%);display:flex;flex-direction:column;justify-content:center;padding-left:220px;clip-path:inset(0 100% 0 0)}
+#card .num{font:800 300px/0.9 Inter;letter-spacing:-.06em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+#card .ttl{font:800 92px/1.05 Inter;letter-spacing:-.035em;margin-top:18px;color:#fff}
+#card .eyebrow{margin-bottom:22px;color:#5eead4}
+#card .line{position:absolute;left:0;top:0;bottom:0;width:10px;background:var(--grad)}
+#cursor{position:absolute;left:0;top:0;width:44px;height:44px;opacity:0;pointer-events:none;z-index:50}
+#cursor svg{position:absolute;left:0;top:0;width:44px;height:44px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.4))}
+.ripple{position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:50%;border:4px solid #2dd4bf;opacity:0}
+.ring{position:absolute;border:4px solid #2dd4bf;border-radius:18px;box-shadow:0 0 0 8px rgba(45,212,191,.22),0 0 40px rgba(45,212,191,.45);opacity:0;pointer-events:none;z-index:40}
+#fx{position:absolute;inset:0;z-index:45;pointer-events:none}
+/* icons */
+.ico{display:block}
+.att{display:flex;align-items:center;gap:20px;padding:20px 22px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0;margin-top:14px}
+.att .nm{font:600 22px 'JetBrains Mono',monospace;color:#0f172a}
+.att .sz{font:500 17px Inter;color:#64748b;margin-top:4px}
+.badge{margin-left:auto;padding:8px 16px;border-radius:999px;font:700 16px Inter;letter-spacing:.02em}
+.info{width:620px;padding:34px 36px;display:flex;gap:26px;align-items:flex-start}
+.info .t{font:700 30px Inter;color:#fff;margin-bottom:10px}
+.info .d{font:500 22px/1.45 Inter;color:#b6c3dc}
+.iconbox{flex:none;width:76px;height:76px;border-radius:20px;display:grid;place-items:center}
+.iconbox svg{width:42px;height:42px}
+.pane{position:absolute;top:220px;width:740px;height:560px}
+.pane .hd{display:flex;align-items:center;gap:14px;padding:22px 28px;font:700 26px Inter;color:#fff;border-bottom:1px solid rgba(255,255,255,.1)}
+.fileicon{position:absolute;display:flex;flex-direction:column;align-items:center;gap:14px;width:240px}
+.fileicon .lbl{font:600 19px 'JetBrains Mono',monospace;color:#e2e8f0;text-align:center}
+.menu{position:absolute;width:280px;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.45);padding:8px;color:#0f172a;font:500 20px Inter;opacity:0}
+.menu div{padding:11px 16px;border-radius:8px}
+.menu .on{background:#e0f2fe}
+.dlg{position:absolute;width:520px;background:#fff;border-radius:16px;padding:28px;color:#0f172a;box-shadow:0 30px 70px rgba(0,0,0,.5);opacity:0}
+.tip{display:inline-flex;align-items:center;gap:14px;padding:18px 30px;border-radius:999px;background:rgba(20,184,166,.15);border:1px solid rgba(45,212,191,.5);font:700 26px Inter;color:#ccfbf1}
+.drop{position:absolute;left:170px;right:170px;top:150px;height:420px;border:4px dashed #cbd5e1;border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#f8fafc}
+.prog{width:520px;height:16px;border-radius:8px;background:#e2e8f0;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#14b8a6,#3b82f6)}
+.chip{display:inline-flex;align-items:center;gap:12px;padding:16px 26px;border-radius:16px;font:600 24px Inter;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#e2e8f0}
+.toggle{width:96px;height:52px;border-radius:26px;background:#475569;position:relative}
+.toggle i{position:absolute;top:5px;left:5px;width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 10px rgba(0,0,0,.3)}
+.side{position:absolute;left:0;top:0;bottom:0;width:290px;background:#f8fafc;border-right:1px solid #e2e8f0;padding:28px 18px}
+.side div{padding:14px 16px;border-radius:10px;font:600 19px Inter;color:#334155;margin-bottom:6px}
+.side .on{background:#ccfbf1;color:#0f766e}
+.ns{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:12px;background:#f1f5f9;margin-top:10px;font:600 21px 'JetBrains Mono',monospace;color:#0f172a}
+.fly{position:absolute;padding:8px 14px;border-radius:10px;background:#0d9488;color:#fff;font:600 18px 'JetBrains Mono',monospace;z-index:44;opacity:0;white-space:nowrap}
+.check li{list-style:none;display:flex;align-items:center;gap:22px;padding:18px 0;font:600 32px Inter;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.08)}
+.cb{width:46px;height:46px;border-radius:14px;border:3px solid rgba(255,255,255,.25);display:grid;place-items:center;flex:none}
+.cb svg{width:28px;height:28px;opacity:0}
+.own{width:400px;padding:40px 34px;text-align:center}
+.own .iconbox{margin:0 auto 24px}
+
+#spot{position:absolute;inset:0;pointer-events:none;z-index:30;opacity:0}
+.callout{position:absolute;left:0;top:0;display:flex;align-items:center;gap:14px;padding:12px 24px 12px 12px;border-radius:999px;background:#fff;color:#0f172a;font:800 26px Inter;letter-spacing:-.01em;white-space:nowrap;box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 4px rgba(45,212,191,.35);z-index:49;opacity:0;transform-origin:0 50%}
+.callout b{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#06231f;font:800 24px Inter;flex:none}
+.callout .do{font:800 15px Inter;letter-spacing:.14em;color:#0d9488;margin-right:2px}
+#ckp{position:absolute;bottom:52px;left:50%;display:flex;align-items:center;gap:18px;padding:16px 34px 16px 16px;border-radius:22px;background:linear-gradient(90deg,rgba(22,163,74,.95),rgba(13,148,136,.95));box-shadow:0 20px 60px rgba(22,163,74,.35);font:700 28px Inter;color:#fff;white-space:nowrap;opacity:0;z-index:47}
+#ckp .ci{width:52px;height:52px;border-radius:16px;background:#fff;display:grid;place-items:center;flex:none}
+#ckp small{display:block;font:800 15px Inter;letter-spacing:.16em;opacity:.85;margin-bottom:2px}
+.ringbg{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.06)}
+#card .band{position:absolute;top:-20%;height:140%;width:260px;background:var(--grad);opacity:.9;transform:skewX(-18deg);filter:blur(1px)}
+#card .b2{width:90px;opacity:.6}
+#card .ttl span{display:inline-block;margin-right:.24em}
+#card .meta{margin-top:30px;font:600 26px Inter;color:#8fa3c7;display:flex;gap:14px;align-items:center}
+#card .meta i{width:60px;height:3px;background:var(--grad);border-radius:2px;display:inline-block}
+</style></head>
+<body><div id="stage">
+<div id="bg"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div><div class="ringbg rb1" style="width:1300px;height:1300px"></div><div class="ringbg rb2" style="width:900px;height:900px"></div><div id="grid"></div></div>
+<div id="scenes"></div>
+<div id="spot"></div><div class="callout" id="co"><b>1</b><span class="do">DO THIS</span><span class="tx"></span></div><canvas id="fx" width="1920" height="1080"></canvas>
+<div id="stepper"></div>
+<div id="caption"><span class="bar"></span><span class="txt"></span></div><div id="ckp"><span class="ci"></span><span><small>CHECKPOINT</small><span class="tx"></span></span></div>
+<div id="card"><div class="band b1"></div><div class="band b2"></div><div class="line"></div><div class="eyebrow"></div><div class="num"></div><div class="ttl"></div><div class="meta"><i></i><span class="mt"></span></div></div>
+<div id="cursor"><div class="ripple r1"></div><div class="ripple r2"></div><svg viewBox="0 0 24 24"><path d="M4 2.5l15.5 9.2-6.9 1.5 4 7.3-2.9 1.6-4-7.4-5.1 4.9z" fill="#fff" stroke="#0b1020" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+</div>
+<script>
+// ---------- helpers ----------
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const eo=x=>1-Math.pow(1-x,3), eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2, back=x=>{const c=1.7;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const P=(t,a,d=.6,e=eo)=>e(clamp((t-a)/d));
+const lerp=(a,b,k)=>a+(b-a)*k;
+const H=h=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild};
+function S(e,{o,x=0,y=0,s=1,b=0}={}){if(o!==undefined)e.style.opacity=o;e.style.transform=`translate(${x}px,${y}px) scale(${s})`;e.style.filter=b>0.05?`blur(${b}px)`:'none'}
+function show(e,k,dy=30){S(e,{o:k,y:(1-k)*dy,b:(1-k)*6})}
+function pop(e,k){S(e,{o:clamp(k*1.6),s:.6+.4*back(clamp(k))})}
+function typeIn(e,txt,t,t0,cps=15,ph=''){const n=Math.floor(clamp((t-t0)*cps,0,txt.length));const typing=t>=t0&&n<txt.length;const blink=(Math.floor(t*2.2)%2)==0;
+  e.innerHTML=(n===0&&ph&&t<t0?`<span class="ph">${ph}</span>`:txt.slice(0,n))+((typing||(t>=t0&&t<t0+txt.length/cps+.8&&blink))?'<span class="caret"></span>':'');}
+const stage=document.getElementById('stage');
+function rect(e){const r=e.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,cx:r.left+r.width/2,cy:r.top+r.height/2}}
+// icons
+const I={
+ zip:(c='#60a5fa')=>`<svg class="ico" viewBox="0 0 64 80" width="120" height="150"><path d="M8 2h34l18 18v54a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" fill="#e2e8f0"/><path d="M42 2v14a4 4 0 0 0 4 4h14" fill="#cbd5e1"/><rect x="22" y="6" width="8" height="5" fill="${c}"/><rect x="26" y="11" width="8" height="5" fill="${c}"/><rect x="22" y="16" width="8" height="5" fill="${c}"/><rect x="26" y="21" width="8" height="5" fill="${c}"/><rect x="22" y="26" width="8" height="5" fill="${c}"/><rect x="21" y="33" width="14" height="14" rx="3" fill="${c}"/><rect x="25" y="39" width="6" height="4" rx="1" fill="#e2e8f0"/><text x="32" y="68" font-family="Inter" font-weight="800" font-size="11" text-anchor="middle" fill="#475569">ZIP</text></svg>`,
+ folder:`<svg class="ico" viewBox="0 0 80 64" width="160" height="128"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fcd34d"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><path d="M4 10a4 4 0 0 1 4-4h20l7 7h37a4 4 0 0 1 4 4v39a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="#d97706"/><path d="M4 20a4 4 0 0 1 4-4h64a4 4 0 0 1 4 4v36a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" fill="url(#fg)"/></svg>`,
+ globe:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.8 3 2.8 16 0 19M12 2.5c-2.8 3-2.8 16 0 19"/></svg>`,
+ check:(c='#fff',w=3)=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
+ lock:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>`,
+ mail:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>`,
+ cloud:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/><path d="M12 15.5v-5M9.8 12.5L12 10.3l2.2 2.2" stroke-linecap="round"/></svg>`,
+ clock:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.5 2"/></svg>`,
+ bolt:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"><path d="M13 2.5L4.5 13.5H12l-1 8 8.5-11H12z"/></svg>`,
+ user:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>`,
+ server:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4" width="17" height="7" rx="2"/><rect x="3.5" y="13" width="17" height="7" rx="2"/><path d="M7.5 7.5h.01M7.5 16.5h.01"/></svg>`,
+ link:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>`,
+ upload:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3.5A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V15"/></svg>`,
+ copy:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>`,
+ cart:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 11h10.6l2-8H6.6"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>`,
+ warn:c=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round"><path d="M12 3.5l9.5 16.5h-19z" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.5h.01"/></svg>`,
+};
+function browser(url,{x,y,w,h}){const b=H(`<div class="browser" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="bar"><span class="dot" style="background:#f87171"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span><div class="url"><span class="ic"></span><span class="u">${url}</span></div></div><div class="page"></div></div>`);b.u=b.querySelector('.u');b.ic=b.querySelector('.ic');b.page=b.querySelector('.page');return b}
+function miniSite(){return `<div style="position:absolute;inset:0;background:linear-gradient(135deg,#fdf4ff,#ecfeff)"><div style="display:flex;justify-content:space-between;align-items:center;padding:22px 34px;font:800 22px Inter;color:#0f172a">Your Business<span style="display:flex;gap:22px;font:600 15px Inter;color:#475569"><span>About</span><span>Services</span><span>Contact</span></span></div><div style="display:flex;gap:30px;padding:24px 34px;align-items:center"><div style="flex:1"><div style="font:800 40px/1.1 Inter;color:#0f172a;letter-spacing:-.02em">Quality service,<br>done right.</div><div style="font:500 17px/1.5 Inter;color:#475569;margin:14px 0 22px">Local, friendly and trusted. Book in today.</div><span class="btn teal" style="font-size:17px;padding:12px 22px">Book now</span></div><div style="width:42%;height:200px;border-radius:18px;background:linear-gradient(135deg,#5eead4,#818cf8)"></div></div></div>`}
+// ring overlay
+function ringOn(rg,e,k,pad=10){if(k<=0.001){rg.style.opacity=0;return}const r=rect(e);rg.style.left=(r.x-pad)+'px';rg.style.top=(r.y-pad)+'px';rg.style.width=(r.w+2*pad)+'px';rg.style.height=(r.h+2*pad)+'px';rg.style.opacity=k;}
+// cursor
+const cur=document.getElementById('cursor'),rp1=cur.querySelector('.r1'),rp2=cur.querySelector('.r2');
+let curKeys=null;
+function at(k){if(Array.isArray(k.at))return k.at;const r=rect(k.at);return [r.x+r.w*(k.fx??.5),r.y+r.h*(k.fy??.55)]}
+function cursorUpdate(t,keys,end){
+  if(!keys||!keys.length||t<keys[0].t-0.6||t>end){cur.style.opacity=0;return}
+  let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;
+  let p=at(keys[i]);
+  if(i<keys.length-1){const n=keys[i+1],mv=Math.min(1.0,n.t-keys[i].t),ms=n.t-mv; if(t>ms){const q=at(n);const k=eio(clamp((t-ms)/mv));p=[lerp(p[0],q[0],k),lerp(p[1],q[1],k)]}}
+  if(t<keys[0].t){const k=eo(clamp((t-(keys[0].t-.6))/.6));p=[p[0]+(1-k)*120,p[1]+(1-k)*90];cur.style.opacity=k}else cur.style.opacity=Math.min(clamp((end-t)/.3),clamp((keys[keys.length-1].t+1.8-t)/.4));
+  cur.style.transform=`translate(${p[0]}px,${p[1]}px)`;
+  let press=1,r1=0,r2=0;
+  for(const k of keys){if(!k.click)continue;const d=t-k.t;if(d>=0&&d<.5){r1=d/.5;press=1-.15*Math.sin(clamp(d/.18)*Math.PI)} if(k.dbl){const d2=d-.22;if(d2>=0&&d2<.5)r2=d2/.5}}
+  for(const [rp,r] of [[rp1,r1],[rp2,r2]]){rp.style.opacity=r>0?(1-r):0;rp.style.transform=`scale(${.4+r*1.4})`}
+  cur.querySelector('svg').style.transform=`scale(${press})`;
+}
+// confetti
+const fx=document.getElementById('fx').getContext('2d');let bursts=[];
+function rnd(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return s/2147483647}}
+function confetti(T){fx.clearRect(0,0,1920,1080);const cols=['#2dd4bf','#60a5fa','#a78bfa','#fbbf24','#f472b6','#34d399'];
+  for(const b of bursts){const dt=T-b.t;if(dt<0||dt>2.6)continue;const r=rnd(b.seed);
+    for(let i=0;i<140;i++){const a=-Math.PI/2+(r()-.5)*Math.PI*1.25,sp=500+r()*900,vx=Math.cos(a)*sp,vy=Math.sin(a)*sp,g=1500,dr=.92;
+      const x=b.x+vx*dt*Math.pow(dr,dt*8)*.8,y=b.y+vy*dt*.8+.5*g*dt*dt,rot=r()*6+dt*(r()*10-5),w=8+r()*10,h=5+r()*6;
+      fx.save();fx.globalAlpha=clamp(1-(dt-1.6)/1);fx.translate(x,y);fx.rotate(rot);fx.fillStyle=cols[i%cols.length];fx.fillRect(-w/2,-h/2,w,h);fx.restore()}}}
+// ---------- chrome ----------
+const STEPS=['Unzip','Netlify account','Go live','Your domain','Connect','Done'];
+const stepper=document.getElementById('stepper');STEPS.forEach((s,i)=>stepper.appendChild(H(`<div class="st"><b>${i+1}</b>${s}</div>`)));
+const cap=document.getElementById('caption'),capT=cap.querySelector('.txt');
+const card=document.getElementById('card');
+// ---------- scenes ----------
+const SC={};
+SC.netlify_chime=0;SC.intro={build(r){
+  r.innerHTML=`<div class="center"><div class="grp" style="display:flex;flex-direction:column;align-items:center"><div class="eyebrow e">Website handover guide</div>
+   <div class="h1 t" style="margin-top:30px">Put your new website<br><span class="grad">online</span></div>
+   <div class="pills" style="display:flex;gap:18px;margin-top:46px"><span class="pill">${I.clock('#5eead4')}About 10 minutes</span><span class="pill">${I.bolt('#93c5fd')}Free</span><span class="pill">${I.user('#c4b5fd')}No tech skills needed</span></div></div></div>
+   <div class="abs steps" style="left:0;right:0;top:640px;display:flex;justify-content:center;gap:28px"></div>`;
+  const st=r.querySelector('.steps');[['Unzip your website','#5eead4',I.folder.replace('width="160" height="128"','width="54" height="44"')],['Put it on Netlify','#93c5fd',I.upload('#93c5fd')],['Get your own address','#c4b5fd',I.globe('#c4b5fd')],['Connect the two','#f9a8d4',I.link('#f9a8d4')]]
+   .forEach(([t,c,ic],i)=>st.appendChild(H(`<div class="glass" style="width:350px;min-height:232px;padding:30px 28px"><div style="display:flex;align-items:center;justify-content:space-between"><div class="iconbox" style="background:${c}22;border:1px solid ${c}55;width:70px;height:70px">${ic}</div><span style="font:800 46px Inter;color:${c}44">0${i+1}</span></div><div style="font:700 27px/1.25 Inter;margin-top:22px;color:#fff">${t}</div></div>`)));
+  this.e=r.querySelector('.e');this.t=r.querySelector('.t');this.p=[...r.querySelectorAll('.pill')];this.g=r.querySelector('.grp');this.s=[...st.children];},
+ update(t,B,E){const d1=E[1]-B[1],d2=E[2]-B[2];
+  show(this.e,P(t,.2,.9));show(this.t,P(t,.45,1.1),50);
+  this.p.forEach((p,i)=>show(p,P(t,B[1]+d1*[.4,.6,.78][i],.6),20));
+  const up=P(t,B[2]-.2,1.1,eio);S(this.g,{y:-200*up,s:1-.2*up});
+  this.s.forEach((c,i)=>{const k=P(t,B[2]+d2*[.12,.32,.55,.78][i],.7);S(c,{o:k,y:(1-k)*60,b:(1-k)*8})});}};
+
+SC.files={build(r){
+  r.innerHTML=`<div class="white abs mail" style="left:200px;top:200px;width:820px;padding:40px">
+    <div style="display:flex;align-items:center;gap:20px"><div style="width:64px;height:64px;border-radius:50%;background:var(--grad);display:grid;place-items:center">${I.mail('#06231f').replace('<svg','<svg width="32" height="32"')}</div>
+    <div><div style="font:800 30px Inter">Your website is ready</div><div class="muted" style="font:500 19px Inter;margin-top:4px">to: you@yourbusiness.com.au</div></div></div>
+    <div style="margin:30px 0 18px"><div class="barph" style="width:92%"></div><div class="barph" style="width:78%;margin-top:12px"></div><div class="barph" style="width:60%;margin-top:12px"></div></div>
+    <div class="muted" style="font:700 15px Inter;letter-spacing:.14em;margin-top:26px">2 ATTACHMENTS</div>
+    <div class="att a1">${I.zip('#14b8a6').replace('width="120" height="150"','width="44" height="55"')}<div><div class="nm">yourbusiness-website.zip</div><div class="sz">Your website · 2.4 MB</div></div><span class="badge b1" style="background:#ccfbf1;color:#0f766e;opacity:0">USE TODAY</span></div>
+    <div class="att a2">${I.zip('#8b5cf6').replace('width="120" height="150"','width="44" height="55"')}<div><div class="nm">yourbusiness-code.zip</div><div class="sz">Backup · 1.1 MB</div></div><span class="badge b2" style="background:#ede9fe;color:#6d28d9;opacity:0">BACKUP</span></div></div>
+   <div class="abs" style="left:1100px;top:250px;display:flex;flex-direction:column;gap:30px">
+    <div class="glass info i1"><div class="iconbox" style="background:#14b8a622;border:1px solid #14b8a666">${I.globe('#5eead4')}</div><div><div class="t">The <span class="grad">website</span> file</div><div class="d">This is your website. It's the one we'll use today.</div></div></div>
+    <div class="glass info i2"><div class="iconbox" style="background:#8b5cf622;border:1px solid #8b5cf666">${I.cloud('#c4b5fd')}</div><div><div class="t">The <span style="color:#c4b5fd">code</span> file</div><div class="d">Your backup. Save it somewhere safe, like Google Drive. Give it to anyone who changes your site later.</div></div></div></div>
+   <div class="ring g1"></div><div class="ring g2"></div>`;
+  ['mail','a1','a2','b1','b2','i1','i2','g1','g2'].forEach(k=>this[k]=r.querySelector('.'+k));stage.appendChild(this.g1);stage.appendChild(this.g2);},
+ update(t,B,E){show(this.mail,P(t,0,.9),50);
+  const k1=P(t,B[1],.5),k2=P(t,B[2],.5);ringOn(this.g1,this.a1,k1*(1-k2*.85));ringOn(this.g2,this.a2,k2);
+  pop(this.b1,P(t,B[1]+.5,.5));pop(this.b2,P(t,B[2]+.5,.5));
+  S(this.i1,{o:P(t,B[1]+.3,.7),x:(1-P(t,B[1]+.3,.7))*60});S(this.i2,{o:P(t,B[2]+.3,.7),x:(1-P(t,B[2]+.3,.7))*60});},
+ cursor(B){return [{t:B[1]+.4,at:this.a1,fx:.35,label:'This one is your website'},{t:B[2]+.4,at:this.a2,fx:.35,label:'This one is your backup'}]}};
+
+SC.unzip={build(r){
+  const z=I.zip('#60a5fa');
+  r.innerHTML=`<div class="center big"><div style="filter:drop-shadow(0 30px 50px rgba(0,0,0,.45))">${z.replace('width="120" height="150"','width="200" height="250"')}</div><div class="mono" style="font-size:30px;margin-top:30px;color:#e2e8f0">yourbusiness-website.zip</div></div>
+   <div class="glass pane p1" style="left:180px"><div class="hd"><svg width="30" height="30" viewBox="0 0 24 24"><path fill="#60a5fa" d="M2 4.5l8-1.1v7.7H2zM11 3.3L22 2v9.1H11zM2 12h8v7.7l-8-1.1zM11 12h11v10l-11-1.5z"/></svg>Windows</div>
+     <div class="fileicon zw" style="left:250px;top:150px">${z}<div class="lbl">yourbusiness-website.zip</div></div>
+     <div class="fileicon fw" style="left:250px;top:150px;opacity:0">${I.folder.replace('width="160" height="128"','width="150" height="120"').replace(/fg/g,'fg1')}<div class="lbl" style="margin-top:30px">yourbusiness-website</div></div>
+     <div class="menu mw" style="left:420px;top:190px"><div>Open</div><div class="xa">Extract All…</div><div>Send to</div><div>Copy</div><div>Delete</div></div>
+     <div class="dlg dw" style="left:110px;top:150px"><div style="font:700 22px Inter">Extract Compressed (Zipped) Folders</div><div class="muted" style="font:500 17px Inter;margin:12px 0 24px">Files will be extracted to this folder.</div><div style="text-align:right"><span class="btn teal xb">Extract</span></div></div></div>
+   <div class="glass pane p2" style="left:1000px"><div class="hd"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Mac</div>
+     <div class="fileicon zm" style="left:250px;top:150px">${z}<div class="lbl">yourbusiness-website.zip</div></div>
+     <div class="fileicon fm" style="left:250px;top:150px;opacity:0">${I.folder.replace('width="160" height="128"','width="150" height="120"').replace(/fg/g,'fg2')}<div class="lbl" style="margin-top:30px">yourbusiness-website</div></div></div>
+   <div class="abs tipw" style="left:0;right:0;top:830px;text-align:center"><span class="tip">${I.check('#5eead4').replace('<svg','<svg width="30" height="30"')}See a folder, not a zip? You're ready.</span></div>`;
+  ['big','p1','p2','zw','fw','mw','xa','dw','xb','zm','fm','tipw'].forEach(k=>this[k]=r.querySelector('.'+k));},
+ update(t,B,E){const d1=E[1]-B[1];
+  const bin=P(t,0,.8),bout=P(t,B[1]-.3,.6);S(this.big,{o:bin*(1-bout),s:(.9+.1*bin)*(1-.2*bout),y:Math.sin(t*2)*8});
+  show(this.p1,P(t,B[1]-.1,.8),40);show(this.p2,P(t,B[1]+.1,.8),40);
+  const m0=B[1]+d1*.28,m1=B[1]+d1*.5;const mk=P(t,m0,.25)*(1-P(t,m1+.15,.2));S(this.mw,{o:mk,s:.95+.05*mk});this.xa.className=t>m1-.5?'xa on':'xa';
+  const dk=P(t,m1+.25,.3)*(1-P(t,B[1]+d1*.78,.2));S(this.dw,{o:dk,s:.95+.05*dk});
+  const fw=P(t,B[1]+d1*.82,.5,back);S(this.zw,{o:1-clamp(fw*2)});S(this.fw,{o:clamp(fw*1.5),s:.6+.4*fw});
+  const fm=P(t,B[2]+1.15,.5,back);S(this.zm,{o:1-clamp(fm*2)});S(this.fm,{o:clamp(fm*1.5),s:.6+.4*fm});
+  const g=P(t,B[3],.6);[this.fw,this.fm].forEach(f=>f.firstElementChild.style.filter=`drop-shadow(0 0 ${g*30}px rgba(251,191,36,${g*.7}))`);
+  show(this.tipw,P(t,B[3]+.8,.7)*(1-P(t,E[3]-1.9,.4)),30);},
+ cursor(B,E){const d1=E[1]-B[1];return [{t:B[1]+d1*.22,at:this.zw.firstElementChild},{t:B[1]+d1*.28,at:this.zw.firstElementChild,click:1,label:'Right-click the zip file'},{t:B[1]+d1*.5,at:this.xa,fx:.3,click:1,label:'Click “Extract All…”'},{t:B[1]+d1*.72,at:this.xb,click:1,label:'Click “Extract”'},{t:B[2]+.7,at:this.zm.firstElementChild},{t:B[2]+.8,at:this.zm.firstElementChild,click:1,dbl:1,label:'Mac: double-click it'}]}};
+
+SC.netlify={build(r){
+  const b=this.b=browser('',{x:310,y:180,w:1300,h:740});r.appendChild(b);
+  b.page.innerHTML=`<div class="view v1"><div style="display:flex;align-items:center;justify-content:space-between;padding:26px 44px;border-bottom:1px solid #f1f5f9"><span style="display:flex;align-items:center;gap:12px;font:800 28px Inter;color:#0f766e"><span style="width:30px;height:30px;transform:rotate(45deg);border-radius:7px;background:#14b8a6"></span>netlify</span><span style="display:flex;gap:16px;align-items:center"><span class="btn ghost">Log in</span><span class="btn teal su">Sign up</span></span></div>
+     <div style="padding:90px 44px"><div class="barph" style="width:58%;height:46px;border-radius:14px"></div><div class="barph" style="width:44%;height:46px;border-radius:14px;margin-top:20px"></div><div class="barph" style="width:52%;margin-top:40px"></div><div class="barph" style="width:40%;margin-top:14px"></div></div></div>
+   <div class="view v2" style="opacity:0;display:grid;place-items:center;background:#f8fafc"><div class="white" style="width:560px;padding:44px;box-shadow:0 20px 60px rgba(15,23,42,.12)"><div style="font:800 34px Inter">Create your account</div><div class="muted" style="font:500 19px Inter;margin:10px 0 28px">Use your business email address</div><div class="muted" style="font:600 16px Inter;margin-bottom:8px">Email</div><div class="input em"></div><div class="btn teal sb" style="width:100%;margin-top:22px">Sign up with email</div></div></div>
+   <div class="view v3" style="opacity:0;display:grid;place-items:center"><div style="text-align:center"><div class="okc" style="width:130px;height:130px;border-radius:50%;background:#16a34a;display:grid;place-items:center;margin:0 auto">${I.check('#fff',3).replace('<svg','<svg width="74" height="74"')}</div><div style="font:800 44px Inter;margin-top:30px">Your account is ready</div><div class="muted" style="font:500 22px Inter;margin-top:10px">Registered to you · Free plan</div></div></div>`;
+  r.appendChild(this.toast=H(`<div class="white abs" style="left:1260px;top:120px;width:500px;padding:26px;display:flex;gap:20px;align-items:center;opacity:0"><div class="iconbox" style="background:#e0f2fe">${I.mail('#0284c7')}</div><div style="flex:1"><div style="font:700 22px Inter">Confirm your email</div><div class="muted" style="font:500 17px Inter;margin-top:4px">Inbox · just now</div></div><span class="btn teal cf" style="padding:12px 20px">Confirm</span></div>`));
+  ['v1','v2','v3','su','em','sb','okc'].forEach(k=>this[k]=b.querySelector('.'+k));this.cf=this.toast.querySelector('.cf');},
+ update(t,B,E){const d2=E[2]-B[2];const bk=P(t,0,.9);S(this.b,{o:bk,y:(1-bk)*60,s:.96+.04*bk});
+  typeIn(this.b.u,'netlify.com',t,B[1]-.2,12);
+  const v2=P(t,B[1]+1.5,.5),v3=P(t,B[3]+.1,.5);S(this.v1,{o:1-v2});S(this.v2,{o:v2*(1-v3)});S(this.v3,{o:v3});pop(this.okc,P(t,B[3]+.3,.6));
+  this.em.className='input em'+(t>B[2]+.2?' focus':'');typeIn(this.em,'you@yourbusiness.com.au',t,B[2]+.3,16,'you@example.com');
+  const tk=P(t,B[2]+d2*.55,.5)*(1-P(t,B[3]+.2,.4));S(this.toast,{o:tk,x:(1-tk)*80});},
+ chimes(B,E){return [B[3]+.3]},
+ cursor(B,E){const d2=E[2]-B[2];return [{t:B[1]+.5,at:this.su},{t:B[1]+1.2,at:this.su,click:1,label:'Click “Sign up”'},{t:B[2]+d2*.45,at:this.sb,click:1,label:'Type your email, click Sign up'},{t:B[2]+d2*.85,at:this.cf,click:1,label:'Open your inbox, click Confirm'}]}};
+
+SC.drop={build(r){
+  const b=this.b=browser('',{x:520,y:180,w:1260,h:740});r.appendChild(b);
+  b.page.innerHTML=`<div style="padding:34px 50px;font:800 30px Inter">Deploy manually</div><div class="muted" style="padding:0 50px;font:500 20px Inter;margin-top:-18px">Drag and drop your website folder below.</div>
+   <div class="drop dz"><div class="dzc" style="display:flex;flex-direction:column;align-items:center;gap:18px"><div class="iconbox" style="background:#e0f2fe;width:96px;height:96px">${I.upload('#0284c7').replace('<svg','<svg width="50" height="50"')}</div><div style="font:700 28px Inter">Drag and drop your folder here</div><div class="muted" style="font:500 19px Inter">The folder, not the zip file</div></div>
+     <div class="up abs" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;opacity:0"><div class="upt" style="font:700 26px Inter">Uploading…</div><div class="prog"><i></i></div></div>
+     <div class="ok abs" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0"><div class="okc" style="width:120px;height:120px;border-radius:50%;background:#16a34a;display:grid;place-items:center">${I.check('#fff',3).replace('<svg','<svg width="68" height="68"')}</div><div style="font:800 40px Inter;margin-top:24px">Published!</div><div class="lk" style="margin-top:22px;display:inline-flex;align-items:center;gap:12px;padding:14px 22px;border-radius:12px;background:#ecfeff;border:1px solid #a5f3fc;font:600 22px 'JetBrains Mono',monospace;color:#0e7490">${I.link('#0e7490').replace('<svg','<svg width="24" height="24"')}sunny-otter-4821.netlify.app</div></div></div>`;
+  r.appendChild(this.fol=H(`<div class="fileicon" style="left:120px;top:470px">${I.folder}<div class="lbl" style="margin-top:6px">yourbusiness-website</div></div>`));
+  const m=this.mini=browser('sunny-otter-4821.netlify.app',{x:1030,y:470,w:820,h:500});m.page.innerHTML=miniSite();m.style.opacity=0;r.appendChild(m);
+  ['dz','dzc','up','upt','ok','okc','lk'].forEach(k=>this[k]=b.querySelector('.'+k));this.bar=b.querySelector('.prog i');},
+ update(t,B,E,T,sc){const d1=E[1]-B[1],d2=E[2]-B[2],d4=E[4]-B[4];const bk=P(t,0,.9);S(this.b,{o:bk,y:(1-bk)*60,s:.96+.04*bk});show(this.fol,P(t,.5,.8),30);
+  typeIn(this.b.u,'app.netlify.com/drop',t,B[0]+2.0,14);
+  const g0=B[1]+d1*.45,g1=B[1]+d1*.8,dr=B[1]+d1*.86;
+  if(t>g0)this.fol.style.transform='none';const home=rect(this.fol.firstElementChild);
+  if(t>g0){const k=eio(clamp((t-g0)/(g1-g0)));const dz=rect(this.dz);const zs=this.fol.parentElement.getBoundingClientRect().width/1920||1;const tx=(dz.cx-home.cx)*k/zs,ty=(dz.cy-home.cy)*k/zs;const sk=P(t,dr,.35);
+    S(this.fol,{o:1-sk,x:tx,y:ty,s:1.05-.6*sk});this.fol.style.filter='drop-shadow(0 20px 30px rgba(0,0,0,.4))'}
+  const hov=P(t,B[1]+d1*.68,.3)*(1-P(t,B[2]+.2,.3));this.dz.style.borderColor=hov>.5?'#14b8a6':'#cbd5e1';this.dz.style.background=hov>.5?'#f0fdfa':'#f8fafc';
+  const up=P(t,B[2]-.2,.4)*(1-P(t,B[3],.3));S(this.dzc,{o:(1-P(t,dr,.3))*(1-.85*hov)});S(this.up,{o:up});this.bar.style.width=(100*clamp((t-B[2])/(d2+.2)))+'%';this.upt.textContent=t<B[2]+d2*.55?'Uploading…':'Publishing…';
+  S(this.ok,{o:P(t,B[3],.4)});pop(this.okc,P(t,B[3],.6));
+  if(t>B[3]-.1&&!this.burst){const c=rect(this.okc);bursts.push({t:sc.cs+B[3]+.15,x:c.cx,y:c.cy,seed:7});this.burst=1}
+  const mk=P(t,B[4]+d4*.68,.7);S(this.mini,{o:mk,y:(1-mk)*80,s:.92+.08*mk});},
+ chimes(B,E){return [B[3]+.1]},
+ cursor(B,E){const d1=E[1]-B[1],d4=E[4]-B[4];const self=this;const fk={get at(){return self.fol.firstElementChild}};
+  return [{t:B[1]+d1*.35,at:this.fol.firstElementChild},{t:B[1]+d1*.45,at:this.fol.firstElementChild,click:1,label:'Grab the FOLDER…'},{t:B[1]+d1*.8,at:this.dz},{t:B[1]+d1*.86,at:this.dz,click:1,label:'…and drop it in the box'},{t:B[4]+d4*.55,at:this.lk,fx:.6,click:1,label:'Click your new link'}]}};
+
+SC.domain={build(r){
+  r.innerHTML=`<div class="center ph1"><div class="eyebrow l1">Temporary address</div><div class="mono old" style="font-size:52px;color:#94a3b8;margin-top:22px">sunny-otter-4821.netlify.app</div>
+    <div class="nw" style="position:absolute;display:flex;flex-direction:column;align-items:center"><div class="eyebrow" style="color:#5eead4">Your domain</div><div class="mono grad" style="font-size:96px;font-weight:600;margin-top:18px">yourbusiness.com.au</div></div>
+    <div class="chips" style="position:absolute;top:690px;display:flex;gap:20px"><span class="chip">${I.clock('#5eead4').replace('<svg','<svg width="28" height="28"')}About $15–25 a year</span><span class="chip">${I.user('#c4b5fd').replace('<svg','<svg width="28" height="28"')}Registered in YOUR name</span></div></div>`;
+  const b=this.b=browser('',{x:310,y:150,w:1300,h:700});r.appendChild(b);
+  b.page.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;padding:24px 44px;border-bottom:1px solid #f1f5f9"><span style="font:800 28px Inter;color:#ea580c">namecheap</span><span class="crt" style="position:relative;width:44px;height:44px">${I.cart('#0f172a')}<b class="cnt" style="position:absolute;right:-8px;top:-8px;width:24px;height:24px;border-radius:50%;background:#ea580c;color:#fff;font:700 14px Inter;display:grid;place-items:center;opacity:0">1</b></span></div>
+   <div style="padding:46px 70px"><div style="font:800 36px Inter;text-align:center">Find your domain</div><div style="display:flex;gap:14px;margin-top:28px"><div class="input sq" style="flex:1"></div><span class="btn orange sbt" style="padding:0 34px">Search</span></div>
+    <div class="res" style="opacity:0;margin-top:30px;display:flex;align-items:center;gap:20px;padding:26px 30px;border:2px solid #bbf7d0;background:#f0fdf4;border-radius:16px"><span style="font:700 26px 'JetBrains Mono',monospace">yourbusiness.com.au</span><span style="padding:6px 14px;border-radius:999px;background:#16a34a;color:#fff;font:700 15px Inter">AVAILABLE</span><span style="margin-left:auto" class="btn orange atc">Add to cart</span></div>
+    <div style="text-align:right;margin-top:24px"><span class="btn dark co" style="opacity:0">Checkout</span></div></div>`;
+  r.appendChild(this.ar=H(`<div class="glass abs" style="left:560px;top:600px;width:800px;padding:30px 36px;display:flex;align-items:center;gap:26px;background:rgba(17,24,48,.92);opacity:0"><div class="iconbox" style="background:#f59e0b22;border:1px solid #f59e0b66">${I.warn('#fbbf24')}</div><div style="flex:1"><div style="font:800 30px Inter;color:#fff">Auto-renew</div><div style="font:500 20px Inter;color:#b6c3dc;margin-top:6px">Keeps your address working every year</div></div><div class="toggle"><i></i></div></div>`));
+  r.appendChild(this.ch2=H(`<div class="abs" style="left:0;right:0;top:820px;display:flex;justify-content:center;gap:20px;opacity:0"><span class="chip">.com.au names need an ABN</span><span class="chip">Already own one? Just log in where you bought it</span></div>`));
+  ['ph1','l1','old','nw','chips'].forEach(k=>this[k]=r.querySelector('.'+k));['sq','sbt','res','atc','co','cnt'].forEach(k=>this[k]=b.querySelector('.'+k));this.tg=this.ar.querySelector('.toggle');this.ti=this.tg.firstElementChild;},
+ update(t,B,E){const d0=E[0]-B[0],d2=E[2]-B[2],d3=E[3]-B[3];
+  const out=P(t,B[2]-.3,.7);S(this.ph1,{o:P(t,0,.6)*(1-out),y:-80*out});
+  const sw=P(t,B[0]+d0*.42,.8,eio);S(this.l1,{o:1-sw});S(this.old,{o:1-sw*.85,y:-140*sw,s:1-.25*sw});this.old.style.textDecoration=sw>.3?'line-through':'none';
+  S(this.nw,{o:sw,y:(1-sw)*60+30,s:.9+.1*sw});show(this.chips,P(t,B[1]+.4,.7),30);
+  const bk=P(t,B[2]-.1,.9);S(this.b,{o:bk,y:(1-bk)*60,s:.96+.04*bk});
+  typeIn(this.b.u,'namecheap.com',t,B[2]+.3,14);this.sq.className='input sq'+(t>B[2]+1.3?' focus':'');typeIn(this.sq,'yourbusiness.com.au',t,B[2]+1.4,14,'Find your perfect domain');
+  show(this.res,P(t,B[2]+d2*.45,.5),20);const inc=t>B[2]+d2*.72;this.atc.textContent=inc?'In cart ✓':'Add to cart';this.atc.style.background=inc?'#16a34a':'#ea580c';pop(this.cnt,P(t,B[2]+d2*.72,.4));
+  show(this.co,P(t,B[2]+d2*.78,.4),10);
+  const ak=P(t,B[3],.6)*(1-P(t,B[4]+.2,.5)*0);show(this.ar,ak,40);const on=P(t,B[3]+d3*.38,.35,eio);this.ti.style.transform=`translateX(${on*44}px)`;this.tg.style.background=on>.5?'#16a34a':'#475569';
+  this.ar.style.boxShadow=`0 30px 80px rgba(0,0,0,.4),0 0 0 ${3+3*Math.sin(t*5)*(1-on)}px rgba(251,191,36,${.5*(1-on)}),0 0 0 3px rgba(34,197,94,${on*.6})`;
+  S(this.b,{o:bk,y:(1-bk)*60,s:.96+.04*bk});{const dm=P(t,B[3],.6);this.b.style.filter=dm>.01?`brightness(${1-.5*dm}) blur(${2*dm}px)`:'none'}
+  const ck=P(t,B[4]+.2,.7);show(this.ch2,ck,30);S(this.ar,{o:ak*(1-ck),y:-70*ck});},
+ cursor(B,E){const d2=E[2]-B[2],d3=E[3]-B[3];return [{t:B[2]+d2*.38,at:this.sbt,click:1,label:'Type your name, click Search'},{t:B[2]+d2*.72,at:this.atc,click:1,label:'Click “Add to cart”'},{t:B[2]+d2*.92,at:this.co,click:1,label:'Click “Checkout”'},{t:B[3]+d3*.38,at:this.tg,click:1,label:'Turn auto-renew ON'}]}};
+
+SC.connect={build(r){
+  const N=this.N=browser('',{x:310,y:160,w:1300,h:760});r.appendChild(N);
+  N.page.innerHTML=`<div class="side"><div style="font:800 22px Inter;color:#0f766e;padding:6px 16px 22px">sunny-otter-4821</div><div>Project overview</div><div>Deploys</div><div class="dm">Domain management</div><div>Site configuration</div></div>
+   <div class="abs mv" style="left:290px;right:0;top:0;bottom:0;padding:40px 50px">
+    <div class="w0"><div class="barph" style="width:40%;height:34px"></div><div class="barph" style="width:70%;margin-top:30px"></div><div class="barph" style="width:60%;margin-top:14px"></div></div>
+    <div class="w1 abs" style="inset:40px 50px;opacity:0"><div style="font:800 34px Inter">Domain management</div><div style="margin-top:24px;padding:24px;border:1px solid #e2e8f0;border-radius:16px"><div class="muted" style="font:700 15px Inter;letter-spacing:.1em">PRODUCTION DOMAINS</div><div class="mono" style="font-size:21px;margin:14px 0 20px">sunny-otter-4821.netlify.app</div><span class="btn teal ad">Add a domain</span>
+      <div class="f1" style="opacity:0;margin-top:22px;display:flex;gap:14px"><div class="input dmi" style="flex:1"></div><span class="btn teal vf">Verify</span></div>
+      <div class="f2" style="opacity:0;margin-top:18px;display:flex;align-items:center;gap:16px"><span class="muted" style="font:500 19px Inter;flex:1">yourbusiness.com.au is registered. Is this your domain?</span><span class="btn teal add2">Add domain</span></div></div></div>
+    <div class="w2 abs" style="inset:40px 50px;opacity:0"><div style="font:800 34px Inter">Set up Netlify DNS</div><div class="cnt1" style="position:absolute;top:70px"><div class="muted" style="font:500 20px Inter">Let Netlify manage your domain.</div><span class="btn teal ct" style="margin-top:20px">Continue</span></div>
+      <div class="nsl" style="opacity:0;margin-top:30px"><div class="muted" style="font:700 15px Inter;letter-spacing:.1em;margin-bottom:6px">YOUR 4 NAMESERVERS</div>${[1,2,3,4].map(i=>`<div class="ns n${i}"><span>dns${i}.p01.nsone.net</span>${I.copy('#64748b').replace('<svg','<svg width="22" height="22"')}</div>`).join('')}
+      <div class="keep" style="margin-top:16px;display:inline-flex;gap:10px;align-items:center;padding:10px 18px;border-radius:999px;background:#fef3c7;color:#92400e;font:700 17px Inter;opacity:0">Keep this page open</div></div></div></div>`;
+  const R=this.R=browser('namecheap.com',{x:1040,y:190,w:820,h:640});R.style.opacity=0;r.appendChild(R);
+  R.page.innerHTML=`<div style="padding:22px 34px;border-bottom:1px solid #f1f5f9;font:800 24px Inter;color:#ea580c">namecheap</div>
+   <div class="r1 abs" style="top:80px;left:34px;right:34px"><div style="font:800 30px Inter">Domain List</div><div style="margin-top:22px;display:flex;align-items:center;padding:20px 22px;border:1px solid #e2e8f0;border-radius:14px"><span class="mono" style="font-size:21px;flex:1">yourbusiness.com.au</span><span class="btn ghost mg" style="border:2px solid #ea580c;color:#ea580c">Manage</span></div></div>
+   <div class="r2 abs" style="top:80px;left:34px;right:34px;opacity:0"><div class="muted" style="font:700 15px Inter;letter-spacing:.1em">NAMESERVERS</div><div class="dd" style="margin-top:12px;position:relative"><div class="input ddv" style="justify-content:space-between">Namecheap BasicDNS<span>▾</span></div>
+      <div class="ddl" style="position:absolute;left:0;right:0;top:66px;background:#fff;border-radius:12px;box-shadow:0 20px 40px rgba(15,23,42,.18);padding:8px;z-index:3;opacity:0;font:500 20px Inter"><div style="padding:12px 14px">Namecheap BasicDNS</div><div style="padding:12px 14px">Namecheap Web Hosting DNS</div><div class="cdns" style="padding:12px 14px;border-radius:8px">Custom DNS</div></div></div>
+      <div class="ins" style="opacity:0">${[1,2,3,4].map(i=>`<div class="input i${i}" style="height:50px;margin-top:10px;font:600 19px 'JetBrains Mono',monospace"></div>`).join('')}<div style="display:flex;align-items:center;gap:16px;margin-top:16px"><span class="btn green tick" style="padding:12px 20px">${I.check('#fff',3).replace('<svg','<svg width="26" height="26"')}</span><span class="saved" style="font:700 19px Inter;color:#16a34a;opacity:0">Changes saved</span></div></div></div>`;
+  for(let i=1;i<=4;i++)stage.appendChild(this['fl'+i]=H(`<div class="fly">dns${i}.p01.nsone.net</div>`));
+  r.appendChild(this.ch=H(`<div class="abs" style="left:0;right:0;top:860px;display:flex;justify-content:center;opacity:0"><span class="chip">GoDaddy, Cloudflare and others: look for “Nameservers”</span></div>`));
+  ['dm','w0','w1','w2','ad','f1','dmi','vf','f2','add2','cnt1','ct','nsl','keep'].forEach(k=>this[k]=N.querySelector('.'+k));for(let i=1;i<=4;i++)this['n'+i]=N.querySelector('.n'+i);
+  ['r1','r2','mg','ddv','ddl','cdns','ins','tick','saved'].forEach(k=>this[k]=R.querySelector('.'+k));for(let i=1;i<=4;i++)this['i'+i]=R.querySelector('.i'+i);},
+ update(t,B,E){const D=i=>E[i]-B[i];const d0=D(0),d1=D(1),d2=D(2),d3=D(3),d4=D(4),d5=D(5);
+  const bk=P(t,0,.9);const sh=P(t,B[3]-.2,1.1,eio);
+  this.N.style.opacity=bk;this.N.style.transform=`translate(${-220*sh}px,${(1-bk)*60+70*sh}px) scale(${(.96+.04*bk)*(1-.4*sh)})`;
+  const rk=P(t,B[3]+.3,.9);S(this.R,{o:rk,x:(1-rk)*120});
+  typeIn(this.N.u,'app.netlify.com/projects/sunny-otter-4821',t,.6,22);
+  const c0=B[0]+d0*.72;this.dm.className=t>c0?'on dm':'dm';const w1=P(t,c0+.1,.4),w2=P(t,B[2]+.1,.4);S(this.w0,{o:1-w1});S(this.w1,{o:w1*(1-w2)});S(this.w2,{o:w2});
+  show(this.f1,P(t,B[1]+.95,.4),12);this.dmi.className='input dmi'+(t>B[1]+1.2?' focus':'');typeIn(this.dmi,'yourbusiness.com.au',t,B[1]+1.4,14,'yourdomain.com');
+  show(this.f2,P(t,B[1]+d1*.7,.4),12);
+  const nsk=P(t,B[2]+d2*.55,.4);S(this.cnt1,{o:1-nsk});S(this.nsl,{o:nsk});[1,2,3,4].forEach(i=>show(this['n'+i],P(t,B[2]+d2*(.55+.07*i),.4),14));pop(this.keep,P(t,B[2]+d2*.88,.5));
+  const r2=P(t,B[3]+d3*.78,.4);S(this.r1,{o:1-r2});S(this.r2,{o:r2});
+  const op=P(t,B[4]+.9,.25)*(1-P(t,B[4]+d4*.72,.25));S(this.ddl,{o:op,y:(1-op)*-8});this.cdns.style.background=t>B[4]+d4*.55?'#ffedd5':'transparent';
+  this.ddv.firstChild.textContent=t>B[4]+d4*.72?'Custom DNS':'Namecheap BasicDNS';show(this.ins,P(t,B[4]+d4*.78,.4),10);
+  [1,2,3,4].forEach(i=>{const s0=B[5]+d5*(.05+.15*(i-1)),s1=s0+d5*.12;const fl=this['fl'+i];
+    if(t<s0-.2||t>s1+.25){fl.style.opacity=0}else{const a=rect(this['n'+i]),b=rect(this['i'+i]);const k=eio(clamp((t-s0)/(s1-s0)));fl.style.left=lerp(a.x+10,b.x+10,k)+'px';fl.style.top=lerp(a.y+6,b.y+8,k)+'px';fl.style.opacity=clamp((t-s0+.2)/.2)*clamp((s1+.25-t)/.25);fl.style.transform=`scale(${1+.08*Math.sin(k*Math.PI)})`}
+    this['i'+i].textContent=t>s1?`dns${i}.p01.nsone.net`:'';});
+  show(this.saved,P(t,B[5]+d5*.86,.4),6);show(this.ch,P(t,B[6]+.1,.6),30);},
+ chimes(B,E){return [B[5]+(E[5]-B[5])*.86]},
+ cursor(B,E){const D=i=>E[i]-B[i];return [{t:B[0]+D(0)*.72,at:this.dm,fx:.4,click:1,label:'Click “Domain management”'},{t:B[1]+.9,at:this.ad,click:1,label:'Click “Add a domain”'},{t:B[1]+D(1)*.62,at:this.vf,click:1,label:'Type your domain, click Verify'},{t:B[1]+D(1)*.9,at:this.add2,click:1,label:'Click “Add domain”'},
+   {t:B[2]+D(2)*.32,at:this.ct,click:1,label:'Choose Netlify DNS, click Continue'},{t:B[2]+D(2)*.45,at:this.ct,click:1},{t:B[3]+D(3)*.72,at:this.mg,click:1,label:'Domain List → click “Manage”'},{t:B[4]+.85,at:this.ddv,fx:.85,click:1,label:'Open the Nameservers menu'},{t:B[4]+D(4)*.65,at:this.cdns,fx:.3,click:1,label:'Choose “Custom DNS”'},{t:B[5]+D(5)*.82,at:this.tick,click:1,label:'Paste all 4, click ✓ to save'}]}};
+
+SC.live={chimes(B,E){return [B[0]+(E[0]-B[0])*.82,B[1]+.1,B[2]+(E[2]-B[2])*.62]},build(r){
+  r.innerHTML=`<div class="center s1"><div class="glass" style="width:980px;padding:46px 54px"><div style="display:flex;align-items:center;justify-content:space-between"><span class="mono" style="font-size:40px;color:#fff">yourbusiness.com.au</span><span class="stp" style="display:inline-flex;align-items:center;gap:12px;padding:12px 22px;border-radius:999px;font:700 22px Inter"></span></div>
+    <div style="margin-top:44px;height:14px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden"><i class="pb" style="display:block;height:100%;width:0;background:var(--grad)"></i></div>
+    <div style="display:flex;justify-content:space-between;margin-top:16px;font:600 21px Inter;color:#8fa3c7"><span>A few minutes</span><span>A few hours</span><span>Up to 24 hours</span></div></div></div>
+   <div class="center s2" style="opacity:0"><div class="lk" style="width:220px;height:220px;border-radius:60px;background:linear-gradient(135deg,#14b8a6,#3b82f6);display:grid;place-items:center;box-shadow:0 0 120px rgba(45,212,191,.5)">${I.lock('#fff').replace('<svg','<svg width="120" height="120"')}</div><div class="pill" style="margin-top:44px;font-size:28px">${I.check('#5eead4').replace('<svg','<svg width="30" height="30"')}Security padlock added automatically</div></div>
+   <div class="ownt abs h2" style="left:0;right:0;top:330px;text-align:center;opacity:0">It's all <span class="grad">yours</span></div><div class="own3 abs" style="left:0;right:0;top:500px;display:flex;justify-content:center;gap:30px"></div>`;
+  const b=this.b=browser('',{x:360,y:150,w:1200,h:680});b.page.innerHTML=miniSite();b.style.opacity=0;r.appendChild(b);
+  b.ic.innerHTML=I.lock('#16a34a');
+  const o=r.querySelector('.own3');[['Your website',I.globe('#5eead4'),'#14b8a6'],['Your hosting',I.server('#93c5fd'),'#3b82f6'],['Your domain',I.link('#c4b5fd'),'#8b5cf6']].forEach(([n,ic,c])=>o.appendChild(H(`<div class="glass own" style="width:360px;padding:30px"><div style="display:flex;align-items:center;gap:18px"><div class="iconbox" style="background:${c}22;border:1px solid ${c}66;width:64px;height:64px">${ic}</div><div style="text-align:left"><div style="font:800 28px Inter;color:#fff">${n}</div><div style="font:600 19px Inter;color:#5eead4;margin-top:4px;display:flex;gap:8px;align-items:center">${I.check('#5eead4').replace('<svg','<svg width="20" height="20"')}In your name</div></div></div></div>`)));
+  ['s1','s2','stp','pb','lk','ownt'].forEach(k=>this[k]=r.querySelector('.'+k));this.own=[...o.children];},
+ update(t,B,E,T,sc){const d0=E[0]-B[0],d2=E[2]-B[2];
+  const o1=P(t,B[1]-.2,.6);S(this.s1,{o:P(t,0,.7)*(1-o1),y:-60*o1});
+  const ready=t>B[0]+d0*.82;this.stp.innerHTML=ready?I.check('#06231f').replace('<svg','<svg width="24" height="24"')+'Ready':`<span style="width:20px;height:20px;border-radius:50%;border:3px solid #fbbf24;border-top-color:transparent;display:inline-block;transform:rotate(${t*360}deg)"></span>Connecting…`;
+  this.stp.style.background=ready?'#5eead4':'rgba(251,191,36,.15)';this.stp.style.color=ready?'#06231f':'#fde68a';this.pb.style.width=(100*eio(clamp((t-B[0]-.5)/(d0*.75))))+'%';
+  const o2=P(t,B[2]-.2,.6);S(this.s2,{o:P(t,B[1],.6)*(1-o2)});pop(this.lk,P(t,B[1]+.1,.7));
+  const bk=P(t,B[2],.9),sh=P(t,B[3]-.2,.8,eio);this.b.style.opacity=bk*(1-sh);this.b.style.transform=`translate(${60*sh}px,${(1-bk)*60-40*sh}px) scale(${(.96+.04*bk)*(1-.08*sh)})`;this.b.style.filter=sh>.02?`blur(${8*sh}px)`:'none';show(this.ownt,P(t,B[3]+.1,.7),30);
+  typeIn(this.b.u,'https://yourbusiness.com.au',t,B[2]+.5,20);
+  if(t>B[2]+d2*.5&&!this.burst){bursts.push({t:sc.cs+B[2]+d2*.62,x:960,y:520,seed:11},{t:sc.cs+B[2]+d2*.66,x:560,y:600,seed:23},{t:sc.cs+B[2]+d2*.7,x:1360,y:600,seed:31});this.burst=1}
+  this.own.forEach((c,i)=>show(c,P(t,B[3]+.3+i*.45,.6),50));}};
+
+SC.outro={chimes(B,E){return [0,1,2,3,4].map(i=>1.4+i*.75)},build(r){
+  r.innerHTML=`<div class="center"><div class="h2 tt"><span class="grad">You're all set</span></div><div class="glass ck" style="width:1000px;margin-top:40px;padding:20px 50px"><ul class="check">${['Website file unzipped','Free Netlify account, folder dragged in','Domain bought in your name, auto-renew on','4 nameservers pasted at your domain company','Waited up to 24 hours, and you\'re live'].map(s=>`<li><span class="cb">${I.check('#06231f',3.4)}</span>${s}</li>`).join('')}</ul></div>
+   <div class="ft" style="margin-top:34px;font:600 24px Inter;color:#8fa3c7">Keep your <span style="color:#c4b5fd">code</span> file safe for the future.</div></div>`;
+  this.tt=r.querySelector('.tt');this.ck=r.querySelector('.ck');this.ft=r.querySelector('.ft');this.cbs=[...r.querySelectorAll('.cb')];},
+ update(t,B,E){show(this.tt,P(t,0,.8),30);show(this.ck,P(t,.3,.9),40);
+  this.cbs.forEach((c,i)=>{const k=P(t,1.4+i*.75,.35);c.style.background=k>.5?'#5eead4':'transparent';c.style.borderColor=k>.5?'#5eead4':'rgba(255,255,255,.25)';c.firstElementChild.style.opacity=k;c.style.transform=`scale(${1+.18*Math.sin(k*Math.PI)})`});
+  show(this.ft,P(t,5.4,.8),20);}};
+
+// ---------- engine ----------
+const TL=window.TL;const root=document.getElementById('scenes');
+TL.scenes.forEach(sc=>{sc.el=H('<div class="scene"></div>');root.appendChild(sc.el);sc.m=Object.create(SC[sc.id]);sc.m.build(sc.el,sc);sc.cs=sc.start+(sc.card||0);
+  sc.B=sc.beats.map(b=>b.start-(sc.card||0));sc.E=sc.beats.map(b=>b.end-(sc.card||0));sc.D=sc.dur-(sc.card||0)});
+const orbs=[...document.querySelectorAll('.orb')],rbs=[...document.querySelectorAll('.ringbg')];
+const spot=document.getElementById('spot'),co=document.getElementById('co'),coN=co.querySelector('b'),coT=co.querySelector('.tx');
+const ckp=document.getElementById('ckp'),ckT=ckp.querySelector('.tx');ckp.querySelector('.ci').innerHTML=I.check('#16a34a',3.2).replace('<svg','<svg width="30" height="30"');
+const ss=x=>x*x*(3-2*x);
+function rawCursor(t,keys){ // cursor point with the camera off (no DOM writes)
+  let i=0;while(i<keys.length-1&&keys[i+1].t<=t)i++;let p=at(keys[i]);
+  if(i<keys.length-1){const n=keys[i+1],mv=Math.min(1.0,n.t-keys[i].t),ms=n.t-mv;if(t>ms){const q=at(n);const k=eio(clamp((t-ms)/mv));p=[lerp(p[0],q[0],k),lerp(p[1],q[1],k)]}}
+  return p}
+function zoomW(t,keys){let w=0;for(const k of keys){if(!k.label)continue;const a=ss(clamp((t-(k.t-1.1))/.7)),b=1-ss(clamp((t-(k.t+1.0))/.7));w=Math.max(w,Math.min(a,b))}return w}
+function cardWords(txt){return txt.split(' ').map(w=>`<span>${w}</span>`).join('')}
+let lastCardId=null;
+window.render=function(T){
+  orbs[0].style.transform=`translate(${-200+Math.sin(T*.16)*260}px,${-160+Math.cos(T*.13)*170}px)`;
+  orbs[1].style.transform=`translate(${1200+Math.cos(T*.11)*280}px,${380+Math.sin(T*.14)*190}px)`;
+  orbs[2].style.transform=`translate(${500+Math.sin(T*.09+2)*340}px,${620+Math.cos(T*.12)*150}px)`;
+  rbs[0].style.transform=`translate(${-300+Math.sin(T*.05)*60}px,${-500}px) rotate(${T*4}deg)`;rbs[1].style.transform=`translate(${1350}px,${520+Math.cos(T*.07)*50}px)`;
+  let sc=TL.scenes.find(s=>T>=s.start&&T<s.start+s.dur)||TL.scenes[TL.scenes.length-1];
+  TL.scenes.forEach(s=>{if(s!==sc)s.el.style.opacity=0});
+  const lt=T-sc.start,t=T-sc.cs,card0=sc.card||0;
+  const inK=card0?P(lt,card0-.45,.6):P(lt,0,.7);const outK=P(lt,sc.dur-.5,.5,x=>x);
+  sc.el.style.opacity=inK*(1-outK);sc.el.style.filter=(1-inK)>.02?`blur(${(1-inK)*10}px)`:'none';
+  if(sc.id==='outro'){sc.el.style.opacity=inK*(1-P(lt,sc.dur-1.2,1.2,x=>x))}
+  // slow push-in on every scene + camera that follows the action
+  const s0=(1.03-.03*inK)*(1+.025*clamp(t/Math.max(sc.D,1)));
+  const entry=`translate(960px,540px) scale(${s0}) translate(-960px,-540px)`;
+  sc.el.style.transformOrigin='0 0';sc.el.style.transform=entry;
+  const keys=sc.m.cursor?sc.m.cursor(sc.B,sc.E):[];
+  let w=0,cp=[960,540];
+  if(keys.length){sc.m.update(t,sc.B,sc.E,T,sc);cp=rawCursor(t,keys);w=eio(zoomW(t,keys))}
+  const z=1+.3*w,Tx=(960-cp[0])*.45*w,Ty=(540-cp[1])*.45*w;
+  sc.el.style.transform=`translate(${Tx+cp[0]}px,${Ty+cp[1]}px) scale(${z}) translate(${-cp[0]}px,${-cp[1]}px) `+entry;
+  document.querySelectorAll('.ring,.fly').forEach(e=>e.style.opacity=0);
+  sc.m.update(t,sc.B,sc.E,T,sc);
+  // chapter card
+  if(card0&&lt<card0){const a=P(lt,0,.5,eio),zz=P(lt,card0-.55,.5,eio);card.style.clipPath=`inset(0 ${100-100*a}% 0 ${100*zz}%)`;
+    if(lastCardId!==sc.id){lastCardId=sc.id;card.querySelector('.eyebrow').textContent=sc.chapter?`Step ${sc.chapter} of 6`:'Before we start';
+      const num=card.querySelector('.num');num.textContent=sc.chapter?String(sc.chapter).padStart(2,'0'):'';num.style.display=sc.chapter?'block':'none';
+      card.querySelector('.ttl').innerHTML=cardWords(sc.title);card.querySelector('.mt').textContent=sc.chapter?`${sc.beats.length} quick actions`:'30 seconds';}
+    const num=card.querySelector('.num'),nk=P(lt,.15,.7);S(num,{o:nk,s:1.25-.25*nk,y:(1-nk)*40,b:(1-nk)*14});
+    [...card.querySelectorAll('.ttl span')].forEach((e,i)=>{const k=P(lt,.32+i*.07,.55);S(e,{o:k,y:(1-k)*50})});
+    S(card.querySelector('.eyebrow'),{o:P(lt,.12,.5),x:(1-P(lt,.12,.5))*-40});S(card.querySelector('.meta'),{o:P(lt,.7,.5),x:(1-P(lt,.7,.5))*-30});
+    const bx=lerp(-400,2300,eio(clamp(lt/.75))),bx2=lerp(-400,2300,eio(clamp((lt-(card0-.6))/.7)));
+    const b1=card.querySelector('.b1'),b2=card.querySelector('.b2');const bb=lt<card0-.65?bx:bx2;b1.style.left=bb+'px';b2.style.left=(bb-200)+'px';
+  }else card.style.clipPath='inset(0 100% 0 0)';
+  // stepper
+  const sv=sc.chapter!==undefined&&!(card0&&lt<card0-.2);stepper.style.opacity=sv?P(lt,card0,.6):0;
+  [...stepper.children].forEach((e,i)=>{e.className='st'+(i+1===sc.chapter?' on':i+1<sc.chapter?' done':'');if(i+1<sc.chapter)e.firstElementChild.innerHTML=I.check('#06231f',3.4).replace('<svg','<svg width="16" height="16"');else e.firstElementChild.textContent=i+1});
+  // caption → checkpoint
+  const ckStart=sc.check?sc.E[sc.E.length-1]-1.4:1e9;const ckK=P(t,ckStart,.5,back)*(1-P(lt,sc.dur-.5,.4));
+  if(sc.caption){capT.textContent=sc.caption;const ck=P(t,.6,.6)*(1-P(lt,sc.dur-.7,.5))*(1-P(t,ckStart-.3,.3));cap.style.opacity=ck;cap.style.transform=`translate(-50%,${(1-ck)*30}px)`}else cap.style.opacity=0;
+  if(sc.check){ckT.textContent=sc.check;ckp.style.opacity=clamp(ckK*1.5);ckp.style.transform=`translate(-50%,${(1-ckK)*40}px) scale(${.85+.15*ckK})`}else ckp.style.opacity=0;
+  // cursor, spotlight, DO THIS callout
+  if(keys.length){cursorUpdate(t,keys,sc.D-.6);
+    const r=cur.getBoundingClientRect();const cx=r.left,cy=r.top;
+    spot.style.opacity=w*.7;spot.style.background=`radial-gradient(circle at ${cx}px ${cy}px, rgba(0,0,0,0) 230px, rgba(4,7,18,.42) 560px)`;stepper.style.opacity=parseFloat(stepper.style.opacity||0)*(1-.8*w);
+    const lab=keys.filter(k=>k.label);let act=null;for(const k of lab){if(t>=k.t-1.0&&t<k.t+1.3)act=k}
+    if(act){const n=lab.indexOf(act)+1,k=P(t,act.t-1.0,.4,back)*(1-P(t,act.t+1.0,.3));coN.textContent=n;coT.textContent=act.label;
+      const cw=co.offsetWidth;let x=cx+46,y=cy+34;if(x+cw>1880)x=cx-cw-30;if(y>860)y=cy-90;
+      co.style.opacity=clamp(k*1.4);co.style.transform=`translate(${x}px,${y}px) scale(${.7+.3*k})`}else co.style.opacity=0;
+  }else{cur.style.opacity=0;spot.style.opacity=0;co.style.opacity=0}
+  confetti(T);
+};
+// sound-effect cue list for the mixer
+window.sfxEvents=function(){const ev=[];for(const sc of TL.scenes){const card0=sc.card||0;
+  ev.push({t:sc.start+(card0?0.02:0),type:card0?'whoosh':'soft'});if(card0)ev.push({t:sc.start+card0-.55,type:'whoosh2'});
+  const keys=sc.m.cursor?sc.m.cursor(sc.B,sc.E):[];for(const k of keys){if(k.label)ev.push({t:sc.cs+k.t-1.0,type:'pop'});if(k.click){ev.push({t:sc.cs+k.t,type:'click'});if(k.dbl)ev.push({t:sc.cs+k.t+.22,type:'click'})}}
+  if(sc.m.chimes)for(const c of sc.m.chimes(sc.B,sc.E))ev.push({t:sc.cs+c,type:sc.id==='outro'?'tick':'chime'});
+  if(sc.check)ev.push({t:sc.cs+sc.E[sc.E.length-1]-1.4,type:'ding'});}
+  return ev.sort((a,b)=>a.t-b.t)};
+window.ready=Promise.allSettled([...['400','500','600','700','800'].map(w=>document.fonts.load(`${w} 40px Inter`)),document.fonts.load("500 40px 'JetBrains Mono'")]).then(()=>document.fonts.ready);
+</script></body></html>

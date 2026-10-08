@@ -1,0 +1,56 @@
+[
+  {"id": "intro", "beats": [
+    "Congratulations! Your new website is ready, and it's one hundred percent yours.",
+    "In this video, we'll put it online together. It takes about ten minutes, it's free, and you don't need any tech skills.",
+    "There are four simple steps. Unzip your website. Put it on Netlify. Get your own web address. And connect the two."
+  ]},
+  {"id": "files", "chapter": 0, "title": "Your two files", "caption": "Use the “website” file · Keep the “code” file as a backup", "check": "You've found both files in your email", "beats": [
+    "First, open the email with your website. It has two files attached.",
+    "The one ending in website, is your website. That's the one we'll use today.",
+    "The one ending in code, is your backup. Save it somewhere safe, like Google Drive. If you ever hire someone to change your site, give them that file."
+  ]},
+  {"id": "unzip", "chapter": 1, "title": "Unzip your website", "caption": "Windows: right-click → Extract All   ·   Mac: double-click", "check": "You see a yellow folder called yourbusiness-website", "beats": [
+    "Your website arrives zipped up, like a parcel. Let's open it.",
+    "On Windows, right-click the website file. Click Extract All. Then click Extract.",
+    "On a Mac, just double-click it.",
+    "Now you'll see a normal folder with the same name. That folder is your website."
+  ]},
+  {"id": "netlify", "chapter": 2, "title": "Create your free Netlify account", "caption": "netlify.com  →  Sign up  →  use your business email", "check": "You're logged in to your own Netlify account", "beats": [
+    "Next, your website needs a home on the internet. We'll use Netlify. It hosts millions of websites, and it's free for a site like yours.",
+    "Go to netlify dot com, and click Sign up.",
+    "Type in your business email, and click Sign up. Then open your inbox, and click Confirm.",
+    "If it asks a few questions, answer them, or skip. That's it. The account is yours, in your name."
+  ]},
+  {"id": "drop", "chapter": 3, "title": "Put your website online", "caption": "app.netlify.com/drop  →  drag in your FOLDER", "check": "Your link ending in .netlify.app opens your website", "beats": [
+    "Now the fun part. While you're logged in, go to app dot netlify dot com, slash drop.",
+    "You'll see a box that says drag and drop. Grab the folder you unzipped. The folder, not the zip file. And drop it in the box.",
+    "Wait a few seconds.",
+    "And that's it. Your website is live on the internet!",
+    "Netlify gives it a temporary address, ending in netlify dot app. Click it to have a look."
+  ]},
+  {"id": "domain", "chapter": 4, "title": "Get your own web address", "caption": "Buy it in YOUR name  ·  Turn ON auto-renew", "check": "Domain bought in your name, with auto-renew ON", "beats": [
+    "Right now your site has a temporary address. Let's give it your own, like your business dot com dot au. This is called a domain.",
+    "It costs around fifteen to twenty five dollars a year. You buy it in your own name, so it's yours.",
+    "We'll use Namecheap. GoDaddy and Cloudflare work the same way. Type the name you want, and click Search. If it's available, click Add to cart, then Checkout.",
+    "Important. Turn auto-renew on. If a domain isn't renewed, your address stops working.",
+    "Australian dot com dot au names need an A B N, so have yours ready. Already own a domain? Just log in to where you bought it."
+  ]},
+  {"id": "connect", "chapter": 5, "title": "Connect your domain", "caption": "Copy 4 nameservers from Netlify  →  paste into “Custom DNS”", "check": "4 nameservers saved at your domain company", "beats": [
+    "Now let's point your new address at your website. In Netlify, open your site, and click Domain management.",
+    "Click Add a domain. Type your domain exactly as you bought it. Click Verify, then Add domain.",
+    "Netlify offers to manage your domain. Choose Netlify D N S, and click Continue until you see four nameservers. Keep this page open.",
+    "Now, in a new tab, open Namecheap. Go to Domain List, and click Manage next to your domain.",
+    "Find Nameservers, and change it to Custom D N S.",
+    "Copy each of the four nameservers from Netlify, and paste them in, one per line. Then click the green tick to save.",
+    "Using GoDaddy or Cloudflare? Look for the same word. Nameservers."
+  ]},
+  {"id": "live", "chapter": 6, "title": "You're live", "caption": "Can take up to 24 hours  ·  The padlock appears by itself", "beats": [
+    "That's everything! Now the internet needs a little time to catch up. Usually a few minutes to a few hours, sometimes up to a day. That's completely normal.",
+    "Netlify adds the security padlock all by itself, once your domain is connected.",
+    "When you type in your address and your website appears, you're live!",
+    "Your website, your hosting, and your domain are all in your name. Congratulations, and thank you for your business!"
+  ]},
+  {"id": "outro", "beats": [
+    "Here's your checklist."
+  ], "hold": 7}
+]
