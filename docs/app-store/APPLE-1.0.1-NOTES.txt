@@ -5,7 +5,7 @@ describes Kai (section 4), an optional assistant in the workspace.
 1. HOW TO REVIEW
 Open the app. The first screen is "Sign in to Kairo".
   Email:     demo@kairobookings.com
-  Password:  <DEMO PASSWORD>
+  Password:  as entered under Sign-In Information above
 Tap Sign in. The app opens the demo business (Luxe Hair Studio) and remembers
 it; later launches go straight in. Notifications are asked for after sign-in.
 

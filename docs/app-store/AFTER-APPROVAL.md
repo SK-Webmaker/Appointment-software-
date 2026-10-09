@@ -13,19 +13,18 @@ it is your Apple account, your money, or your name.
 Build **1.0.1 (21)** is already uploaded. Apple emails when it has finished
 processing (usually under 30 minutes).
 
-1. **Change the demo password first.** Sign in at demo.kairobookings.com as
-   `demo@kairobookings.com` → **Account** → change password. The old one has
-   been written down in too many places. Keep the new one to yourself and App
-   Store Connect only.
-2. App Store Connect → **Kairo** → the **+** next to *iOS App* → **1.0.1**.
-3. **What's New in This Version:** `Small improvements.`
-4. **Build:** pick **1.0.1 (21)**.
-5. **Copyright:** `2026 Kairo` (this is the one line on the listing that can
+1. App Store Connect → **Kairo** → the **+** next to *iOS App* → **1.0.1**.
+2. **What's New in This Version:** `Small improvements.`
+3. **Build:** pick **1.0.1 (21)**.
+4. **Copyright:** `2026 Kairo` (this is the one line on the listing that can
    stop showing your name today — see §2).
-6. **App Review Information** → *Sign-in required*: `demo@kairobookings.com` and
-   the **new** password. **Notes:** paste `APPLE-1.0.1-NOTES.txt`, with the new
-   password where it says `<DEMO PASSWORD>`. It is 3,920 characters; the limit
-   is 4,000.
+5. **App Review Information** → *Sign-in required*: leave the demo email and
+   password exactly as they are (they carry over from 1.0). **Notes:** replace
+   what is there with `APPLE-1.0.1-NOTES.txt`, pasted as it is — it points
+   Apple at the sign-in fields, so no password needs typing. Under 4,000
+   characters.
+6. The demo password stays as it is, by the owner's decision (8 October). The
+   demo holds only sample data; if anyone ever closes it, it can be reopened.
 7. **App Privacy** — nothing to change. Kai only handles data types already
    declared (contact info, user content) for App Functionality, and Anthropic
    is a service provider, not tracking.
@@ -107,6 +106,11 @@ day per salon, about 1–3 US cents a message.
 > Kairo
 
 ## 4. Small things
+
+- **Refund window: 14 days from payment** (owner's decision, 9 October). The
+  signup page, the platform's refund policy and the automatic refund already
+  say 14. The website's `/legal/refunds` still says 30 days after going live
+  and must be changed to match — it needs website access (see below).
 
 - **The demo's "close account" from the recording** left a *purge* task in the
   platform's operator queue. Close it **without** deleting anything — the demo
