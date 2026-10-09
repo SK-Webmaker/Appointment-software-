@@ -34,14 +34,16 @@ before, from the website to a refund, with real money (A$5).
 
 ## B. Set it up as the owner (10 min)
 
-6. Go to **login.kairobookings.com** and sign in. Go through the setup steps:
-   - business type
-   - details and hours
-   - brand
-   - services and team
-   - reminders
-
-   ✔ The last step offers the App Store app.
+6. Go to **login.kairobookings.com** and sign in. The setup journey opens.
+   - ✔ It greets you by your first name, and "Final Test Salon" is already
+     filled in.
+   - ✔ Pick a business type: it drafts a menu and moves on by itself.
+   - ✔ From the second step, your booking page builds up in a phone beside the
+     steps (on a phone: under the colour step) as you choose colours, hours,
+     services and team.
+   - ✔ You are already listed on the team.
+   - ✔ The last step says "Building Final Test Salon…", then "Final Test Salon
+     is open for bookings 🎉", then offers the App Store app.
 7. On the iPhone, install **Kairo** from the App Store and sign in with the
    same email and password. Allow notifications.
    - ✔ It opens straight into Final Test Salon.
