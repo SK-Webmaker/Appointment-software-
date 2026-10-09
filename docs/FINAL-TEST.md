@@ -55,7 +55,8 @@ before, from the website to a refund, with real money (A$5).
 ## C. Be a client (10 min)
 
 9. In a private browser window, go to **finaltestsalon.kairobookings.com/book**.
-   Book a service for tomorrow with the second email.
+   Book a service for tomorrow with the second email and a mobile number
+   (yours is fine).
    - ✔ The client email gets a confirmation from "Final Test Salon".
    - ✔ The iPhone pings with the new booking.
    - ✔ The booking is in the calendar.
