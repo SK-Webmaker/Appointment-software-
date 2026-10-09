@@ -60,6 +60,8 @@ services:
       # ---- set by hand in the dashboard; never in the repo ----------------
       # The address this service answers on. Stripe redirects back here, so a
       # wrong value sends a paying customer to a page that does not exist.
+      # https://start.kairobookings.com since 9 October 2026 (a Render custom
+      # domain; kairo-platform.onrender.com still answers too).
       - key: PLATFORM_ORIGIN
         sync: false
       # Opens /operator, the queue of flagged signups. Without it nobody can

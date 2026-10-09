@@ -59,7 +59,7 @@ const siteUrl = () => safeUrl(process.env.KAIRO_SITE_URL, `https://${BASE_DOMAIN
  * Where "Get started" goes. The platform's own signup page today; set
  * KAIRO_SIGNUP_URL when it moves to a branded address and every link follows.
  */
-const signupUrl = () => safeUrl(process.env.KAIRO_SIGNUP_URL, 'https://kairo-platform.onrender.com/start');
+const signupUrl = () => safeUrl(process.env.KAIRO_SIGNUP_URL, 'https://start.kairobookings.com/start');
 
 const supportEmail = () => {
   const v = String(process.env.KAIRO_SUPPORT_EMAIL || '').trim();
