@@ -105,6 +105,18 @@ day per salon, about 1–3 US cents a message.
 >
 > Kairo
 
+## Before taking on lots of salons
+
+- **Resend (email): upgrade from the free plan.** The free plan sends 100
+  emails a day and 3,000 a month, and every salon without its own Resend
+  account sends through it. A booking is 3–4 emails (confirmation, reminder,
+  receipt, review request), so a handful of busy salons reach 100 by lunchtime
+  and everything after that is refused. The Pro plan (about US$20 a month)
+  has no daily cap. resend.com → Settings → Billing.
+- **ClickSend (texts): keep the platform account in credit.** It sends the
+  code every new signup must enter. At zero credit, nobody can finish signing
+  up. Turn on auto top-up in ClickSend → Billing.
+
 ## 4. Small things
 
 - **Refund window: 14 days from payment** (owner's decision, 9 October). The

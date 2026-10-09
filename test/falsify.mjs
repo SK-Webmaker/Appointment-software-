@@ -311,6 +311,11 @@ const MUTATIONS = {
     find: '  if (UNSETTLED.has(b.state)) {',
     replace: '  if (false) {',
   },
+  'welcome-email-says-connect-email': {
+    file: 'platform/notify.js', suites: ['welcome-email'],
+    find: "  const emailLine = sending === 'none'",
+    replace: "  const emailLine = true",
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

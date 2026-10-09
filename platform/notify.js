@@ -99,13 +99,31 @@ export const emailCode = (to, code) => sendEmail(to, `${code} is your Kairo code
 
 export const smsCode = (to, code) => sendSms(to, `${code} is your Kairo verification code. It expires in 10 minutes.`);
 
-export const emailReady = (to, { businessName, url, appUrl }) => sendEmail(to,
-  `${businessName} is ready on Kairo`,
-  `Your Kairo is live at ${url}\n\nSign in with the email and password you chose.\n\n`
-  + `Two minutes of setup left: connect your email so confirmations and reminders send, and put your booking link `
-  + `(${url}/book) in your Instagram bio.\n\nThe app: ${appUrl}`,
-  shell(`${businessName} is ready`, [
-    `Your Kairo is live at <a href="${url}" style="color:#2563eb">${url}</a> — sign in with the email and password you chose.`,
-    `Your booking link, for your Instagram bio: <a href="${url}/book" style="color:#2563eb">${url}/book</a>`,
-    'Confirmations and reminders start sending once your email is connected. It takes about two minutes and Kairo walks you through it.',
-  ]));
+const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/**
+ * The "your Kairo is ready" email.
+ *
+ * `sending` is what the shard reported when it built the salon: 'kairo' (the
+ * platform's shared sender) or 'own' means confirmations already go out, so the
+ * email says so rather than sending the owner off to "connect" something that
+ * already works. Only 'none' asks them to wait for email to be set up. Texts
+ * are always the owner's own ClickSend account, so that step is always named.
+ */
+export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo' }) => {
+  const emailLine = sending === 'none'
+    ? 'Confirmations and reminders start sending once your email is connected. We will be in touch to set that up with you.'
+    : 'Booking confirmations, reminders and receipts already go out by email with your business name on them, and replies come straight to you.';
+  const smsLine = 'Want text reminders too? In Kairo go to Settings → SMS → "Set up ClickSend step by step". It takes about five minutes, and you pay ClickSend directly for your texts.';
+  return sendEmail(to,
+    `${businessName} is ready on Kairo`,
+    `Your Kairo is live at ${url}\n\nSign in with the email and password you chose.\n\n${emailLine}\n\n${smsLine}\n\n`
+    + `Put your booking link (${url}/book) in your Instagram bio and Google profile.\n\nThe Kairo app for your iPhone: ${appUrl}`,
+    shell(`${escHtml(businessName)} is ready`, [
+      `Your Kairo is live at <a href="${url}" style="color:#2563eb">${url}</a> — sign in with the email and password you chose.`,
+      emailLine,
+      smsLine,
+      `Your booking link, for your Instagram bio and Google profile: <a href="${url}/book" style="color:#2563eb">${url}/book</a>`,
+      `The Kairo app for your iPhone: <a href="${appUrl}" style="color:#2563eb">get it on the App Store</a>`,
+    ]));
+};
