@@ -114,7 +114,7 @@ export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo' })
   const emailLine = sending === 'none'
     ? 'Confirmations and reminders start sending once your email is connected. We will be in touch to set that up with you.'
     : 'Booking confirmations, reminders and receipts already go out by email with your business name on them, and replies come straight to you.';
-  const smsLine = 'Want text reminders too? In Kairo go to Settings → SMS → "Set up ClickSend step by step". It takes about five minutes, and you pay ClickSend directly for your texts.';
+  const smsLine = 'Want text reminders too? In Kairo go to Settings → SMS → "Set up text messages". It takes about five minutes, and you pay ClickSend directly for your texts.';
   return sendEmail(to,
     `${businessName} is ready on Kairo`,
     `Your Kairo is live at ${url}\n\nSign in with the email and password you chose.\n\n${emailLine}\n\n${smsLine}\n\n`

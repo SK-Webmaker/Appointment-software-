@@ -3206,10 +3206,11 @@ a:focus-visible,
 .ss-form { display: flex; flex-direction: column; gap: 11px; margin: 14px 0 10px; }
 .ss-err { color: var(--red, #f87171); font-size: 13px; line-height: 1.5; }
 .ss-ok {
-  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; line-height: 1.5;
   color: var(--green, #34d399); font-size: 13.5px; font-weight: 600;
 }
 .ss-ok b { color: var(--text); }
+.ss-ok svg { flex: none; margin-top: 3px; }
 .ss-note { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
 .ss-launch { align-self: flex-start; }
 /* The raw fields stay, folded away: useful to somebody who already knows what
@@ -3221,6 +3222,15 @@ a:focus-visible,
 .ss-manual > summary:hover { color: var(--text); }
 .ss-manual[open] > summary { margin-bottom: 10px; }
 @media (max-width: 520px) { .ss-body { margin-left: 0; } }
+.ss-kinds { display: flex; flex-direction: column; gap: 9px; }
+.ss-own { margin-top: 6px; }
+.wiz-note {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 11px;
+  font-size: 13.5px; line-height: 1.55; color: var(--text-2);
+}
+.wiz-note b { color: var(--text); }
+.wiz-note svg { flex: none; margin-top: 3px; }
 
 /* ── "Can't find a time?" ──────────────────────────────────────────────────
    The escape hatch under the booking form. Quiet by default: it must never

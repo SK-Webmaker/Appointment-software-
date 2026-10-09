@@ -247,11 +247,27 @@ test('connecting texts: the key is checked when pasted, then their own number is
 
   const right = await shard.api('POST', '/api/sms/own-number/verify', { host: HOST, cookie: ownerCookie, body: { verification_id: ask.json.verification_id, code: clicksend.code, number: '0400111222' } });
   assert.equal(right.status, 200, right.text);
-  assert.deepEqual(clicksend.verified, ['0400111222']);
+  assert.deepEqual(clicksend.verified, ['+61400111222'], 'ClickSend is given the number in international form');
   const s = await shard.api('GET', '/api/settings', { host: HOST, cookie: ownerCookie });
-  assert.equal(s.json.clicksend_from, '0400111222', 'their own number is the sender');
+  assert.equal(s.json.clicksend_from, '+61400111222', 'their own number is the sender');
   assert.equal(s.json.clicksend_api_key_set, '1');
   assert.doesNotMatch(s.text, /CS-TEST-KEY/, 'and the key never comes back');
+});
+
+test('pasted details are tidied the way a person would, and a typed local number goes out as +61', async () => {
+  // Copied from ClickSend's page on a phone: the label, a stray space, a line break.
+  const ok = await shard.api('POST', '/api/sms/connect', { host: HOST, cookie: ownerCookie,
+    body: { username: ` Username: ${clicksend.username} `, api_key: `API Key: ${clicksend.apiKey.slice(0, 4)} ${clicksend.apiKey.slice(4)}\n` } });
+  assert.equal(ok.status, 200, ok.text);
+  assert.equal(ok.json.low_credit, false, '$25.50 is plenty');
+  const bad = await shard.api('POST', '/api/sms/connect', { host: HOST, cookie: ownerCookie, body: { username: clicksend.username, api_key: 'my-password' } });
+  assert.match(bad.json.error, /API Key \(the long one with dashes\), not your password/, 'the usual mistake is named in plain words');
+
+  const before = clicksend.texts.length;
+  const t = await shard.api('POST', '/api/messages/test', { host: HOST, cookie: ownerCookie, body: { channel: 'sms', to: '0412 345 678' } });
+  assert.equal(t.json.ok, true, t.text);
+  assert.equal(clicksend.texts.length, before + 1);
+  assert.equal(clicksend.texts.at(-1).to, '+61412345678');
 });
 
 test('a number sender needs no ACMA line; a name would', async () => {

@@ -46,35 +46,45 @@ alert is a preference and is never allowed to be a precondition.
 
 ## Turning on SMS
 
-Settings → **SMS (text messages)** → **Set up ClickSend step by step**.
+Settings → **SMS (text messages)** → **Set up text messages**. The dashboard's
+"Text reminders" line opens the same walkthrough directly
+(`#/settings?open=sms&setup=texts`), and the welcome email names it.
 
-Kairo sends texts through ClickSend, which the business pays directly — no
-markup, no subscription, no monthly number fee. The fields to do it by hand
-were always there. The problem was that "ClickSend username" and "ClickSend API
-key" mean nothing to a salon owner, there was no way to tell whether what they
-pasted was right, and no way to find out whether a text would actually arrive
-until a client said they never got a reminder.
+Written for an owner who is not good with computers, on a phone, between
+clients. Texts go through the salon's **own** ClickSend account: they pay
+ClickSend directly, a few cents a text, and Kairo adds nothing. Email works
+from day one without any of this.
 
-So the guided setup is four steps, each of which proves itself:
+1. **Open a free ClickSend account.** A button, and what happens next (a code
+   to their mobile). New accounts come with $2 of trial credit.
+2. **Connect it.** "Tap the key icon at the top right; copy Username and API
+   Key into the boxes." Checked with ClickSend on the spot. What they paste is
+   tidied first: the "API Key:" label, spaces and line breaks that come along
+   when copying on a phone are dropped. The usual mistake, the account password
+   in the key box, is named in plain words when ClickSend refuses it.
+3. **Make sure there is credit.** The balance is read back. Under a dollar, it
+   says so, links straight to ClickSend's top-up page, and offers "I've added
+   it — check again". It also points them at Auto-recharge.
+4. **Choose what to text, and test it.** Reminders and confirmations are
+   ticked; receipts and review requests are not. Ticked messages go by **text
+   and email** (`chan_<kind>` = `both`). Kairo sends a real test first, and
+   **only if ClickSend accepts it** does it switch texts on
+   (`sms_notifications_enabled` = 1) and set the channels. So it never leaves a
+   half-working setup switched on, and it never leaves a finished setup
+   switched off.
 
-1. **Create an account** — a link, and what to click when they get there.
-2. **Paste the username and API key** — checked against ClickSend on the spot
-   via `POST /api/sms/connect`, which reads the account name and credit balance
-   back. A typo is caught here rather than by a reminder that silently never
-   sends.
-3. **Confirm who it comes from** — their own salon number, verified by a code
-   ClickSend texts them (`/api/sms/own-number` and `/own-number/verify`). Texts
-   then come from the number clients already have, and a reply lands where a
-   human reads it.
-4. **Send a real text** — to the owner's own phone, through their own setup.
+Then, optionally, **their own mobile as the sender**, verified by a code
+ClickSend texts them. Without it texts come from a shared ClickSend number and
+replies land in their ClickSend inbox.
 
-**Step 4 is the point.** Every step above it can look finished and still not
-deliver. *Accepted is not delivered* has already bitten this project on
-Cloudflare, Resend and ClickSend, and a green tick nobody earned is the kind
-that fails at nine o'clock on a Saturday.
+**The bug this replaced:** the old four steps connected ClickSend, verified a
+number and sent a test, but never turned texts on. The master switch and the
+per-message "Email / SMS / Both" choice sat further down Settings, both off by
+default, so an owner who finished every step still sent no texts to clients.
 
-A step only goes green on its own check coming back from ClickSend — never
-because somebody clicked past it.
+Numbers go to ClickSend in international form: "0412 345 678" becomes
+"+61412345678" (`auNumber` in `src/notify.js`), for client texts, the test and
+the owner's own number alike.
 
 The raw fields are still there, folded behind **"Or enter the details
 yourself"**, for anyone who already knows what they are pasting.

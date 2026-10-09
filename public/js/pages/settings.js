@@ -669,10 +669,10 @@ export async function renderSettings(container, params) {
                  username and an API key come from - or find out three weeks
                  later, from a client, that no reminder ever arrived. -->
             <button type="button" class="btn primary ss-launch" id="sms-guided">
-              ${icon('send', 14)} Set up ClickSend step by step</button>
-            <div class="hint" style="margin:-4px 0 4px">Four steps, about five minutes: open an
-              account, paste two things, confirm your number, and send yourself a real text to
-              prove it works.</div>
+              ${icon('send', 14)} ${s.sms_notifications_enabled === '1' && s.clicksend_api_key_set ? 'Change text messages' : 'Set up text messages'}</button>
+            <div class="hint" style="margin:-4px 0 4px">About five minutes, and Kairo walks you through
+              it: open a ClickSend account, paste two things, and send yourself a test. Texts switch on
+              at the end.</div>
             <details class="ss-manual">
               <summary>Or enter the details yourself</summary>
             <div class="form-grid">
@@ -1794,6 +1794,11 @@ export async function renderSettings(container, params) {
   };
 
   revealSection(container, params?.get('open'));
+  // Straight from the dashboard's "Set up texts" — open the walkthrough itself
+  // rather than a page of settings to find it on.
+  if (params?.get('setup') === 'texts') {
+    openSmsSetup({ onDone: () => renderSettings(container, new URLSearchParams('open=sms')) });
+  }
 }
 
 /**

@@ -316,6 +316,11 @@ const MUTATIONS = {
     find: "  const emailLine = sending === 'none'",
     replace: "  const emailLine = true",
   },
+  'clicksend-gets-numbers-as-typed': {
+    file: 'src/notify.js', suites: ['connect'],
+    find: '  const message = { body, to: auNumber(to) };',
+    replace: '  const message = { body, to };',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

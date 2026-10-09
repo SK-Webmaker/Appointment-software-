@@ -20,7 +20,7 @@ import {
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
   queueCancellationMessages, cancelUrlFor,
   deliverMessage, processQueue, smsBalance, looksLikeEmail,
-  requestOwnNumberCode, verifyOwnNumberCode,
+  requestOwnNumberCode, verifyOwnNumberCode, auNumber,
 } from './notify.js';
 import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
@@ -3777,17 +3777,41 @@ route('POST', '/api/account/refund', async ({ req, user }) => {
  * Step one: the key. Checked against ClickSend the moment it is pasted, so a
  * typo is caught here rather than by a reminder that silently never sends.
  */
+/**
+ * What an owner pasted, tidied the way a person would. ClickSend's page shows
+ * "Username" and "API Key" beside the values, and copying from a phone picks up
+ * the label, a trailing space or a line break as often as not. An API key never
+ * contains spaces, so all of them go; a username keeps its inside.
+ */
+export function tidyClickSendPaste(v, { isKey = false } = {}) {
+  let out = String(v ?? '').replace(/^\s*(api\s*key|username|user\s*name)\s*[:=]?\s*/i, '').trim();
+  if (isKey) out = out.replace(/\s+/g, '');
+  return out;
+}
+
 route('POST', '/api/sms/connect', async ({ req }) => {
   const b = checkBody(await readJson(req), {
     username: s.str(200, { required: true }),
     api_key: s.str(200, { required: true }),
   });
-  const probe = await smsBalance({ username: str(b.username, 200), apiKey: str(b.api_key, 200) });
-  if (!probe.ok) throw httpError(400, probe.detail);
-  setSetting('clicksend_username', str(b.username, 200));
-  setSetting('clicksend_api_key', str(b.api_key, 200));
+  const username = tidyClickSendPaste(b.username);
+  const apiKey = tidyClickSendPaste(b.api_key, { isKey: true });
+  if (!username || !apiKey) throw httpError(400, 'Paste both your ClickSend username and your API key.');
+  const probe = await smsBalance({ username, apiKey });
+  if (!probe.ok) {
+    // The usual mistake is the account password in the API key box.
+    throw httpError(400, /refused those credentials/.test(probe.detail || '')
+      ? "ClickSend didn't accept those. Check you copied the API Key (the long one with dashes), not your password, and that the username is exactly as ClickSend shows it."
+      : probe.detail);
+  }
+  setSetting('clicksend_username', username);
+  setSetting('clicksend_api_key', apiKey);
   setSetting('sms_provider', 'clicksend');
-  return { ok: true, account: probe.account, balance: probe.balance, currency: probe.currency, symbol: probe.symbol };
+  return {
+    ok: true, account: probe.account, balance: probe.balance, currency: probe.currency, symbol: probe.symbol,
+    // Under a dollar is a handful of texts: enough for the test, not for a week of reminders.
+    low_credit: probe.balance < 1,
+  };
 });
 
 /**
@@ -3812,10 +3836,11 @@ route('POST', '/api/sms/own-number/verify', async ({ req }) => {
   });
   const out = await verifyOwnNumberCode(str(b.verification_id, 64), str(b.code, 12));
   if (!out.ok) throw httpError(400, out.detail);
-  setSetting('clicksend_from', str(b.number, 24));
+  const from = auNumber(str(b.number, 24));
+  setSetting('clicksend_from', from);
   // Whatever was lent at handover is gone the moment they have their own.
   setSetting('clicksend_starter_from', '');
-  return { ok: true, from: str(b.number, 24) };
+  return { ok: true, from };
 });
 
 // ── The owner's own ClickSend login ─────────────────────────────────────────

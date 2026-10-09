@@ -56,7 +56,7 @@ test('a salon that cannot send yet is told it will be set up with them', async (
 test('texts, the booking link and the iPhone app are always in it, in both versions', async () => {
   const m = await ready('kairo');
   for (const body of [m.text, m.html]) {
-    assert.match(body, /Set up ClickSend step by step/);
+    assert.match(body, /Set up text messages/);
     assert.match(body, /luxe\.kairobookings\.test\/book/);
     assert.match(body, /apps\.apple\.com\/app\/id6740000001/);
   }

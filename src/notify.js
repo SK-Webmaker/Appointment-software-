@@ -732,12 +732,29 @@ async function sendTwilio(to, body) {
   return { ok: false, detail: `Twilio ${res.status}: ${err.slice(0, 300)}` };
 }
 
+/**
+ * An Australian number the way ClickSend wants it: "+61412345678".
+ *
+ * Owners and clients type "0412 345 678", "(04) 1234 5678", "61412345678"; the
+ * API asks for international format. Spaces, dashes, dots and brackets go; a
+ * leading 0 or 61 becomes +61. Anything already starting with + is left alone
+ * apart from the spaces, and anything else is passed through as typed for
+ * ClickSend to judge — this is a tidy, not a validator.
+ */
+export function auNumber(raw) {
+  const t = String(raw ?? '').trim().replace(/[\s().-]/g, '');
+  if (t.startsWith('+')) return t;
+  if (/^0[2-578]\d{8}$/.test(t)) return `+61${t.slice(1)}`;
+  if (/^61[2-578]\d{8}$/.test(t)) return `+${t}`;
+  return t;
+}
+
 async function sendClickSend(to, body) {
   const username = getSetting('clicksend_username');
   const apiKey = getSetting('clicksend_api_key');
   const from = getSetting('clicksend_from'); // optional sender ID (business name) / dedicated number
   if (!username || !apiKey) return SMS_NOT_CONFIGURED('ClickSend', 'username + API key');
-  const message = { body, to };
+  const message = { body, to: auNumber(to) };
   if (from) message.from = from;
   const res = await fetch(`${CLICKSEND_API()}/sms/send`, {
     method: 'POST',
@@ -863,7 +880,7 @@ export async function requestOwnNumberCode(number, label) {
     return { ok: false, detail: 'Connect your ClickSend account first.' };
   }
   try {
-    const r = await clickSend('POST', '/own-numbers/verifications', { phone_number: number, label: String(label || '').slice(0, 200) });
+    const r = await clickSend('POST', '/own-numbers/verifications', { phone_number: auNumber(number), label: String(label || '').slice(0, 200) });
     const id = r.data?.data?.id ?? r.data?.data?.verification_id ?? r.data?.id;
     if (!r.ok || !id) {
       return { ok: false, detail: `ClickSend: ${r.data?.response_msg || r.data?.error_message || `HTTP ${r.status}`}` };

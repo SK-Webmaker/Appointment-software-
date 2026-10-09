@@ -49,14 +49,16 @@ export function checklist() {
         : 'Paste your Resend API key and From address in Settings → Notifications.',
   });
 
-  const smsReady = on('sms_notifications_enabled') && set('clicksend_username') && set('clicksend_api_key') && set('clicksend_from');
+  // On is on: switched on and connected. A sender of their own is a nicety the
+  // setup offers afterwards, not part of whether clients get texts.
+  const smsReady = on('sms_notifications_enabled') && set('clicksend_username') && set('clicksend_api_key');
   items.push({
     id: 'texts',
     title: 'Text reminders',
-    why: 'Optional. Texts come from your own ClickSend account — you pay ClickSend about 6¢ a message and Kairo adds nothing.',
+    why: 'Optional, and the best cure for no-shows. About five minutes. Texts go through your own ClickSend account — a few cents each, and Kairo adds nothing.',
     required: false,
     done: smsReady,
-    action: { label: 'Set up texts', hash: '#/settings' },
+    action: { label: 'Set up texts', hash: '#/settings?open=sms&setup=texts' },
   });
 
   // Only when they chose a name rather than their own number: a number needs

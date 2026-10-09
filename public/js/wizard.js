@@ -282,9 +282,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
           <span><b>Payment receipts</b><br><span class="wiz-muted">Sent automatically whenever a payment or deposit is recorded</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-reviews" ${data.settings.review_requests_enabled ? 'checked' : ''}>
           <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" link, sent after checkout</span></span></label>
-        <label class="wiz-toggle"><input type="checkbox" id="w-sms" ${data.settings.sms_notifications_enabled ? 'checked' : ''}>
-          <span><b>Also send all of these as SMS</b><br><span class="wiz-muted">Email above is free. SMS costs a few cents per text —
-            leave this off for now and turn it on later in Settings once you've picked an SMS provider (ClickSend, Telnyx or Twilio).</span></span></label>
+        <div class="wiz-note">${icon('send', 14)} <span><b>Text reminders too?</b> All of these go by email
+          from day one, free. For texts, go to <b>Settings → SMS → Set up text messages</b> after this —
+          about five minutes, and Kairo walks you through it.</span></div>
         <label class="wiz-toggle"><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
           <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs Stripe later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
@@ -377,7 +377,6 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       data.settings.reminder_hours = val('#w-remind-hrs');
       data.settings.receipts_enabled = overlay.querySelector('#w-receipts').checked;
       data.settings.review_requests_enabled = overlay.querySelector('#w-reviews').checked;
-      data.settings.sms_notifications_enabled = overlay.querySelector('#w-sms').checked;
       data.settings.deposit_type = overlay.querySelector('#w-deposit').checked ? val('#w-deposit-type') : 'none';
       data.settings.deposit_value = val('#w-deposit-val') || '20';
     }
