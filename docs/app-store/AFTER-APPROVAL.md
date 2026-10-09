@@ -108,17 +108,14 @@ day per salon, about 1–3 US cents a message.
 ## 4. Small things
 
 - **Refund window: 14 days from payment** (owner's decision, 9 October). The
-  signup page, the platform's refund policy and the automatic refund already
-  say 14. The website's `/legal/refunds` still says 30 days after going live
-  and must be changed to match — it needs website access (see below).
+  signup page, the platform's refund policy, the automatic refund and (since
+  9 October) the website's refunds page, FAQ and structured data all say 14.
 
 - **The demo's "close account" from the recording** left a *purge* task in the
   platform's operator queue. Close it **without** deleting anything — the demo
   is what App Review signs in to.
-- **Website privacy policy:** it needs a short Kai section before Kai goes on
-  (the text is ready, below). It needs access to the website repository from
-  this session; say "yes" when asked to add `my-creative-space`, and it is
-  done and published in minutes.
+- **Website privacy policy:** the Kai section is live at
+  kairobookings.com/legal/privacy (published 9 October).
 
 ## 5. What happens by itself
 
