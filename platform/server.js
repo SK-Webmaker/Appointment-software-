@@ -327,15 +327,17 @@ async function api(req, res, url, ip) {
            FROM tasks t LEFT JOIN businesses b ON b.id = t.business_id LEFT JOIN owners o ON o.id = b.owner_id
           WHERE t.state = 'open' ORDER BY t.id DESC LIMIT 200`
       ).all();
+      // Records the operator removed as tests are kept, but not counted or listed.
       const recent = db.prepare(
         `SELECT b.id, b.slug, b.name, b.state, b.price_cents, b.created_at, b.ready_at, o.email
-           FROM businesses b LEFT JOIN owners o ON o.id = b.owner_id ORDER BY b.id DESC LIMIT 50`
+           FROM businesses b LEFT JOIN owners o ON o.id = b.owner_id
+          WHERE b.state != 'removed' ORDER BY b.id DESC LIMIT 50`
       ).all();
-      const totals = db.prepare("SELECT COUNT(*) AS all_n, SUM(state = 'ready') AS ready_n, SUM(state = 'flagged') AS flagged_n FROM businesses").get();
+      const totals = db.prepare("SELECT COUNT(*) AS all_n, SUM(state = 'ready') AS ready_n, SUM(state = 'flagged') AS flagged_n FROM businesses WHERE state != 'removed'").get();
       return json(res, 200, { tasks, recent, totals });
     }
 
-    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export)$/.exec(p);
+    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove)$/.exec(p);
     if (m && req.method === 'POST') {
       const id = Number(m[1]);
       if (m[2] === 'approve') {
@@ -347,6 +349,7 @@ async function api(req, res, url, ip) {
         return json(res, 200, await signup.provision(id));
       }
       if (m[2] === 'retry') { record(id, 'operator:retry'); return json(res, 200, await signup.advance(id)); }
+      if (m[2] === 'remove') { record(id, 'operator:remove'); return json(res, 200, await signup.removeTestRecord(id)); }
       if (m[2] === 'refund') {
         const body = await readJson(req).catch(() => ({}));
         record(id, 'operator:refund', String(body.reason || ''));

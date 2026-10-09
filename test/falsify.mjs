@@ -301,6 +301,16 @@ const MUTATIONS = {
     find: "const kaiSalonAllows = () => getSetting('kai_enabled', '1') !== '0';",
     replace: 'const kaiSalonAllows = () => true;',
   },
+  'operator-removes-a-live-salon': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  // A refunded or deleted salon reads as absent here, exactly like one never built.\n  if (tenant) {",
+    replace: "  if (false) {",
+  },
+  'operator-removes-paid-money': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: '  if (UNSETTLED.has(b.state)) {',
+    replace: '  if (false) {',
+  },
   'double-booking-allowed': {
     file: 'src/api.js', suites: ['public-booking'],
     find: 'if (!freeSlotsFor(staffId, b.date, duration).includes(start)) {',

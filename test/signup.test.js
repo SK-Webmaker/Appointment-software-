@@ -622,3 +622,48 @@ test('a salon that can send from the start makes no work for the operator', asyn
     fs.rmSync(sendingShardDir, { recursive: true, force: true });
   }
 });
+
+test('a test record can be removed from the books; a live salon or a paid-but-unbuilt signup cannot', async () => {
+  const op = await platform.api('POST', '/api/operator/login', { body: { password: 'operator-pass-2026!!' } });
+  const cookie = /kairo_operator=[^;]+/.exec(op.headers.get('set-cookie'))[0];
+  const remove = (id) => platform.api('POST', `/api/operator/business/${id}/remove`, { cookie, body: {} });
+  const idOf = (slug) => { const d = platform.platformDb(); const r = d.prepare('SELECT id FROM businesses WHERE slug = ?').get(slug); d.close(); return r.id; };
+
+  const { token } = await fullSignup({ slug: 'testremove', business_name: 'Remove Me Salon', email: 'remove@test.example', abn: '' });
+  assert.equal((await waitFor(token, 'ready')).state, 'ready');
+  const id = idOf('testremove');
+
+  const live = await remove(id);
+  assert.equal(live.status, 409, 'a salon still serving is refused');
+  assert.match(live.json.error, /live salon/);
+  assert.equal((await shard.api('GET', '/api/public/info', { host: `testremove.${DOMAIN}` })).status, 200, 'and is untouched');
+
+  // Its salon cleared away (as a refund or a deletion leaves it): now it goes.
+  process.env.KAIRO_SHARD_URL = shard.base;
+  process.env.KAIRO_PLATFORM_KEY = KEY;
+  const shardClient = await import('../platform/shard.js');
+  await shardClient.deleteTenant('testremove');
+  assert.equal(await shardClient.getTenant('testremove'), null, 'the shard no longer has a salon there');
+  const before = (await platform.api('GET', '/api/operator/queue', { cookie })).json;
+  const ok = await remove(id);
+  assert.equal(ok.status, 200, ok.text);
+  assert.equal(ok.json.removed, true);
+  const after = (await platform.api('GET', '/api/operator/queue', { cookie })).json;
+  assert.ok(!after.recent.some((b) => b.slug === 'testremove'), 'it leaves the list');
+  assert.equal(after.totals.all_n, before.totals.all_n - 1, 'and the totals');
+  assert.equal(after.totals.ready_n, before.totals.ready_n - 1);
+  const d = platform.platformDb();
+  assert.equal(d.prepare('SELECT state FROM businesses WHERE id = ?').get(id).state, 'removed', 'kept, not deleted');
+  assert.ok(d.prepare("SELECT COUNT(*) AS n FROM events WHERE business_id = ? AND kind = 'operator:remove'").get(id).n, 'and the removal is on its history');
+  // Paid, no salon yet: that might be a real customer's money.
+  d.prepare("UPDATE businesses SET state = 'paid' WHERE slug = 'noabn'").run();
+  d.close();
+  const paid = await remove(idOf('noabn'));
+  assert.equal(paid.status, 409);
+  assert.match(paid.json.error, /money may have moved/);
+  const d2 = platform.platformDb();
+  d2.prepare("UPDATE businesses SET state = 'refunded' WHERE slug = 'noabn'").run();
+  d2.close();
+
+  assert.equal((await platform.api('POST', `/api/operator/business/${id}/remove`, { body: {} })).status, 401, 'and only for the operator');
+});

@@ -3,6 +3,8 @@
 const app = document.getElementById('app');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (c) => `A$${((c || 0) / 100).toFixed(2).replace(/\.00$/, '')}`;
+// Paid, or nearly, with no salon yet: those are settled with retry, approve or refund, never removed.
+const UNSETTLED = new Set(['paid', 'screening', 'flagged', 'provisioning']);
 
 async function call(method, path, body) {
   const res = await fetch(path, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
@@ -71,12 +73,14 @@ async function render() {
     ${q.tasks.length ? q.tasks.map(taskCard).join('') : '<div class="card"><h2>Nothing waiting</h2><p class="hint">Every signup went through on its own.</p></div>'}
     <div class="card">
       <h2>Recent signups</h2>
-      <table><thead><tr><th>Business</th><th>Address</th><th>State</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>Business</th><th>Address</th><th>State</th><th></th><th></th></tr></thead><tbody>
       ${(q.recent || []).map((b) => `<tr>
         <td>${esc(b.name)}<div class="hint">${esc(b.email || '')}</div></td>
         <td class="mono">${esc(b.slug)}</td>
         <td><span class="tag ${esc(b.state)}">${esc(b.state)}</span></td>
-        <td style="text-align:right">${money(b.price_cents)}</td></tr>`).join('')}
+        <td style="text-align:right">${money(b.price_cents)}</td>
+        <td style="text-align:right">${UNSETTLED.has(b.state) ? ''
+          : `<button class="btn-sm" data-act="remove" data-id="${b.id}" data-slug="${esc(b.slug)}">Remove test record</button>`}</td></tr>`).join('')}
       </tbody></table>
     </div>`;
 
@@ -92,7 +96,10 @@ app.addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     if (act === 'done') await call('POST', `/api/operator/task/${btn.dataset.task}/done`, {});
-    else if (act === 'refund') {
+    else if (act === 'remove') {
+      if (!window.confirm(`Remove the record for ${btn.dataset.slug}?\n\nOnly for test signups. No money moves and no salon is touched; it just leaves this list and the totals. A salon that is still live can't be removed — refund it instead.`)) { btn.disabled = false; return; }
+      await call('POST', `/api/operator/business/${btn.dataset.id}/remove`, {});
+    } else if (act === 'refund') {
       if (!window.confirm('Refund in full, export their data and stop serving their address?')) { btn.disabled = false; return; }
       await call('POST', `/api/operator/business/${btn.dataset.id}/refund`, { reason: 'operator' });
     } else await call('POST', `/api/operator/business/${btn.dataset.id}/${act}`, {});

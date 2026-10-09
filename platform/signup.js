@@ -107,7 +107,7 @@ export async function startSignup(input, { ip = '' } = {}) {
 
   const existing = db.prepare('SELECT * FROM owners WHERE email = ?').get(email);
   if (existing) {
-    const live = db.prepare("SELECT slug FROM businesses WHERE owner_id = ? AND state NOT IN ('refunded','deleted','expired')").get(existing.id);
+    const live = db.prepare("SELECT slug FROM businesses WHERE owner_id = ? AND state NOT IN ('refunded','deleted','expired','removed')").get(existing.id);
     if (live) throw err(409, 'There is already a Kairo for that email address. Sign in instead, or use another address.');
   }
   const ownerId = existing ? existing.id : Number(db.prepare('INSERT INTO owners (name, email, phone) VALUES (?, ?, ?)').run(name, email, phone).lastInsertRowid);
@@ -241,14 +241,14 @@ export async function screen(b) {
         flags.push(`The ABN is registered to "${res.name}", which does not match "${b.name}"`);
       }
     }
-    const dupe = db.prepare("SELECT slug FROM businesses WHERE abn = ? AND id != ? AND state NOT IN ('refunded','deleted','expired')").get(b.abn, b.id);
+    const dupe = db.prepare("SELECT slug FROM businesses WHERE abn = ? AND id != ? AND state NOT IN ('refunded','deleted','expired','removed')").get(b.abn, b.id);
     if (dupe) flags.push(`That ABN already has a Kairo (${dupe.slug})`);
   }
   if (b.signup_ip) {
     const recent = db.prepare("SELECT COUNT(*) AS n FROM businesses WHERE signup_ip = ? AND id != ? AND created_at > datetime('now', '-1 day')").get(b.signup_ip, b.id).n;
     if (recent >= 2) flags.push(`${recent + 1} signups from one address today`);
   }
-  const sameName = db.prepare("SELECT slug FROM businesses WHERE lower(name) = lower(?) AND id != ? AND state NOT IN ('refunded','deleted','expired')").get(b.name, b.id);
+  const sameName = db.prepare("SELECT slug FROM businesses WHERE lower(name) = lower(?) AND id != ? AND state NOT IN ('refunded','deleted','expired','removed')").get(b.name, b.id);
   if (sameName) flags.push(`Another Kairo already uses that business name (${sameName.slug})`);
   return flags;
 }
@@ -384,6 +384,39 @@ export async function refundBusiness(businessId, { reason = '', by = 'owner' } =
   setState(b.id, 'refunded', `${by}: ${reason}`.slice(0, 300));
   db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'refunded' WHERE business_id = ? AND state = 'open'").run(b.id);
   return { refunded: true, exported_bytes: exported };
+}
+
+/** Paid, or nearly: money may have moved and no salon exists yet. */
+const UNSETTLED = new Set(['paid', 'screening', 'flagged', 'provisioning']);
+
+/**
+ * Take a test signup off the operator's books.
+ *
+ * For records left behind by testing — a salon bought in Stripe's test mode
+ * and since cleared away, a signup that never paid. It changes no money and
+ * touches no salon: the record is marked 'removed', kept with its history, and
+ * drops out of the queue and the totals. So it refuses anything that might be
+ * a real customer: a salon still live on the shard (refund it instead), and a
+ * signup that has paid but has no salon yet (retry, approve or refund it).
+ */
+export async function removeTestRecord(businessId) {
+  const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+  if (!b) throw err(404, 'No such business');
+  if (b.state === 'removed') return { already: true };
+  if (UNSETTLED.has(b.state)) {
+    throw err(409, `That signup is ${b.state}: money may have moved and there is no salon yet. Retry, approve or refund it instead.`);
+  }
+  let tenant;
+  try { tenant = await shard.getTenant(b.slug); } catch (e) {
+    throw err(503, `Could not check the server, so nothing was changed: ${e.message}`);
+  }
+  // A refunded or deleted salon reads as absent here, exactly like one never built.
+  if (tenant) {
+    throw err(409, `${b.slug} is a live salon. Refund it instead — Remove only tidies away records whose salon is already gone.`);
+  }
+  setState(b.id, 'removed', 'operator: test record');
+  db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'record removed' WHERE business_id = ? AND state = 'open'").run(b.id);
+  return { removed: true };
 }
 
 /** A deleted salon's files are kept this long, so a mistake at 11pm is fixable at 9am. */
