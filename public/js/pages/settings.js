@@ -1779,7 +1779,7 @@ export async function renderSettings(container, params) {
   const rerunBtn = container.querySelector('#rerun-setup');
   if (rerunBtn) rerunBtn.onclick = async () => {
     const { runSetupWizard } = await import('../wizard.js');
-    runSetupWizard({ firstRun: false, settings: state.settings, onDone: () => { location.hash = '#/settings'; location.reload(); } });
+    runSetupWizard({ firstRun: false, settings: state.settings, user: state.user, onDone: () => { location.hash = '#/settings'; location.reload(); } });
   };
   const resetBtn = container.querySelector('#reset-demo');
   if (resetBtn) resetBtn.onclick = async () => {

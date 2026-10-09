@@ -323,6 +323,10 @@ async function boot() {
       runSetupWizard({
         firstRun: true,
         settings: state.settings,
+        user: state.user,
+        // A paying business starts empty; only a demo or a laptop has samples
+        // to ask about.
+        hasSamples: Boolean(me.has_demo_data),
         // The tour runs after the app has drawn itself, because it points at
         // real elements on the real page — there is nothing to highlight until
         // the dashboard exists.

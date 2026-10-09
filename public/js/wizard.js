@@ -1,6 +1,20 @@
-// Owner-facing guided setup wizard. Shows on first login (or re-run from
-// Settings) and walks the owner through business details, hours, branding,
-// services, team, and reminders — then applies everything in one call.
+// The owner's first ten minutes: setting up their business, as a journey.
+//
+// Shown on first sign-in (and re-runnable from Settings). It walks through what
+// the business is, its details, hours, look, menu, team and messages, then
+// applies everything in one call — the same payload /api/setup/apply has always
+// taken, so nothing on the server changes with the way it looks.
+//
+// What makes it feel like opening a business rather than filling in a form:
+//   - a journey bar across the top that fills as they go;
+//   - their own booking page, live in a phone beside the steps, building up as
+//     they answer (name, colours, logo, hours, menu, team);
+//   - their name and their business's name in the words, and themselves already
+//     on the team;
+//   - steps that slide forwards and back, a short "building it" moment, and a
+//     burst of their own brand colour when it is live.
+// Everything that moves stops for anyone who has asked their device for less
+// motion, and nothing depends on an animation finishing.
 import { api } from './api.js';
 import { esc, icon, toast, LOGO_SVG, copyText } from './ui.js';
 import { inApp } from './native.js';
@@ -50,6 +64,25 @@ const STARTER = {
   ] },
 };
 
+// The journey, in the owner's words. 'install' rides on the last milestone.
+const STEPS = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'comms', 'done', 'install'];
+const MILESTONES = [
+  ['welcome', 'Hello'], ['type', 'Your craft'], ['details', 'Details'], ['hours', 'Hours'],
+  ['brand', 'Your look'], ['services', 'Menu'], ['team', 'Team'], ['comms', 'Messages'], ['done', 'Open!'],
+];
+const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const SWATCHES = ['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a', '#0ea5e9'];
+// Names a fresh install starts with — never somebody's business.
+const PLACEHOLDER_NAMES = new Set(['demo studio', 'luxe hair studio', 'kairo']);
+
+const still = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function clock(min) {
+  const h = Math.floor(min / 60) % 24, m = min % 60, ap = h >= 12 ? 'pm' : 'am', hh = h % 12 || 12;
+  return m ? `${hh}:${String(m).padStart(2, '0')}${ap}` : `${hh}${ap}`;
+}
+
 const timeOpts = (sel) => {
   let out = '';
   for (let t = 360; t <= 1440; t += 30) {
@@ -59,18 +92,46 @@ const timeOpts = (sel) => {
   return out;
 };
 
-export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) {
+/** "Tue–Sat", "Mon, Wed & Fri", "Every day" — open days the way a sign says them. */
+export function daysPhrase(days) {
+  const d = [...new Set(days)].filter((x) => x >= 0 && x <= 6).sort((a, b) => a - b);
+  if (!d.length) return 'Closed';
+  if (d.length === 7) return 'Every day';
+  // Runs, treating the week as Mon..Sun so "Sat–Sun" and "Mon–Fri" read naturally.
+  const order = [1, 2, 3, 4, 5, 6, 0].filter((x) => d.includes(x));
+  const pos = (x) => (x + 6) % 7;
+  const runs = [];
+  for (const x of order) {
+    const last = runs[runs.length - 1];
+    if (last && pos(x) === pos(last[last.length - 1]) + 1) last.push(x); else runs.push([x]);
+  }
+  const parts = runs.map((r) => (r.length >= 3 ? `${DAY[r[0]]}–${DAY[r[r.length - 1]]}` : r.map((x) => DAY[x]).join(', ')));
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}` : parts[0];
+}
+
+const initials = (name) => String(name || '').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '·';
+
+export function runSetupWizard({ firstRun = true, settings = {}, user = null, hasSamples = false, onDone } = {}) {
   const s = settings || {};
   // The address customers should use. On the platform each business is deployed
   // with its own domain already set, so prefer that over whatever the owner
   // happens to have in their address bar — otherwise the very first link they
   // are shown, and copy, is the raw hosting URL.
   const siteUrl = (s.public_url_effective || location.origin).replace(/\/+$/, '');
+  // A placeholder is not a name: "Hi Owner" is worse than no name at all.
+  const rawName = String(user?.name || '').trim();
+  const ownerName = /^(owner|admin|administrator|the owner)$/i.test(rawName) ? '' : rawName;
+  const firstName = ownerName.split(/\s+/)[0] || '';
+  // A paying business arrives with the name it signed up under; a fresh install
+  // arrives with a placeholder, and the samples' name is not theirs either.
+  const knownName = String(s.business_name || '').trim();
+  const startName = (!firstRun || (!hasSamples && !PLACEHOLDER_NAMES.has(knownName.toLowerCase()))) ? knownName : '';
+
   const data = {
     fresh: firstRun,
     type: '',
     settings: {
-      business_name: firstRun ? '' : (s.business_name || ''),
+      business_name: startName,
       business_phone: s.business_phone || '',
       business_address: s.business_address || '',
       business_email: s.business_email || '',
@@ -96,23 +157,28 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     },
     logo: '', cover: '',
     appStore: '',   // the iPhone app's listing, once Apple has one (/api/app/config)
-    services: [],   // {name, category, duration_min, price, on}
-    team: firstRun ? [{ name: '', title: '' }] : [],
+    services: [],   // {name, category, duration_min, price, price_type, on}
+    // They are the first person who takes bookings, so they are already here.
+    team: firstRun ? [{ name: ownerName, title: '' }] : [],
   };
 
-  const steps = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'comms', 'done', 'install'];
   let idx = 0;
+  let busy = false;
+  const biz = () => String(data.settings.business_name || '').trim() || 'your business';
+  const Biz = () => String(data.settings.business_name || '').trim() || 'Your business';
+  const cur = () => data.settings.currency || '$';
 
   const overlay = document.createElement('div');
-  overlay.className = 'wiz-overlay';
+  overlay.className = 'wiz-overlay wz';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', 'Set up your business');
   document.body.appendChild(overlay);
 
   api.get('/api/app/config').then((c) => {
     data.appStore = c.app_store_url || '';
-    if (data.appStore && steps[idx] === 'install') render();
+    if (data.appStore && STEPS[idx] === 'install') paintStep(0);
   }).catch(() => { /* the home-screen steps stand */ });
-
-  const cur = () => data.settings.currency || '$';
 
   const readImage = (file, maxKb) => new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) { reject(new Error('Please choose an image file')); return; }
@@ -123,22 +189,25 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     r.readAsDataURL(file);
   });
 
-  // ---- step renderers -----------------------------------------------------
+  // ---- the steps --------------------------------------------------------------
 
   const views = {
     welcome: () => `
-      <div class="wiz-hero">${LOGO_SVG}</div>
-      <h1>Welcome to Kairo</h1>
-      <p class="wiz-lede">Let's set up your booking system. It takes about 5 minutes, and you can
-        change anything later in Settings.</p>
-      <div class="wiz-checklist">
-        ${['Your business details & hours', 'Your brand — colours, logo, photos', 'Your services & team', 'Reminders & deposits'].map((t) =>
-          `<div class="wiz-check">${icon('check', 14)} ${t}</div>`).join('')}
-      </div>
-      ${firstRun ? `
+      <div class="wz-hero-mark">${LOGO_SVG}</div>
+      <h1>${firstName ? `Hi ${esc(firstName)}` : 'Welcome to Kairo'}</h1>
+      <p class="wiz-lede">${startName
+        ? `Let's get <b>${esc(startName)}</b> ready to take bookings.`
+        : "Let's get your business ready to take bookings."} About five minutes, and you'll watch
+        your booking page come to life as you go.</p>
+      <ol class="wz-map">
+        ${[['🧭', 'What you do', 'We draft your menu'], ['🕘', 'When you open', 'Your hours and details'],
+          ['🎨', 'How it looks', 'Colours, logo, photo'], ['💌', 'Who you are', 'Your team and messages']]
+          .map(([e, t, sub], i) => `<li style="--i:${i}"><span class="wz-map-e">${e}</span><span><b>${t}</b><small>${sub}</small></span></li>`).join('')}
+      </ol>
+      ${firstRun && hasSamples ? `
         <div class="wiz-samples">
-          <div class="wiz-samples-h">Kairo came with a sample salon — 14 example clients, some
-            services and a year of made-up history — so the screens are not empty while you look around.
+          <div class="wiz-samples-h">Kairo came with a sample salon — example clients, services and
+            made-up history — so the screens are not empty while you look around.
             What would you like done with it?</div>
           <label class="wiz-sample-opt">
             <input type="radio" name="wiz_samples" value="clear" ${data.fresh ? 'checked' : ''}>
@@ -154,139 +223,148 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         </div>` : ''}`,
 
     type: () => `
-      <h2>What kind of business are you?</h2>
-      <p class="wiz-sub">We'll suggest a starter service menu you can edit.</p>
+      <h2>What does ${esc(biz())} do?</h2>
+      <p class="wiz-sub">Pick the closest one — we'll draft a menu for you to change however you like.</p>
       <div class="wiz-grid">
-        ${Object.entries(STARTER).map(([k, v]) => `
-          <button type="button" class="wiz-tile ${data.type === k ? 'sel' : ''}" data-type="${k}">
+        ${Object.entries(STARTER).map(([k, v], i) => `
+          <button type="button" class="wiz-tile ${data.type === k ? 'sel' : ''}" data-type="${k}" style="--i:${i}" aria-pressed="${data.type === k}">
             <span class="wiz-emoji">${v.emoji}</span><span>${esc(v.label)}</span>
           </button>`).join('')}
-      </div>`,
+      </div>
+      <p class="wz-chip" id="w-type-note" ${data.type ? '' : 'hidden'}>${data.type
+        ? `✨ Drafted ${STARTER[data.type].services.length} ${esc(STARTER[data.type].label.toLowerCase())} services for you` : ''}</p>`,
 
     details: () => `
-      <h2>Your business details</h2>
-      <p class="wiz-sub">This appears on your booking page and invoices.</p>
+      <h2>How do clients find you?</h2>
+      <p class="wiz-sub">It goes on your booking page, confirmations and invoices.</p>
       <div class="wiz-form">
         <div class="field"><label>Business name *</label>
-          <input id="w-name" value="${esc(data.settings.business_name)}" placeholder="e.g. Luxe Hair Studio"></div>
+          <input id="w-name" value="${esc(data.settings.business_name)}" placeholder="e.g. Luxe Hair Studio" autocomplete="organization"></div>
         <div class="wiz-2col">
-          <div class="field"><label>Phone</label><input id="w-phone" value="${esc(data.settings.business_phone)}" placeholder="(555) 000-0000"></div>
-          <div class="field"><label>Email</label><input id="w-email" type="email" value="${esc(data.settings.business_email)}" placeholder="hello@business.com"></div>
+          <div class="field"><label>Phone</label><input id="w-phone" inputmode="tel" value="${esc(data.settings.business_phone)}" placeholder="0412 345 678"></div>
+          <div class="field"><label>Email</label><input id="w-email" type="email" value="${esc(data.settings.business_email)}" placeholder="hello@yourbusiness.com"></div>
         </div>
-        <div class="field"><label>Address</label><input id="w-address" value="${esc(data.settings.business_address)}" placeholder="12 Market Street"></div>
+        <div class="field"><label>Address</label><input id="w-address" value="${esc(data.settings.business_address)}" placeholder="12 Market Street, Fitzroy"></div>
         <div class="wiz-2col">
           <div class="field"><label>Currency symbol</label><input id="w-currency" maxlength="4" value="${esc(data.settings.currency)}"></div>
-          <div class="field"><label>Sales tax %</label><input id="w-tax" type="number" min="0" step="0.1" value="${esc(data.settings.tax_rate)}"></div>
+          <div class="field"><label>GST % on invoices</label><input id="w-tax" type="number" min="0" step="0.1" value="${esc(data.settings.tax_rate)}">
+            <div class="hint" style="font-size:11.5px;color:var(--muted)">0 unless you're registered for GST.</div></div>
         </div>
       </div>`,
 
     hours: () => `
-      <h2>When are you open?</h2>
-      <p class="wiz-sub">Sets the calendar grid and the times customers can book online.</p>
+      <h2>When is ${esc(biz())} open?</h2>
+      <p class="wiz-sub">Your calendar, and the times clients can book online.</p>
       <div class="wiz-form">
         <div class="field"><label>Days you're open</label>
-          <div id="w-days" style="display:flex;gap:6px;flex-wrap:wrap">
-            ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => {
+          <div id="w-days" class="wz-days">
+            ${DAY.map((d, i) => {
               const on = data.settings.open_days.includes(i);
-              return `<button type="button" class="btn small ${on ? 'primary' : ''}" data-day="${i}" aria-pressed="${on}">${d}</button>`;
+              return `<button type="button" class="wz-day ${on ? 'on' : ''}" data-day="${i}" aria-pressed="${on}">${d}</button>`;
             }).join('')}
-          </div>
-          <div class="hint" style="font-size:11.5px;color:var(--muted)">Closed days won't be offered to customers booking online.</div></div>
+          </div></div>
         <div class="wiz-2col">
           <div class="field"><label>Opens</label><select id="w-open">${timeOpts(data.settings.open_min)}</select></div>
           <div class="field"><label>Closes</label><select id="w-close">${timeOpts(data.settings.close_min)}</select></div>
         </div>
-        <div class="field"><label>Booking slot interval</label>
+        <p class="wz-chip" id="w-hours-say"></p>
+        <div class="field"><label>Booking slots every</label>
           <select id="w-slot">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${String(data.settings.slot_interval) === String(v) ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
       </div>`,
 
     brand: () => `
-      <h2>Make it yours</h2>
-      <p class="wiz-sub">How your booking page looks to customers.</p>
+      <h2>Make ${esc(biz())} look like you</h2>
+      <p class="wiz-sub">Watch your booking page change as you pick.</p>
       <div class="wiz-form">
-        <div class="wiz-2col">
-          <div class="field"><label>Style</label>
-            <select id="w-theme"><option value="dark" ${data.settings.brand_theme === 'dark' ? 'selected' : ''}>Dark (sleek)</option><option value="light" ${data.settings.brand_theme === 'light' ? 'selected' : ''}>Light (bright)</option></select></div>
-          <div class="field"><label>Font</label>
-            <select id="w-font"><option value="modern" ${data.settings.brand_font === 'modern' ? 'selected' : ''}>Modern</option><option value="classic" ${data.settings.brand_font === 'classic' ? 'selected' : ''}>Classic serif</option><option value="rounded" ${data.settings.brand_font === 'rounded' ? 'selected' : ''}>Rounded</option></select></div>
-        </div>
-        <div class="field"><label>Brand colour</label>
+        <div class="field"><label>Your colour</label>
           <div class="wiz-swatches" id="w-swatches">
-            ${['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a', '#0ea5e9'].map((c) =>
-              `<button type="button" data-c="${c}" style="background:${c};border-color:${data.settings.brand_accent.toLowerCase() === c ? '#fff' : 'transparent'}"></button>`).join('')}
-            <input type="color" id="w-accent" value="${esc(data.settings.brand_accent)}">
+            ${SWATCHES.map((c) => `<button type="button" data-c="${c}" aria-label="Colour ${c}"
+              class="${data.settings.brand_accent.toLowerCase() === c ? 'sel' : ''}" style="--c:${c}"></button>`).join('')}
+            <label class="wz-own-colour" title="Any colour"><input type="color" id="w-accent" value="${esc(data.settings.brand_accent)}"></label>
           </div></div>
         <div class="wiz-2col">
+          <div class="field"><label>Style</label>
+            <div class="wz-seg" id="w-theme-seg">
+              <button type="button" data-theme="dark" class="${data.settings.brand_theme === 'dark' ? 'on' : ''}">🌙 Dark</button>
+              <button type="button" data-theme="light" class="${data.settings.brand_theme === 'light' ? 'on' : ''}">☀️ Light</button>
+            </div><input type="hidden" id="w-theme" value="${esc(data.settings.brand_theme)}"></div>
+          <div class="field"><label>Lettering</label>
+            <select id="w-font"><option value="modern" ${data.settings.brand_font === 'modern' ? 'selected' : ''}>Modern</option><option value="classic" ${data.settings.brand_font === 'classic' ? 'selected' : ''}>Classic serif</option><option value="rounded" ${data.settings.brand_font === 'rounded' ? 'selected' : ''}>Rounded</option></select></div>
+        </div>
+        <div class="wiz-2col">
           <div class="field"><label>Logo</label>
-            <div class="wiz-upl"><img id="w-logo-prev" ${data.logo ? `src="${data.logo}"` : 'style="display:none"'}>
-              <button type="button" class="btn small" id="w-logo-btn">${icon('upload')} Upload</button>
+            <div class="wiz-upl"><img id="w-logo-prev" alt="" ${data.logo ? `src="${data.logo}"` : 'style="display:none"'}>
+              <button type="button" class="btn small" id="w-logo-btn">${icon('upload')} ${data.logo ? 'Change' : 'Upload'}</button>
               <input type="file" id="w-logo-file" accept="image/*" hidden></div></div>
           <div class="field"><label>Cover photo</label>
-            <div class="wiz-upl"><img id="w-cover-prev" ${data.cover ? `src="${data.cover}"` : 'style="display:none"'}>
-              <button type="button" class="btn small" id="w-cover-btn">${icon('upload')} Upload</button>
+            <div class="wiz-upl"><img id="w-cover-prev" alt="" ${data.cover ? `src="${data.cover}"` : 'style="display:none"'}>
+              <button type="button" class="btn small" id="w-cover-btn">${icon('upload')} ${data.cover ? 'Change' : 'Upload'}</button>
               <input type="file" id="w-cover-file" accept="image/*" hidden></div></div>
         </div>
-        <div class="field"><label>Welcome line</label>
+        <div class="field"><label>A line to welcome clients</label>
           <input id="w-tagline" value="${esc(data.settings.brand_tagline)}" maxlength="120" placeholder="e.g. Colour, cuts & care in the heart of town"></div>
-        <div class="wiz-preview" id="w-preview"></div>
+        <div class="wz-inline-preview" id="w-inline-preview"></div>
       </div>`,
 
-    services: () => `
-      <h2>Your services</h2>
-      <p class="wiz-sub">Tick the ones you offer and tweak price or time. Use <b>From</b> for services whose real
-        price depends on the client (hair length, area size…) — you set the exact amount at checkout. You can import a full list later.</p>
+    services: () => {
+      const on = data.services.filter((x) => x.on && String(x.name || '').trim());
+      return `
+      <h2>${esc(Biz())}'s menu</h2>
+      <p class="wiz-sub">Untick what you don't do and set your own prices and times. Use <b>From</b> when the
+        price depends on the client — you set the exact amount at checkout.</p>
+      <p class="wz-chip" id="w-menu-say" ${on.length ? '' : 'hidden'}>${esc(menuSay())}</p>
       <div class="wiz-services" id="w-services">
         ${data.services.length ? data.services.map((sv, i) => `
           <div class="wiz-svc ${sv.on ? 'on' : ''}">
-            <label class="wiz-svc-check"><input type="checkbox" data-svc-on="${i}" ${sv.on ? 'checked' : ''}></label>
-            <input class="wiz-svc-name" data-svc-name="${i}" value="${esc(sv.name)}">
-            <input class="wiz-svc-dur" type="number" min="5" step="5" data-svc-dur="${i}" value="${sv.duration_min}"><span class="wiz-u">min</span>
-            <select class="wiz-svc-ptype" data-svc-ptype="${i}">
+            <label class="wiz-svc-check"><input type="checkbox" data-svc-on="${i}" ${sv.on ? 'checked' : ''} aria-label="Offer ${esc(sv.name || 'this service')}"></label>
+            <input class="wiz-svc-name" data-svc-name="${i}" value="${esc(sv.name)}" placeholder="Service name">
+            <input class="wiz-svc-dur" type="number" min="5" step="5" data-svc-dur="${i}" value="${sv.duration_min}" aria-label="Minutes"><span class="wiz-u">min</span>
+            <select class="wiz-svc-ptype" data-svc-ptype="${i}" aria-label="Price type">
               <option value="fixed" ${sv.price_type === 'fixed' ? 'selected' : ''}>Fixed</option>
               <option value="from" ${sv.price_type === 'from' ? 'selected' : ''}>From</option>
               <option value="free" ${sv.price_type === 'free' ? 'selected' : ''}>Free</option>
             </select>
             ${sv.price_type === 'free'
               ? '<span class="wiz-u" style="width:64px;text-align:right">—</span>'
-              : `<span class="wiz-u">${esc(cur())}</span><input class="wiz-svc-price" type="number" min="0" step="1" data-svc-price="${i}" value="${sv.price}">`}
-          </div>`).join('') : '<div class="wiz-empty">Pick a business type to load a starter menu — or add your own below.</div>'}
+              : `<span class="wiz-u">${esc(cur())}</span><input class="wiz-svc-price" type="number" min="0" step="1" data-svc-price="${i}" value="${sv.price}" aria-label="Price">`}
+          </div>`).join('') : '<div class="wiz-empty">Pick what your business does (one step back) for a starter menu — or add your own below.</div>'}
       </div>
-      <button type="button" class="btn small" id="w-add-svc">${icon('plus')} Add a service</button>`,
+      <button type="button" class="btn small" id="w-add-svc">${icon('plus')} Add a service</button>`;
+    },
 
     team: () => `
-      <h2>Your team</h2>
-      <p class="wiz-sub">Everyone who takes bookings gets their own calendar column. Add yourself at least.</p>
+      <h2>Who takes bookings?</h2>
+      <p class="wiz-sub">Everyone here gets their own column in the calendar, and clients can pick them.${
+        ownerName ? ' You\'re already on it.' : ' Add yourself at least.'}</p>
       <div id="w-team">
         ${data.team.map((m, i) => `
-          <div class="wiz-2col wiz-team-row">
-            <div class="field"><input data-team-name="${i}" value="${esc(m.name)}" placeholder="Name"></div>
-            <div class="field" style="display:flex;gap:8px">
-              <input data-team-title="${i}" value="${esc(m.title)}" placeholder="Title (optional)">
-              ${data.team.length > 1 ? `<button type="button" class="btn small danger" data-team-rm="${i}">${icon('x')}</button>` : ''}
-            </div>
+          <div class="wz-team-row">
+            <span class="wz-avatar" style="--c:${['#3987e5', '#199e70', '#9085e9', '#e5a039', '#d55181', '#2dd4bf'][i % 6]}">${esc(initials(m.name))}</span>
+            <input data-team-name="${i}" value="${esc(m.name)}" placeholder="Name" aria-label="Name">
+            <input data-team-title="${i}" value="${esc(m.title)}" placeholder="Title (optional)" aria-label="Title">
+            ${data.team.length > 1 ? `<button type="button" class="btn small ghost" data-team-rm="${i}" aria-label="Remove">${icon('x')}</button>` : ''}
           </div>`).join('')}
       </div>
-      <button type="button" class="btn small" id="w-add-team">${icon('plus')} Add team member</button>`,
+      <button type="button" class="btn small" id="w-add-team">${icon('plus')} Add someone</button>`,
 
     comms: () => `
-      <h2>Reminders & deposits</h2>
-      <p class="wiz-sub">Turn these on now; add the free provider keys later in Settings to start sending.</p>
+      <h2>Keep clients coming back</h2>
+      <p class="wiz-sub">Kairo sends these for you, by email, from day one — free.</p>
       <div class="wiz-form">
         <label class="wiz-toggle"><input type="checkbox" id="w-confirm" ${data.settings.confirm_enabled ? 'checked' : ''}>
-          <span><b>Booking confirmations</b><br><span class="wiz-muted">Sent the moment a client books</span></span></label>
+          <span><b>Booking confirmations</b><br><span class="wiz-muted">The moment someone books</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-remind" ${data.settings.reminders_enabled ? 'checked' : ''}>
-          <span><b>Appointment reminders</b><br><span class="wiz-muted">Cut no-shows with a nudge before the visit</span></span></label>
+          <span><b>Appointment reminders</b><br><span class="wiz-muted">The best cure for no-shows</span></span></label>
         <div class="field"><label>Remind clients this long before</label>
           <select id="w-remind-hrs">${[2, 4, 12, 24, 48].map((h) => `<option value="${h}" ${String(data.settings.reminder_hours) === String(h) ? 'selected' : ''}>${h} hours</option>`).join('')}</select></div>
         <label class="wiz-toggle"><input type="checkbox" id="w-receipts" ${data.settings.receipts_enabled ? 'checked' : ''}>
-          <span><b>Payment receipts</b><br><span class="wiz-muted">Sent automatically whenever a payment or deposit is recorded</span></span></label>
+          <span><b>Payment receipts</b><br><span class="wiz-muted">Whenever a payment or deposit is recorded</span></span></label>
         <label class="wiz-toggle"><input type="checkbox" id="w-reviews" ${data.settings.review_requests_enabled ? 'checked' : ''}>
-          <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" link, sent after checkout</span></span></label>
-        <div class="wiz-note">${icon('send', 14)} <span><b>Text reminders too?</b> All of these go by email
-          from day one, free. For texts, go to <b>Settings → SMS → Set up text messages</b> after this —
-          about five minutes, and Kairo walks you through it.</span></div>
+          <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" after checkout</span></span></label>
+        <div class="wiz-note">${icon('send', 14)} <span><b>Text reminders too?</b> Once you're in, go to
+          <b>Settings → SMS → Set up text messages</b>. About five minutes, and Kairo walks you through it.</span></div>
         <label class="wiz-toggle"><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
-          <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs Stripe later)</span></span></label>
+          <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs card payments connected later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
           <div class="field"><label>Deposit type</label>
             <select id="w-deposit-type"><option value="fixed" ${data.settings.deposit_type === 'fixed' ? 'selected' : ''}>Fixed amount</option><option value="percent" ${data.settings.deposit_type === 'percent' ? 'selected' : ''}>% of price</option></select></div>
@@ -295,25 +373,23 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       </div>`,
 
     done: () => `
-      <div class="wiz-hero wiz-done">${icon('check', 34)}</div>
-      <h1>You're all set!</h1>
-      <p class="wiz-lede">${esc(data.settings.business_name || 'Your business')} is ready. Share your booking link with
-        customers, and take bookings from your calendar right away.</p>
+      <div class="wz-burst" aria-hidden="true"></div>
+      <div class="wiz-hero wiz-done wz-pop">${icon('check', 34)}</div>
+      <h1>${esc(Biz())} is open for bookings 🎉</h1>
+      <p class="wiz-lede">Your booking page is live. Share it, and bookings land straight in your calendar.</p>
       <div class="wiz-linkbox">
         <span>${esc(siteUrl)}/book</span>
         <button type="button" class="btn small" id="w-copy">${icon('link')} Copy</button>
       </div>
-      <p class="wiz-sub">Put that link in your Instagram bio, Google profile and WhatsApp auto-reply.</p>`,
+      <div class="wz-done-actions">
+        <a class="btn" href="${esc(siteUrl)}/book" target="_blank" rel="noopener noreferrer">${icon('external', 14)} See it as a client</a>
+      </div>
+      <p class="wiz-sub" style="text-align:center">Put it in your Instagram bio, Google profile and WhatsApp auto-reply.</p>`,
 
-    // Kairo is a website, not an App Store app — which is a feature (nothing to
-    // update, nothing to approve) but it means nobody finds it on their phone
-    // unless they are told how. An owner who runs their salon from an icon
-    // opens it twenty times a day; one who has to remember a URL opens it twice.
     install: () => `
       <div class="wiz-hero">${icon('phone', 32)}</div>
       <h1>Put Kairo on your phone</h1>
-      <p class="wiz-lede">It works like a normal app — your own icon on the home screen, full screen,
-        no address bar. Takes about fifteen seconds.</p>
+      <p class="wiz-lede">So you hear the moment somebody books, wherever you are.</p>
       <div class="wiz-install">
         <div class="wi-col">
           ${inApp() ? `
@@ -346,10 +422,54 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       <p class="wiz-sub">You can do this later from <b>Settings</b> if you're on a computer right now.</p>`,
   };
 
-  // ---- persistence of the current step's inputs into `data` ---------------
+  /** "6 services · from $30" — the menu, summed up as it is edited. */
+  function menuSay() {
+    const on = data.services.filter((x) => x.on && String(x.name || '').trim());
+    const priced = on.filter((x) => x.price_type !== 'free' && Number(x.price) > 0).map((x) => Number(x.price));
+    return `${on.length} service${on.length === 1 ? '' : 's'}${priced.length ? ` · from ${cur()}${Math.min(...priced)}` : ''}`;
+  }
+
+  // ---- the live booking page ------------------------------------------------
+
+  function previewHtml() {
+    const st = data.settings;
+    const light = st.brand_theme === 'light';
+    const fam = st.brand_font === 'classic' ? 'Georgia, serif' : st.brand_font === 'rounded' ? "'Trebuchet MS', 'Arial Rounded MT Bold', sans-serif" : 'system-ui, sans-serif';
+    const svcs = data.services.filter((x) => x.on && String(x.name || '').trim()).slice(0, 4);
+    const team = data.team.filter((m) => String(m.name || '').trim()).slice(0, 5);
+    const price = (x) => (x.price_type === 'free' ? 'Free' : `${x.price_type === 'from' ? 'from ' : ''}${esc(cur())}${Number(x.price) || 0}`);
+    return `
+      <div class="wz-pp ${light ? 'light' : ''}" style="--a:${esc(st.brand_accent)};font-family:${fam}">
+        <div class="wz-pp-cover" ${data.cover ? `style="background-image:url('${data.cover}')"` : ''}></div>
+        <div class="wz-pp-id">
+          <span class="wz-pp-logo">${data.logo ? `<img src="${data.logo}" alt="">` : esc(initials(st.business_name || 'K'))}</span>
+          <div class="wz-pp-name">${esc(st.business_name || 'Your business')}</div>
+          <div class="wz-pp-tag">${esc(st.brand_tagline || 'Book an appointment online')}</div>
+          <div class="wz-pp-hours">${esc(daysPhrase(st.open_days))} · ${esc(clock(st.open_min))}–${esc(clock(st.close_min))}</div>
+        </div>
+        <div class="wz-pp-list">
+          ${svcs.length ? svcs.map((x) => `<div class="wz-pp-svc"><span>${esc(x.name)}<small>${Number(x.duration_min) || 0} min</small></span><b>${price(x)}</b></div>`).join('')
+            : '<div class="wz-pp-ghost"></div><div class="wz-pp-ghost"></div><div class="wz-pp-ghost short"></div>'}
+        </div>
+        ${team.length ? `<div class="wz-pp-team">${team.map((m) => `<span title="${esc(m.name)}">${esc(initials(m.name))}</span>`).join('')}</div>` : ''}
+        <div class="wz-pp-btn">Book now</div>
+      </div>`;
+  }
+
+  // Redrawn only when it would look different, so typing a price does not make
+  // the whole page flicker under the owner's eyes.
+  const drawn = new WeakMap(); // kept off the DOM: a photo makes this string large
+  function paintPreview() {
+    const html = previewHtml();
+    for (const el of [overlay.querySelector('#wz-phone-screen'), overlay.querySelector('#w-inline-preview')]) {
+      if (el && drawn.get(el) !== html) { el.innerHTML = html; drawn.set(el, html); }
+    }
+  }
+
+  // ---- reading the current step back into `data` ----------------------------
 
   function capture() {
-    const id = steps[idx];
+    const id = STEPS[idx];
     const val = (sel) => overlay.querySelector(sel)?.value;
     if (id === 'details') {
       data.settings.business_name = val('#w-name') ?? data.settings.business_name;
@@ -365,7 +485,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
       const days = [...overlay.querySelectorAll('#w-days [data-day]')]
         .filter((b) => b.getAttribute('aria-pressed') === 'true')
         .map((b) => Number(b.dataset.day));
-      if (days.length) data.settings.open_days = days;
+      data.settings.open_days = days;
     } else if (id === 'brand') {
       data.settings.brand_theme = val('#w-theme');
       data.settings.brand_font = val('#w-font');
@@ -383,38 +503,108 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     // services & team capture live via their own input handlers
   }
 
-  // ---- render + wiring ----------------------------------------------------
+  // ---- the frame: journey bar, stage, phone ----------------------------------
 
-  function render() {
-    const id = steps[idx];
-    const isLast = id === 'install';
-    const canSkip = firstRun && idx === 0;
-    overlay.innerHTML = `
-      <div class="wiz-card">
-        ${idx > 0 && !isLast ? `<div class="wiz-progress"><div class="wiz-bar" style="width:${Math.min(100, (idx / (steps.length - 3)) * 100)}%"></div></div>` : ''}
-        <div class="wiz-body">${views[id]()}</div>
-        <div class="wiz-foot">
-          ${idx > 0 && !isLast ? `<button type="button" class="btn" id="w-back">Back</button>` : '<span></span>'}
-          <div class="wiz-foot-right">
-            ${canSkip ? `<button type="button" class="btn ghost" id="w-skip">Skip for now</button>` : ''}
-            ${isLast
-              ? `<button type="button" class="btn ghost" id="w-skip-tour">Skip the tour</button>
-                 <button type="button" class="btn primary" id="w-finish">${icon('zap')} Show me around</button>`
-              : `<button type="button" class="btn primary" id="w-next">${idx === steps.length - 3 ? 'Finish setup' : 'Continue'} ${icon('chevR')}</button>`}
-          </div>
-        </div>
-      </div>`;
-    wire(id);
+  overlay.innerHTML = `
+    <div class="wz-shell">
+      <nav class="wz-track" aria-label="Your setup journey">
+        <div class="wz-track-line"><div class="wz-track-fill" id="wz-fill"></div></div>
+        <ol>${MILESTONES.map(([id, label]) => `<li data-m="${id}"><span class="wz-dot"></span><span class="wz-ml">${label}</span></li>`).join('')}</ol>
+        <div class="wz-track-mobile" id="wz-track-mobile" aria-live="polite"></div>
+      </nav>
+      <div class="wz-main">
+        <section class="wiz-card wz-card">
+          <div class="wz-viewport"><div class="wiz-body" id="wz-body"></div></div>
+          <div class="wiz-foot" id="wz-foot"></div>
+        </section>
+        <aside class="wz-phone" aria-label="Your booking page, as clients will see it">
+          <div class="wz-phone-label">${icon('eye', 13)} Your booking page, live</div>
+          <div class="wz-phone-frame"><div class="wz-phone-notch"></div><div class="wz-phone-screen" id="wz-phone-screen"></div></div>
+        </aside>
+      </div>
+    </div>`;
+
+  function paintTrack() {
+    const id = STEPS[idx];
+    const at = Math.max(0, MILESTONES.findIndex(([m]) => m === (id === 'install' ? 'done' : id)));
+    overlay.querySelectorAll('.wz-track li').forEach((li, i) => {
+      li.classList.toggle('done', i < at || (id === 'install'));
+      li.classList.toggle('now', i === at && id !== 'install');
+      li.setAttribute('aria-current', i === at ? 'step' : 'false');
+    });
+    overlay.querySelector('#wz-fill').style.width = `${(at / (MILESTONES.length - 1)) * 100}%`;
+    overlay.querySelector('#wz-track-mobile').textContent = id === 'install' || id === 'done'
+      ? 'Open for bookings' : `Step ${at + 1} of ${MILESTONES.length - 1} · ${MILESTONES[at][1]}`;
+    // The phone joins once there is something of theirs to show, and leaves for
+    // the celebration, which has the stage to itself.
+    overlay.querySelector('.wz-main').classList.toggle('with-phone', !['welcome', 'done', 'install', 'building'].includes(id));
   }
 
+  function footHtml(id) {
+    const isLast = id === 'install';
+    const canSkip = firstRun && idx === 0;
+    const finishing = idx === STEPS.length - 3; // the step before 'done'
+    if (id === 'done') {
+      return `<span></span><div class="wiz-foot-right">
+        <button type="button" class="btn primary" id="w-next">Nearly done ${icon('chevR')}</button></div>`;
+    }
+    return `
+      ${idx > 0 && !isLast ? `<button type="button" class="btn ghost" id="w-back">${icon('chevL', 14)} Back</button>` : '<span></span>'}
+      <div class="wiz-foot-right">
+        ${canSkip ? '<button type="button" class="btn ghost" id="w-skip">Skip for now</button>' : ''}
+        ${isLast
+          ? `<button type="button" class="btn ghost" id="w-skip-tour">Skip the tour</button>
+             <button type="button" class="btn primary" id="w-finish">${icon('zap')} Show me around</button>`
+          : `<button type="button" class="btn primary" id="w-next">${idx === 0 ? "Let's go" : finishing ? `Open ${esc(biz())}` : 'Continue'} ${icon('chevR')}</button>`}
+      </div>`;
+  }
+
+  /** Swap the stage to the current step, sliding in the direction of travel. */
+  function paintStep(direction = 1) {
+    const id = STEPS[idx];
+    const body = overlay.querySelector('#wz-body');
+    const html = views[id]();
+    const done = () => {
+      body.innerHTML = html;
+      overlay.querySelector('#wz-foot').innerHTML = footHtml(id);
+      paintTrack();
+      paintPreview();
+      wire(id);
+      focusFirst();
+    };
+    if (still() || !direction || !body.firstChild || typeof body.animate !== 'function') { done(); return; }
+    const out = body.animate([{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: `translateX(${-28 * direction}px)` }],
+      { duration: 150, easing: 'cubic-bezier(.4,0,1,1)' });
+    out.onfinish = () => {
+      done();
+      body.animate([{ opacity: 0, transform: `translateX(${28 * direction}px)` }, { opacity: 1, transform: 'translateX(0)' }],
+        { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      overlay.querySelector('.wz-viewport').scrollTop = 0;
+    };
+  }
+
+  function focusFirst() {
+    // On a phone the keyboard leaping up on every step is worse than tapping
+    // a field, so only on a pointer that hovers.
+    if (!matchMedia('(hover: hover)').matches) return;
+    const el = overlay.querySelector('#wz-body input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), #wz-body select');
+    el?.focus({ preventScroll: true });
+  }
+
+  function go(delta) {
+    if (busy) return;
+    capture();
+    idx = Math.min(STEPS.length - 1, Math.max(0, idx + delta));
+    paintStep(delta);
+  }
+
+  // ---- wiring --------------------------------------------------------------
+
   function wire(id) {
-    // The samples choice, on the welcome step. Kept on `data.fresh` because
-    // that is already what the server reads — one flag, not two that can drift.
     overlay.querySelectorAll('input[name="wiz_samples"]').forEach((r) => {
       r.addEventListener('change', () => { data.fresh = r.value === 'clear'; });
     });
-
-    overlay.querySelector('#w-back')?.addEventListener('click', () => { capture(); idx--; render(); });
+    overlay.querySelector('#w-back')?.addEventListener('click', () => go(-1));
     overlay.querySelector('#w-skip')?.addEventListener('click', async () => {
       // Skipping still honours the choice they just made. Somebody who said
       // "leave the examples" and then skipped meant both things.
@@ -427,51 +617,71 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
     overlay.querySelector('#w-finish')?.addEventListener('click', () => { close(); onDone?.({ tour: true }); });
     overlay.querySelector('#w-skip-tour')?.addEventListener('click', () => { close(); onDone?.({ tour: false }); });
     overlay.querySelector('#w-copy')?.addEventListener('click', () => {
-      copyText(`${siteUrl}/book`).then((done) => {
-        toast(done ? 'Booking link copied' : 'Could not copy — open Settings to copy it there', done ? 'ok' : 'err');
+      copyText(`${siteUrl}/book`).then((ok) => {
+        toast(ok ? 'Booking link copied' : 'Could not copy — open Settings to copy it there', ok ? 'ok' : 'err');
       });
     });
 
     if (id === 'type') {
       overlay.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
+        const first = !data.type;
         data.type = b.dataset.type;
-        // load starter menu (only replace if the user hasn't customised yet)
         data.services = STARTER[data.type].services.map(([name, category, duration_min, price, price_type]) =>
           ({ name, category, duration_min, price, price_type: price_type || 'fixed', on: true }));
-        render();
+        overlay.querySelectorAll('[data-type]').forEach((x) => {
+          x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', String(x === b));
+        });
+        const note = overlay.querySelector('#w-type-note');
+        note.hidden = false;
+        note.textContent = `✨ Drafted ${data.services.length} ${STARTER[data.type].label.toLowerCase()} services for you`;
+        paintPreview();
+        // The first choice carries them on; a change of mind stays put.
+        if (first) setTimeout(() => { if (STEPS[idx] === 'type') go(1); }, still() ? 0 : 650);
       }));
     }
 
+    if (id === 'details') {
+      overlay.querySelector('#wz-body').addEventListener('input', () => { capture(); paintPreview(); });
+    }
+
     if (id === 'hours') {
-      overlay.querySelector('#w-days')?.addEventListener('click', (e) => {
+      const say = () => {
+        capture();
+        const st = data.settings;
+        overlay.querySelector('#w-hours-say').textContent = st.open_days.length
+          ? `🕘 Open ${daysPhrase(st.open_days)}, ${clock(st.open_min)} – ${clock(st.close_min)}`
+          : 'Pick at least one day you open';
+        paintPreview();
+      };
+      overlay.querySelector('#w-days').addEventListener('click', (e) => {
         const b = e.target.closest('[data-day]');
         if (!b) return;
         const on = b.getAttribute('aria-pressed') !== 'true';
         b.setAttribute('aria-pressed', String(on));
-        b.classList.toggle('primary', on);
+        b.classList.toggle('on', on);
+        say();
       });
+      ['#w-open', '#w-close', '#w-slot'].forEach((sel) => overlay.querySelector(sel).addEventListener('change', say));
+      say();
     }
 
     if (id === 'brand') {
-      const preview = () => {
-        const p = overlay.querySelector('#w-preview');
-        const theme = overlay.querySelector('#w-theme').value;
-        const font = overlay.querySelector('#w-font').value;
-        const accent = overlay.querySelector('#w-accent').value;
-        const fam = font === 'classic' ? 'Georgia, serif' : font === 'rounded' ? "'Trebuchet MS', sans-serif" : 'system-ui, sans-serif';
-        p.style.background = theme === 'light' ? '#f5f7fa' : '#0e1520';
-        p.style.color = theme === 'light' ? '#131c2b' : '#e9eef7';
-        p.innerHTML = `<div style="font-family:${fam};font-weight:700;font-size:16px">${esc(data.settings.business_name || 'Your business')}</div>
-          <div style="font-size:12px;opacity:.7;margin:2px 0 10px">${esc(overlay.querySelector('#w-tagline').value || 'Book an appointment')}</div>
-          <span style="background:${accent};color:#fff;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600">Book now</span>`;
-      };
+      const repaint = () => { capture(); paintPreview(); };
       overlay.querySelectorAll('#w-swatches [data-c]').forEach((b) => b.addEventListener('click', () => {
         overlay.querySelector('#w-accent').value = b.dataset.c;
-        overlay.querySelectorAll('#w-swatches [data-c]').forEach((x) => (x.style.borderColor = x === b ? '#fff' : 'transparent'));
-        preview();
+        overlay.querySelectorAll('#w-swatches [data-c]').forEach((x) => x.classList.toggle('sel', x === b));
+        repaint();
       }));
-      ['#w-theme', '#w-font', '#w-accent', '#w-tagline'].forEach((sel) =>
-        overlay.querySelector(sel).addEventListener('input', preview));
+      overlay.querySelector('#w-accent').addEventListener('input', () => {
+        overlay.querySelectorAll('#w-swatches [data-c]').forEach((x) => x.classList.remove('sel'));
+        repaint();
+      });
+      overlay.querySelectorAll('#w-theme-seg [data-theme]').forEach((b) => b.addEventListener('click', () => {
+        overlay.querySelector('#w-theme').value = b.dataset.theme;
+        overlay.querySelectorAll('#w-theme-seg [data-theme]').forEach((x) => x.classList.toggle('on', x === b));
+        repaint();
+      }));
+      ['#w-font', '#w-tagline'].forEach((sel) => overlay.querySelector(sel).addEventListener('input', repaint));
       const upload = (btn, file, prev, key, maxKb) => {
         overlay.querySelector(btn).addEventListener('click', () => overlay.querySelector(file).click());
         overlay.querySelector(file).addEventListener('change', async (e) => {
@@ -479,40 +689,52 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
           try {
             data[key] = await readImage(e.target.files[0], maxKb);
             const img = overlay.querySelector(prev); img.src = data[key]; img.style.display = '';
+            paintPreview();
           } catch (err) { toast(err.message, 'err'); }
         });
       };
       upload('#w-logo-btn', '#w-logo-file', '#w-logo-prev', 'logo', 250);
       upload('#w-cover-btn', '#w-cover-file', '#w-cover-prev', 'cover', 600);
-      preview();
     }
 
     if (id === 'services') {
-      const el = overlay.querySelector('#w-services');
-      el?.addEventListener('input', (e) => {
+      overlay.querySelector('#w-services')?.addEventListener('input', (e) => {
         const t = e.target;
         if (t.dataset.svcOn != null) { data.services[t.dataset.svcOn].on = t.checked; t.closest('.wiz-svc').classList.toggle('on', t.checked); }
         else if (t.dataset.svcName != null) data.services[t.dataset.svcName].name = t.value;
         else if (t.dataset.svcDur != null) data.services[t.dataset.svcDur].duration_min = Number(t.value);
         else if (t.dataset.svcPrice != null) data.services[t.dataset.svcPrice].price = Number(t.value);
-        else if (t.dataset.svcPtype != null) { data.services[t.dataset.svcPtype].price_type = t.value; render(); }
+        else if (t.dataset.svcPtype != null) { data.services[t.dataset.svcPtype].price_type = t.value; paintStep(0); return; }
+        const say = overlay.querySelector('#w-menu-say');
+        if (say) { say.textContent = menuSay(); say.hidden = !data.services.some((x) => x.on && String(x.name || '').trim()); }
+        paintPreview();
       });
       overlay.querySelector('#w-add-svc')?.addEventListener('click', () => {
-        data.services.push({ name: '', category: 'General', duration_min: 45, price: 0, price_type: 'fixed', on: true }); render();
+        data.services.push({ name: '', category: 'General', duration_min: 45, price: 0, price_type: 'fixed', on: true });
+        paintStep(0);
+        const names = overlay.querySelectorAll('[data-svc-name]');
+        names[names.length - 1]?.focus();
       });
     }
 
     if (id === 'team') {
-      const el = overlay.querySelector('#w-team');
-      el?.addEventListener('input', (e) => {
+      overlay.querySelector('#w-team')?.addEventListener('input', (e) => {
         const t = e.target;
-        if (t.dataset.teamName != null) data.team[t.dataset.teamName].name = t.value;
-        else if (t.dataset.teamTitle != null) data.team[t.dataset.teamTitle].title = t.value;
+        if (t.dataset.teamName != null) {
+          data.team[t.dataset.teamName].name = t.value;
+          const av = t.closest('.wz-team-row')?.querySelector('.wz-avatar');
+          if (av) av.textContent = initials(t.value);
+        } else if (t.dataset.teamTitle != null) data.team[t.dataset.teamTitle].title = t.value;
+        paintPreview();
       });
       overlay.querySelectorAll('[data-team-rm]').forEach((b) => b.addEventListener('click', () => {
-        data.team.splice(Number(b.dataset.teamRm), 1); render();
+        data.team.splice(Number(b.dataset.teamRm), 1); paintStep(0);
       }));
-      overlay.querySelector('#w-add-team')?.addEventListener('click', () => { data.team.push({ name: '', title: '' }); render(); });
+      overlay.querySelector('#w-add-team')?.addEventListener('click', () => {
+        data.team.push({ name: '', title: '' }); paintStep(0);
+        const names = overlay.querySelectorAll('[data-team-name]');
+        names[names.length - 1]?.focus();
+      });
     }
 
     if (id === 'comms') {
@@ -520,23 +742,43 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         overlay.querySelector('#w-deposit-opts').style.display = e.target.checked ? '' : 'none';
       });
     }
+
+    if (id === 'done') celebrate();
   }
+
+  // Enter moves on, the way a form would — but never from a list being edited,
+  // a button that has its own job, or while setup is being applied.
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.shiftKey || busy) return;
+    const t = e.target;
+    if (t.closest('#w-services, #w-team') || t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA' || t.tagName === 'A') return;
+    const next = overlay.querySelector('#w-next');
+    if (next) { e.preventDefault(); next.click(); }
+  });
 
   async function onNext() {
     capture();
-    const id = steps[idx];
+    const id = STEPS[idx];
     if (id === 'details' && !String(data.settings.business_name || '').trim()) {
       toast('Please enter your business name', 'err');
+      overlay.querySelector('#w-name')?.focus();
       return;
     }
-    if (idx === steps.length - 3) { await apply(); return; } // step before 'done'
-    idx++;
-    render();
+    if (id === 'hours' && !data.settings.open_days.length) {
+      toast('Pick at least one day you open', 'err');
+      return;
+    }
+    if (id === 'done') { go(1); return; }
+    if (idx === STEPS.length - 3) { await apply(); return; } // the step before 'done'
+    go(1);
   }
 
+  // ---- building it ---------------------------------------------------------
+
   async function apply() {
-    const nextBtn = overlay.querySelector('#w-next');
-    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = 'Setting up…'; }
+    busy = true;
+    const svcs = data.services.filter((sv) => sv.on && String(sv.name || '').trim());
+    const team = data.team.filter((m) => String(m.name || '').trim());
     const payload = {
       fresh: data.fresh,
       settings: {
@@ -557,21 +799,81 @@ export function runSetupWizard({ firstRun = true, settings = {}, onDone } = {}) 
         // filter — captured automatically from their browser.
         business_tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
       },
-      team: data.team.filter((m) => String(m.name || '').trim()),
-      services: data.services.filter((sv) => sv.on && String(sv.name || '').trim())
-        .map((sv) => ({ name: sv.name, category: sv.category || 'General', duration_min: sv.duration_min, price: sv.price, price_type: sv.price_type || 'fixed' })),
+      team,
+      services: svcs.map((sv) => ({ name: sv.name, category: sv.category || 'General', duration_min: sv.duration_min, price: sv.price, price_type: sv.price_type || 'fixed' })),
     };
+
+    // What is being built, said as it happens. The list is real — it is what
+    // the payload contains — and the server call runs alongside it.
+    const lines = [
+      `Setting your hours · ${daysPhrase(data.settings.open_days)}`,
+      `Adding ${svcs.length || 'your'} service${svcs.length === 1 ? '' : 's'} to the menu`,
+      team.length ? `Making ${team.length === 1 ? `${team[0].name.split(/\s+/)[0]}'s calendar` : `${team.length} calendars`}` : 'Making your calendar',
+      'Painting your booking page in your colours',
+      data.settings.reminders_enabled ? 'Switching on reminders' : 'Setting up your messages',
+    ];
+    const body = overlay.querySelector('#wz-body');
+    overlay.querySelector('#wz-foot').innerHTML = '';
+    overlay.querySelector('.wz-main').classList.remove('with-phone');
+    body.innerHTML = `
+      <div class="wz-build">
+        <div class="wz-build-orb" style="--a:${esc(data.settings.brand_accent)}"></div>
+        <h2>Building ${esc(biz())}…</h2>
+        <ul class="wz-build-list">${lines.map((l) => `<li><span class="wz-tick"></span>${esc(l)}</li>`).join('')}</ul>
+      </div>`;
+    const items = [...body.querySelectorAll('.wz-build-list li')];
+    const step = still() ? 0 : 380;
+    const ticking = (async () => {
+      for (const li of items) { await wait(step); li.classList.add('done'); }
+      await wait(step ? 300 : 0);
+    })();
     try {
-      await api.post('/api/setup/apply', payload);
+      await Promise.all([api.post('/api/setup/apply', payload), ticking]);
+      busy = false;
       idx++; // -> done
-      render();
+      paintStep(0);
     } catch (err) {
+      busy = false;
       toast(err.message || 'Setup failed — please try again', 'err');
-      if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = 'Finish setup'; }
+      paintStep(0); // back to the messages step, with everything they chose still there
     }
+  }
+
+  // A burst of their own colour. Short, falls away by itself, never in the way.
+  function celebrate() {
+    if (still()) return;
+    const host = overlay.querySelector('.wz-burst');
+    if (!host || typeof document.createElement('canvas').getContext !== 'function') return;
+    const c = document.createElement('canvas');
+    const w = host.clientWidth || 600, h = 320;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = w * dpr; c.height = h * dpr; c.style.width = `${w}px`; c.style.height = `${h}px`;
+    host.appendChild(c);
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+    const colours = [data.settings.brand_accent, '#ffffff', '#fbbf24', data.settings.brand_accent];
+    const bits = Array.from({ length: 110 }, () => ({
+      x: w / 2, y: 120, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8 - 3,
+      r: Math.random() * 5 + 3, a: Math.random() * Math.PI, va: (Math.random() - 0.5) * 0.3,
+      col: colours[Math.floor(Math.random() * colours.length)],
+    }));
+    const t0 = performance.now();
+    const frame = (t) => {
+      const age = t - t0;
+      ctx.clearRect(0, 0, w, h);
+      for (const b of bits) {
+        b.vy += 0.22; b.x += b.vx; b.y += b.vy; b.a += b.va;
+        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age / 2200);
+        ctx.translate(b.x, b.y); ctx.rotate(b.a); ctx.fillStyle = b.col;
+        ctx.fillRect(-b.r / 2, -b.r / 4, b.r, b.r / 2); ctx.restore();
+      }
+      if (age < 2200 && c.isConnected) requestAnimationFrame(frame); else c.remove();
+    };
+    requestAnimationFrame(frame);
   }
 
   function close() { overlay.remove(); }
 
-  render();
+  paintStep(0);
 }
