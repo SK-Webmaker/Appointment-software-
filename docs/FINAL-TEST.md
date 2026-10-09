@@ -45,9 +45,12 @@ before, from the website to a refund, with real money (A$5).
 7. On the iPhone, install **Kairo** from the App Store and sign in with the
    same email and password. Allow notifications.
    - ✔ It opens straight into Final Test Salon.
-8. Optional, if you want to see texts working: Settings → **SMS** → **Set up
-   ClickSend step by step**, using your ClickSend account.
-   - ✔ The last step sends a real text to your phone.
+8. Texts, as a new owner would: on the dashboard press **Set up texts** (or
+   Settings → SMS → **Set up text messages**). Follow it with your own
+   ClickSend account.
+   - ✔ It says "Connected" and shows your credit.
+   - ✔ The last step sends a real text to your phone and says texts are on.
+   - ✔ In step 9 the client's mobile gets the booking confirmation by text too.
 
 ## C. Be a client (10 min)
 
