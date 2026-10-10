@@ -1408,6 +1408,7 @@ table.data th.num { text-align: right; }
 .wiz-empty { text-align: center; color: var(--muted); padding: 20px; font-size: 13px; }
 .wiz-team-row { align-items: end; margin-bottom: 10px; }
 .wiz-toggle { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer; font-size: 13.5px; }
+.wiz-toggle[hidden] { display: none; }
 .wiz-toggle input { width: 17px; height: 17px; margin-top: 1px; accent-color: var(--accent); flex: 0 0 auto; }
 .wiz-muted { color: var(--muted); font-size: 12px; }
 .wiz-linkbox { display: flex; align-items: center; gap: 10px; justify-content: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; margin: 6px auto 12px; max-width: 400px; }
@@ -3587,10 +3588,10 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .wz-shell { width: 100%; max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 
 .wz-track { position: relative; padding-top: 2px; }
-.wz-track ol { list-style: none; display: grid; grid-template-columns: repeat(9, 1fr); margin: 0; padding: 0; position: relative; }
+.wz-track ol { list-style: none; display: grid; grid-template-columns: repeat(10, 1fr); margin: 0; padding: 0; position: relative; }
 .wz-track li { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); text-align: center; }
 .wz-track-line {
-  position: absolute; left: calc(100% / 18); right: calc(100% / 18); top: 9px; height: 2px;
+  position: absolute; left: calc(100% / 20); right: calc(100% / 20); top: 9px; height: 2px;
   background: var(--panel-3); border-radius: 2px;
 }
 .wz-track-fill {
@@ -3684,6 +3685,53 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 }
 @keyframes wzRise { from { opacity: 0; transform: translateY(6px); } }
 .wz-inline-preview { display: none; }
+/* The booking page under consultation-first: one sentence and one button. */
+.wz-pp-consult { flex: 1; padding: 18px 16px 0; text-align: center; }
+.wz-pp-consult b { display: block; font-size: 13px; }
+.wz-pp-consult p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; opacity: 0.72; }
+
+/* How clients book: two big, plain choices. */
+.wz-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
+@media (max-width: 560px) { .wz-modes { grid-template-columns: 1fr; } }
+.wz-mode {
+  display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 14px 15px;
+  border-radius: 14px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text-2);
+  font: inherit; cursor: pointer; transition: border-color .18s, background .18s, box-shadow .18s, transform .18s;
+}
+.wz-mode:hover { border-color: rgba(47, 127, 214, .45); }
+.wz-mode:active { transform: scale(.99); }
+.wz-mode.sel { border-color: var(--accent-fill); background: color-mix(in srgb, var(--accent-fill) 10%, var(--panel-2)); box-shadow: 0 0 0 3px rgba(47, 127, 214, .18); }
+.wz-mode-e { font-size: 22px; line-height: 1; flex: none; margin-top: 1px; }
+.wz-mode b { display: block; color: var(--text); font-size: 14px; margin-bottom: 4px; }
+.wz-mode span span { display: block; font-size: 12.5px; line-height: 1.5; }
+#w-mode-online[hidden], #w-mode-consult[hidden] { display: none; }
+
+/* One line per step: why it matters, or where to change it later. */
+.wz-tip {
+  display: flex; gap: 9px; align-items: flex-start; margin: 16px 0 0; padding: 10px 12px;
+  border-radius: 11px; background: color-mix(in srgb, var(--accent-fill) 7%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-fill) 35%, var(--border));
+  font-size: 12.5px; line-height: 1.55; color: var(--text-2);
+}
+.wz-tip > span:first-child { flex: none; }
+
+/* "Here's what's ready." */
+.wz-ready {
+  margin: 20px auto 4px; max-width: 520px; text-align: left; padding: 16px 18px;
+  border-radius: 16px; border: 1px solid var(--border); background: var(--panel-2);
+}
+.wz-ready-h { font-weight: 700; font-size: 15px; color: var(--text); margin-bottom: 10px; }
+.wz-ready-h.small { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 8px; }
+.wz-ready-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.wz-ready-list li { display: flex; gap: 10px; align-items: flex-start; animation: wzRise .4s ease both; }
+.wz-ready-list li b { display: block; font-size: 13.5px; color: var(--text); }
+.wz-ready-list li small { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.wz-ok { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px;
+  background: color-mix(in srgb, #199e70 18%, transparent); color: #34d399; }
+.wz-later { flex: none; width: 20px; height: 20px; border-radius: 50%; margin-top: 1px; border: 1.5px dashed var(--muted); opacity: .7; }
+.wz-ready-list.next li b { font-weight: 600; color: var(--text-2); }
+.wz-help { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.wz-help a { color: var(--accent); font-weight: 600; }
 
 /* Step furniture. */
 .wz-hero-mark { display: grid; place-items: center; margin: 4px auto 14px; }

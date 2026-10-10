@@ -91,6 +91,33 @@ test('the setup wizard can start fresh and the public page reflects it immediate
   d.close();
 });
 
+// The setup journey's "How do clients book?" step. Consultation first turns the
+// booking page into a "message us" page on the channel they named; the other
+// way round, it is a normal page with whatever menu they chose.
+test('setup can choose consultation first, and the booking page follows', async () => {
+  const r = await k.api('POST', '/api/setup/apply', {
+    cookie,
+    body: {
+      fresh: true,
+      settings: { business_name: 'Talk First Studio', consult_mode: '1', consult_channel: 'instagram', consult_handle: '@talkfirst', consult_note: '' },
+      team: [{ name: 'Owner', title: '' }],
+      services: [{ name: 'Colour', category: 'Hair', duration_min: 120, price: 180, price_type: 'from' }],
+    },
+  });
+  assert.equal(r.status, 200, r.text);
+  const info = (await k.api('GET', '/api/public/info')).json;
+  assert.equal(info.consult.mode, true);
+  assert.equal(info.consult.channel, 'instagram');
+  assert.equal(info.consult.handle, '@talkfirst');
+
+  const back = await k.api('POST', '/api/setup/apply', {
+    cookie,
+    body: { fresh: false, settings: { consult_mode: '0' }, team: [], services: [] },
+  });
+  assert.equal(back.status, 200);
+  assert.equal((await k.api('GET', '/api/public/info')).json.consult.mode, false);
+});
+
 test('the wizard refuses unknown settings keys too', async () => {
   const r = await k.api('POST', '/api/setup/apply', { cookie, body: { settings: { session_secret: 'x' } } });
   assert.equal(r.status, 400);

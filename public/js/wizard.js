@@ -18,6 +18,7 @@
 import { api } from './api.js';
 import { esc, icon, toast, LOGO_SVG, copyText } from './ui.js';
 import { inApp } from './native.js';
+import { guideUrl, SUPPORT_EMAIL } from './help.js';
 
 // Starter service menus by business type: [name, category, duration_min,
 // price, price_type?]. price_type omitted = 'fixed'; 'from' marks services
@@ -65,11 +66,21 @@ const STARTER = {
 };
 
 // The journey, in the owner's words. 'install' rides on the last milestone.
-const STEPS = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'comms', 'done', 'install'];
+const STEPS = ['welcome', 'type', 'details', 'hours', 'brand', 'services', 'team', 'booking', 'comms', 'done', 'install'];
 const MILESTONES = [
   ['welcome', 'Hello'], ['type', 'Your craft'], ['details', 'Details'], ['hours', 'Hours'],
-  ['brand', 'Your look'], ['services', 'Menu'], ['team', 'Team'], ['comms', 'Messages'], ['done', 'Open!'],
+  ['brand', 'Your look'], ['services', 'Menu'], ['team', 'Team'], ['booking', 'Bookings'], ['comms', 'Messages'], ['done', 'Open!'],
 ];
+// Where a consultation-first business takes its first conversation. The same
+// choices Settings → Online booking offers, each with a placeholder that shows
+// what kind of answer it wants.
+const CHANNELS = [
+  ['instagram', 'Instagram', '@yoursalon'], ['whatsapp', 'WhatsApp', '0412 345 678'],
+  ['facebook', 'Facebook Messenger', 'facebook.com/yoursalon'], ['phone', 'Phone', '0412 345 678'],
+  ['email', 'Email', 'hello@yourbusiness.com'], ['other', 'Somewhere else', 'https://…'],
+];
+const channelName = (v) => (CHANNELS.find(([k]) => k === v) || CHANNELS[0])[1];
+const isConsultService = (sv) => /consult/i.test(String(sv.name || ''));
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const SWATCHES = ['#38bdf8', '#d55181', '#a855f7', '#f59e0b', '#10b981', '#e11d48', '#c2874a', '#0ea5e9'];
 // Names a fresh install starts with — never somebody's business.
@@ -155,6 +166,13 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       deposit_type: s.deposit_type || 'none',
       deposit_value: s.deposit_value || '20',
     },
+    // How clients book: by themselves online, or by talking to the owner first.
+    booking: {
+      mode: s.consult_mode === '1' ? 'consult' : 'online',
+      channel: CHANNELS.some(([k]) => k === s.consult_channel) ? s.consult_channel : 'instagram',
+      handle: s.consult_handle || '',
+      note: s.consult_note || '',
+    },
     logo: '', cover: '',
     appStore: '',   // the iPhone app's listing, once Apple has one (/api/app/config)
     services: [],   // {name, category, duration_min, price, price_type, on}
@@ -191,6 +209,48 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
 
   // ---- the steps --------------------------------------------------------------
 
+  /** One line on each step saying why it matters, or where to change it later. */
+  const tip = (text) => `<p class="wz-tip"><span aria-hidden="true">💡</span><span>${esc(text)}</span></p>`;
+
+  /**
+   * "You're ready": everything that is now true about their business, read
+   * back from what they chose — then the optional extras, and where help is.
+   * The point is that an owner closes setup knowing, not hoping.
+   */
+  function readiness() {
+    const st = data.settings;
+    const svcs = data.services.filter((x) => x.on && String(x.name || '').trim());
+    const priced = svcs.filter((x) => x.price_type !== 'free' && Number(x.price) > 0).map((x) => Number(x.price));
+    const team = data.team.filter((m) => String(m.name || '').trim());
+    const consult = data.booking.mode === 'consult';
+    const sends = [st.confirm_enabled && 'confirmations', st.reminders_enabled && `reminders ${st.reminder_hours} hours before`,
+      st.receipts_enabled && 'receipts', st.review_requests_enabled && 'review requests'].filter(Boolean);
+    const sendSay = sends.length ? `${sends.join(', ').replace(/^./, (c) => c.toUpperCase())} — sent by email, free` : 'Client emails are off — switch them on any time in Settings → Messages';
+    const ready = [
+      ['Your booking page is live', `${siteUrl}/book`],
+      [`Open ${daysPhrase(st.open_days)}`, `${clock(st.open_min)} – ${clock(st.close_min)}`],
+      consult
+        ? ['Bookings by consultation', `Clients message you on ${channelName(data.booking.channel)}${data.booking.handle ? ` (${data.booking.handle})` : ''}; you send the booking link`]
+        : [`${svcs.length} service${svcs.length === 1 ? '' : 's'} on your menu`, priced.length ? `From ${cur()}${Math.min(...priced)}` : 'Clients book themselves, any hour'],
+      [team.length ? `${team.length === 1 ? team[0].name.split(/\s+/)[0] : `${team.length} people`} taking bookings` : 'Your calendar is ready', team.length > 1 ? team.map((m) => m.name.split(/\s+/)[0]).join(', ') : 'Add more people any time in Team'],
+      ['Clients hear from you automatically', sendSay],
+    ];
+    const next = [
+      ['Text reminders', 'Settings → Messages → Set up text messages'],
+      [st.deposit_type !== 'none' && !consult ? 'Card payments (needed for your deposits)' : 'Card payments online', 'Settings → Payments'],
+      ['The Kairo iPhone app', 'Next screen'],
+    ];
+    return `
+      <div class="wz-ready">
+        <div class="wz-ready-h">${firstName ? `${esc(firstName)}, here's` : "Here's"} what's ready</div>
+        <ul class="wz-ready-list">${ready.map(([h, d]) => `<li><span class="wz-ok">${icon('check', 13)}</span><span><b>${esc(h)}</b><small>${esc(d)}</small></span></li>`).join('')}</ul>
+        <div class="wz-ready-h small">When you're ready — optional</div>
+        <ul class="wz-ready-list next">${next.map(([h, d]) => `<li><span class="wz-later"></span><span><b>${esc(h)}</b><small>${esc(d)}</small></span></li>`).join('')}</ul>
+        <p class="wz-help">Questions? <a href="${esc(guideUrl())}" target="_blank" rel="noopener noreferrer">Read the Kairo guide</a>
+          or email <a href="mailto:${esc(SUPPORT_EMAIL)}">${esc(SUPPORT_EMAIL)}</a> — a real person answers.</p>
+      </div>`;
+  }
+
   const views = {
     welcome: () => `
       <div class="wz-hero-mark">${LOGO_SVG}</div>
@@ -201,7 +261,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         your booking page come to life as you go.</p>
       <ol class="wz-map">
         ${[['🧭', 'What you do', 'We draft your menu'], ['🕘', 'When you open', 'Your hours and details'],
-          ['🎨', 'How it looks', 'Colours, logo, photo'], ['💌', 'Who you are', 'Your team and messages']]
+          ['🎨', 'How it looks', 'Colours, logo, photo'], ['💌', 'How you work', 'Your team, bookings and messages']]
           .map(([e, t, sub], i) => `<li style="--i:${i}"><span class="wz-map-e">${e}</span><span><b>${t}</b><small>${sub}</small></span></li>`).join('')}
       </ol>
       ${firstRun && hasSamples ? `
@@ -250,7 +310,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
           <div class="field"><label>GST % on invoices</label><input id="w-tax" type="number" min="0" step="0.1" value="${esc(data.settings.tax_rate)}">
             <div class="hint" style="font-size:11.5px;color:var(--muted)">0 unless you're registered for GST.</div></div>
         </div>
-      </div>`,
+      </div>
+      ${tip('Your phone and address appear on your booking page and every confirmation, so clients can find you and call.')}`,
 
     hours: () => `
       <h2>When is ${esc(biz())} open?</h2>
@@ -270,7 +331,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         <p class="wz-chip" id="w-hours-say"></p>
         <div class="field"><label>Booking slots every</label>
           <select id="w-slot">${[10, 15, 20, 30, 60].map((v) => `<option value="${v}" ${String(data.settings.slot_interval) === String(v) ? 'selected' : ''}>${v} minutes</option>`).join('')}</select></div>
-      </div>`,
+      </div>
+      ${tip('Clients can only book inside these hours. Breaks, holidays and each person\'s own shifts can be set any time from Team.')}`,
 
     brand: () => `
       <h2>Make ${esc(biz())} look like you</h2>
@@ -304,7 +366,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         <div class="field"><label>A line to welcome clients</label>
           <input id="w-tagline" value="${esc(data.settings.brand_tagline)}" maxlength="120" placeholder="e.g. Colour, cuts & care in the heart of town"></div>
         <div class="wz-inline-preview" id="w-inline-preview"></div>
-      </div>`,
+      </div>
+      ${tip('A square logo and a wide photo of your space look best. Change them whenever you like in Settings → Online booking.')}`,
 
     services: () => {
       const on = data.services.filter((x) => x.on && String(x.name || '').trim());
@@ -329,7 +392,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
               : `<span class="wiz-u">${esc(cur())}</span><input class="wiz-svc-price" type="number" min="0" step="1" data-svc-price="${i}" value="${sv.price}" aria-label="Price">`}
           </div>`).join('') : '<div class="wiz-empty">Pick what your business does (one step back) for a starter menu — or add your own below.</div>'}
       </div>
-      <button type="button" class="btn small" id="w-add-svc">${icon('plus')} Add a service</button>`;
+      <button type="button" class="btn small" id="w-add-svc">${icon('plus')} Add a service</button>
+      ${tip('Set each time to cover the whole appointment, including any clean-up. Add more services, prices and photos later in Services.')}`;
     },
 
     team: () => `
@@ -345,7 +409,47 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
             ${data.team.length > 1 ? `<button type="button" class="btn small ghost" data-team-rm="${i}" aria-label="Remove">${icon('x')}</button>` : ''}
           </div>`).join('')}
       </div>
-      <button type="button" class="btn small" id="w-add-team">${icon('plus')} Add someone</button>`,
+      <button type="button" class="btn small" id="w-add-team">${icon('plus')} Add someone</button>
+      ${tip('Each person gets their own column, their own hours, and clients can choose who they see. Add or change people any time in Team.')}`,
+
+    booking: () => {
+      const b = data.booking;
+      const ch = CHANNELS.find(([k]) => k === b.channel) || CHANNELS[0];
+      const offering = data.services.some((sv) => sv.on && isConsultService(sv));
+      return `
+      <h2>How do clients book ${esc(biz())}?</h2>
+      <p class="wiz-sub">Pick the way you like to work. You can change it any time in Settings → Online booking.</p>
+      <div class="wz-modes" role="radiogroup" aria-label="How clients book">
+        <button type="button" class="wz-mode ${b.mode === 'online' ? 'sel' : ''}" data-mode="online" role="radio" aria-checked="${b.mode === 'online'}">
+          <span class="wz-mode-e">📅</span>
+          <span><b>They book themselves, online</b>
+            <span>Clients pick a service, a time and who with, any hour, from your booking link. Every booking lands in your calendar and pings your phone.</span></span>
+        </button>
+        <button type="button" class="wz-mode ${b.mode === 'consult' ? 'sel' : ''}" data-mode="consult" role="radio" aria-checked="${b.mode === 'consult'}">
+          <span class="wz-mode-e">💬</span>
+          <span><b>A consultation first</b>
+            <span>Clients message you before anything is booked. Once you've agreed what they need, you send them a booking link for that exact service and time.</span></span>
+        </button>
+      </div>
+      <div id="w-mode-online" ${b.mode === 'online' ? '' : 'hidden'}>
+        <label class="wiz-toggle"><input type="checkbox" id="w-offer-consult" ${offering ? 'checked' : ''}>
+          <span><b>Also offer a free consultation</b><br><span class="wiz-muted">Adds a free 15-minute "Consultation" to your menu,
+            so a new client can book a quick chat before committing — like any other appointment.</span></span></label>
+      </div>
+      <div id="w-mode-consult" class="wiz-form" ${b.mode === 'consult' ? '' : 'hidden'}>
+        <div class="wiz-2col">
+          <div class="field"><label>Where should clients message you?</label>
+            <select id="w-cchan">${CHANNELS.map(([k, label]) => `<option value="${k}" ${b.channel === k ? 'selected' : ''}>${label}</option>`).join('')}</select></div>
+          <div class="field"><label>Your handle, number or link *</label>
+            <input id="w-chandle" value="${esc(b.handle)}" placeholder="${esc(ch[2])}" autocomplete="off"></div>
+        </div>
+        <div class="field"><label>A line for your booking page (optional)</label>
+          <textarea id="w-cnote" rows="2" maxlength="600" placeholder="We like a quick chat before every appointment so we can get everything right for you.">${esc(b.note)}</textarea></div>
+        <div class="wiz-note">${icon('send', 14)} <span><b>How it works:</b> your booking page shows a <b>Message us</b> button instead of times.
+          After your chat, open the <b>Calendar</b>, tap <b>Booking link</b>, choose the service and time you agreed, and send it.
+          They confirm from their phone and it lands in your calendar.</span></div>
+      </div>`;
+    },
 
     comms: () => `
       <h2>Keep clients coming back</h2>
@@ -363,14 +467,15 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
           <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" after checkout</span></span></label>
         <div class="wiz-note">${icon('send', 14)} <span><b>Text reminders too?</b> Once you're in, go to
           <b>Settings → SMS → Set up text messages</b>. About five minutes, and Kairo walks you through it.</span></div>
-        <label class="wiz-toggle"><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
+        <label class="wiz-toggle" ${data.booking.mode === 'consult' ? 'hidden' : ''}><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
           <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs card payments connected later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
           <div class="field"><label>Deposit type</label>
             <select id="w-deposit-type"><option value="fixed" ${data.settings.deposit_type === 'fixed' ? 'selected' : ''}>Fixed amount</option><option value="percent" ${data.settings.deposit_type === 'percent' ? 'selected' : ''}>% of price</option></select></div>
           <div class="field"><label>Amount (${esc(cur())} or %)</label><input id="w-deposit-val" type="number" min="0" step="1" value="${esc(data.settings.deposit_value)}"></div>
         </div>
-      </div>`,
+      </div>
+      ${tip('Emails go out with your business name on them, and when a client replies it comes straight to your inbox.')}`,
 
     done: () => `
       <div class="wz-burst" aria-hidden="true"></div>
@@ -384,7 +489,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       <div class="wz-done-actions">
         <a class="btn" href="${esc(siteUrl)}/book" target="_blank" rel="noopener noreferrer">${icon('external', 14)} See it as a client</a>
       </div>
-      <p class="wiz-sub" style="text-align:center">Put it in your Instagram bio, Google profile and WhatsApp auto-reply.</p>`,
+      <p class="wiz-sub" style="text-align:center">Put it in your Instagram bio, Google profile and WhatsApp auto-reply.</p>
+      ${readiness()}`,
 
     install: () => `
       <div class="wiz-hero">${icon('phone', 32)}</div>
@@ -447,12 +553,18 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
           <div class="wz-pp-tag">${esc(st.brand_tagline || 'Book an appointment online')}</div>
           <div class="wz-pp-hours">${esc(daysPhrase(st.open_days))} · ${esc(clock(st.open_min))}–${esc(clock(st.close_min))}</div>
         </div>
+        ${data.booking.mode === 'consult' ? `
+        <div class="wz-pp-consult">
+          <b>Book with a quick chat first</b>
+          <p>${esc(data.booking.note || 'We like a quick chat before every appointment so we can get everything right for you.')}</p>
+        </div>
+        <div class="wz-pp-btn">Message us on ${esc(channelName(data.booking.channel))}</div>` : `
         <div class="wz-pp-list">
           ${svcs.length ? svcs.map((x) => `<div class="wz-pp-svc"><span>${esc(x.name)}<small>${Number(x.duration_min) || 0} min</small></span><b>${price(x)}</b></div>`).join('')
             : '<div class="wz-pp-ghost"></div><div class="wz-pp-ghost"></div><div class="wz-pp-ghost short"></div>'}
         </div>
         ${team.length ? `<div class="wz-pp-team">${team.map((m) => `<span title="${esc(m.name)}">${esc(initials(m.name))}</span>`).join('')}</div>` : ''}
-        <div class="wz-pp-btn">Book now</div>
+        <div class="wz-pp-btn">Book now</div>`}
       </div>`;
   }
 
@@ -491,13 +603,19 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       data.settings.brand_font = val('#w-font');
       data.settings.brand_accent = val('#w-accent');
       data.settings.brand_tagline = val('#w-tagline');
+    } else if (id === 'booking') {
+      if (overlay.querySelector('#w-cchan')) {
+        data.booking.channel = val('#w-cchan');
+        data.booking.handle = String(val('#w-chandle') || '').trim();
+        data.booking.note = String(val('#w-cnote') || '').trim();
+      }
     } else if (id === 'comms') {
       data.settings.confirm_enabled = overlay.querySelector('#w-confirm').checked;
       data.settings.reminders_enabled = overlay.querySelector('#w-remind').checked;
       data.settings.reminder_hours = val('#w-remind-hrs');
       data.settings.receipts_enabled = overlay.querySelector('#w-receipts').checked;
       data.settings.review_requests_enabled = overlay.querySelector('#w-reviews').checked;
-      data.settings.deposit_type = overlay.querySelector('#w-deposit').checked ? val('#w-deposit-type') : 'none';
+      data.settings.deposit_type = overlay.querySelector('#w-deposit').checked && data.booking.mode !== 'consult' ? val('#w-deposit-type') : 'none';
       data.settings.deposit_value = val('#w-deposit-val') || '20';
     }
     // services & team capture live via their own input handlers
@@ -737,6 +855,32 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       });
     }
 
+    if (id === 'booking') {
+      overlay.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+        capture();
+        data.booking.mode = b.dataset.mode;
+        overlay.querySelectorAll('[data-mode]').forEach((x) => {
+          x.classList.toggle('sel', x === b); x.setAttribute('aria-checked', String(x === b));
+        });
+        overlay.querySelector('#w-mode-online').hidden = data.booking.mode !== 'online';
+        overlay.querySelector('#w-mode-consult').hidden = data.booking.mode !== 'consult';
+        if (data.booking.mode === 'consult') overlay.querySelector('#w-chandle')?.focus({ preventScroll: true });
+        paintPreview();
+      }));
+      overlay.querySelector('#w-offer-consult')?.addEventListener('change', (e) => {
+        const existing = data.services.find(isConsultService);
+        if (existing) existing.on = e.target.checked;
+        else if (e.target.checked) data.services.push({ name: 'Consultation', category: 'General', duration_min: 15, price: 0, price_type: 'free', on: true });
+        paintPreview();
+      });
+      overlay.querySelector('#w-cchan')?.addEventListener('change', (e) => {
+        const ch = CHANNELS.find(([k]) => k === e.target.value);
+        overlay.querySelector('#w-chandle').placeholder = ch ? ch[2] : '';
+        capture(); paintPreview();
+      });
+      overlay.querySelector('#w-mode-consult')?.addEventListener('input', () => { capture(); paintPreview(); });
+    }
+
     if (id === 'comms') {
       overlay.querySelector('#w-deposit')?.addEventListener('change', (e) => {
         overlay.querySelector('#w-deposit-opts').style.display = e.target.checked ? '' : 'none';
@@ -768,6 +912,11 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       toast('Pick at least one day you open', 'err');
       return;
     }
+    if (id === 'booking' && data.booking.mode === 'consult' && !data.booking.handle) {
+      toast(`Add your ${channelName(data.booking.channel)} so clients know where to message you`, 'err');
+      overlay.querySelector('#w-chandle')?.focus();
+      return;
+    }
     if (id === 'done') { go(1); return; }
     if (idx === STEPS.length - 3) { await apply(); return; } // the step before 'done'
     go(1);
@@ -789,6 +938,10 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         receipts_enabled: data.settings.receipts_enabled ? '1' : '0',
         review_requests_enabled: data.settings.review_requests_enabled ? '1' : '0',
         sms_notifications_enabled: data.settings.sms_notifications_enabled ? '1' : '0',
+        consult_mode: data.booking.mode === 'consult' ? '1' : '0',
+        consult_channel: data.booking.channel,
+        consult_handle: data.booking.handle,
+        consult_note: data.booking.note,
         brand_logo: data.logo || '',
         brand_cover: data.cover || '',
         // The URL used to administer the app right now IS the URL customers
@@ -810,6 +963,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       `Adding ${svcs.length || 'your'} service${svcs.length === 1 ? '' : 's'} to the menu`,
       team.length ? `Making ${team.length === 1 ? `${team[0].name.split(/\s+/)[0]}'s calendar` : `${team.length} calendars`}` : 'Making your calendar',
       'Painting your booking page in your colours',
+      data.booking.mode === 'consult' ? `Pointing new clients to your ${channelName(data.booking.channel)}` : 'Opening your diary to online bookings',
       data.settings.reminders_enabled ? 'Switching on reminders' : 'Setting up your messages',
     ];
     const body = overlay.querySelector('#wz-body');
