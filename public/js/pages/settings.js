@@ -145,6 +145,27 @@ const NOTHING_YET = {
   reviews: 'Nothing to show yet — it appears once a client has left a review.',
 };
 
+/**
+ * Settings in seven rooms instead of one long corridor.
+ *
+ * Twenty-odd cards on one page meant an owner looking for "reminders" scrolled
+ * past hours, branding and billing to find it, and on a phone never did. Each
+ * card now belongs to a section with a name an owner would use; the tabs show
+ * one section at a time, and "Find a setting" searches all of them. Every card
+ * keeps its own Save — nothing about how a setting is stored changed.
+ */
+export const SETTINGS_GROUPS = [
+  { id: 'business', label: 'Business', icon: 'note', say: 'Who you are, when you are open, and where.', secs: ['profile', 'hours', 'locations'] },
+  { id: 'booking', label: 'Online booking', icon: 'globe', say: 'What clients see and can do on your booking page.', secs: ['brand', 'page', 'consult', 'requests', 'waitlist'] },
+  { id: 'messages', label: 'Messages', icon: 'mail', say: 'Confirmations, reminders, texts and automatic messages to your clients.', secs: ['notif', 'sms', 'marketing'] },
+  { id: 'payments', label: 'Payments', icon: 'card', say: 'Taking money online and at the counter, and how invoices look.', secs: ['payments', 'poscard', 'billing'] },
+  { id: 'policies', label: 'Policies', icon: 'shield', say: 'No-show rules, patch tests and consent.', secs: ['noshow', 'safety'] },
+  { id: 'app', label: 'App & Kai', icon: 'phone', say: 'What your phone tells you, and Kai, your assistant.', secs: ['apppush', 'kai'] },
+  { id: 'account', label: 'Account & data', icon: 'lock', say: 'Your sign-in, backups and protection.', secs: ['account', 'backup', 'edge'] },
+];
+const GROUP_OF = Object.fromEntries(SETTINGS_GROUPS.flatMap((g) => g.secs.map((sec) => [sec, g.id])));
+const GROUP_KEY = 'kairo_settings_group';
+
 export async function renderSettings(container, params) {
   const s = state.settings;
   const live = await livePageSections(s);
@@ -210,8 +231,16 @@ export async function renderSettings(container, params) {
   container.innerHTML = `
     <div class="page-head">
       <div class="ph-icon">${icon('settings', 20)}</div>
-      <div><h1>Settings</h1><div class="ph-sub">Your business profile, hours and billing defaults</div></div>
+      <div><h1>Settings</h1><div class="ph-sub">Everything about how Kairo runs for your business</div></div>
     </div>
+    <div class="set-nav">
+      <div class="set-tabs" role="tablist" aria-label="Settings sections">
+        ${SETTINGS_GROUPS.map((g) => `<button type="button" role="tab" class="set-tab" data-group="${g.id}" aria-selected="false">${icon(g.icon, 15)}<span>${g.label}</span></button>`).join('')}
+      </div>
+      <label class="set-search">${icon('search', 15)}
+        <input type="search" id="set-q" placeholder="Find a setting" autocomplete="off" aria-label="Find a setting"></label>
+    </div>
+    <div class="set-intro"><div class="set-intro-t" id="set-title"></div><div class="set-intro-s" id="set-say"></div></div>
     <div class="settings-grid">
       <div class="card" data-sec="profile">
         <div class="card-title">Business profile</div>
@@ -1793,6 +1822,7 @@ export async function renderSettings(container, params) {
     location.reload();
   };
 
+  setupGroups(container, params);
   revealSection(container, params?.get('open'));
   // Straight from the dashboard's "Set up texts" — open the walkthrough itself
   // rather than a page of settings to find it on.
@@ -1814,8 +1844,80 @@ function revealSection(container, sec) {
   if (!sec) return;
   const card = container.querySelector(`.card[data-sec="${CSS.escape(sec)}"]`);
   if (!card) return;
+  container.showSettingsGroup?.(card.dataset.group);
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   card.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'center' });
   card.classList.add('sec-found');
   setTimeout(() => card.classList.remove('sec-found'), 2400);
+}
+
+/**
+ * The tabs and the search. Cards are tagged with their section once, then
+ * shown or hidden; nothing is re-rendered, so a half-typed field in one
+ * section is still there when the owner comes back to it.
+ */
+function setupGroups(container, params) {
+  const grid = container.querySelector('.settings-grid');
+  const cards = [...grid.children].filter((c) => c.matches('.card[data-sec]'));
+  for (const c of cards) c.dataset.group = GROUP_OF[c.dataset.sec] || SETTINGS_GROUPS[0].id;
+  // In each section, the order an owner would look for things — appearance
+  // before policy, the everyday before the rare. Moving a node keeps its
+  // listeners, so this is only an order, not a re-render.
+  const rank = (c) => {
+    const g = SETTINGS_GROUPS.findIndex((x) => x.id === c.dataset.group);
+    const i = SETTINGS_GROUPS[g]?.secs.indexOf(c.dataset.sec) ?? 0;
+    return g * 100 + (i < 0 ? 99 : i);
+  };
+  for (const c of [...cards].sort((a, b) => rank(a) - rank(b))) grid.appendChild(c);
+  const tabs = [...container.querySelectorAll('.set-tab')];
+  const title = container.querySelector('#set-title');
+  const say = container.querySelector('#set-say');
+  const q = container.querySelector('#set-q');
+  let current = SETTINGS_GROUPS[0].id;
+
+  const show = (gid) => {
+    const g = SETTINGS_GROUPS.find((x) => x.id === gid) || SETTINGS_GROUPS[0];
+    current = g.id;
+    if (q.value) q.value = '';
+    for (const c of cards) c.hidden = c.dataset.group !== g.id;
+    for (const t of tabs) t.setAttribute('aria-selected', String(t.dataset.group === g.id));
+    title.textContent = g.label;
+    say.textContent = g.say;
+    grid.classList.toggle('single', cards.filter((c) => !c.hidden).length === 1);
+    container.querySelector(`.set-tab[data-group="${g.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    try { sessionStorage.setItem(GROUP_KEY, g.id); } catch { /* private mode */ }
+  };
+  container.showSettingsGroup = show;
+
+  const intro = container.querySelector('.set-intro');
+  const nav = container.querySelector('.set-nav');
+  for (const t of tabs) {
+    t.addEventListener('click', () => {
+      show(t.dataset.group);
+      // Back to the top of the section if the owner had scrolled down it, so
+      // its title is not left hidden under the tabs.
+      const scroller = container.closest('.content');
+      const gap = intro.getBoundingClientRect().top - nav.getBoundingClientRect().bottom;
+      if (scroller && gap < 8) scroller.scrollTop += gap - 8;
+    });
+  }
+  q.addEventListener('input', () => {
+    const term = q.value.trim().toLowerCase();
+    if (!term) { show(current); return; }
+    let n = 0;
+    for (const c of cards) {
+      const hit = c.textContent.toLowerCase().includes(term);
+      c.hidden = !hit;
+      if (hit) n += 1;
+    }
+    for (const t of tabs) t.setAttribute('aria-selected', 'false');
+    title.textContent = n ? `${n} section${n === 1 ? '' : 's'} mention “${q.value.trim()}”` : `Nothing mentions “${q.value.trim()}”`;
+    say.textContent = n ? 'Clear the search to go back to the tabs.' : 'Try another word — “reminder”, “logo”, “deposit”, “hours”.';
+    grid.classList.toggle('single', n === 1);
+  });
+
+  const asked = params?.get('open');
+  let start = asked && GROUP_OF[asked];
+  if (!start) { try { start = sessionStorage.getItem(GROUP_KEY); } catch { /* private mode */ } }
+  show(start || SETTINGS_GROUPS[0].id);
 }

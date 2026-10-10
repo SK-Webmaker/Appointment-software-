@@ -220,8 +220,7 @@ function renderShell() {
             it's in an email, so it isn't private to you yet. Set your own in
             <a href="#/account">Account → Security</a>. Takes ten seconds.</span>
         </div>` : ''}
-        <div id="setup-checklist"></div>
-        <main class="content"><div class="page" id="page"></div></main>
+        <main class="content"><div id="setup-checklist"></div><div class="page" id="page"></div></main>
       </div>
     </div>`;
 

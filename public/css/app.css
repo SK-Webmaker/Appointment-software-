@@ -1193,6 +1193,51 @@ table.data th.num { text-align: right; }
 /* ---------- settings ---------- */
 
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.settings-grid.single { grid-template-columns: minmax(0, 760px); }
+.settings-grid > .card[hidden] { display: none; }
+
+/* Settings sections: a row of tabs and a search, held at the top of the page
+   while the owner scrolls through a section. On a phone the tabs scroll
+   sideways instead of wrapping into three untidy lines. */
+.set-nav {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 6px; padding: 10px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.set-tabs {
+  display: flex; gap: 4px; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  padding: 3px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
+}
+.set-tabs::-webkit-scrollbar { display: none; }
+.set-tab {
+  flex: none; display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px; border-radius: 9px; border: 0; background: none; cursor: pointer;
+  color: var(--text-2); font: inherit; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.set-tab:hover { color: var(--text); }
+.set-tab[aria-selected="true"] {
+  background: var(--panel); color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .18), inset 0 0 0 1px var(--border);
+}
+.set-tab[aria-selected="true"] svg { color: var(--accent); }
+.set-search {
+  flex: 0 0 210px; display: flex; align-items: center; gap: 8px; min-width: 160px;
+  padding: 0 12px; height: 40px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel-2);
+  color: var(--muted); cursor: text;
+}
+.set-search:focus-within { border-color: var(--accent); }
+.set-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 14px; padding: 0; }
+.set-intro { margin: 14px 0 14px; scroll-margin-top: 70px; }
+.set-intro-t { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+.set-intro-s { font-size: 13.5px; color: var(--text-2); margin-top: 2px; }
+@media (max-width: 720px) {
+  .set-nav { flex-direction: column; align-items: stretch; gap: 8px; }
+  .set-search { flex: none; width: 100%; }
+}
 .copy-row { display: flex; gap: 8px; }
 .copy-row input { flex: 1; min-width: 0; }
 .link-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -2617,10 +2662,13 @@ button.kai-open span { flex: 1; text-align: left; }
 .bk-patch-slots button.sel { border-color: var(--accent-fill); font-weight: 600; }
 
 /* ── Setup checklist ─────────────────────────────────────────────────────
-   Above the day's work, until there is nothing left on it. */
+   Above the day's work, until there is nothing left on it. Inside the page's
+   own scroll, so on a phone it scrolls away with everything else instead of
+   holding most of the screen and leaving the page a strip to scroll in. */
 #setup-checklist:empty { display: none; }
+#setup-checklist { max-width: 1240px; margin: 0 auto 18px; }
 .setup-card {
-  margin: 14px 22px 0; border: 1px solid var(--border); border-radius: 14px;
+  margin: 0; border: 1px solid var(--border); border-radius: 14px;
   background: var(--panel); overflow: hidden;
 }
 .setup-card.urgent { border-color: rgba(245, 158, 11, .45); }
