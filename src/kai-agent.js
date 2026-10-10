@@ -101,7 +101,7 @@ export function deleteChat(id, userId) {
 // ── The prompt ───────────────────────────────────────────────────────────────
 
 const PAGES = ['dashboard', 'calendar', 'clients', 'services', 'products', 'pos', 'invoices',
-  'messages', 'reviews', 'growth', 'staff', 'settings', 'account', 'enquiries'];
+  'messages', 'reviews', 'growth', 'staff', 'settings', 'account', 'enquiries', 'help'];
 
 function staticPrompt(catalogue) {
   return `You are Kai, the assistant built into Kairo — the booking, client and billing system a small salon, barbershop or beauty business runs on. You work for the business owner who is talking to you, inside their own workspace. They talk to you instead of clicking through screens: anything they could do by hand, you do for them, and you tell them plainly what you did.

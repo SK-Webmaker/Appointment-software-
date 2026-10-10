@@ -66,7 +66,7 @@ function md(text) {
 const PAGE_NAMES = {
   dashboard: 'Dashboard', calendar: 'Calendar', clients: 'Clients', services: 'Services', products: 'Products',
   pos: 'Point of Sale', invoices: 'Billing', messages: 'Messages', reviews: 'Reviews', growth: 'Growth',
-  staff: 'Team', settings: 'Settings', account: 'Account', enquiries: 'Enquiries',
+  staff: 'Team', settings: 'Settings', account: 'Account', enquiries: 'Enquiries', help: 'Help',
 };
 const hashFor = (e) => {
   const q = new URLSearchParams(e.params || {}).toString();

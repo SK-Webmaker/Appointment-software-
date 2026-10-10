@@ -125,6 +125,7 @@ const PLACES = [
   { id: 'staff', title: 'Team', href: '#/staff', words: 'team staff stylists barbers therapists employees roster rota' },
   { id: 'pos', title: 'Point of Sale', href: '#/pos', words: 'pos point of sale till checkout counter sell register' },
   { id: 'account', title: 'Your account', href: '#/account', words: 'account password security sign in login my login two factor' },
+  { id: 'help', title: 'Help', href: '#/help', words: 'help guide guides support manual instructions tutorial user guide' },
 ];
 
 /**

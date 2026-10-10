@@ -9,6 +9,8 @@ import { renderInvoices } from './pages/invoices.js';
 import { renderStaff } from './pages/staff.js';
 import { renderSettings } from './pages/settings.js';
 import { renderAccount } from './pages/account.js';
+import { renderHelp } from './pages/help.js';
+import { guideUrl, GUIDE_FOR_PAGE } from './help.js';
 import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
 import { renderGrowth } from './pages/growth.js';
@@ -51,6 +53,7 @@ const ROUTES = {
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
   account: { title: 'Account', icon: 'user', render: renderAccount },
+  help: { title: 'Help', icon: 'help', render: renderHelp },
 };
 
 const root = document.getElementById('app');
@@ -167,7 +170,7 @@ function renderShell() {
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
   const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
-  const navManage = ['messages', 'reviews', 'growth', 'staff', 'settings', 'account'];
+  const navManage = ['messages', 'reviews', 'growth', 'staff', 'settings', 'account', 'help'];
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');
@@ -293,11 +296,25 @@ async function navigate() {
   container.innerHTML = '<div class="empty">Loading…</div>';
   try {
     await route.render(container, params);
+    addGuideLink(container, page);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) { renderLogin(); return; }
     console.error(err);
     container.innerHTML = `<div class="empty">${icon('alert')}<div>Something went wrong: ${esc(err.message)}</div></div>`;
   }
+}
+
+/**
+ * A quiet "Guide" link at the top right of each screen, straight to the part
+ * of the guide that explains it. Added here rather than in every page, so a
+ * new page gets one by being listed in GUIDE_FOR_PAGE and nothing else.
+ */
+function addGuideLink(container, page) {
+  const head = container.querySelector('.page-head');
+  const section = GUIDE_FOR_PAGE[page];
+  if (!head || !section || head.querySelector('.ph-guide')) return;
+  head.insertAdjacentHTML('beforeend', `<a class="ph-guide" href="${esc(guideUrl(section))}" target="_blank"
+    rel="noopener noreferrer" title="How this screen works">${icon('help', 14)}<span>Guide</span></a>`);
 }
 
 async function boot() {

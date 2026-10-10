@@ -3843,3 +3843,41 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
   font-size: 12.5px; color: var(--muted); line-height: 1.5; text-align: center; }
 .kc-voice-hint svg { flex: none; color: var(--accent); }
 .kc.listening .kc-compose { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 127, 214, .18); }
+
+/* ── Help ─────────────────────────────────────────────────────────────────
+   The way to the guide, to Kai, and to a person — and on every screen, a
+   quiet Guide link to the part of the guide that explains it. */
+.ph-guide {
+  margin-left: auto; align-self: center; display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-2);
+  font-size: 12.5px; font-weight: 600; text-decoration: none; background: var(--panel);
+  transition: color .15s, border-color .15s;
+}
+.ph-guide:hover { color: var(--text); border-color: var(--accent-fill); }
+.page-head:has(.page-actions) .ph-guide, .page-head:has(> .btn) .ph-guide { margin-left: 0; }
+.help-hero {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 16%, var(--panel)), var(--panel) 60%);
+  border-color: color-mix(in srgb, var(--accent-fill) 35%, var(--border));
+}
+.help-hero-t { font-size: 18px; font-weight: 700; color: var(--text); }
+.help-hero-s { color: var(--text-2); font-size: 13.5px; margin-top: 4px; max-width: 560px; line-height: 1.55; }
+.help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 14px 0; }
+.help-topic {
+  display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; text-decoration: none;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  transition: border-color .15s, transform .15s, background .15s;
+}
+.help-topic:hover { border-color: var(--accent-fill); transform: translateY(-1px); }
+.help-ic { width: 36px; height: 36px; border-radius: 10px; flex: none; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent-fill) 14%, transparent); color: var(--accent); }
+.help-tx { flex: 1; min-width: 0; }
+.help-tx b { display: block; font-size: 14px; }
+.help-tx small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; line-height: 1.45; }
+.help-go { color: var(--muted); flex: none; }
+.help-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 760px) { .help-two { grid-template-columns: 1fr; } }
+.help-card .card-title { display: flex; align-items: center; gap: 8px; }
+.help-card .card-sub { margin: 6px 0 14px; line-height: 1.6; }
+.help-small { max-width: 760px; }
+.help-foot { color: var(--muted); font-size: 12px; text-align: center; margin: 22px 0 4px; }
