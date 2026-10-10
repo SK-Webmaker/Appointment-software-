@@ -16,6 +16,7 @@ import * as stripe from './stripe.js';
 import * as shard from './shard.js';
 import * as connect from './connect.js';
 import { appStoreId } from '../src/app-store.js';
+import { overview } from './overview.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -87,8 +88,11 @@ function hit(bucket, key) {
 // user accounts here would be building a product nobody asked for.
 const OPERATOR_COOKIE = 'kairo_operator';
 const operatorPassword = () => String(process.env.PLATFORM_OPERATOR_PASSWORD || '').trim();
-function mintOperator() {
-  const exp = Date.now() + 12 * 60 * 60 * 1000;
+// Twelve hours by default; thirty days when the operator ticks "keep me
+// signed in" on their own phone, where the console lives on the home screen.
+const OPERATOR_HOURS = (remember) => (remember ? 30 * 24 : 12);
+function mintOperator(remember = false) {
+  const exp = Date.now() + OPERATOR_HOURS(remember) * 60 * 60 * 1000;
   const mac = crypto.createHmac('sha256', getSetting('platform_secret')).update(`operator.${exp}`).digest('base64url');
   return `${exp}.${mac}`;
 }
@@ -108,7 +112,7 @@ function operatorOk(req) {
 }
 
 // ── static ─────────────────────────────────────────────────────────────────
-const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
 function serveStatic(res, rel) {
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
   if (file !== PUBLIC_DIR && !file.startsWith(PUBLIC_DIR + path.sep)) { res.writeHead(403); res.end('Forbidden'); return; }
@@ -313,7 +317,8 @@ async function api(req, res, url, ip) {
     if (!want) return json(res, 503, { error: 'No operator password is set on this platform.' });
     const x = Buffer.from(given); const y = Buffer.from(want);
     if (x.length !== y.length || !crypto.timingSafeEqual(x, y)) return json(res, 401, { error: 'Wrong password' });
-    res.setHeader('Set-Cookie', `${OPERATOR_COOKIE}=${encodeURIComponent(mintOperator())}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200${ORIGIN().startsWith('https') ? '; Secure' : ''}`);
+    const remember = b.remember === true;
+    res.setHeader('Set-Cookie', `${OPERATOR_COOKIE}=${encodeURIComponent(mintOperator(remember))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${OPERATOR_HOURS(remember) * 3600}${ORIGIN().startsWith('https') ? '; Secure' : ''}`);
     return json(res, 200, { ok: true });
   }
 
@@ -337,7 +342,23 @@ async function api(req, res, url, ip) {
       return json(res, 200, { tasks, recent, totals });
     }
 
-    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove|send-copy)$/.exec(p);
+    // Everything the dashboard shows, in one call: money, salons, the funnel,
+    // twelve weeks of sales, what happened lately and whether it all works.
+    if (p === '/api/operator/overview' && req.method === 'GET') {
+      const tasks = db.prepare(
+        `SELECT t.*, b.slug, b.name AS business_name, b.state, b.flags, b.price_cents, b.abn, b.abn_name, o.email, o.phone
+           FROM tasks t LEFT JOIN businesses b ON b.id = t.business_id LEFT JOIN owners o ON o.id = b.owner_id
+          WHERE t.state = 'open' ORDER BY t.id DESC LIMIT 200`
+      ).all();
+      return json(res, 200, { ...await overview(), tasks });
+    }
+
+    if (p === '/api/operator/logout' && req.method === 'POST') {
+      res.setHeader('Set-Cookie', `${OPERATOR_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${ORIGIN().startsWith('https') ? '; Secure' : ''}`);
+      return json(res, 200, { ok: true });
+    }
+
+    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove|send-copy|welcome)$/.exec(p);
     if (m && req.method === 'POST') {
       const id = Number(m[1]);
       if (m[2] === 'approve') {
@@ -351,6 +372,7 @@ async function api(req, res, url, ip) {
       if (m[2] === 'retry') { record(id, 'operator:retry'); return json(res, 200, await signup.advance(id)); }
       if (m[2] === 'remove') { record(id, 'operator:remove'); return json(res, 200, await signup.removeTestRecord(id)); }
       if (m[2] === 'send-copy') { record(id, 'operator:send-copy'); return json(res, 200, await signup.sendPartingCopy(id)); }
+      if (m[2] === 'welcome') { record(id, 'operator:welcome'); return json(res, 200, await signup.resendWelcome(id)); }
       if (m[2] === 'refund') {
         const body = await readJson(req).catch(() => ({}));
         record(id, 'operator:refund', String(body.reason || ''));

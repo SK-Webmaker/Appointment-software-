@@ -421,6 +421,24 @@ export async function refundBusiness(businessId, { reason = '', by = 'owner' } =
 const sqlTime = (ms) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
 
 /**
+ * The operator's "Resend welcome": for an owner who lost the email, or never
+ * saw it. Only for a live salon — there is nothing to welcome anybody to yet,
+ * or any more, otherwise.
+ */
+export async function resendWelcome(businessId) {
+  const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+  if (!b) throw err(404, 'No such business');
+  if (b.state !== 'ready') throw err(409, `That business is ${b.state}, not live.`);
+  const owner = db.prepare('SELECT name, email FROM owners WHERE id = ?').get(b.owner_id);
+  let sending = 'kairo';
+  try { sending = (await shard.getTenant(b.slug))?.email_sending || 'kairo'; } catch { /* the email still helps */ }
+  const sent = await notify.emailReady(owner.email, { businessName: b.name, url: publicUrlFor(b.slug), appUrl: APP_URL(), sending, ownerName: owner.name });
+  record(b.id, 'email:ready', sent.ok ? 'resent by the operator' : sent.detail);
+  if (!sent.ok) throw err(502, `Could not send it: ${sent.detail}`);
+  return { sent: true, to: owner.email };
+}
+
+/**
  * The operator's "Send their data": the copy a refund could not email. Once it
  * has gone, the deletion that was held back is scheduled like any other.
  */
