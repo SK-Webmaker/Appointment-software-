@@ -3009,6 +3009,38 @@ a:focus-visible,
 .gtee-say { font-size: 13px; color: var(--text-2); line-height: 1.55; }
 .gtee-card .btn { align-self: flex-start; }
 
+/* "Are you sure?" before a refund. Each line is one thing the refund does,
+   icon first so the list can be scanned; the ones that cannot be taken back
+   are tinted red. The button stays locked until the box is ticked. */
+.rf-lede { color: var(--text-2); line-height: 1.6; margin: 0 0 14px; }
+.rf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rf-row {
+  display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+}
+.rf-row b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.rf-row .rf-detail { display: block; font-size: 12.5px; color: var(--text-2); line-height: 1.5; margin-top: 2px; }
+.rf-row .rf-detail b { display: inline; font-size: inherit; }
+.rf-ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  background: var(--surface-3, rgba(255, 255, 255, .05)); color: var(--text-2); }
+.rf-row.bad { border-color: var(--danger-line, rgba(248, 113, 113, .28)); }
+.rf-row.bad .rf-ic { color: var(--red); background: rgba(248, 113, 113, .1); }
+.rf-ack { margin-top: 14px; }
+.rf-ack:has(input:checked) { border-color: var(--red); background: rgba(248, 113, 113, .07); }
+.rf-go:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
+.rf-go:not(:disabled):hover { background: var(--red); filter: brightness(1.08); }
+.rf-spin {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px;
+  border: 2px solid currentColor; border-right-color: transparent; animation: rf-spin .7s linear infinite;
+}
+@keyframes rf-spin { to { transform: rotate(360deg); } }
+.rf-done { text-align: center; }
+.rf-done p { color: var(--text-2); line-height: 1.6; margin: 0 0 10px; }
+.rf-done p b { color: var(--text); }
+.rf-tick { width: 46px; height: 46px; margin: 4px auto 14px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--green, #199e70); background: color-mix(in srgb, var(--green, #199e70) 14%, transparent); }
+@media (prefers-reduced-motion: reduce) { .rf-spin { animation: none; } }
+
 /* ---------------------------------------------------------------------------
    Booking page: the sticky section bar, and the sections it follows
    ---------------------------------------------------------------------------

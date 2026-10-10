@@ -104,7 +104,7 @@ function renderForm(prefill = {}, error = '') {
 
         ${error ? `<div class="err">${esc(error)}</div>` : ''}
         <button class="primary" type="submit" id="go">Create my Kairo</button>
-        <div class="hint" style="text-align:center;margin-top:10px">You'll verify your email and mobile before paying.</div>
+        <div class="hint" style="text-align:center;margin-top:10px">You'll confirm your email with a code before paying.</div>
       </form>
     </div>${foot}`;
 
@@ -147,16 +147,16 @@ function renderForm(prefill = {}, error = '') {
   });
 }
 
-// ── step 2: the two codes ──────────────────────────────────────────────────
+// ── step 2: the email code ─────────────────────────────────────────────────
 async function renderCodes(error = '') {
   const st = await call('GET', `/api/status?token=${encodeURIComponent(token)}`);
-  if (st.email_verified && st.phone_verified) return renderPay();
-  const kind = st.email_verified ? 'phone' : 'email';
-  const where = kind === 'email' ? st.email : st.phone_hint;
+  if (st.email_verified) return renderPay();
+  const kind = 'email';
   app.innerHTML = `${header(2)}
     <div class="card">
-      <h2>Check your ${kind === 'email' ? 'email' : 'phone'}</h2>
-      <p class="lede">We sent a 6-digit code to <b>${esc(where)}</b>.</p>
+      <h2>Check your email</h2>
+      <p class="lede">We sent a 6-digit code to <b>${esc(st.email)}</b>. It can take a minute, and it
+        sometimes lands in junk or promotions.</p>
       <form id="c">
         <input id="code" class="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required placeholder="000000">
         ${error ? `<div class="err">${esc(error)}</div>` : ''}
@@ -164,9 +164,6 @@ async function renderCodes(error = '') {
       </form>
       <p class="hint" style="text-align:center;margin-top:14px">
         Didn't get it? <button class="link" id="again">Send another</button>
-      </p>
-      <p class="hint" style="text-align:center">
-        ${st.email_verified ? '✓ Email confirmed' : ''} ${st.phone_verified ? '✓ Mobile confirmed' : ''}
       </p>
     </div>${foot}`;
   app.querySelector('#code').focus();
@@ -221,12 +218,13 @@ async function renderStatus() {
         <p class="hint" style="text-align:center;margin-top:16px">Your booking link for Instagram:<br><span class="mono">${esc(st.url)}/book</span></p>
       </div>
       <div class="card">
-        <h2>Two minutes left</h2>
-        <p class="hint">Kairo will walk you through connecting your email so confirmations and reminders send. We've also emailed you everything above.</p>
+        <h2>A few minutes left</h2>
+        <p class="hint">Sign in and Kairo walks you through your hours, services and team. Email confirmations
+          already work; texts are optional, from your own ClickSend account. We've also emailed you everything above.</p>
       </div>${foot}`;
     return;
   }
-  if (['created', 'verified'].includes(st.state)) return st.email_verified && st.phone_verified ? renderPay() : renderCodes();
+  if (['created', 'verified'].includes(st.state)) return st.email_verified ? renderPay() : renderCodes();
   if (st.state === 'payment_pending') return renderPay();
   if (['refunded', 'expired'].includes(st.state)) { localStorage.removeItem(KEY); return renderForm({}, st.message); }
 

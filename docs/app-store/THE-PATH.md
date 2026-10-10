@@ -164,7 +164,7 @@ use into something a stranger can buy at 11pm.**
 | **Resend Pro — not yet** | Free is 100 emails a day, and this workspace has sent 11 in its life. Pro is needed **before the second salon on shared sending**, not before the first sale: one busy salon's confirmations and reminders can use 100 a day by itself. |
 | **Stripe live keys** | `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` on the platform. Without the webhook secret a customer pays and Kairo never hears — charged A$410, nothing built. |
 | **Deploy** | Render → New → Blueprint → `platform/render.yaml`. Test on its own `onrender.com` address first. |
-| **Buy it yourself** | With a real card. The whole path: signup, email code, SMS code, A$410, the wait, "your Kairo is ready", first login. Then refund yourself. |
+| **Buy it yourself** | With a real card. The whole path: signup, email code, A$410, the wait, "your Kairo is ready", first login. Then refund yourself. |
 
 That last row is the most valuable hour in this document. Every dead end found
 in that funnel so far was found by reading the code — a code box that said

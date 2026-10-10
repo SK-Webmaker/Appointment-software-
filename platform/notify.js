@@ -1,5 +1,6 @@
-// The two messages the platform itself sends: a six-digit code to an inbox and
-// one to a handset, plus the "your Kairo is ready" email.
+// The messages the platform itself sends: a six-digit code to an inbox and the
+// "your Kairo is ready" email. sendSms is kept and tested, but since 1.76.0
+// nothing calls it: the signup asks for the email code alone.
 //
 // These are the only messages Kairo the *platform* ever sends. Everything a
 // salon sends goes from the salon's own Resend and ClickSend accounts, from
@@ -96,8 +97,6 @@ export const emailCode = (to, code) => sendEmail(to, `${code} is your Kairo code
   shell('Your verification code', [`Enter this code to carry on setting up Kairo:`,
     `<span style="font-size:30px;font-weight:700;letter-spacing:5px;color:#0f172a">${code}</span>`,
     'It expires in 10 minutes.']));
-
-export const smsCode = (to, code) => sendSms(to, `${code} is your Kairo verification code. It expires in 10 minutes.`);
 
 const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

@@ -37,7 +37,8 @@ npm run platform
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | taking the money and believing it moved |
 | `ABR_GUID` | the free ABN Lookup key. Without it the ABN check is skipped, never failed |
 | `RESEND_API_KEY` / `PLATFORM_FROM_EMAIL` | the verification and welcome emails |
-| `CLICKSEND_USERNAME` / `CLICKSEND_API_KEY` | the verification text (~6¢ per signup) |
+| `CLICKSEND_USERNAME` / `CLICKSEND_API_KEY` | not needed since 1.76.0: the signup asks for the email code only |
+| `KAIRO_DELETE_GRACE_DAYS` | days a refunded salon's files are kept before they are deleted (default 7) |
 | `PLATFORM_OPERATOR_PASSWORD` | opens `/operator` |
 
 The boot banner names anything missing rather than pretending to work.

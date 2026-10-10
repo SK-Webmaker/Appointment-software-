@@ -427,6 +427,9 @@ route('GET', '/api/account', async ({ user }) => {
       products: one('SELECT COUNT(*) AS n FROM products WHERE active = 1'),
       appointments_30d: one("SELECT COUNT(*) AS n FROM appointments WHERE date >= ? AND status != 'cancelled'", since30),
       online_bookings_30d: one("SELECT COUNT(*) AS n FROM appointments WHERE date >= ? AND source = 'online' AND status != 'cancelled'", since30),
+      // Booked from today on: what the refund warning counts, because those
+      // clients stop getting reminders the moment the salon is switched off.
+      upcoming: one("SELECT COUNT(*) AS n FROM appointments WHERE date >= ? AND status IN ('booked','confirmed')", bizToday()),
       messages_this_month: one('SELECT COUNT(*) AS n FROM messages WHERE substr(created_at, 1, 10) >= ?', monthStart),
       invoices_this_month: one('SELECT COUNT(*) AS n FROM invoices WHERE issue_date >= ?', monthStart),
       collected_cents_this_month: db.prepare(
@@ -3747,9 +3750,15 @@ route('GET', '/api/account/guarantee', async () => {
  * not would find out from their bank statement.
  */
 route('POST', '/api/account/refund', async ({ req, user }) => {
-  const b = checkBody(await readJson(req).catch(() => ({})), { reason: s.str(300) });
+  const b = checkBody(await readJson(req).catch(() => ({})), { reason: s.str(300), confirm: s.str(40) });
   if (user?.role && user.role !== 'owner') {
     throw httpError(403, 'Only the owner can ask for a refund.');
+  }
+  // The Account page sends this only from its "Are you sure?" step, after the
+  // warnings have been read and ticked. A page from before that step existed,
+  // still open somewhere, is told to reload rather than refunding on one tap.
+  if (b.confirm !== 'refund-and-delete') {
+    throw httpError(400, 'Reload the Account page and confirm the refund there. Nothing has changed.');
   }
   const { platform_url: platform, connect_token: token } = platformHandles();
   if (!platform || !token) throw httpError(400, 'This Kairo was not bought through the store, so there is nothing to refund here.');
@@ -4026,7 +4035,7 @@ export async function sendTestMessage(b) {
 // Invoices & payments
 // ---------------------------------------------------------------------------
 
-const INVOICE_SELECT = `
+export const INVOICE_SELECT = `
   SELECT i.*,
     c.first_name || CASE WHEN c.last_name != '' THEN ' ' || c.last_name ELSE '' END AS client_name,
     c.email AS client_email, c.phone AS client_phone,
@@ -4035,7 +4044,7 @@ const INVOICE_SELECT = `
   FROM invoices i
   LEFT JOIN clients c ON c.id = i.client_id`;
 
-function invoiceTotals(inv) {
+export function invoiceTotals(inv) {
   const taxable = Math.max(0, inv.subtotal_cents - inv.discount_cents);
   inv.tax_cents = Math.round(taxable * (inv.tax_rate / 100));
   inv.total_cents = taxable + inv.tax_cents;

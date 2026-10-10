@@ -1256,6 +1256,60 @@ const MUTATIONS = {
     find: '  return opener ? `${opener} ${fact}` : fact;',
     replace: '  return opener ? `${opener} ${fact.toLowerCase()}` : fact;',
   },
+  // ── Signup: the email code alone ──────────────────────────────────────────
+  'checkout-without-email-code': {
+    // No code, no payment page: a stranger must not reach Stripe on somebody
+    // else's address.
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  if (!owner.email_verified) throw err(400, 'Confirm your email first');",
+    replace: '',
+  },
+  'signup-texts-a-code-again': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  record(businessId, 'code:email', e.ok ? 'sent' : e.detail);\n  return { email: e };",
+    replace: "  record(businessId, 'code:email', e.ok ? 'sent' : e.detail);\n  newCode(ownerId, 'phone');\n  return { email: e };",
+  },
+  // ── Refund and delete ─────────────────────────────────────────────────────
+  'refund-without-are-you-sure': {
+    // One tap must never refund and delete a business.
+    file: 'src/api.js', suites: ['refund-delete'],
+    find: "  if (b.confirm !== 'refund-and-delete') {",
+    replace: '  if (false) {',
+  },
+  'refund-deletes-data-it-never-sent': {
+    // The copy could not be emailed; deleting anyway leaves the owner with nothing.
+    file: 'platform/signup.js', suites: ['connect'],
+    find: '  if (hadSalon && off && copy.ok) {',
+    replace: '  if (hadSalon && off) {',
+  },
+  'purge-reaches-a-live-salon': {
+    file: 'src/tenant.js', suites: ['refund-delete'],
+    find: "  if (config.deleted !== true) return { purged: false, refused: 'still on' };",
+    replace: '',
+  },
+  'purge-ignores-the-grace-period': {
+    file: 'src/tenant.js', suites: ['refund-delete'],
+    find: '  if (!Number.isFinite(off) || Date.now() - off < graceDays * 86400000) {',
+    replace: '  if (false) {',
+  },
+  'parting-copy-runs-formulas': {
+    // Names typed by the public on the booking page, opened in Excel.
+    file: 'src/parting-copy.js', suites: ['refund-delete'],
+    find: "const cell = (v) => (typeof v === 'string' && /^([=+@\\t\\r]|-\\D)/.test(v) ? `'${v}` : v);",
+    replace: 'const cell = (v) => v;',
+  },
+  'owed-copy-unreachable-after-switch-off': {
+    // The refund has switched the salon off; the copy it could not email is
+    // still owed, so the operator's "Send their data" must still reach it.
+    file: 'src/platform.js', suites: ['refund-delete'],
+    find: '    const t = getTenant(slug, { includeDeleted: true });',
+    replace: '    const t = getTenant(slug);',
+  },
+  'parting-copy-not-attached': {
+    file: 'src/parting-copy.js', suites: ['refund-delete'],
+    find: "  const r = await sendEmail(to, `Your ${biz} data from Kairo`, text, '', { attachments });",
+    replace: "  const r = await sendEmail(to, `Your ${biz} data from Kairo`, text, '');",
+  },
 };
 
 const only = process.argv.slice(2);

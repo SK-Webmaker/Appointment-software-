@@ -27,7 +27,6 @@ async function provision(overrides = {}) {
   assert.equal(r.status, 200, r.text);
   const { token } = r.json;
   await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform.latestCode('email') } });
-  await platform.api('POST', '/api/verify', { body: { token, kind: 'phone', code: platform.latestCode('phone') } });
   await platform.api('POST', '/api/checkout', { body: { token } });
   const ev = stripe.pay([...stripe.sessions.keys()].pop());
   const sig = stripe.sign(ev);
@@ -313,9 +312,22 @@ test('a self-serve refund inside the window returns the money and closes the sal
   const r = await platform.api('POST', '/api/connect/refund', { body: { t: ct, reason: 'not for me' } });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.refunded, true);
-  assert.ok(r.json.exported_bytes > 1000, 'their data was exported first');
   assert.equal(stripe.refunds.length, before + 1);
   assert.equal((await shard.api('GET', '/api/public/info', { host: `quitter.${DOMAIN}` })).status, 404);
+
+  // This shard cannot send email, so the copy could not go. The refund still
+  // happens — it is theirs — but nothing is deleted that they were not sent,
+  // and a person is asked to send it by hand.
+  assert.equal(r.json.copy_emailed, false);
+  assert.equal(r.json.files_deleted_after, '');
+  const d2 = platform.platformDb();
+  const kept = d2.prepare("SELECT id, files_purge_at FROM businesses WHERE slug = 'quitter'").get();
+  const task = d2.prepare("SELECT detail FROM tasks WHERE business_id = ? AND kind = 'parting_copy' AND state = 'open'").get(kept.id);
+  d2.close();
+  assert.equal(kept.files_purge_at, '', 'no deletion is scheduled');
+  assert.ok(task, 'the operator is asked to send the copy');
+  assert.match(task.detail, /q@uit\.example/);
+  assert.ok(fs.existsSync(path.join(shardDir, 'tenants', 'quitter', 'kairo.db')), 'and the file is kept');
   const again = await platform.api('POST', '/api/connect/refund', { body: { t: ct } });
   assert.equal(again.json.already, true, 'asking twice refunds once');
   assert.equal((await platform.api('GET', `/api/status?token=${token}`)).json.state, 'refunded');
@@ -409,7 +421,7 @@ test('a refund asked for inside the app reaches the platform and returns the mon
 
   const before = stripe.refunds.length;
   const r = await shard.api('POST', '/api/account/refund', {
-    host, cookie, body: { reason: 'not for me' },
+    host, cookie, body: { reason: 'not for me', confirm: 'refund-and-delete' },
   });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.refunded, true);
@@ -435,7 +447,7 @@ test('a Kairo with no platform behind it says so rather than drawing a countdown
     assert.equal(g.json.available, false);
     assert.equal(g.json.reason, 'not_platform');
 
-    const r = await solo.api('POST', '/api/account/refund', { cookie, body: {} });
+    const r = await solo.api('POST', '/api/account/refund', { cookie, body: { confirm: 'refund-and-delete' } });
     assert.equal(r.status, 400, 'and asking is refused with a reason, not a crash');
   } finally {
     await solo.stop();
@@ -463,7 +475,7 @@ test('a refund the platform refuses is never reported as done', async () => {
   assert.equal(patched.status, 200, patched.text);
 
   const before = stripe.refunds.length;
-  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { reason: 'try it' } });
+  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { reason: 'try it', confirm: 'refund-and-delete' } });
   assert.ok(r.status >= 400, `refused must not read as success — got ${r.status} ${r.text}`);
   assert.notEqual(r.json?.refunded, true, 'and certainly not "refunded: true"');
   assert.equal(stripe.refunds.length, before, 'no money moved');

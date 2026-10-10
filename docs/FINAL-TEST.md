@@ -23,8 +23,8 @@ before, from the website to a refund, with real money (A$5).
 2. Fill in your name, business name `Final Test Salon`, the new email, your
    mobile and a password. Leave the ABN blank. Address: `finaltestsalon`.
    - ✔ The address says it's available.
-3. Enter the code from the email and the code from the text.
-   - ✔ Both arrive within a minute.
+3. Enter the code from the email.
+   - ✔ It arrives within a minute. No text is sent: the email code is all it asks for.
 4. Pay A$5. Apple Pay is fine.
    - ✔ You come back to start.kairobookings.com, and it says your Kairo is ready.
 5. Open the **"Final Test Salon is ready on Kairo"** email.
@@ -73,11 +73,22 @@ before, from the website to a refund, with real money (A$5).
 
 ## D. Leave (5 min)
 
-13. In Kairo, go to **Account** and press **Refund and close my Kairo**.
+13. In Kairo, go to **Account** and press **Refund and delete my Kairo**.
+    - ✔ Nothing happens yet: **Are you sure?** opens and lists what a refund
+      does: money back, booking page off, clients stop hearing (with how many
+      are booked), everyone signed out, a copy emailed first, data deleted 7
+      days later, can't be undone.
+    - ✔ **Yes, refund and delete** stays greyed out until you tick
+      "I understand". **Keep my Kairo** closes it and changes nothing.
+    - Tick it and press **Yes, refund and delete**.
+    - ✔ It says **Refunded**, then signs you out.
     - ✔ A$5 back in Stripe.
-    - ✔ An email with your data.
+    - ✔ An email "Your Final Test Salon data from Kairo" with clients,
+      appointments, invoices, payments and services attached (they open in
+      Excel or Numbers).
     - ✔ finaltestsalon.kairobookings.com no longer opens a salon.
     - ✔ The app goes back to sign-in.
+    - The files are deleted by themselves 7 days later.
 14. Go to **start.kairobookings.com/operator**. Final Test Salon shows
     **Refunded**. Press **Remove test record**.
 15. **Tell me "test done".** I set the price back to A$410 and check it.

@@ -220,7 +220,7 @@ each one. Test it on its own `onrender.com` address first, then put
 ### D5. Buy Kairo yourself, with a real card · ~20 min
 
 Go through the whole purchase as a stranger would: the signup, the email code,
-the SMS code, the A$410, the wait, the "your Kairo is ready" email, the first
+the A$410, the wait, the "your Kairo is ready" email, the first
 login. Then refund yourself in Stripe.
 
 This is the single most valuable hour on this list. Every dead end I have

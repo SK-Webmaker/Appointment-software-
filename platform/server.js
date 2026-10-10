@@ -212,7 +212,7 @@ async function api(req, res, url, ip) {
   if (p === '/api/resend' && req.method === 'POST') {
     if (limited('verify')) return undefined;
     const b = await readJson(req);
-    return json(res, 200, await signup.resendCode(b.token, b.kind === 'phone' ? 'phone' : 'email'));
+    return json(res, 200, await signup.resendCode(b.token, b.kind || 'email'));
   }
 
   if (p === '/api/checkout' && req.method === 'POST') {
@@ -337,7 +337,7 @@ async function api(req, res, url, ip) {
       return json(res, 200, { tasks, recent, totals });
     }
 
-    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove)$/.exec(p);
+    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove|send-copy)$/.exec(p);
     if (m && req.method === 'POST') {
       const id = Number(m[1]);
       if (m[2] === 'approve') {
@@ -350,6 +350,7 @@ async function api(req, res, url, ip) {
       }
       if (m[2] === 'retry') { record(id, 'operator:retry'); return json(res, 200, await signup.advance(id)); }
       if (m[2] === 'remove') { record(id, 'operator:remove'); return json(res, 200, await signup.removeTestRecord(id)); }
+      if (m[2] === 'send-copy') { record(id, 'operator:send-copy'); return json(res, 200, await signup.sendPartingCopy(id)); }
       if (m[2] === 'refund') {
         const body = await readJson(req).catch(() => ({}));
         record(id, 'operator:refund', String(body.reason || ''));
@@ -393,6 +394,10 @@ async function api(req, res, url, ip) {
 
 // An unpaid address is held for a week, then released. Once an hour is plenty.
 setInterval(() => { try { signup.expireStale(); } catch (err) { console.error('expiry:', err.message); } }, 60 * 60 * 1000).unref?.();
+// A refunded salon's files are deleted a week after the refund. Hourly is
+// plenty; the interval is shortened only by tests.
+const PURGE_EVERY_MS = Number(process.env.PLATFORM_PURGE_EVERY_MS) || 60 * 60 * 1000;
+setInterval(() => { signup.purgeDue().catch((err) => console.error('purge:', err.message)); }, PURGE_EVERY_MS).unref?.();
 
 server.listen(PORT, HOST, () => {
   appStoreId(); // start finding the App Store listing now, so the first welcome email links to it
@@ -432,16 +437,13 @@ server.listen(PORT, HOST, () => {
   if (!process.env.KAIRO_PLATFORM_KEY) console.log('    !  KAIRO_PLATFORM_KEY is not set — the shard will refuse every call');
   if (!process.env.CLOUDFLARE_API_TOKEN) console.log('    !  CLOUDFLARE_API_TOKEN is not set — salon email cannot be connected');
   if (!operatorPassword()) console.log('    !  PLATFORM_OPERATOR_PASSWORD is not set — the queue cannot be opened');
-  // Step 2 of the signup sends a code to an inbox AND a handset, and a signup
-  // cannot advance without both. Missing credentials here do not fail loudly
-  // on their own — the send is skipped, the audit trail records it, and the
-  // customer sits in front of a code box waiting for something that was never
-  // sent. So they are named at boot, in the same breath as the money.
+  // Step 2 of the signup emails a code, and a signup cannot advance without
+  // it. Missing credentials here do not fail loudly on their own — the send is
+  // skipped, the audit trail records it, and the customer sits in front of a
+  // code box waiting for something that was never sent. So they are named at
+  // boot, in the same breath as the money.
   if (!process.env.RESEND_API_KEY || !process.env.PLATFORM_FROM_EMAIL) {
     console.log('    !  RESEND_API_KEY / PLATFORM_FROM_EMAIL not set — email codes cannot send, so nobody can finish signing up');
-  }
-  if (!process.env.CLICKSEND_USERNAME || !process.env.CLICKSEND_API_KEY) {
-    console.log('    !  CLICKSEND_USERNAME / CLICKSEND_API_KEY not set — SMS codes cannot send, so nobody can finish signing up');
   }
   console.log('');
 });

@@ -31,14 +31,13 @@ const PERSON = {
   tz: 'Australia/Melbourne',
 };
 
-/** Sign up, verify both codes, pay, and wait for the salon to exist. */
+/** Sign up, confirm the email code, pay, and wait for the salon to exist. */
 let ipCounter = 0;
 async function fullSignup(overrides = {}, { pay = true, ip = `203.0.113.${++ipCounter}` } = {}) {
   const r = await platform.api('POST', '/api/signup', { body: { ...PERSON, ...overrides }, headers: { 'cf-connecting-ip': ip } });
   if (r.status !== 200) return { failed: r };
   const { token } = r.json;
   await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform.latestCode('email') } });
-  await platform.api('POST', '/api/verify', { body: { token, kind: 'phone', code: platform.latestCode('phone') } });
   if (!pay) return { token };
   const co = await platform.api('POST', '/api/checkout', { body: { token } });
   assert.equal(co.status, 200, co.text);
@@ -216,18 +215,44 @@ test('a code is six digits, single-use, and wrong ones are counted not accepted'
   const { token } = r.json;
   const code = platform.latestCode('email');
   assert.match(code, /^\d{6}$/);
+  // Paying is refused until the email is confirmed.
+  assert.equal((await platform.api('POST', '/api/checkout', { body: { token } })).status, 400);
   assert.equal((await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code: '000000' } })).status === 200, code === '000000');
   const ok = await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code } });
   assert.equal(ok.status, 200, ok.text);
   assert.equal(ok.json.email_verified, true);
-  assert.equal(ok.json.ready_to_pay, false, 'the mobile is still to do');
+  assert.equal(ok.json.ready_to_pay, true, 'the email code is the whole of it');
   const again = await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code } });
   assert.equal(again.status, 400, 'a used code cannot be used twice');
-  // Paying is refused until both are done.
-  assert.equal((await platform.api('POST', '/api/checkout', { body: { token } })).status, 400);
-  const pcode = platform.latestCode('phone');
-  const both = await platform.api('POST', '/api/verify', { body: { token, kind: 'phone', code: pcode } });
-  assert.equal(both.json.ready_to_pay, true);
+});
+
+// The signup used to text a second code, so one empty ClickSend balance stopped
+// every new customer at the door. The mobile is still taken; it is not texted.
+test('the signup asks for the email code alone, and never texts one', async () => {
+  const r = await platform.api('POST', '/api/signup', { body: { ...PERSON, slug: 'emailonly', business_name: 'Email Only Salon', email: 'emailonly@abchair.example' }, headers: { 'cf-connecting-ip': '203.0.113.201' } });
+  assert.equal(r.status, 200, r.text);
+  const { token } = r.json;
+  const d = platform.platformDb();
+  const kinds = d.prepare("SELECT DISTINCT c.kind FROM codes c JOIN owners o ON o.id = c.owner_id WHERE o.email = 'emailonly@abchair.example'").all().map((x) => x.kind);
+  const owner = d.prepare("SELECT phone FROM owners WHERE email = 'emailonly@abchair.example'").get();
+  d.close();
+  assert.deepEqual(kinds, ['email'], 'no phone code is made, so none is sent');
+  assert.equal(owner.phone, PERSON.phone, 'the mobile is still kept');
+
+  const st = await platform.api('GET', `/api/status?token=${token}`);
+  assert.equal(st.json.message, 'Enter the code we just emailed you.');
+  assert.equal('phone_verified' in st.json, false);
+
+  // A signup page from before, still open in someone's tab, asks for a phone
+  // code. It is told to reload rather than stranded.
+  for (const path of ['/api/verify', '/api/resend']) {
+    const old = await platform.api('POST', path, { body: { token, kind: 'phone', code: '123456' } });
+    assert.equal(old.status, 400, `${path}: ${old.text}`);
+    assert.match(old.json.error, /email code.*Reload/i);
+  }
+  const ok = await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform.latestCode('email') } });
+  assert.equal(ok.json.ready_to_pay, true);
+  assert.equal((await platform.api('GET', `/api/status?token=${token}`)).json.state, 'verified');
 });
 
 test('nothing is provisioned until Stripe says the money moved', async () => {
@@ -435,7 +460,7 @@ test('the operator queue needs the password, and carries the email-setup task wh
   assert.ok(detail.json.events.length > 3, 'the audit trail is there');
 });
 
-test('a refund inside the window exports the data, returns the money and stops the address', async () => {
+test('a refund inside the window returns the money and stops the address', async () => {
   const op = await platform.api('POST', '/api/operator/login', { body: { password: 'operator-pass-2026!!' } });
   const cookie = /kairo_operator=[^;]+/.exec(op.headers.get('set-cookie'))[0];
   const d = platform.platformDb();
@@ -445,7 +470,6 @@ test('a refund inside the window exports the data, returns the money and stops t
   const r = await platform.api('POST', `/api/operator/business/${biz.id}/refund`, { cookie, body: { reason: 'changed their mind' } });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.refunded, true);
-  assert.ok(r.json.exported_bytes > 1000, 'their data was exported first');
   assert.equal(stripe.refunds.length, before + 1, 'the money went back');
   assert.equal(stripe.refunds.at(-1).payment_intent, biz.stripe_payment_intent);
   assert.equal((await shard.api('GET', '/api/public/info', { host: `noabn.${DOMAIN}` })).status, 404, 'the address stops serving');
@@ -527,14 +551,11 @@ test('“send another” tells the truth when the code could not be sent', async
   assert.equal(r.status, 200, r.text);
   const { token } = r.json;
 
-  // This platform has no sending credentials, so neither code can go anywhere.
+  // This platform has no sending credentials, so the code can go nowhere.
   const again = await platform.api('POST', '/api/resend', { body: { token, kind: 'email' } });
   assert.equal(again.status, 502, `expected a refusal, got ${again.status}: ${again.text}`);
   assert.match(again.json.error, /could not send/i);
   assert.match(again.json.error, /support/i, 'it must say what to do next, not just that it failed');
-
-  const sms = await platform.api('POST', '/api/resend', { body: { token, kind: 'phone' } });
-  assert.equal(sms.status, 502);
 
   // And the operator is told, because a platform that cannot send at all is
   // not one customer's problem — it is every customer's, silently.
@@ -580,7 +601,6 @@ test('a salon that can send from the start makes no work for the operator', asyn
     assert.equal(r.status, 200, r.text);
     const { token } = r.json;
     await platform2.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform2.latestCode('email') } });
-    await platform2.api('POST', '/api/verify', { body: { token, kind: 'phone', code: platform2.latestCode('phone') } });
     const co = await platform2.api('POST', '/api/checkout', { body: { token } });
     assert.equal(co.status, 200, co.text);
     const sessionId = [...stripe.sessions.keys()].pop();

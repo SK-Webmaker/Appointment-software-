@@ -51,12 +51,11 @@ async function buyKairo(overrides = {}) {
   assert.equal(r.status, 200, `signup refused: ${r.text}`);
   const { token } = r.json;
 
-  // Both codes. A stranger cannot reach payment without them, which is the
-  // point of them existing.
+  // The email code. A stranger cannot reach payment without it, which is the
+  // point of it existing.
   const e = await platform.api('POST', '/api/verify', { body: { token, kind: 'email', code: platform.latestCode('email') } });
   assert.equal(e.status, 200, e.text);
-  const p = await platform.api('POST', '/api/verify', { body: { token, kind: 'phone', code: platform.latestCode('phone') } });
-  assert.equal(p.status, 200, p.text);
+  assert.equal(e.json.ready_to_pay, true, e.text);
 
   const co = await platform.api('POST', '/api/checkout', { body: { token } });
   assert.equal(co.status, 200, co.text);

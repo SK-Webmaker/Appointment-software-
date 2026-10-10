@@ -34,6 +34,10 @@ const TASK_TITLES = {
   email_setup: 'Set up their email',
   provision_failed: 'Setting up failed',
   refund_request: 'Refund requested',
+  parting_copy: 'Send their data',
+  switch_off: 'Switch the salon off',
+  purge: 'Delete the files',
+  purge_failed: 'Files not deleted',
 };
 
 function taskCard(t) {
@@ -55,6 +59,7 @@ function taskCard(t) {
       ${t.kind === 'provision_failed' ? `<button class="btn-sm go" data-act="retry" data-id="${t.business_id}">Try again</button>
         <button class="btn-sm" data-act="refund" data-id="${t.business_id}">Refund</button>` : ''}
       ${t.kind === 'refund_request' ? `<button class="btn-sm" data-act="refund" data-id="${t.business_id}">Refund ${money(t.price_cents)}</button>` : ''}
+      ${t.kind === 'parting_copy' ? `<button class="btn-sm go" data-act="send-copy" data-id="${t.business_id}">Send their data again</button>` : ''}
       <button class="btn-sm" data-act="done" data-task="${t.id}">Mark done</button>
     </div>
   </div>`;
@@ -100,7 +105,7 @@ app.addEventListener('click', async (e) => {
       if (!window.confirm(`Remove the record for ${btn.dataset.slug}?\n\nOnly for test signups. No money moves and no salon is touched; it just leaves this list and the totals. A salon that is still live can't be removed — refund it instead.`)) { btn.disabled = false; return; }
       await call('POST', `/api/operator/business/${btn.dataset.id}/remove`, {});
     } else if (act === 'refund') {
-      if (!window.confirm('Refund in full, export their data and stop serving their address?')) { btn.disabled = false; return; }
+      if (!window.confirm('Refund in full, email them their data, switch their salon off and delete it 7 days later?')) { btn.disabled = false; return; }
       await call('POST', `/api/operator/business/${btn.dataset.id}/refund`, { reason: 'operator' });
     } else await call('POST', `/api/operator/business/${btn.dataset.id}/${act}`, {});
     await render();

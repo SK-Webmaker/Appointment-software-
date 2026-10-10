@@ -134,6 +134,11 @@ db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_connect ON businesses(connect
 // so the address is not handed to somebody else while the files still exist.
 addColumn('businesses', 'deleted_at', "deleted_at TEXT NOT NULL DEFAULT ''");
 addColumn('businesses', 'purge_after', "purge_after TEXT NOT NULL DEFAULT ''");
+// A refund's own deletion, done by the platform rather than by hand. Separate
+// from purge_after on purpose: only refunds from 1.76.0 on set it, so no record
+// from before — a test, the App Review demo — is ever reached by the job.
+addColumn('businesses', 'files_purge_at', "files_purge_at TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'files_purged_at', "files_purged_at TEXT NOT NULL DEFAULT ''");
 
 export function getSetting(key, fallback = '') {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

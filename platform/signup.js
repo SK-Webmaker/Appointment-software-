@@ -79,7 +79,7 @@ function newCode(ownerId, kind) {
   return code;
 }
 
-/** Step 1. Creates the account and the business, sends both codes. Charges nothing. */
+/** Step 1. Creates the account and the business, emails the code. Charges nothing. */
 export async function startSignup(input, { ip = '' } = {}) {
   const name = clean(input.name, 100);
   const businessName = clean(input.business_name, 80);
@@ -122,23 +122,33 @@ export async function startSignup(input, { ip = '' } = {}) {
   const businessId = Number(info.lastInsertRowid);
   record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}`);
 
-  await sendCodes(ownerId, email, phone, businessId);
+  await sendCodes(ownerId, email, businessId);
   return { token, slug, business_id: businessId };
 }
 
-async function sendCodes(ownerId, email, phone, businessId) {
+// One code, by email. The mobile is still asked for — it is how support rings
+// back, and it goes on the salon — but it is not checked with a text: every
+// signup costing an SMS meant one empty ClickSend balance stopped all of them,
+// and the email is the address that matters, since it is where the sign-in,
+// the password reset and the refund all go.
+async function sendCodes(ownerId, email, businessId) {
   const e = await notify.emailCode(email, newCode(ownerId, 'email'));
   record(businessId, 'code:email', e.ok ? 'sent' : e.detail);
-  const s = await notify.smsCode(phone, newCode(ownerId, 'phone'));
-  record(businessId, 'code:phone', s.ok ? 'sent' : s.detail);
-  return { email: e, sms: s };
+  return { email: e };
 }
 
-export async function resendCode(token, kind) {
+const codeKind = (kind) => {
+  // 'email' is the only code there is. Anything else is an old signup page
+  // still open in somebody's tab, and is told plainly rather than half-served.
+  if (kind !== 'email') throw err(400, 'Only the email code is needed now. Reload the page.');
+  return kind;
+};
+
+export async function resendCode(token, kind = 'email') {
+  codeKind(kind);
   const b = byToken(token);
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
-  const code = newCode(owner.id, kind);
-  const r = kind === 'phone' ? await notify.smsCode(owner.phone, code) : await notify.emailCode(owner.email, code);
+  const r = await notify.emailCode(owner.email, newCode(owner.id, kind));
   record(b.id, `code:${kind}:resend`, r.ok ? 'sent' : r.detail);
   // Saying "sent" when nothing was sent leaves someone watching a code box
   // for a message that does not exist, and the only trace is an audit row
@@ -146,17 +156,15 @@ export async function resendCode(token, kind) {
   // the operator finds out that the platform cannot send at all.
   if (!r.ok) {
     openTask(b.id, `code:${kind}:undeliverable`, `A ${kind} code could not be sent: ${r.detail}`);
-    throw err(502, kind === 'phone'
-      ? 'We could not send the text just now. Try again in a moment, or contact support and we will verify you by hand.'
-      : 'We could not send the email just now. Try again in a moment, or contact support and we will verify you by hand.');
+    throw err(502, 'We could not send the email just now. Try again in a moment, or contact support and we will verify you by hand.');
   }
   return { sent: true };
 }
 
 /** Step 2. One code, five attempts, ten minutes, single use. */
 export function verifyCode(token, kind, code) {
+  codeKind(kind);
   const b = byToken(token);
-  if (kind !== 'email' && kind !== 'phone') throw err(400, 'Unknown code type');
   const row = db.prepare("SELECT * FROM codes WHERE owner_id = ? AND kind = ? AND used = 0 ORDER BY id DESC LIMIT 1").get(b.owner_id, kind);
   if (!row) throw err(400, 'Ask for a new code.');
   if (row.attempts >= CODE_MAX_ATTEMPTS) throw err(429, 'Too many tries. Ask for a new code.');
@@ -167,19 +175,17 @@ export function verifyCode(token, kind, code) {
   if (a.length !== bb.length || !crypto.timingSafeEqual(a, bb)) throw err(400, 'That code is not right.');
 
   db.prepare('UPDATE codes SET used = 1 WHERE id = ?').run(row.id);
-  db.prepare(`UPDATE owners SET ${kind === 'email' ? 'email_verified' : 'phone_verified'} = 1 WHERE id = ?`).run(b.owner_id);
+  db.prepare('UPDATE owners SET email_verified = 1 WHERE id = ?').run(b.owner_id);
   record(b.id, `verified:${kind}`);
-  const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
-  const both = owner.email_verified === 1 && owner.phone_verified === 1;
-  if (both && b.state === 'created') setState(b.id, 'verified');
-  return { email_verified: owner.email_verified === 1, phone_verified: owner.phone_verified === 1, ready_to_pay: both };
+  if (b.state === 'created') setState(b.id, 'verified');
+  return { email_verified: true, ready_to_pay: true };
 }
 
 /** Step 3. The Checkout session. Verification first: no code, no payment page. */
 export async function beginCheckout(token, origin) {
   const b = byToken(token);
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
-  if (!(owner.email_verified && owner.phone_verified)) throw err(400, 'Verify your email and mobile first');
+  if (!owner.email_verified) throw err(400, 'Confirm your email first');
   if (['paid', 'provisioning', 'ready'].includes(b.state)) throw err(409, 'That business is already paid for');
   if (!stripe.stripeConfigured()) throw err(503, 'Payments are not available right now — please try again shortly');
   const session = await stripe.createCheckout({
@@ -365,25 +371,114 @@ export async function provision(businessId) {
   return { state: 'ready', url };
 }
 
-/** Fourteen days, no reason needed: export first, refund, then stop serving. */
+/**
+ * Fourteen days, no reason needed. In this order: email the owner their data,
+ * refund, switch the salon off, and set the date its files are deleted.
+ *
+ * The copy goes first because nothing after it can be taken back. If it could
+ * not be sent the refund still happens — it is theirs, and holding money
+ * hostage to an email server is not a policy — but the files are kept and a
+ * person is asked to send the copy by hand. Nothing is deleted that the owner
+ * has not been sent.
+ */
 export async function refundBusiness(businessId, { reason = '', by = 'owner' } = {}) {
   const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
   if (!b) throw err(404, 'No such business');
   if (b.refunded_at) return { already: true };
-  let exported = 0;
-  if (['ready', 'provisioning'].includes(b.state)) {
-    try { exported = (await shard.exportTenant(b.slug)).length; record(b.id, 'refund:export', `${exported} bytes`); }
-    catch (e) { record(b.id, 'refund:export-failed', e.message); }
+  const owner = db.prepare('SELECT email FROM owners WHERE id = ?').get(b.owner_id) || {};
+  const hadSalon = ['ready', 'provisioning'].includes(b.state);
+  let copy = { ok: false, detail: 'there was no salon to copy' };
+  if (hadSalon) {
+    try { copy = await shard.emailPartingCopy(b.slug, owner.email); } catch (e) { copy = { ok: false, detail: e.message }; }
+    record(b.id, copy.ok ? 'refund:copy-emailed' : 'refund:copy-failed', copy.detail);
   }
   if (b.stripe_payment_intent && stripe.stripeConfigured()) {
     try { const r = await stripe.refund(b.stripe_payment_intent); record(b.id, 'refund:stripe', r.id || 'ok'); }
     catch (e) { record(b.id, 'refund:stripe-failed', e.message); throw err(502, `Refund failed: ${e.message}`); }
   }
-  try { await shard.deleteTenant(b.slug); } catch (e) { record(b.id, 'refund:shard-delete-failed', e.message); }
+  let off = false;
+  try { await shard.deleteTenant(b.slug); off = true; } catch (e) {
+    // 404: nothing was ever built, so there is nothing to switch off.
+    if (e.status !== 404) record(b.id, 'refund:shard-delete-failed', e.message);
+  }
   db.prepare("UPDATE businesses SET refunded_at = datetime('now') WHERE id = ?").run(b.id);
   setState(b.id, 'refunded', `${by}: ${reason}`.slice(0, 300));
   db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'refunded' WHERE business_id = ? AND state = 'open'").run(b.id);
-  return { refunded: true, exported_bytes: exported };
+
+  let filesDeletedAfter = '';
+  if (hadSalon && off && copy.ok) {
+    filesDeletedAfter = sqlTime(Date.now() + DELETE_GRACE_DAYS * 86400000);
+    db.prepare('UPDATE businesses SET files_purge_at = ? WHERE id = ?').run(filesDeletedAfter, b.id);
+    record(b.id, 'refund:files-delete-scheduled', filesDeletedAfter);
+  } else if (hadSalon && !off) {
+    openTask(b.id, 'switch_off', `${b.name} was refunded but the server did not switch ${b.slug} off. Switch it off by hand; the files are kept.`);
+  } else if (hadSalon) {
+    openTask(b.id, 'parting_copy', `${b.name} was refunded, but their data could not be emailed (${copy.detail}). Press "Send their data again" once email is working; it goes to ${owner.email}. The files are kept until it has gone.`);
+  }
+  return { refunded: true, copy_emailed: Boolean(copy.ok), files_deleted_after: filesDeletedAfter };
+}
+
+const sqlTime = (ms) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+
+/**
+ * The operator's "Send their data": the copy a refund could not email. Once it
+ * has gone, the deletion that was held back is scheduled like any other.
+ */
+export async function sendPartingCopy(businessId) {
+  const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+  if (!b) throw err(404, 'No such business');
+  const owner = db.prepare('SELECT email FROM owners WHERE id = ?').get(b.owner_id) || {};
+  let copy;
+  try { copy = await shard.emailPartingCopy(b.slug, owner.email); } catch (e) { copy = { ok: false, detail: e.message }; }
+  record(b.id, copy.ok ? 'copy:emailed' : 'copy:failed', copy.detail);
+  if (!copy.ok) throw err(502, `Could not send it: ${copy.detail}`);
+  db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'copy emailed' WHERE business_id = ? AND kind = 'parting_copy' AND state = 'open'").run(b.id);
+  let filesDeletedAfter = '';
+  if (b.refunded_at && !b.files_purge_at && !b.files_purged_at) {
+    filesDeletedAfter = sqlTime(Date.now() + DELETE_GRACE_DAYS * 86400000);
+    db.prepare('UPDATE businesses SET files_purge_at = ? WHERE id = ?').run(filesDeletedAfter, b.id);
+    record(b.id, 'refund:files-delete-scheduled', filesDeletedAfter);
+  }
+  return { sent: true, to: owner.email, files_deleted_after: filesDeletedAfter };
+}
+
+let purging = false;
+
+/**
+ * Delete the files of refunded salons whose week is up. Hourly.
+ *
+ * Only rows a refund scheduled (files_purge_at). The shard makes the final
+ * check from the salon's own file and refuses anything still switched on, so
+ * this cannot reach a trading salon even if a row here were wrong.
+ */
+export async function purgeDue() {
+  if (purging) return 0;
+  purging = true;
+  try {
+    const due = db.prepare(
+      `SELECT id, slug, name FROM businesses
+        WHERE refunded_at != '' AND files_purge_at != '' AND files_purged_at = '' AND files_purge_at <= datetime('now')`
+    ).all();
+    for (const b of due) {
+      try {
+        const r = await shard.purgeTenant(b.slug);
+        db.prepare("UPDATE businesses SET files_purged_at = datetime('now') WHERE id = ?").run(b.id);
+        record(b.id, 'purge:done', r?.gone ? 'already gone' : 'files deleted');
+        // A salon deleted in the app and refunded also has the hand-made task.
+        db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'files deleted automatically' WHERE business_id = ? AND kind IN ('purge','purge_failed') AND state = 'open'").run(b.id);
+      } catch (e) {
+        record(b.id, 'purge:failed', e.message);
+        // Too soon by the shard's clock: the next hour tries again. Anything
+        // else is not going to fix itself, so stop trying and tell a person.
+        if (e.status === 409 && /kept until/.test(e.message)) continue;
+        db.prepare("UPDATE businesses SET files_purge_at = '' WHERE id = ?").run(b.id);
+        openTask(b.id, 'purge_failed', `${b.name}'s files could not be deleted automatically: ${e.message}`);
+      }
+    }
+    return due.length;
+  } finally {
+    purging = false;
+  }
 }
 
 /** Paid, or nearly: money may have moved and no salon exists yet. */
@@ -517,7 +612,7 @@ export function byToken(token) {
 /** What the signup page polls. Deliberately says nothing a stranger could use. */
 export function statusFor(token) {
   const b = byToken(token);
-  const owner = db.prepare('SELECT email, phone, email_verified, phone_verified FROM owners WHERE id = ?').get(b.owner_id);
+  const owner = db.prepare('SELECT email, phone, email_verified FROM owners WHERE id = ?').get(b.owner_id);
   return {
     state: b.state,
     slug: b.slug,
@@ -526,11 +621,10 @@ export function statusFor(token) {
     email: owner.email,
     phone_hint: String(owner.phone).replace(/.(?=.{3})/g, '•'),
     email_verified: owner.email_verified === 1,
-    phone_verified: owner.phone_verified === 1,
     url: ['ready'].includes(b.state) ? publicUrlFor(b.slug) : '',
     app_url: APP_URL(),
     message: {
-      created: 'Enter the codes we just sent you.',
+      created: 'Enter the code we just emailed you.',
       verified: 'Verified. One payment and your Kairo is yours.',
       payment_pending: 'Waiting for your payment to go through.',
       paid: 'Payment received — setting your Kairo up now.',

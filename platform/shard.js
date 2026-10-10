@@ -69,6 +69,10 @@ export const patchTenant = async (slug, patch) => unwrap(await request('PATCH', 
 export const putSettings = async (slug, settings) => unwrap(await request('PUT', `/api/platform/tenants/${slug}/settings`, { body: settings }), 'settings');
 export const setPassword = async (slug, payload) => unwrap(await request('POST', `/api/platform/tenants/${slug}/password`, { body: payload }), 'password');
 export const deleteTenant = async (slug) => unwrap(await request('DELETE', `/api/platform/tenants/${slug}`), 'delete');
+/** Email the owner their book before a refund switches the salon off. Resolves { ok, detail, … }. */
+export const emailPartingCopy = async (slug, to) => unwrap(await request('POST', `/api/platform/tenants/${slug}/parting-copy`, { body: { to }, timeoutMs: 90000 }), 'parting-copy');
+/** Remove a deleted salon's files for good. The shard refuses one still on, or deleted too recently. */
+export const purgeTenant = async (slug) => unwrap(await request('POST', `/api/platform/tenants/${slug}/purge`), 'purge');
 export const testMessage = async (slug, body) => unwrap(await request('POST', `/api/platform/tenants/${slug}/test-message`, { body }), 'test-message');
 /**
  * A salon arriving from elsewhere: its whole gzipped database, base64 inside

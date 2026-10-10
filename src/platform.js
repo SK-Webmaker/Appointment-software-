@@ -24,11 +24,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { readJson, sendJson, sendText, httpError } from './util.js';
 import {
   MULTI, createTenant, getTenant, listTenantSlugs, updateTenantConfig, withTenant, withLegacyTenant,
-  SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
+  purgeTenant, SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
 } from './tenant.js';
 import { db, getSetting, setSetting, emailSender } from './db.js';
 import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
 import { snapshot, backupStatus } from './backup.js';
+import { emailPartingCopy } from './parting-copy.js';
 import { VERSION } from './version.js';
 import { sign as hmac } from './platform-sign.js';
 
@@ -55,6 +56,14 @@ function verify(req, path, rawBody) {
 
 /** A tenant's public state — counts only, never a row of anybody's data. */
 const emailSending = () => { const s = emailSender(); return s ? (s.shared ? 'kairo' : 'own') : 'none'; };
+
+// How long a refunded salon's files are kept before a purge is allowed. Unset
+// or blank is seven days: a blank variable must not quietly mean "no wait".
+function purgeGraceDays() {
+  const raw = String(process.env.KAIRO_PURGE_GRACE_DAYS ?? '').trim();
+  const n = Number(raw);
+  return raw && Number.isFinite(n) && n >= 0 ? n : 7;
+}
 
 function tenantStatus(slug) {
   const t = getTenant(slug);
@@ -260,6 +269,17 @@ async function route(req, res, pathname, body) {
     return { deleted: true, slug, note: 'The address stops serving. The database file is kept.' };
   }
 
+  // POST /api/platform/tenants/:slug/purge — a refunded salon's files, gone
+  // for good once it has been off for the grace period. The shard decides
+  // whether that is true, from the salon's own tenant.json; the platform only
+  // asks. Already gone is an answer, not an error, so a retry is harmless.
+  if (tail === 'purge' && req.method === 'POST') {
+    const r = purgeTenant(slug, { graceDays: purgeGraceDays() });
+    if (r.refused === 'still on') throw httpError(409, 'That salon is still on. Only a deleted salon can be purged.');
+    if (r.refused) throw httpError(409, `Switched off at ${r.deleted_at || 'an unknown time'}; its files are kept until ${purgeGraceDays()} days have passed.`);
+    return { slug, ...r };
+  }
+
   // PUT /api/platform/tenants/:slug/settings
   if (tail === 'settings' && req.method === 'PUT') {
     const t = getTenant(slug);
@@ -360,6 +380,17 @@ async function route(req, res, pathname, body) {
     // tenantStatus carries its own counts; the ones taken from the snapshot
     // itself (with the owner row) are the ones the caller compares against.
     return { ...tenantStatus(slug), imported: true, bytes: raw.length, counts };
+  }
+
+  // POST /api/platform/tenants/:slug/parting-copy — before a refund switches
+  // the salon off, email the owner their book: spreadsheets plus the database.
+  // 200 either way; `ok` says whether it went, so the platform can hold the
+  // deletion back when it did not.
+  if (tail === 'parting-copy' && req.method === 'POST') {
+    // A refunded salon is already switched off; its owner's copy is still owed.
+    const t = getTenant(slug, { includeDeleted: true });
+    if (!t) throw httpError(404, 'No such salon');
+    return withTenant(t, () => emailPartingCopy(String(body.to || '').trim()));
   }
 
   if (tail === 'export' && req.method === 'GET') {

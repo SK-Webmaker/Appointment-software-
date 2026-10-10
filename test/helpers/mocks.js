@@ -184,9 +184,10 @@ export async function mockResend({ dns = null } = {}) {
     const del = /^\/api-keys\/([^/]+)$/.exec(url.pathname);
     if (del && req.method === 'DELETE') { keys.delete(del[1]); m.deletedKeys.push(del[1]); return send(200, {}); }
     if (url.pathname === '/emails' && req.method === 'POST') {
+      if (m.down) return send(500, { message: 'Resend is having a moment' });
       const k = [...keys.values()].find((x) => x.token === token);
       if (!k && !full) return send(401, { message: 'API key is invalid' });
-      sent.push({ from: body.from, to: body.to, subject: body.subject, key: token, reply_to: body.reply_to, text: body.text, html: body.html });
+      sent.push({ from: body.from, to: body.to, subject: body.subject, key: token, reply_to: body.reply_to, text: body.text, html: body.html, attachments: body.attachments || [] });
       return send(200, { id: `e_${++n}` });
     }
     return send(404, { message: `not mocked: ${req.method} ${url.pathname}` });

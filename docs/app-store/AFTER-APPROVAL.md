@@ -113,9 +113,9 @@ day per salon, about 1–3 US cents a message.
   receipt, review request), so a handful of busy salons reach 100 by lunchtime
   and everything after that is refused. The Pro plan (about US$20 a month)
   has no daily cap. resend.com → Settings → Billing.
-- **ClickSend (texts): keep the platform account in credit.** It sends the
-  code every new signup must enter. At zero credit, nobody can finish signing
-  up. Turn on auto top-up in ClickSend → Billing.
+- **ClickSend: nothing to keep topped up for signups.** Since 1.76.0 the
+  signup asks for the email code only; no text is sent. (Each salon's texts
+  are always its own ClickSend account.)
 
 ## 4. Small things
 

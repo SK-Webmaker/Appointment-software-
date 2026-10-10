@@ -158,8 +158,12 @@ export const tenantFault = (slug) => faults.get(slug) || null;
 /** Every salon that will not open right now — what a readiness check reports. */
 export const tenantFaults = () => [...faults.entries()].map(([slug, f]) => ({ slug, ...f }));
 
-/** Look a tenant up by slug; opens it on first use. null if it does not exist, is deleted, or will not open. */
-export function getTenant(slug) {
+/**
+ * Look a tenant up by slug; opens it on first use. null if it does not exist,
+ * is deleted, or will not open. `includeDeleted` is for the one caller that
+ * must still read a switched-off salon: sending its owner their data.
+ */
+export function getTenant(slug, { includeDeleted = false } = {}) {
   if (!SLUG_RE.test(String(slug || ''))) return null;
   try {
     let rec = open.get(slug);
@@ -172,7 +176,7 @@ export function getTenant(slug) {
       open.set(slug, rec);
     }
     refresh(rec);
-    if (rec.config.deleted) return null;
+    if (rec.config.deleted && !includeDeleted) return null;
     rec.lastUsed = Date.now();
     const ready = boot(rec);
     // Recovered: a salon that failed to open and now does is no longer a fault.
@@ -315,6 +319,34 @@ export function closeTenant(slug) {
   if (!rec) return;
   try { rec.db.close(); } catch { /* already closed */ }
   open.delete(slug);
+}
+
+/**
+ * Remove a switched-off salon's folder for good: its database, the backups
+ * beside it and its tenant.json.
+ *
+ * Only for a salon already deleted (refunded), and only once it has been off
+ * for `graceDays`. Both are read from the salon's own tenant.json, never taken
+ * from the caller, so no mistake upstream — a wrong slug, a wrong state, a job
+ * run twice — can reach a salon that is still trading. The whole folder goes,
+ * not just the database: a folder left behind would be opened again by the
+ * next request to that address and a blank database made in it.
+ */
+export function purgeTenant(slug, { graceDays = 7 } = {}) {
+  if (!SLUG_RE.test(String(slug || ''))) return { purged: false, refused: 'not a salon address' };
+  const dir = path.join(TENANTS_DIR, slug);
+  if (!fs.existsSync(dir)) return { purged: false, gone: true };
+  const { config } = readConfig(dir);
+  if (config.deleted !== true) return { purged: false, refused: 'still on' };
+  const off = Date.parse(String(config.deleted_at || ''));
+  if (!Number.isFinite(off) || Date.now() - off < graceDays * 86400000) {
+    return { purged: false, refused: 'too soon', deleted_at: String(config.deleted_at || '') };
+  }
+  closeTenant(slug);
+  fs.rmSync(dir, { recursive: true, force: true });
+  faults.delete(slug);
+  domainIndex.at = 0;
+  return { purged: true };
 }
 
 /**

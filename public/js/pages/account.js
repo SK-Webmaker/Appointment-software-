@@ -61,7 +61,8 @@ function guaranteeCard(g) {
     <div class="card gtee-card">
       <div class="card-title">Your ${g.window_days}-day guarantee</div>
       <div class="card-sub">${live
-    ? `No reason needed, no questions asked. We refund ${esc(amount)} and your whole business is emailed to you first.`
+    ? `No reason needed, no questions asked. We email you a copy of everything, refund ${esc(amount)},
+       then close and delete your Kairo.`
     : `The no-reason window has passed, but asking is still worth it — Australian consumer law may
        still apply, and a person reads every request.`}</div>
       <div class="gtee-row">
@@ -74,7 +75,7 @@ function guaranteeCard(g) {
         </div>
         <div class="gtee-say">
           ${live
-    ? 'Press once and it happens — the money goes back the way it came, usually within a few business days.'
+    ? 'Nothing happens on the first press. The next screen tells you exactly what a refund does, and asks you to confirm.'
     : 'This sends a request to a person rather than refunding automatically. You will hear back by email.'}
         </div>
       </div>
@@ -85,10 +86,139 @@ function guaranteeCard(g) {
           placeholder="What went wrong, or what you needed and didn't get."></textarea>
       </div>`}
       <button type="button" class="btn ${live ? 'danger' : ''}" id="acct-refund">
-        ${icon('back', 14)} ${live ? 'Refund and close my Kairo' : 'Ask for a refund'}
+        ${icon('back', 14)} ${live ? 'Refund and delete my Kairo' : 'Ask for a refund'}
       </button>
       ${g.paid_at ? `<div class="acct-meta" style="margin-top:10px">Bought ${esc(fmtDate(String(g.paid_at).slice(0, 10), { weekday: false }))}${g.price_cents ? ` · ${esc(amount)} once, nothing after` : ''}</div>` : ''}
     </div>`;
+}
+
+const dollars = (cents) => `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+
+/** One line of the refund warning: what happens, then the detail. */
+const warnRow = (ic, head, detail, tone = '') => `
+  <li class="rf-row ${tone}">
+    <span class="rf-ic">${icon(ic, 16)}</span>
+    <span><b>${head}</b><span class="rf-detail">${detail}</span></span>
+  </li>`;
+
+/**
+ * "Are you sure?" for the refund inside the 14 days. Everything here is what
+ * the server actually does, in the order it does it, so the list is the
+ * promise and the button is the decision.
+ */
+function confirmRefund(g, a) {
+  const amount = g.price_cents ? dollars(g.price_cents) : 'what you paid';
+  const biz = esc(a.business.name || 'your business');
+  const upcoming = Number(a.usage?.upcoming || 0);
+  const m = openModal({
+    title: 'Are you sure?',
+    body: `
+      <div class="rf-confirm">
+        <p class="rf-lede">This refunds <b>${esc(amount)}</b> and deletes <b>${biz}</b> from Kairo.
+          Please read all of it before you confirm.</p>
+        <ul class="rf-list">
+          ${warnRow('card', `${esc(amount)} goes back to the card that paid`,
+            'Usually 5–10 business days to show on your statement, depending on your bank.')}
+          ${warnRow('globe', 'Your Kairo closes straight away',
+            'Your booking page stops working. Clients can no longer book, change or cancel online.', 'bad')}
+          ${warnRow('mail', 'Your clients stop hearing from you',
+            upcoming
+              ? `No more confirmations, reminders or texts — including for the <b>${upcoming} appointment${upcoming === 1 ? '' : 's'}
+                 already booked</b>. Let ${upcoming === 1 ? 'that client' : 'those clients'} know yourself.`
+              : 'No more confirmations, reminders or texts are sent.', upcoming ? 'bad' : '')}
+          ${warnRow('logout', 'Everyone is signed out',
+            'You, your team, and the Kairo iPhone app. Nobody can sign in to this Kairo again.')}
+          ${warnRow('download', 'A copy is emailed to you first',
+            'Your clients, appointments, invoices, payments and services, as spreadsheets, to the email you signed up with. Keep it — it will be the only copy.')}
+          ${warnRow('trash', 'Then all of it is deleted, for good',
+            `7 days after the refund, everything in ${biz} is permanently deleted from Kairo's servers. Backup copies expire on their own after that.`, 'bad')}
+          ${warnRow('alert', 'This cannot be undone',
+            'To use Kairo again you would need to buy it again and set it up from the start.', 'bad')}
+        </ul>
+        <label class="confirm-opt rf-ack">
+          <input type="checkbox" class="chk" id="rf-ack">
+          <span><b>I understand. Refund me and delete ${biz}.</b>
+            <span class="co-hint">I have read the list above.</span></span>
+        </label>
+        <div class="login-error" id="rf-err" role="alert"></div>
+      </div>`,
+    footer: `<div class="spacer"></div>
+      <button class="btn" data-keep>Keep my Kairo</button>
+      <button class="btn danger rf-go" data-go disabled>${icon('trash', 14)} Yes, refund and delete</button>`,
+  });
+  const ack = m.querySelector('#rf-ack');
+  const go = m.querySelector('[data-go]');
+  const keep = m.querySelector('[data-keep]');
+  const errEl = m.querySelector('#rf-err');
+  ack.onchange = () => { go.disabled = !ack.checked; };
+  keep.onclick = () => m.close();
+  go.onclick = async () => {
+    if (!ack.checked) return;
+    go.disabled = true; keep.disabled = true; ack.disabled = true;
+    go.innerHTML = '<span class="rf-spin" aria-hidden="true"></span> Refunding…';
+    errEl.textContent = '';
+    try {
+      const r = await api.post('/api/account/refund', { confirm: 'refund-and-delete' });
+      refunded(m, r, amount);
+    } catch (e) {
+      errEl.textContent = e.message;
+      go.disabled = false; keep.disabled = false; ack.disabled = false;
+      go.innerHTML = `${icon('trash', 14)} Yes, refund and delete`;
+    }
+  };
+}
+
+/**
+ * Done. The salon is already off, so there is nowhere left to go inside it:
+ * say what happened, then sign out — the app back to its own sign-in.
+ */
+function refunded(m, r, amount) {
+  const leave = () => { if (!nativeSignedOut()) location.reload(); };
+  const body = m.querySelector('.modal-body');
+  const foot = m.querySelector('.modal-foot');
+  m.querySelector('.modal-head h2').textContent = r.already ? 'Already refunded' : 'Refunded';
+  body.innerHTML = `
+    <div class="rf-done">
+      <div class="rf-tick">${icon('check', 22)}</div>
+      ${r.already ? '<p>This Kairo had already been refunded.</p>' : `
+      <p><b>${esc(amount)} is on its way back to your card.</b> Allow 5–10 business days.</p>
+      <p>${r.copy_emailed
+        ? 'A copy of your data has been emailed to you. Keep that email.'
+        : 'We could not email your data just now. It is kept safe, and a person will send it to you by hand — nothing is deleted until you have it.'}</p>
+      <p>Your Kairo is closed${r.files_deleted_after ? ', and its data will be deleted in 7 days' : ''}. Thank you for trying it.</p>`}
+    </div>`;
+  foot.innerHTML = '<div class="spacer"></div><button class="btn primary" data-leave>Done</button>';
+  foot.querySelector('[data-leave]').onclick = leave;
+  m.querySelector('[data-close]').onclick = leave;
+  setTimeout(leave, 15000);
+}
+
+/** After the 14 days: a request a person reads, not a refund. */
+async function askForRefund(container, refundBtn) {
+  const yes = await confirmDialog('Ask for a refund',
+    'This sends a request to a person, along with anything you wrote. Nothing is refunded or switched off '
+    + 'until somebody has read it. If it is approved, it works like any refund: your data is emailed to you, '
+    + 'your Kairo is closed, and its data is deleted 7 days later.',
+    { okText: 'Send the request' });
+  if (!yes) return;
+  refundBtn.disabled = true;
+  try {
+    const note = container.querySelector('#acct-refund-reason');
+    const r = await api.post('/api/account/refund', { reason: note ? note.value.trim() : '', confirm: 'refund-and-delete' });
+    if (r.refunded) {
+      // The window turned out to be open after all (the page was loaded just
+      // before midnight): it was refunded, and the salon is already off.
+      toast('Refunded. A copy of your data is on its way by email.', 'ok');
+      setTimeout(() => { if (!nativeSignedOut()) location.reload(); }, 2500);
+      return;
+    }
+    if (r.queued) toast('Request sent — somebody will read it and come back to you.', 'ok');
+    else if (r.already) toast('This Kairo has already been refunded.', 'ok');
+    renderAccount(container);
+  } catch (err) {
+    refundBtn.disabled = false;
+    toast(err.message, 'err');
+  }
 }
 
 export async function renderAccount(container) {
@@ -328,37 +458,17 @@ export async function renderAccount(container) {
     if (!nativeSignedOut()) location.reload();
   };
 
-  // The refund. Asks twice on purpose while the window is live, because the
-  // press is irreversible and takes the salon offline with it.
+  // The refund. Nothing happens on the first press: it opens "Are you sure?",
+  // which says everything a refund does — the money, the booking page, the
+  // clients already booked, the sign-out, the copy, the deletion — and only a
+  // ticked box unlocks the button that does it. The server refuses a refund
+  // that did not come through this step.
   const refundBtn = container.querySelector('#acct-refund');
   if (refundBtn) {
-    refundBtn.onclick = async () => {
+    refundBtn.onclick = () => {
       const live = Number(guarantee?.days_left || 0) > 0;
-      const yes = await confirmDialog(
-        live ? 'Refund and close your Kairo' : 'Ask for a refund',
-        live
-          ? 'Your money goes back to the card that paid, your whole business is emailed to you first, '
-            + 'and your booking page stops taking bookings. This cannot be undone.'
-          : 'This sends a request to a person, along with anything you wrote. Nothing is refunded or '
-            + 'switched off until somebody has read it.',
-        { okText: live ? 'Refund and close' : 'Send the request', danger: live });
-      if (!yes) return;
-      refundBtn.disabled = true;
-      try {
-        const note = container.querySelector('#acct-refund-reason');
-        const r = await api.post('/api/account/refund', { reason: note ? note.value.trim() : '' });
-        if (r.refunded) {
-          toast('Refunded. Your data is on its way to you by email.', 'ok');
-        } else if (r.queued) {
-          toast('Request sent — somebody will read it and come back to you.', 'ok');
-        } else if (r.already) {
-          toast('This Kairo has already been refunded.', 'ok');
-        }
-        renderAccount(container);
-      } catch (err) {
-        refundBtn.disabled = false;
-        toast(err.message, 'err');
-      }
+      if (live) confirmRefund(guarantee, a);
+      else askForRefund(container, refundBtn);
     };
   }
 
