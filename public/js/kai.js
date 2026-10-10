@@ -34,6 +34,7 @@
 import { esc, icon, copyText, toast, kairoOrb } from './ui.js';
 import { api } from './api.js';
 import { mountKaiChat, openKaiChat, closeKaiChat, isKaiChatOpen, agentReady } from './kai-chat.js';
+import { canListen, listen as hear } from './voice.js';
 
 let el = null;
 let items = [];      // search results for what is currently typed
@@ -509,6 +510,8 @@ function move(by) {
 }
 
 export function close() {
+  // Closing is not "send what you heard": drop it.
+  if (rec) { const r = rec; rec = null; r.abort(); }
   stopListening();
   el?.classList.remove('open');
   document.documentElement.classList.remove('kai-showing');
@@ -568,9 +571,8 @@ function load(q) {
 // hands-free case the owner asked for, and it works because everything Kai does
 // this way can be taken back by saying "undo".
 
-// Not inside the iPhone app — see kai-chat.js.
-const SpeechRecognition = typeof window !== 'undefined' && !window.kairoNative
-  && (window.SpeechRecognition || window.webkitSpeechRecognition);
+// Not inside the iPhone app — see voice.js.
+const SpeechRecognition = canListen();
 let rec = null;
 let listening = false;
 
@@ -592,7 +594,7 @@ function speak(text) {
 }
 
 function stopListening() {
-  if (rec && listening) { try { rec.stop(); } catch { /* already stopped */ } }
+  if (rec && listening) { const r = rec; rec = null; try { r.stop(); } catch { /* already stopped */ } }
   listening = false;
   el?.querySelector('#kai-mic')?.classList.remove('on');
   el?.querySelector('.kai-listening')?.remove();
@@ -603,49 +605,30 @@ function startListening() {
   if (!SpeechRecognition) return;
   if (listening) { stopListening(); return; }
 
-  rec = new SpeechRecognition();
-  rec.lang = navigator.language || 'en-AU';
-  rec.interimResults = true;
-  rec.continuous = false;
-  rec.maxAlternatives = 1;
-
   const input = el.querySelector('#kai-q');
   el.querySelector('#kai-mic').classList.add('on');
   listening = true;
   setState('listening', 'Listening…');
   el.querySelector('.kai-composer').insertAdjacentHTML('beforebegin',
     '<div class="kai-listening"><i></i><i></i><i></i><i></i><i></i>'
-    + '<span>Listening — say what you want, then stop talking.</span></div>');
+    + '<span>Listening — say what you want, then pause.</span></div>');
 
-  rec.onresult = (e) => {
-    let text = '';
-    let final = false;
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      text += e.results[i][0].transcript;
-      if (e.results[i].isFinal) final = true;
-    }
-    input.value = text.trim();
-    if (final) {
+  // Careful listening lives in voice.js: it waits for a pause rather than
+  // stopping at the first breath, and prefers the hearing that names
+  // something in Kairo.
+  rec = hear({
+    onInterim: (t) => { input.value = t; load(t); },
+    onFinal: (t) => {
+      rec = null;
       stopListening();
+      if (!t) return;
+      input.value = t;
       // The sentence is finished, so this is the moment it counts — the same
       // as pressing Enter, which is what makes the loop hands-free.
       onEnter({ spoken: true });
-    } else {
-      load(input.value);
-    }
-  };
-  rec.onerror = (e) => {
-    stopListening();
-    if (e.error === 'no-speech') { toast("Didn't catch that — try again", 'err'); return; }
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      toast('Your browser blocked the microphone — allow it and try again', 'err');
-      return;
-    }
-    if (e.error !== 'aborted') toast('The microphone stopped working', 'err');
-  };
-  rec.onend = () => stopListening();
-
-  try { rec.start(); } catch { stopListening(); }
+    },
+    onError: (msg) => { rec = null; stopListening(); toast(msg, 'err'); },
+  });
 }
 
 export function mountKai(root) {

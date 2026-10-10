@@ -3837,3 +3837,9 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .wz *, .wz *::before, .wz *::after { animation: none !important; transition: none !important; }
 }
+
+/* Kai: the one line that says the microphone is there and what to say into it. */
+.kc-voice-hint { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 16px auto 0; max-width: 460px;
+  font-size: 12.5px; color: var(--muted); line-height: 1.5; text-align: center; }
+.kc-voice-hint svg { flex: none; color: var(--accent); }
+.kc.listening .kc-compose { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47, 127, 214, .18); }

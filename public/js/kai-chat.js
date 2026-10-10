@@ -18,6 +18,7 @@
 // refreshed when the chat closes, so what Kai changed is what the owner sees.
 import { esc, icon, kairoOrb, toast } from './ui.js';
 import { api } from './api.js';
+import { canListen, listen as hear, speak } from './voice.js';
 
 let el = null;
 let ready = false;        // the server has an agent key
@@ -28,11 +29,8 @@ let working = false;
 let changed = false;      // something was written — refresh the page on close
 let chats = [];
 
-// Not inside the iPhone app: its web view would need microphone and speech
-// permissions the app does not ask for, and the iPhone keyboard's own
-// dictation button already does this job there.
-const SpeechRecognition = typeof window !== 'undefined' && !window.kairoNative
-  && (window.SpeechRecognition || window.webkitSpeechRecognition);
+// Not inside the iPhone app — see voice.js.
+const SpeechRecognition = canListen();
 
 const SUGGESTIONS = [
   "What's on today?",
@@ -112,6 +110,8 @@ function emptyHtml() {
     <p>Ask me anything about the business, or tell me what to change — book, move or cancel
       appointments, add notes, update prices and hours, chase invoices. I'll do it and show you what I did.</p>
     <div class="kc-chips">${SUGGESTIONS.map((s) => `<button type="button" class="kai-chip" data-suggest="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+    ${SpeechRecognition ? `<p class="kc-voice-hint">${icon('mic', 14)} Tap the mic and just say it — “show me Friday”,
+      “open my clients”, “take me to my SMS settings”. Pause when you're done.</p>` : ''}
   </div>`;
 }
 
@@ -192,9 +192,41 @@ function absorb(r) {
   events.push(...fresh);
 }
 
-async function send(text) {
+// "Open my calendar", "show me Friday", "take me to my SMS settings". Going
+// somewhere is the commonest thing anybody asks hands-free, and it needs no AI:
+// Kai's own reading of the sentence (the same one the search bar uses) knows
+// every page and every day. So a request to go somewhere is answered at once,
+// on the page itself, and only everything else is a conversation.
+//
+// A sentence that also asks for a change — "book Jane in tomorrow at 3" names
+// tomorrow, but is not a request to look at it — always goes to the agent.
+const CHANGE = /\b(book|rebook|move|reschedule|cancel|add|change|set|update|block|unblock|delete|remove|send|refund|charge|create|make|mark|note|text|email|remind|close|price|raise|lower|turn|switch)\b|\d\s*(?:am|pm)\b|\bto\s+\d/i;
+
+async function quickGo(text) {
+  if (CHANGE.test(text) || text.length > 90) return null;
+  try {
+    const r = await api.get(`/api/ask?q=${encodeURIComponent(text)}`);
+    const nav = (r.answers || []).find((a) => a.kind === 'goto' && a.matched === 'somewhere to go' && a.href);
+    if (!nav) return null;
+    const title = String(nav.title);
+    const said = /^Here's/.test(nav.detail || '') ? nav.detail
+      : title.includes('→') ? `Here's ${title.replace(/\s*→\s*/g, ', ')}.`
+        : `Here's your ${/^(Point of Sale|Billing)$/.test(title) ? title : title.toLowerCase()}.`;
+    return { href: nav.href, said };
+  } catch { return null; }
+}
+
+async function send(text, { spoken = false } = {}) {
   text = text.trim();
   if (!text || working) return;
+  const go = await quickGo(text);
+  if (go) {
+    location.hash = go.href;
+    if (spoken) speak(go.said);
+    toast(go.said, 'ok');
+    closeKaiChat();
+    return;
+  }
   events.push({ t: 'user', text });
   // Typing instead of answering a Confirm is a no — show it as one at once.
   for (const e of events) if (e.t === 'confirm' && e.state === 'waiting') e.state = 'declined';
@@ -204,6 +236,12 @@ async function send(text) {
     const r = await api.post('/api/kai/chats', { message: text, ...(chatId ? { chat_id: chatId } : {}) });
     absorb(r);
     refreshList();
+    // Asked out loud, answered out loud: the first couple of sentences of what
+    // Kai said. The detail stays on screen.
+    if (spoken) {
+      const last = [...events].reverse().find((e) => e.t === 'kai');
+      if (last) speak(String(last.text).replace(/[*`#_]/g, '').split(/(?<=[.!?])\s+/).slice(0, 2).join(' '));
+    }
   } catch (err) {
     if (err.status === 428) { consented = false; events.pop(); return; }
     events.push({ t: 'error', text: err.message || "Couldn't reach Kai — check your connection and try again." });
@@ -258,31 +296,21 @@ function newChat() {
 let rec = null;
 function listen() {
   if (!SpeechRecognition || working) return;
-  if (rec) { try { rec.stop(); } catch { /* already stopped */ } return; }
-  rec = new SpeechRecognition();
-  rec.lang = navigator.language || 'en-AU';
-  rec.interimResults = true;
+  if (rec) { rec.stop(); return; }
   const q = el.querySelector('#kc-q');
   const mic = el.querySelector('#kc-mic');
   mic.classList.add('on');
-  setStatus('Listening…');
-  let finalText = '';
-  rec.onresult = (ev) => {
-    let interim = '';
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
-      else interim += ev.results[i][0].transcript;
-    }
-    q.value = (finalText + interim).trim();
-    grow(q);
-  };
-  rec.onend = () => {
-    mic.classList.remove('on');
-    rec = null;
-    if (finalText.trim()) { q.value = ''; grow(q); send(finalText); } else paint({ scroll: false });
-  };
-  rec.onerror = () => { mic.classList.remove('on'); };
-  try { rec.start(); } catch { mic.classList.remove('on'); rec = null; }
+  el.classList.add('listening');
+  setStatus('Listening — speak, then pause when you\'re done');
+  const done = () => { rec = null; mic.classList.remove('on'); el.classList.remove('listening'); };
+  rec = hear({
+    onInterim: (t) => { q.value = t; grow(q); },
+    onFinal: (t) => {
+      done();
+      if (t) { q.value = ''; grow(q); send(t, { spoken: true }); } else paint({ scroll: false });
+    },
+    onError: (msg) => { done(); paint({ scroll: false }); toast(msg, 'err'); },
+  });
 }
 
 function grow(t) {
@@ -307,7 +335,7 @@ export function openKaiChat(prefill = '') {
 
 export async function closeKaiChat() {
   if (!el || el.hidden) return;
-  if (rec) { try { rec.stop(); } catch { /* gone */ } }
+  if (rec) { const r = rec; rec = null; r.abort(); el.classList.remove('listening'); el.querySelector('#kc-mic')?.classList.remove('on'); }
   el.classList.remove('open');
   document.documentElement.classList.remove('kc-lock');
   setTimeout(() => { el.hidden = true; }, 160);
