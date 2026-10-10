@@ -39,6 +39,11 @@ function refresh() {
     .finally(() => { asking = null; });
 }
 
+// Said in the server log, so a lookup that keeps failing on the server (and
+// not on a laptop) can be seen rather than guessed at. At most every thirty
+// minutes, because that is how often it asks.
+const note = (why) => { if (process.env.KAIRO_APP_STORE_LOOKUP !== 'off') console.log(`app store lookup: ${why}`); };
+
 /**
  * Ask Apple. Australia first, because that is where Kairo sells; then the
  * default storefront, for a listing that is not offered in Australia.
@@ -51,11 +56,12 @@ export async function lookupAppStoreId({ fetchImpl = fetch, timeoutMs = 4000 } =
     try {
       const q = `bundleId=${BUNDLE_ID}${country ? `&country=${country}` : ''}`;
       const res = await fetchImpl(`https://itunes.apple.com/lookup?${q}`, { signal: ctrl.signal });
-      if (!res.ok) continue;
+      if (!res.ok) { note(`HTTP ${res.status} (${country || 'default'} store)`); continue; }
       const body = await res.json();
       const hit = (body.results || []).find((r) => r.bundleId === BUNDLE_ID);
       if (hit && /^\d{6,12}$/.test(String(hit.trackId))) return String(hit.trackId);
-    } catch { /* try the next one */ } finally {
+      note(`not listed in the ${country || 'default'} store yet`);
+    } catch (e) { note(`${String(e?.message || e).slice(0, 120)} (${country || 'default'} store)`); } finally {
       clearTimeout(timer);
     }
   }
