@@ -366,7 +366,7 @@ export async function provision(businessId) {
   } else {
     record(b.id, 'email:sending', sending === 'own' ? 'its own Resend account' : 'the platform account');
   }
-  const sent = await notify.emailReady(owner.email, { businessName: b.name, url, appUrl: APP_URL(), sending });
+  const sent = await notify.emailReady(owner.email, { businessName: b.name, url, appUrl: APP_URL(), sending, ownerName: owner.name });
   record(b.id, 'email:ready', sent.ok ? 'sent' : sent.detail);
   return { state: 'ready', url };
 }

@@ -27,7 +27,8 @@ before, from the website to a refund, with real money (A$5).
    - ✔ It arrives within a minute. No text is sent: the email code is all it asks for.
 4. Pay A$5. Apple Pay is fine.
    - ✔ You come back to start.kairobookings.com, and it says your Kairo is ready.
-5. Open the **"Final Test Salon is ready on Kairo"** email.
+5. Open the **"Welcome to Kairo — Final Test Salon is ready"** email.
+   - ✔ It greets you by your first name and says how to reach Kairo support.
    - ✔ It says confirmations already go out by email.
    - ✔ It mentions ClickSend for texts.
    - ✔ The booking link and the App Store link both work.

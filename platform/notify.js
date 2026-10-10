@@ -100,29 +100,101 @@ export const emailCode = (to, code) => sendEmail(to, `${code} is your Kairo code
 
 const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// Where an owner is sent for help. One address, the same on every page and
+// email the platform sends, so "how do I reach Kairo" has one answer.
+export const SUPPORT_EMAIL = () => String(process.env.PLATFORM_SUPPORT_EMAIL || 'support@kairobookings.com').trim();
+export const GUIDE_URL = () => String(process.env.KAIRO_GUIDE_URL || 'https://kairobookings.com/guide').trim();
+
 /**
- * The "your Kairo is ready" email.
+ * "Welcome to Kairo": the email a new owner gets the moment their Kairo is
+ * built. It does three jobs and no more — welcome them as a person, hand them
+ * everything they need to start (where to sign in, their booking link, the
+ * app, the guide), and say plainly how to reach a human at Kairo.
  *
  * `sending` is what the shard reported when it built the salon: 'kairo' (the
  * platform's shared sender) or 'own' means confirmations already go out, so the
  * email says so rather than sending the owner off to "connect" something that
  * already works. Only 'none' asks them to wait for email to be set up. Texts
  * are always the owner's own ClickSend account, so that step is always named.
+ *
+ * Laid out in tables with inline styles, because that is what every mail
+ * client — Outlook included — renders the same way.
  */
-export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo' }) => {
+export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo', ownerName = '' }) => {
+  const first = String(ownerName || '').trim().split(/\s+/)[0] || '';
+  const hi = first ? `Welcome to Kairo, ${first}.` : 'Welcome to Kairo.';
+  const support = SUPPORT_EMAIL();
+  const guide = GUIDE_URL();
+  const book = `${url}/book`;
   const emailLine = sending === 'none'
     ? 'Confirmations and reminders start sending once your email is connected. We will be in touch to set that up with you.'
     : 'Booking confirmations, reminders and receipts already go out by email with your business name on them, and replies come straight to you.';
   const smsLine = 'Want text reminders too? In Kairo go to Settings → SMS → "Set up text messages". It takes about five minutes, and you pay ClickSend directly for your texts.';
-  return sendEmail(to,
-    `${businessName} is ready on Kairo`,
-    `Your Kairo is live at ${url}\n\nSign in with the email and password you chose.\n\n${emailLine}\n\n${smsLine}\n\n`
-    + `Put your booking link (${url}/book) in your Instagram bio and Google profile.\n\nThe Kairo app for your iPhone: ${appUrl}`,
-    shell(`${escHtml(businessName)} is ready`, [
-      `Your Kairo is live at <a href="${url}" style="color:#2563eb">${url}</a> — sign in with the email and password you chose.`,
-      emailLine,
-      smsLine,
-      `Your booking link, for your Instagram bio and Google profile: <a href="${url}/book" style="color:#2563eb">${url}/book</a>`,
-      `The Kairo app for your iPhone: <a href="${appUrl}" style="color:#2563eb">get it on the App Store</a>`,
-    ]));
+  const steps = [
+    ['Sign in', `Open ${url} and sign in with the email and password you chose. A short setup walks you through your hours, services and team.`],
+    ['Share your booking link', `Put ${book} in your Instagram bio and Google profile. Clients book themselves, any hour.`],
+    ['Get the iPhone app', 'New bookings arrive as notifications, and your day is one tap away.'],
+    ['Turn on texts (optional)', smsLine],
+  ];
+
+  const text = `${hi}\n\n`
+    + `Thank you for choosing Kairo. ${businessName} is set up and ready: your own booking system, on your own address, paid for once.\n\n`
+    + `Your Kairo: ${url}\nYour booking link: ${book}\nSign in with: ${to}\n\n`
+    + `Your first fifteen minutes\n${steps.map(([h, d], i) => `${i + 1}. ${h}: ${d}`).join('\n')}\n\n`
+    + `${emailLine}\n\n`
+    + `The Kairo app for your iPhone: ${appUrl}\n`
+    + `How to do everything, step by step: ${guide}\n\n`
+    + `We're here to help\nEmail ${support} and a person at Kairo will reply, Monday to Friday, 9am to 5pm Melbourne time. Usually the same day.\n\n`
+    + `Not what you needed? You have 14 days for a full refund, no reason needed: Account → Refund and delete my Kairo.\n\n`
+    + `— The Kairo team\nkairobookings.com`;
+
+  const e = escHtml;
+  const a = (href, label) => `<a href="${e(href)}" style="color:#2563eb;text-decoration:none;font-weight:600">${e(label)}</a>`;
+  const row = (label, value) => `<tr><td style="padding:6px 0;color:#64748b;font-size:13px;width:130px;vertical-align:top">${label}</td><td style="padding:6px 0;color:#0f172a;font-size:14px;word-break:break-all">${value}</td></tr>`;
+  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:0;background:#eef2f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<span style="display:none;max-height:0;overflow:hidden">${e(businessName)} is ready. Here is everything you need to start, and how to reach us.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f8;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+  <tr><td style="background:linear-gradient(135deg,#0b1220,#15233f);background-color:#0f1a30;padding:26px 32px">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="width:34px;height:34px;background:#3b82f6;border-radius:9px;color:#fff;font-weight:800;font-size:19px;text-align:center;vertical-align:middle">K</td>
+      <td style="padding-left:11px;color:#ffffff;font-weight:800;font-size:19px;letter-spacing:.06em">KAIRO</td>
+    </tr></table>
+    <div style="color:#ffffff;font-size:26px;font-weight:700;line-height:1.25;margin-top:22px">${e(hi)}</div>
+    <div style="color:#b6c3dc;font-size:15px;line-height:1.6;margin-top:8px">${e(businessName)} is set up and ready.</div>
+  </td></tr>
+  <tr><td style="padding:28px 32px 6px">
+    <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.65">Thank you for choosing Kairo. You now have your own booking system, on your own address, paid for once — no monthly fee, no commission.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px"><tr><td style="background:#2563eb;border-radius:10px">
+      <a href="${e(url)}" style="display:inline-block;padding:13px 24px;color:#ffffff;font-weight:700;font-size:15px;text-decoration:none">Open ${e(businessName)}</a>
+    </td></tr></table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:10px 16px">
+      ${row('Your Kairo', a(url, url))}
+      ${row('Booking link', a(book, book))}
+      ${row('Sign in with', e(to))}
+    </table>
+  </td></tr>
+  <tr><td style="padding:24px 32px 4px">
+    <div style="color:#0f172a;font-weight:700;font-size:16px;margin-bottom:12px">Your first fifteen minutes</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${steps.map(([h, d], i) => `<tr><td style="width:30px;vertical-align:top;padding:0 0 14px"><div style="width:24px;height:24px;border-radius:12px;background:#dbeafe;color:#1d4ed8;font-weight:700;font-size:13px;text-align:center;line-height:24px">${i + 1}</div></td>
+        <td style="vertical-align:top;padding:2px 0 14px 8px"><div style="color:#0f172a;font-weight:600;font-size:14px">${e(h)}</div><div style="color:#475569;font-size:13.5px;line-height:1.55;margin-top:2px">${e(d)}</div></td></tr>`).join('')}
+    </table>
+    <p style="margin:2px 0 0;color:#475569;font-size:13.5px;line-height:1.6">${e(emailLine)}</p>
+    <p style="margin:14px 0 0;font-size:14px">${a(appUrl, 'Get the Kairo iPhone app')} &nbsp;·&nbsp; ${a(guide, 'Read the Kairo guide')}</p>
+  </td></tr>
+  <tr><td style="padding:24px 32px 28px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:12px"><tr><td style="padding:18px 20px">
+      <div style="color:#0f172a;font-weight:700;font-size:15px">We're here to help</div>
+      <div style="color:#334155;font-size:14px;line-height:1.6;margin-top:6px">Email ${a(`mailto:${support}`, support)} and a person at Kairo will reply — Monday to Friday, 9am to 5pm Melbourne time, usually the same day.</div>
+    </td></tr></table>
+    <p style="margin:18px 0 0;color:#64748b;font-size:12.5px;line-height:1.6">Not what you needed? You have 14 days for a full refund, no reason needed: Account → Refund and delete my Kairo.</p>
+    <p style="margin:18px 0 0;color:#0f172a;font-size:14px">— The Kairo team</p>
+  </td></tr>
+</table>
+<div style="color:#94a3b8;font-size:12px;line-height:1.6;margin-top:16px">Kairo · booking software for salons and studios · <a href="https://kairobookings.com" style="color:#94a3b8">kairobookings.com</a><br>You're receiving this because you bought Kairo for ${e(businessName)}.</div>
+</td></tr></table></body></html>`;
+
+  return sendEmail(to, `Welcome to Kairo — ${businessName} is ready`, text, html);
 };

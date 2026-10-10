@@ -29,10 +29,10 @@ before(async () => {
 });
 after(() => server.close());
 
-const ready = async (sending) => {
+const ready = async (sending, extra = {}) => {
   const { emailReady } = await import('../platform/notify.js');
   const r = await emailReady('owner@salon.example', {
-    businessName: 'Luxe <Hair>', url: 'https://luxe.kairobookings.test', appUrl: 'https://apps.apple.com/app/id6740000001', sending,
+    businessName: 'Luxe <Hair>', url: 'https://luxe.kairobookings.test', appUrl: 'https://apps.apple.com/app/id6740000001', sending, ...extra,
   });
   assert.equal(r.ok, true, r.detail);
   return sent.at(-1);
@@ -60,6 +60,23 @@ test('texts, the booking link and the iPhone app are always in it, in both versi
     assert.match(body, /luxe\.kairobookings\.test\/book/);
     assert.match(body, /apps\.apple\.com\/app\/id6740000001/);
   }
-  assert.match(m.html, /Luxe &lt;Hair&gt; is ready/, 'the business name is escaped in the HTML');
-  assert.equal(m.subject, 'Luxe <Hair> is ready on Kairo');
+  assert.match(m.html, /Luxe &lt;Hair&gt; is set up and ready/, 'the business name is escaped in the HTML');
+  assert.doesNotMatch(m.html, /Luxe <Hair>/);
+  assert.equal(m.subject, 'Welcome to Kairo — Luxe <Hair> is ready');
+});
+
+// The welcome is to a person, and says how to reach one.
+test('it welcomes the owner by first name and says how to contact Kairo', async () => {
+  const m = await ready('kairo', { ownerName: 'Ada Bell' });
+  for (const body of [m.text, m.html]) {
+    assert.match(body, /Welcome to Kairo, Ada\./);
+    assert.match(body, /support@kairobookings\.com/, 'the support address');
+    assert.match(body, /Monday to Friday/, 'and when someone answers');
+    assert.match(body, /kairobookings\.com\/guide/, 'the guide');
+    assert.match(body, /14 days for a full refund/);
+    assert.match(body, /owner@salon\.example/, 'the address they sign in with');
+  }
+  assert.match(m.html, /mailto:support@kairobookings\.com/);
+  const anon = await ready('kairo');
+  assert.match(anon.text, /^Welcome to Kairo\./, 'no name, no awkward blank');
 });
