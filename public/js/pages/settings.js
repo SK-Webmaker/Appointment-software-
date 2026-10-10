@@ -237,10 +237,12 @@ export async function renderSettings(container, params) {
       <div class="set-tabs" role="tablist" aria-label="Settings sections">
         ${SETTINGS_GROUPS.map((g) => `<button type="button" role="tab" class="set-tab" data-group="${g.id}" aria-selected="false">${icon(g.icon, 15)}<span>${g.label}</span></button>`).join('')}
       </div>
+    </div>
+    <div class="set-intro">
+      <div><div class="set-intro-t" id="set-title"></div><div class="set-intro-s" id="set-say"></div></div>
       <label class="set-search">${icon('search', 15)}
         <input type="search" id="set-q" placeholder="Find a setting" autocomplete="off" aria-label="Find a setting"></label>
     </div>
-    <div class="set-intro"><div class="set-intro-t" id="set-title"></div><div class="set-intro-s" id="set-say"></div></div>
     <div class="settings-grid">
       <div class="card" data-sec="profile">
         <div class="card-title">Business profile</div>
@@ -563,9 +565,9 @@ export async function renderSettings(container, params) {
 
       <div class="card" data-sec="notif">
         <div class="card-title">Notifications</div>
-        <div class="card-sub" style="margin-bottom:16px">Automatic confirmations, reminders, payment receipts &amp;
-          post-visit review requests. Email uses <a href="https://resend.com" target="_blank" rel="noreferrer">Resend</a>
-          (free up to 3,000 a month, plenty for this). Paste keys, hit save, send a test from the
+        <div class="card-sub" style="margin-bottom:16px">What Kairo sends your clients for you — confirmations,
+          reminders, receipts and review requests. Email is included and free; texts go through your own
+          ClickSend account once SMS is on. Every message sent is listed on the
           <a href="#/messages">Messages</a> page.</div>
         <form id="set-notif" style="display:flex;flex-direction:column;gap:13px">
           <div>
@@ -574,7 +576,7 @@ export async function renderSettings(container, params) {
             ${notifRow('reminders_enabled', 'chan_reminder', 'Appointment reminders', 'Sent a set number of hours before the visit.')}
             ${notifRow('receipts_enabled', 'chan_receipt', 'Payment receipts', 'Sent the moment a payment or deposit is recorded.')}
             ${notifRow('review_requests_enabled', 'chan_review_request', 'Review requests', 'Sent after a visit is marked Completed.')}
-            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS options only take effect once you turn on “Also send SMS” below</b> and add a provider. Until then everything goes by email (so nothing is billed by accident).</div>
+            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS only sends once you turn SMS on</b> in the SMS card. Until then everything goes by email, so nothing is billed by accident.</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer;margin-top:4px">
             <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} class="chk">

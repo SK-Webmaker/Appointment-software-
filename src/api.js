@@ -550,7 +550,7 @@ route('POST', '/api/auth/send-verification', async ({ req, user }) => {
   const result = await sendEmail(row.email, 'Verify your email — Kairo', `Verify your email by opening this link (valid 48h):\n${url}`, html);
   if (!result.ok) {
     throw httpError(result.skipped ? 400 : 502,
-      result.skipped ? 'Set up email first (Settings → Notifications) so the verification email can be sent' : `Could not send: ${result.detail}`);
+      result.skipped ? 'Set up email first (Settings → Messages → Notifications) so the verification email can be sent' : `Could not send: ${result.detail}`);
   }
   return { ok: true, sent_to: row.email };
 });
@@ -861,7 +861,7 @@ const APPT_SCHEMA = {
   // Whether the client hears about this save, and by what. Read when a booking
   // is made, when its time moves, and when a save cancels it. Absent means yes,
   // so an older caller can't accidentally go silent; an absent channel means
-  // whatever Settings → Notifications says.
+  // whatever Settings → Messages → Notifications says.
   notify_client: s.bool(),
   notify_channel: s.oneOf(['email', 'sms', 'both']),
 };

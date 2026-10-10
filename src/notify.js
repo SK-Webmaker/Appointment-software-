@@ -73,7 +73,7 @@ function apptContext(apptId) {
 
 /**
  * Which channels a given message KIND should go out on, honouring the
- * per-type preference (Settings → Notifications: Email / SMS / Both) while
+ * per-type preference (Settings → Messages → Notifications: Email / SMS / Both) while
  * still gating SMS behind the master "Also send SMS" switch. If the preferred
  * channel isn't available (e.g. SMS chosen but the client has no phone, or SMS
  * is off), it falls back to whatever the client CAN receive so the message is
@@ -314,7 +314,7 @@ function buildCopy(kind, a, extra = {}) {
           ['With', a.staff_name || ''],
           ['When', when],
         ],
-        footNote: 'You get these because new-booking alerts are on (Settings → Notifications).',
+        footNote: 'You get these because new-booking alerts are on (Settings → Messages → Notifications).',
       }),
     };
   }
@@ -664,14 +664,14 @@ export function fromHeader(name, address) {
 
 export async function sendEmail(to, subject, body, html = '', { attachments = [] } = {}) {
   const sender = emailSender();
-  if (!sender) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Notifications)' };
+  if (!sender) return { ok: false, skipped: true, detail: 'Email not configured (add a Resend API key + from address in Settings → Messages)' };
   const { key, from, shared } = sender;
   // Catch a malformed address here rather than letting Resend answer with a
   // 422 that names no setting and tells the owner nothing they can act on.
   if (!looksLikeEmail(from)) {
     return shared
       ? { ok: false, detail: `The platform's shared From address is not a valid email address: "${from}" (KAIRO_SHARED_FROM)` }
-      : { ok: false, detail: `The From address in Settings → Notifications is not a valid email address: "${from}"` };
+      : { ok: false, detail: `The From address in Settings → Messages is not a valid email address: "${from}"` };
   }
   const replyTo = replyToAddress();
   // On the shared sender the reply-to is not a nicety. The From address is
@@ -708,7 +708,7 @@ export async function sendEmail(to, subject, body, html = '', { attachments = []
 }
 
 const SMS_NOT_CONFIGURED = (name, fields) =>
-  ({ ok: false, skipped: true, detail: `SMS not configured (add ${name} ${fields} in Settings → Notifications)` });
+  ({ ok: false, skipped: true, detail: `SMS not configured (add ${name} ${fields} in Settings → Messages)` });
 
 // Each sender returns { ok, skipped?, detail }. `skipped` means "not set up"
 // (logged as skipped, not failed) so the Messages page shows exactly what
@@ -802,7 +802,7 @@ export async function smsBalance({ fetchImpl = fetch, username: user = null, api
   const apiKey = pass ?? getSetting('clicksend_api_key');
   if (!username || !apiKey) {
     return { ok: false, provider, configured: false, checked_at,
-      detail: 'Add your ClickSend username and API key in Settings → Notifications.' };
+      detail: 'Add your ClickSend username and API key in Settings → Messages.' };
   }
 
   let res;
@@ -822,7 +822,7 @@ export async function smsBalance({ fetchImpl = fetch, username: user = null, api
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 403) {
     return { ok: false, provider, configured: true, checked_at,
-      detail: 'ClickSend refused those credentials. Check the username and API key in Settings → Notifications.' };
+      detail: 'ClickSend refused those credentials. Check the username and API key in Settings → Messages.' };
   }
   const balance = Number(data?.data?.balance);
   if (!res.ok || !Number.isFinite(balance)) {

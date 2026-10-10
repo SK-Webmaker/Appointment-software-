@@ -172,7 +172,7 @@ const STEPS = [
     id: 'confirmations', stage: 'easy', title: 'Confirmations go out automatically',
     why: 'A booking with no confirmation feels like a booking that did not happen, and '
       + 'the client rings to check — which costs you the phone call you were avoiding.',
-    how: 'Settings → Notifications.',
+    how: 'Settings → Messages → Notifications.',
     done: () => on('confirm_enabled', '1'),
     goto: '#/settings',
   },
@@ -182,7 +182,7 @@ const STEPS = [
     id: 'reminders', stage: 'back', title: 'Reminders before every appointment',
     why: 'The cheapest money in this entire plan. A reminder costs cents and a no-show '
       + 'costs the whole slot.',
-    how: 'Settings → Notifications → reminders, and how many hours before.',
+    how: 'Settings → Messages → Notifications → reminders, and how many hours before.',
     done: () => on('reminders_enabled', '1'),
     goto: '#/settings',
   },
@@ -249,7 +249,7 @@ const STEPS = [
     why: 'Without it, happy clients are thanked and then sent nowhere. This is the most '
       + 'common single gap in the whole plan.',
     how: 'Google Business Profile → "Ask for reviews" gives you a short link. Paste it into '
-      + 'Settings → Notifications.',
+      + 'Settings → Messages → Notifications.',
     done: () => has('google_review_url'),
     goto: '#/settings',
   },
@@ -257,7 +257,7 @@ const STEPS = [
     id: 'review-requests', stage: 'prove', title: 'Ask for a review after every visit',
     why: 'Reviews do not arrive on their own. Asked automatically, a few hours after the '
       + 'appointment, is the difference between four reviews a year and four a month.',
-    how: 'Settings → Notifications → review requests.',
+    how: 'Settings → Messages → Notifications → review requests.',
     done: () => on('review_requests_enabled'),
     goto: '#/settings',
   },

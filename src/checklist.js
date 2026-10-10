@@ -46,7 +46,7 @@ export function checklist() {
       ? 'Mail is sent from your own domain.'
       : sendingWorks
         ? 'Sending from Kairo for you. You can move to your own domain any time — it takes about two minutes.'
-        : 'Paste your Resend API key and From address in Settings → Notifications.',
+        : 'Paste your Resend API key and From address in Settings → Messages.',
   });
 
   // On is on: switched on and connected. A sender of their own is a nicety the

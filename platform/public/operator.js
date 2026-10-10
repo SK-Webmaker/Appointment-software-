@@ -118,8 +118,8 @@ function shell(inner) {
       <div class="mark">K</div>
       <div>
         <h1>${greeting()}</h1>
-        <div class="sub">${new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })} ·
-          <span class="status"><span class="dot ${healthy ? 'ok' : 'warn'}" style="margin:0"></span>${healthy ? 'All systems normal' : 'Check System below'}</span></div>
+        <div class="sub">${new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+        <div class="status"><span class="dot ${healthy ? 'ok' : 'warn'}"></span>${healthy ? 'All systems normal' : 'Check System below'}</div>
       </div>
       <div class="spacer"></div>
       <button class="icon-btn" data-act="reload" aria-label="Refresh">${icon('refresh')}</button>
@@ -270,7 +270,7 @@ function salonsTab() {
   });
   return `
     <div class="tools">
-      <div class="search">${icon('search', 17)}<input id="q" type="search" placeholder="Search name, address, owner, email or phone" value="${esc(query)}" autocomplete="off"></div>
+      <div class="search">${icon('search', 17)}<input id="q" type="search" placeholder="Search salons or owners" value="${esc(query)}" autocomplete="off"></div>
     </div>
     <div class="chips" style="margin-bottom:12px">${FILTERS.map(([id, label]) => `<button class="chip ${filter === id ? 'on' : ''}" data-filter="${id}">${label}</button>`).join('')}</div>
     <div class="card"><div class="cap" style="margin:0 0 4px">${list.length} of ${data.salons.length}</div>

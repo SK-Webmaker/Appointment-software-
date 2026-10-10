@@ -347,7 +347,7 @@ export async function renderAccount(container) {
           </div>
           ${a.user.email_verified ? '<div class="hint">If you ever forget your password, you can reset it yourself from the sign-in page.</div>'
             : `<div class="hint">Confirm it and you can reset your own password from the sign-in page if you ever forget it
-                 — without it, a reset has to go through Kairo support.${a.user.can_email ? '' : ' Needs email set up in Settings → Notifications first.'}</div>`}
+                 — without it, a reset has to go through Kairo support.${a.user.can_email ? '' : ' Needs email set up in Settings → Messages → Notifications first.'}</div>`}
         </div>
 
         <form id="acct-password" style="display:flex;flex-direction:column;gap:13px">

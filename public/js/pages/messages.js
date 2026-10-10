@@ -96,8 +96,8 @@ export async function renderMessages(container) {
     ${!configuredEmail && !configuredSms ? `
       <div class="insight" style="text-align:left;margin:0 0 16px">
         <b>Setup needed:</b> messages are being logged but not delivered yet.
-        Add a free <b>Resend</b> key (email) and/or your <b>SMS provider</b> details in
-        <a href="#/settings">Settings → Notifications</a> — everything queued here will show
+        Check email sending and texts in
+        <a href="#/settings?open=notif">Settings → Messages</a> — everything queued here will show
         exactly what happened.
       </div>` : ''}
 

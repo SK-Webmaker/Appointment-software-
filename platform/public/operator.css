@@ -160,7 +160,8 @@ button { font: inherit; color: inherit; }
 .dot.bad { background: var(--bad); box-shadow: 0 0 0 4px rgba(248, 113, 113, .13); }
 .sys .k { font-size: 12.5px; color: var(--muted); }
 .sys .v { font-size: 13.5px; font-weight: 600; }
-.status { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+.top .status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-2); margin-top: 3px; }
+.top .status .dot { margin: 0; width: 7px; height: 7px; }
 
 /* ---- salons tab ---- */
 .tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }

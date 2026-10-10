@@ -259,7 +259,7 @@ export async function renderGrowth(container) {
       ${!d.reviews.google_url_set ? `
         <div class="gr-note">${icon('alert', 13)}
           <span><b>No Google review link set.</b> Happy clients are being thanked and then sent
-          nowhere. Add it in <a href="#/settings">Settings → Notifications</a> — the checklist below
+          nowhere. Add it in <a href="#/settings?open=notif">Settings → Messages → Notifications</a> — the checklist below
           says where to find it.</span></div>` : ''}
       <div class="mini-label" style="margin:18px 0 8px">Getting found on Google</div>
       <div class="card-sub" style="margin-bottom:12px">Kairo can't do these for you — they happen on
