@@ -8,16 +8,24 @@
 // play them at all.
 import { esc, icon } from './ui.js';
 
+// Part of every video address, and changed whenever the files in
+// public/videos change (test/videos.test.js works it out from them and checks).
+// The salon addresses sit behind Cloudflare, which keeps a file under the same
+// name for a day: without this, a new cut plays the old picture under the new
+// captions until the edge lets go of it.
+export const REV = 'ebcc1885';
+const at = (file) => `${file}?v=${REV}`;
+
 export const VIDEOS = {
-  welcome: { src: '/videos/kairo-welcome', poster: '/videos/kairo-welcome.jpg', title: 'Welcome to Kairo', length: '48 sec' },
-  sms: { src: '/videos/kairo-sms-setup', poster: '/videos/kairo-sms-setup.jpg', title: 'Text reminders, step by step', length: '1 min' },
+  welcome: { src: '/videos/kairo-welcome', poster: at('/videos/kairo-welcome.jpg'), title: 'Welcome to Kairo', length: '48 sec' },
+  sms: { src: '/videos/kairo-sms-setup', poster: at('/videos/kairo-sms-setup.jpg'), title: 'Text reminders, step by step', length: '1 min' },
 };
 
 /** MP4 first, which every Apple device plays; WebM for browsers without H.264. */
-export const sources = (src) => `<source src="${esc(src)}.mp4" type="video/mp4"><source src="${esc(src)}.webm" type="video/webm">`;
+export const sources = (src) => `<source src="${esc(at(`${src}.mp4`))}" type="video/mp4"><source src="${esc(at(`${src}.webm`))}" type="video/webm">`;
 
 /** What is said, as captions (the .vtt beside each video). */
-export const captions = (src, { on = false } = {}) => `<track kind="captions" src="${esc(src)}.vtt" srclang="en" label="English"${on ? ' default' : ''}>`;
+export const captions = (src, { on = false } = {}) => `<track kind="captions" src="${esc(at(`${src}.vtt`))}" srclang="en" label="English"${on ? ' default' : ''}>`;
 
 /** A poster with a play button, and words beside it. */
 export function videoCard(key, { id = `vid-${key}`, title = '', sub = '', cls = '' } = {}) {

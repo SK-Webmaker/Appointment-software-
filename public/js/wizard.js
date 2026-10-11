@@ -20,6 +20,7 @@ import { api } from './api.js';
 import { esc, icon, toast, LOGO_SVG, copyText } from './ui.js';
 import { inApp } from './native.js';
 import { guideUrl, SUPPORT_EMAIL } from './help.js';
+import { VIDEOS, sources, captions } from './video.js';
 
 // Starter service menus by business type: [name, category, duration_min,
 // price, price_type?]. price_type omitted = 'fixed'; 'from' marks services
@@ -259,10 +260,9 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
   let introSeen = false;
   const introVideo = () => `
       <div class="wz-intro ${firstRun && !introSeen && !still() ? 'autoplay' : ''}" id="wz-intro">
-        <video poster="/videos/kairo-welcome.jpg" muted playsinline preload="metadata"
+        <video poster="${VIDEOS.welcome.poster}" muted playsinline preload="metadata"
           aria-label="Welcome to Kairo — a 48-second narrated tour of what Kairo does and what is already switched on">
-          <source src="/videos/kairo-welcome.mp4" type="video/mp4"><source src="/videos/kairo-welcome.webm" type="video/webm">
-          <track kind="captions" src="/videos/kairo-welcome.vtt" srclang="en" label="English" default></video>
+          ${sources(VIDEOS.welcome.src)}${captions(VIDEOS.welcome.src, { on: true })}</video>
         <button type="button" class="wz-intro-play" aria-label="Play the welcome video, with sound">${icon('play', 20)}</button>
         <button type="button" class="wz-intro-sound" hidden></button>
         <span class="wz-intro-len">48 sec</span>

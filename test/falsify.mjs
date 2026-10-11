@@ -1393,10 +1393,15 @@ const MUTATIONS = {
     find: '${sources(v.src)}${captions(v.src)}</video>',
     replace: '${sources(v.src)}</video>',
   },
+  'stale-video-address': {
+    file: 'public/js/video.js', suites: ['videos'],
+    find: "export const REV = 'ebcc1885';",
+    replace: "export const REV = '3a1f09c2';",
+  },
   'welcome-video-autoplays-loud': {
     file: 'public/js/wizard.js', suites: ['videos'],
-    find: '<video poster="/videos/kairo-welcome.jpg" muted playsinline preload="metadata"',
-    replace: '<video poster="/videos/kairo-welcome.jpg" playsinline preload="metadata"',
+    find: '<video poster="${VIDEOS.welcome.poster}" muted playsinline preload="metadata"',
+    replace: '<video poster="${VIDEOS.welcome.poster}" playsinline preload="metadata"',
   },
   'receipt-hides-included-gst': {
     file: 'src/notify.js', suites: ['billing', 'stripe-branding'],

@@ -7,6 +7,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { startKairo, ROOT } from './helpers/kairo.js';
 
@@ -89,12 +90,25 @@ test('both videos speak, and say it in captions too, timed inside the video', as
 test('the welcome video starts silent with captions, and Sound on starts it again with the voice', () => {
   const wiz = read('public/js/wizard.js');
   assert.match(wiz, /<video[^>]*\bmuted\b/, 'a browser only starts a silent video by itself');
-  assert.match(wiz, /<track kind="captions" src="\/videos\/kairo-welcome\.vtt"/);
+  assert.match(wiz, /\$\{captions\(VIDEOS\.welcome\.src, \{ on: true \}\)\}/, 'its captions, showing');
   assert.match(wiz, /Sound on/);
   assert.match(wiz, /v\.currentTime = 0; play\(true\)/, 'sound on starts from the top');
   const vid = read('public/js/video.js');
   assert.match(vid, /\$\{captions\(v\.src\)\}/, 'every pressed video carries its captions');
   assert.doesNotMatch(vid.match(/export function playVideo[\s\S]*?\n\}/)[0], /muted/, 'pressing play is a tap, so it starts with sound');
+});
+
+test('a new cut of the videos gets a new address, so no cache can pair old pictures with new captions', () => {
+  // The salon addresses sit behind Cloudflare, which keeps a file under one
+  // name for a day. 1.80.0 shipped narrated videos and the edge went on
+  // serving the silent ones beside the new captions.
+  const h = crypto.createHash('sha256');
+  for (const f of fs.readdirSync(VIDEO_DIR).sort()) { h.update(f); h.update(fs.readFileSync(path.join(VIDEO_DIR, f))); }
+  const rev = h.digest('hex').slice(0, 8);
+  assert.match(read('public/js/video.js'), new RegExp(`export const REV = '${rev}';`), `public/js/video.js: REV should be '${rev}' for these files`);
+  const vid = read('public/js/video.js');
+  for (const ext of ['mp4', 'webm', 'vtt']) assert.ok(vid.includes(`at(\`\${src}.${ext}\`)`), `${ext} carries the revision`);
+  assert.doesNotMatch(read('public/js/wizard.js'), /"\/videos\//, 'the setup screen takes its addresses from video.js');
 });
 
 test('the stills are served as pictures, and a missing video is a 404', async () => {
@@ -125,7 +139,7 @@ test('text setup offers the video everywhere an owner meets it', () => {
   assert.match(read('public/js/pages/settings.js'), /videoCard\('sms'/);
   assert.match(read('public/js/pages/help.js'), /videoCard\('sms'/);
   assert.match(read('public/js/pages/help.js'), /videoCard\('welcome'/);
-  assert.match(read('public/js/wizard.js'), /\/videos\/kairo-welcome\.mp4/);
+  assert.match(read('public/js/wizard.js'), /\$\{sources\(VIDEOS\.welcome\.src\)\}/);
   assert.match(read('src/checklist.js'), /one-minute video/);
   // The old path, from before Settings had sections, is gone everywhere.
   for (const f of ['public/js/pages/sms-setup.js', 'public/js/wizard.js', 'public/js/pages/settings.js', 'public/js/app.js']) {
