@@ -31,9 +31,14 @@ export async function renderPos(container) {
 }
 
 const taxRate = () => Number(state.settings.tax_rate || 0) || 0;
+// Prices include GST unless the salon has said otherwise (Settings → Payments).
+const inclusive = () => state.settings.prices_include_tax !== '0';
 const subtotal = () => pos.items.reduce((s, it) => s + it.qty * it.unit_cents, 0);
-const taxCents = () => Math.round((subtotal() - pos.discount) * (taxRate() / 100));
-const totalCents = () => Math.max(0, subtotal() - pos.discount + taxCents());
+const taxCents = () => {
+  const taxable = Math.max(0, subtotal() - pos.discount);
+  return Math.round(inclusive() ? taxable * taxRate() / (100 + taxRate()) : taxable * (taxRate() / 100));
+};
+const totalCents = () => Math.max(0, subtotal() - pos.discount + (inclusive() ? 0 : taxCents()));
 
 function resetSale() {
   stopPolling();
@@ -123,8 +128,9 @@ function cartHtml() {
     <div class="pos-totals card">
       <div class="tr"><span>Subtotal</span><span class="money">${money(sub)}</span></div>
       ${pos.discount ? `<div class="tr"><span>Discount</span><span class="money">−${money(pos.discount)}</span></div>` : ''}
-      ${taxRate() > 0 ? `<div class="tr"><span>GST (${taxRate()}%)</span><span class="money">${money(tax)}</span></div>` : ''}
+      ${taxRate() > 0 && !inclusive() ? `<div class="tr"><span>GST (${taxRate()}%)</span><span class="money">${money(tax)}</span></div>` : ''}
       <div class="tr grand"><span>Total</span><span class="money">${money(total)}</span></div>
+      ${taxRate() > 0 && inclusive() ? `<div class="tr"><span>Includes GST (${taxRate()}%)</span><span class="money">${money(tax)}</span></div>` : ''}
     </div>
 
     <div class="pos-paybar">

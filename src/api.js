@@ -668,7 +668,7 @@ route('POST', '/api/auth/reset', async ({ req, res }) => {
 // not two that can drift apart.
 export const EDITABLE_SETTINGS = new Set([
   'business_name', 'business_email', 'business_phone', 'business_address',
-  'currency', 'tax_rate', 'open_min', 'close_min', 'slot_interval',
+  'currency', 'tax_rate', 'prices_include_tax', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
   'booking_horizon_days', 'cancel_window_hours', 'client_cancel_enabled',
   'plan_name', 'plan_status', 'plan_price_cents', 'plan_interval',
@@ -743,16 +743,16 @@ export function applySettings(body) {
       setSetting(k, val);
       continue;
     }
-    // A frequency this build does not know is refused rather than stored. Left
-    // unchecked it does not fail — it silently becomes weekly, because
-    // backupDue falls back when the key is missing. That is how Kai came to
-    // promise an owner monthly backups while the salon kept doing weekly ones.
     // Kept as the owner typed it, but tidied: an ABN pasted as "12345678901"
     // prints on a receipt the way the ATO writes it.
     if (k === 'business_abn') {
       setSetting(k, formatAbn(str(v, 30)));
       continue;
     }
+    // A frequency this build does not know is refused rather than stored. Left
+    // unchecked it does not fail — it silently becomes weekly, because
+    // backupDue falls back when the key is missing. That is how Kai came to
+    // promise an owner monthly backups while the salon kept doing weekly ones.
     if (k === 'backup_frequency') {
       const val = str(v, 40).trim().toLowerCase();
       if (!Object.hasOwn(FREQUENCIES, val)) {
@@ -1350,7 +1350,7 @@ route('GET', '/api/clients/:id', async ({ params }) => {
        COALESCE((SELECT CAST(ROUND(SUM(qty * unit_cents)) AS INTEGER) FROM invoice_items WHERE invoice_id = i.id), 0) AS subtotal_cents,
        COALESCE((SELECT SUM(amount_cents) FROM payments WHERE invoice_id = i.id), 0) AS paid_cents
      FROM invoices i WHERE i.client_id = ? ORDER BY i.issue_date DESC LIMIT 50`
-  ).all(params.id);
+  ).all(params.id).map(invoiceTotals);
   // What the salon's own rules say about this person right now, and why. The
   // same function the booking route enforces with, so the record can never
   // reassure an owner that somebody is fine while the booking page turns them
@@ -4056,6 +4056,9 @@ export const INVOICE_SELECT = `
 // Worked out in one place, shared with the receipts (src/invoice-math.js).
 export { invoiceTotals };
 
+/** 1 when this salon's prices include GST (the Australian rule), stamped on each new invoice. */
+const pricesIncludeTax = () => (getSetting('prices_include_tax', '1') === '0' ? 0 : 1);
+
 function getInvoice(id) {
   const inv = db.prepare(`${INVOICE_SELECT} WHERE i.id = ?`).get(id);
   if (!inv) throw httpError(404, 'Invoice not found');
@@ -4110,9 +4113,9 @@ route('POST', '/api/invoices', async ({ req }) => {
   const taxRate = Number.isFinite(Number(b.tax_rate)) ? Number(b.tax_rate) : Number(getSetting('tax_rate', '0'));
   const status = INVOICE_STATUSES.has(b.status) ? b.status : 'draft';
   const info = db.prepare(
-    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, discount_cents, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(nextInvoiceNumber(), clientId, Number(b.appointment_id) || null, issue, due, status, taxRate,
+    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, tax_inclusive, discount_cents, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(nextInvoiceNumber(), clientId, Number(b.appointment_id) || null, issue, due, status, taxRate, pricesIncludeTax(),
         Math.max(0, Math.round(Number(b.discount_cents) || 0)), str(b.notes, 2000));
   writeItems(Number(info.lastInsertRowid), b.items);
   return getInvoice(Number(info.lastInsertRowid));
@@ -4126,9 +4129,9 @@ route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   const issue = bizToday();
   const dueDays = clampInt(getSetting('invoice_due_days', '7'), 0, 365, 7);
   const info = db.prepare(
-    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate)
-     VALUES (?, ?, ?, ?, ?, 'draft', ?)`
-  ).run(nextInvoiceNumber(), appt.client_id, appt.id, issue, addDays(issue, dueDays), Number(getSetting('tax_rate', '0')));
+    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, tax_inclusive)
+     VALUES (?, ?, ?, ?, ?, 'draft', ?, ?)`
+  ).run(nextInvoiceNumber(), appt.client_id, appt.id, issue, addDays(issue, dueDays), Number(getSetting('tax_rate', '0')), pricesIncludeTax());
   const invId = Number(info.lastInsertRowid);
   // Bill every service on the appointment (multi-service bookings become
   // multiple line items); fall back to the primary service for legacy rows.
@@ -4357,10 +4360,12 @@ route('POST', '/api/pos/sale', async ({ req }) => {
   const apptId = Number(b.appointment_id) || null;
   const discount = clampInt(b.discount_cents, 0, 100_000_000, 0);
   const taxRate = Number(getSetting('tax_rate', '0')) || 0;
+  const inclusive = pricesIncludeTax();
 
   const subtotal = priced.reduce((sum, l) => sum + l.qty * l.unit_cents, 0);
   if (discount > subtotal) throw httpError(400, 'Discount cannot exceed the subtotal');
-  const total = Math.round((subtotal - discount) * (1 + taxRate / 100));
+  // The same sum the invoice will show, so the card is charged what it says.
+  const total = Math.round(invoiceTotals({ subtotal_cents: subtotal, discount_cents: discount, tax_rate: taxRate, tax_inclusive: inclusive, paid_cents: 0 }).total_cents);
   if (total <= 0) throw httpError(400, 'Sale total must be above zero');
   if (b.method === 'stripe' && total < 50) throw httpError(400, 'Card payments need a total of at least 50 cents');
 
@@ -4369,9 +4374,9 @@ route('POST', '/api/pos/sale', async ({ req }) => {
   let invId;
   try {
     const info = db.prepare(
-      `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, discount_cents)
-       VALUES (?, ?, ?, ?, ?, 'sent', ?, ?)`
-    ).run(nextInvoiceNumber(), clientId, apptId, issue, issue, taxRate, discount);
+      `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, tax_inclusive, discount_cents)
+       VALUES (?, ?, ?, ?, ?, 'sent', ?, ?, ?)`
+    ).run(nextInvoiceNumber(), clientId, apptId, issue, issue, taxRate, inclusive, discount);
     invId = Number(info.lastInsertRowid);
     const insItem = db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents, product_id) VALUES (?, ?, ?, ?, ?)');
     for (const l of priced) insItem.run(invId, l.description, l.qty, l.unit_cents, l.product_id);
@@ -4404,9 +4409,10 @@ route('POST', '/api/pos/sale', async ({ req }) => {
   try {
     const origin = str(b.origin, 300) || `http://localhost:${process.env.PORT || 4820}`;
     const taxLabel = taxRate > 0 ? ` (incl. ${taxRate}% GST/tax)` : '';
-    const items = discount > 0 || taxRate > 0
+    const items = discount > 0 || (taxRate > 0 && !inclusive)
       // One consolidated line keeps Stripe's total exactly equal to ours after
-      // discount + tax; itemized lines otherwise.
+      // a discount or tax added on top; itemized lines otherwise (GST already
+      // inside the prices leaves them adding up to the total as they are).
       ? [{ description: `Sale at ${getSetting('business_name', 'salon')}${taxLabel}`, qty: 1, unit_cents: total }]
       : priced;
     const idemToken = crypto.randomBytes(12).toString('hex');
@@ -4562,7 +4568,7 @@ route('GET', '/api/dashboard', async ({ query }) => {
   const outstanding = db.prepare(
     `SELECT COALESCE(SUM(t.balance), 0) AS v FROM (
        SELECT CAST(ROUND((COALESCE((SELECT SUM(qty * unit_cents) FROM invoice_items WHERE invoice_id = i.id), 0) - i.discount_cents)
-              * (1 + i.tax_rate / 100)) AS INTEGER)
+              * (CASE WHEN i.tax_inclusive = 1 THEN 1 ELSE 1 + i.tax_rate / 100 END)) AS INTEGER)
               - COALESCE((SELECT SUM(amount_cents) FROM payments WHERE invoice_id = i.id), 0) AS balance
        FROM invoices i WHERE i.status = 'sent'
      ) t WHERE t.balance > 0`

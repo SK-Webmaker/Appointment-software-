@@ -15,9 +15,15 @@ the counter by card:
 - If Stripe ever turns the branding down, the same payment page opens plain.
   A booking is never lost over a colour.
 - Afterwards, the client gets an **itemised receipt** from the salon: number,
-  date, each service and product, GST, total, what was paid and how, what is
-  left. With the salon's ABN in Kairo it is titled **Tax invoice**. Deposits
-  get a deposit receipt that says what is left to pay on the day.
+  date, each service and product, total, the GST included in it, what was paid
+  and how, what is left. With the salon's ABN in Kairo it is titled **Tax
+  invoice**. Deposits get a deposit receipt that says what is left to pay on
+  the day.
+- **The price on the menu is the price they pay.** GST is shown inside it
+  ("Includes GST (10%) $13.64" on a $150 colour), never added on top, as
+  Australian law requires of a price shown to a consumer. A salon that quotes
+  before GST can turn this off: Settings → Payments → Invoices & receipts →
+  *My prices include GST*.
 - The page they land on after paying at the counter is in the salon's colours.
 - Billing → Print / PDF prints the same receipt or tax invoice, with the logo.
 

@@ -368,8 +368,12 @@ async function handle(req, res, url, tenant) {
   res.setHeader('Content-Security-Policy', cspFor(url.pathname));
   // Tell browsers to stick to HTTPS for two years (ignored on plain HTTP).
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
-  // The app needs none of these device features — deny them outright.
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  // Device features: none, except the microphone for Kairo's own pages — Kai
+  // listens when the owner presses the mic. Denying it outright (as this line
+  // once did) made Chrome refuse speech even after the owner said yes, and the
+  // mic button reported "blocked" for a reason nobody could find in Settings.
+  // Still never to anything framed or third-party: (self) means this origin.
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()');
 
   // Did this come through Cloudflare? In enforce mode, anything that reached
   // the origin directly is refused here — before routing, before the session is

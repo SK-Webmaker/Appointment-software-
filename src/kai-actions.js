@@ -786,7 +786,9 @@ const CAPABILITIES = [
     return makePlan({
       id: 'tax_rate',
       title: `Tax: ${v}%`,
-      said: v === 0 ? 'No tax is added to invoices now.' : `Tax is ${v}% now.`,
+      said: v === 0 ? 'No tax is added to invoices now.'
+        : getSetting('prices_include_tax', '1') === '0' ? `Tax is ${v}% now, added to invoices.`
+          : `GST is ${v}% now. It is already in your prices, and every receipt shows it.`,
       already: `Tax is already ${v}%.`,
       changes: [{ label: 'Tax rate', from: `${getSetting('tax_rate', '0')}%`, to: `${v}%` }],
       settings: { tax_rate: String(v) },

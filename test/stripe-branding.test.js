@@ -159,9 +159,10 @@ test('a receipt is itemised: number, date, lines, GST, total, what was paid — 
   assert.ok(msg, 'a receipt was queued');
   assert.match(msg.subject, new RegExp(`^Tax invoice ${inv.number}: \\$${(total / 100).toFixed(2)} paid · Luxe Hair$`));
   for (const want of ['Tax invoice', inv.number, 'Billed to', 'Nell Park', 'ABN 12 345 678 901', 'Full Colour', 'Olaplex No.3', '2 × $42.00',
-    'GST (10%)', `$${(total / 100).toFixed(2)}`, 'Paid in full']) {
+    'Includes GST (10%)', '$22.64', `$${(total / 100).toFixed(2)}`, 'Paid in full']) {
     assert.ok(msg.html.includes(want), `the receipt shows ${want}`);
   }
+  assert.equal(total, 16500 + 8400, 'the prices already include the GST; nothing is added to them');
 });
 
 test('without an ABN it is a receipt, not a tax invoice', async () => {

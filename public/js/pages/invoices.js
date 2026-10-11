@@ -5,6 +5,8 @@ import {
 } from '../ui.js';
 import { state } from '../app.js';
 
+const taxWord = () => (['aud', 'nzd'].includes(String(state.settings.currency_code || '').toLowerCase()) ? 'GST' : 'Tax');
+
 let filter = { status: '', q: '' };
 
 export async function renderInvoices(container, params) {
@@ -138,8 +140,9 @@ export async function openInvoiceModal({ id, onChanged }) {
     <div class="inv-totals">
       <div class="tr"><span>Subtotal</span><span class="money">${money(inv.subtotal_cents)}</span></div>
       ${inv.discount_cents ? `<div class="tr"><span>Discount</span><span class="money">−${money(inv.discount_cents)}</span></div>` : ''}
-      <div class="tr"><span>Tax (${inv.tax_rate}%)</span><span class="money">${money(inv.tax_cents)}</span></div>
+      ${inv.tax_inclusive ? '' : `<div class="tr"><span>Tax (${inv.tax_rate}%)</span><span class="money">${money(inv.tax_cents)}</span></div>`}
       <div class="tr grand"><span>Total</span><span class="money">${money(inv.total_cents)}</span></div>
+      ${inv.tax_inclusive && inv.tax_cents ? `<div class="tr"><span>Includes ${taxWord()} (${inv.tax_rate}%)</span><span class="money">${money(inv.tax_cents)}</span></div>` : ''}
       ${inv.paid_cents ? `<div class="tr"><span>Paid</span><span class="money pos">−${money(inv.paid_cents)}</span></div>` : ''}
       ${inv.status !== 'void' && inv.balance_cents > 0 ? `<div class="tr due"><span>Balance due</span><span class="money">${money(inv.balance_cents)}</span></div>` : ''}
     </div>
@@ -291,6 +294,9 @@ function openPaymentModal(inv, onDone) {
 
 async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
   const inv = invoice;
+  // A new invoice follows the salon's setting; an existing one keeps the way
+  // it was made, so editing a line never quietly changes how its GST works.
+  const inclusive = inv ? !!inv.tax_inclusive : state.settings.prices_include_tax !== '0';
   const clients = await api.get('/api/clients');
   let items = inv ? inv.items.map((i) => ({ ...i })) : [{ description: '', qty: 1, unit_cents: 0 }];
 
@@ -317,7 +323,7 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
       <button class="btn small" id="ie-add-item">${icon('plus')} Add line</button>
       <button class="btn small" id="ie-add-service">${icon('tag')} Add service…</button>
       <div class="form-grid" style="margin-top:16px">
-        <div class="field"><label>Tax rate %</label>
+        <div class="field"><label>${inclusive ? 'GST % (in the prices)' : 'Tax rate %'}</label>
           <input id="ie-tax" type="number" step="0.1" min="0" value="${inv ? inv.tax_rate : (state.settings.tax_rate || 0)}"></div>
         <div class="field"><label>Discount</label>
           <input id="ie-discount" type="number" step="0.01" min="0" value="${inv ? (inv.discount_cents / 100).toFixed(2) : '0.00'}"></div>
@@ -334,7 +340,7 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
   const recalc = () => {
     const subtotal = items.reduce((s, it) => s + Math.round((Number(it.qty) || 0) * (Number(it.unit_cents) || 0)), 0);
     const discount = Math.round(parseFloat(m.querySelector('#ie-discount').value || 0) * 100);
-    const tax = Math.round(Math.max(0, subtotal - discount) * (parseFloat(m.querySelector('#ie-tax').value || 0) / 100));
+    const tax = inclusive ? 0 : Math.round(Math.max(0, subtotal - discount) * (parseFloat(m.querySelector('#ie-tax').value || 0) / 100));
     totalEl.textContent = money(Math.max(0, subtotal - discount) + tax);
   };
 
@@ -434,7 +440,7 @@ function printInvoice(inv) {
   const paid = inv.status === 'paid';
   const abn = String(s.business_abn || '').trim();
   const title = abn && inv.tax_cents > 0 ? 'Tax invoice' : paid ? 'Receipt' : 'Invoice';
-  const taxName = ['aud', 'nzd'].includes(String(s.currency_code || '').toLowerCase()) ? 'GST' : 'Tax';
+  const taxName = taxWord();
   const accent = /^#[0-9a-f]{6}$/i.test(s.brand_accent || '') ? s.brand_accent : '#2563eb';
   const logo = /^data:image\//i.test(s.brand_logo || '') ? s.brand_logo : '';
   const METHOD = { card: 'Card', square: 'Card (Square)', cash: 'Cash', transfer: 'Bank transfer', other: 'Other', stripe: 'Card' };
@@ -498,10 +504,11 @@ function printInvoice(inv) {
         <td class="num">${money(it.unit_cents)}</td><td class="num">${money(Math.round(it.qty * it.unit_cents))}</td></tr>`).join('')}</tbody>
     </table>
     <div class="totals">
-      ${inv.discount_cents || inv.tax_cents ? `<div><span>Subtotal</span><span>${money(inv.subtotal_cents)}</span></div>` : ''}
+      ${inv.discount_cents || (inv.tax_cents && !inv.tax_inclusive) ? `<div><span>Subtotal</span><span>${money(inv.subtotal_cents)}</span></div>` : ''}
       ${inv.discount_cents ? `<div><span>Discount</span><span>−${money(inv.discount_cents)}</span></div>` : ''}
-      ${inv.tax_cents ? `<div><span>${taxName} (${inv.tax_rate}%)</span><span>${money(inv.tax_cents)}</span></div>` : ''}
+      ${inv.tax_cents && !inv.tax_inclusive ? `<div><span>${taxName} (${inv.tax_rate}%)</span><span>${money(inv.tax_cents)}</span></div>` : ''}
       <div class="grand"><span>Total</span><span>${money(inv.total_cents)}</span></div>
+      ${inv.tax_cents && inv.tax_inclusive ? `<div class="muted"><span>Includes ${taxName} (${inv.tax_rate}%)</span><span>${money(inv.tax_cents)}</span></div>` : ''}
       ${inv.paid_cents ? `<div class="paid"><span>Paid</span><span>${money(inv.paid_cents)}</span></div>` : ''}
       ${inv.balance_cents > 0 && inv.status !== 'void' ? `<div class="due"><span>Balance due</span><span>${money(inv.balance_cents)}</span></div>` : ''}
     </div>

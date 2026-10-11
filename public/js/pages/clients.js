@@ -408,7 +408,7 @@ async function openClientDetail(id, onChanged) {
             <div style="flex:1"><span class="cell-main">${esc(i.number)}</span>
               <span class="cell-sub" style="margin-left:8px">${fmtDate(i.issue_date)}</span></div>
             ${statusChip(i.status)}
-            <div class="money" style="width:90px;text-align:right;font-weight:600">${money(Math.round((i.subtotal_cents - i.discount_cents) * (1 + i.tax_rate / 100)))}</div>
+            <div class="money" style="width:90px;text-align:right;font-weight:600">${money(i.total_cents)}</div>
           </a>`).join('')}` : ''}
       ${c.booking_rule_state && (c.booking_rule_state.blocked || c.booking_rule_state.deposit_required
         || c.booking_rule_state.override || c.booking_rule_state.no_shows_180) ? `

@@ -79,6 +79,7 @@ export function invoiceReceipt(invoiceId, amountCents, method) {
     subtotal_cents: items.reduce((n, it) => n + Math.round(it.qty * it.unit_cents), 0),
     discount_cents: inv.discount_cents || 0,
     tax_rate: Number(inv.tax_rate) || 0,
+    tax_inclusive: inv.tax_inclusive,
     paid_cents: pays.reduce((n, p) => n + p.amount_cents, 0),
   });
   const earlier = Math.max(0, t.paid_cents - amountCents);
@@ -93,7 +94,13 @@ export function invoiceReceipt(invoiceId, amountCents, method) {
       sub: it.qty !== 1 ? `${it.qty} × ${money(it.unit_cents)}` : '',
       amount: money(Math.round(it.qty * it.unit_cents)),
     })),
-    totals: [
+    // GST inside the prices is said under the total, the way an Australian
+    // tax invoice reads; GST added on top is a line that adds up to it.
+    totals: t.tax_inclusive ? [
+      ...(t.discount_cents ? [['Subtotal', money(t.subtotal_cents)], ['Discount', `−${money(t.discount_cents)}`]] : []),
+      ['Total', money(t.total_cents), 'strong'],
+      ...(t.tax_cents ? [[`Includes ${taxLabel(t.tax_rate)}`, money(t.tax_cents)]] : []),
+    ] : [
       ...(t.discount_cents || t.tax_cents ? [['Subtotal', money(t.subtotal_cents)]] : []),
       ...(t.discount_cents ? [['Discount', `−${money(t.discount_cents)}`]] : []),
       ...(t.tax_cents ? [[taxLabel(t.tax_rate), money(t.tax_cents)]] : []),

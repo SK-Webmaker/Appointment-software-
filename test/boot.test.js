@@ -26,6 +26,14 @@ test('every response carries the security headers', async () => {
   }
 });
 
+test('the microphone is allowed for Kairo itself, so Kai can listen — and nothing else', async () => {
+  // "microphone=()" here once made Chrome refuse speech even after the owner
+  // allowed it, so the mic button could only ever say "blocked".
+  const pp = (await k.api('GET', '/')).headers.get('permissions-policy') || '';
+  assert.match(pp, /microphone=\(self\)/);
+  for (const off of ['camera', 'geolocation', 'payment']) assert.match(pp, new RegExp(`${off}=\\(\\)`), `${off} stays off`);
+});
+
 test('the workspace shell and the booking page are served as HTML', async () => {
   const home = await k.api('GET', '/');
   assert.equal(home.status, 200);

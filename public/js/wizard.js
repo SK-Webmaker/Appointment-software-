@@ -323,7 +323,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         <div class="wiz-2col">
           <div class="field"><label>Currency symbol</label><input id="w-currency" maxlength="4" value="${esc(data.settings.currency)}"></div>
           <div class="field"><label>GST % on invoices</label><input id="w-tax" type="number" min="0" step="0.1" value="${esc(data.settings.tax_rate)}">
-            <div class="hint" style="font-size:11.5px;color:var(--muted)">0 unless you're registered for GST.</div></div>
+            <div class="hint" style="font-size:11.5px;color:var(--muted)">0 unless you're registered for GST. It is already in your prices: receipts show it, nothing is added.</div></div>
         </div>
       </div>
       ${tip('Your phone and address appear on your booking page and every confirmation, so clients can find you and call.')}`,

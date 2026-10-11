@@ -38,6 +38,9 @@ struct KairoWebView: UIViewRepresentable {
         let config = WKWebViewConfiguration()
         config.userContentController = controller
         config.allowsInlineMediaPlayback = true
+        // The welcome video on the first setup screen plays by itself, muted, as
+        // it does in Safari. Anything with sound still waits for a tap.
+        config.mediaTypesRequiringUserActionForPlayback = .audio
         config.websiteDataStore = .default()          // cookies survive a relaunch
 
         let web = WKWebView(frame: .zero, configuration: config)

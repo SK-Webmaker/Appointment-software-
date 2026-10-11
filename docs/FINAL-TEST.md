@@ -82,8 +82,10 @@ before, from the website to a refund, with real money (A$5).
     payment (cash).
     - ✔ A receipt reaches the client email: numbered, dated, the service and
       its price, the total, "Paid · Cash", "Paid in full".
-    - ✔ With an ABN in Settings → Payments → Invoices & receipts, the next one
-      is titled **Tax invoice** and shows the GST and the ABN.
+    - ✔ With an ABN and GST at 10% in Settings → Payments → Invoices &
+      receipts, the next one is titled **Tax invoice** and shows the ABN. Its
+      total is the menu price, with "Includes GST (10%)" under it — nothing
+      added on top.
     - ✔ If Stripe is connected and deposits are on, Stripe's page shows Final
       Test Salon's name and colours, and the button says **Book**.
 

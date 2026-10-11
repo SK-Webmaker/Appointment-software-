@@ -574,6 +574,11 @@ export async function renderSettings(container, params) {
             <div class="field"><label>Invoice prefix</label><input name="invoice_prefix" value="${esc(s.invoice_prefix || 'INV-')}"></div>
             <div class="field"><label>Due after (days)</label><input name="invoice_due_days" type="number" min="0" value="${esc(s.invoice_due_days || '7')}"></div>
           </div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;color:var(--text-2);cursor:pointer">
+              <input type="checkbox" name="prices_include_tax" ${s.prices_include_tax !== '0' ? 'checked' : ''} class="chk">
+              My prices include GST</label>
+            <div class="hint">In Australia a price shown to a client has to include GST, so leave this on: a $150 colour is $150 on the invoice, and the receipt says $13.64 of it was GST. Turn it off only if you quote prices before GST, as some businesses do to other businesses.</div></div>
           <div class="field"><label>ABN (optional)</label><input name="business_abn" inputmode="numeric" value="${esc(s.business_abn || '')}" placeholder="12 345 678 901" maxlength="30">
             <div class="hint">Printed on every receipt and invoice. With an ABN and a tax rate, receipts are titled <b>Tax invoice</b> and show the GST, which is what a client needs to claim it.</div></div>
           <div class="field"><label>Invoice footer</label><input name="invoice_footer" value="${esc(s.invoice_footer || '')}"></div>
@@ -1204,7 +1209,7 @@ export async function renderSettings(container, params) {
   });
   container.querySelector('#set-billing').addEventListener('submit', (e) => {
     e.preventDefault();
-    saveSettings(e.target, ['currency', 'tax_rate', 'invoice_prefix', 'invoice_due_days', 'invoice_footer', 'business_abn']);
+    saveSettings(e.target, ['currency', 'tax_rate', 'prices_include_tax', 'invoice_prefix', 'invoice_due_days', 'invoice_footer', 'business_abn']);
   });
   // booking page appearance
   let brandLogo = s.brand_logo || '';

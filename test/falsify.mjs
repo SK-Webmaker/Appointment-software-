@@ -1349,6 +1349,49 @@ const MUTATIONS = {
     find: '  const receipt = sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);',
     replace: '  const receipt = Promise.resolve();',
   },
+  'kai-cannot-hear': {
+    file: 'server.js', suites: ['boot'],
+    find: "  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(), payment=()');",
+    replace: "  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');",
+  },
+  // ── GST inside the price ──────────────────────────────────────────────────
+  // A client quoted $150 pays $150. Each of these would bill them $165 again,
+  // or quietly reprice an invoice that was already paid.
+  'gst-added-on-top': {
+    file: 'src/invoice-math.js', suites: ['billing'],
+    find: '    inv.total_cents = taxable;\n',
+    replace: '    inv.total_cents = taxable + inv.tax_cents;\n',
+  },
+  'new-invoices-add-gst': {
+    file: 'src/api.js', suites: ['billing'],
+    find: "const pricesIncludeTax = () => (getSetting('prices_include_tax', '1') === '0' ? 0 : 1);",
+    replace: 'const pricesIncludeTax = () => 0;',
+  },
+  'old-invoices-repriced': {
+    file: 'src/invoice-math.js', suites: ['billing'],
+    find: '  if (inv.tax_inclusive) {',
+    replace: '  if (true) {',
+  },
+  'gst-cannot-be-added': {
+    file: 'src/api.js', suites: ['billing'],
+    find: "const pricesIncludeTax = () => (getSetting('prices_include_tax', '1') === '0' ? 0 : 1);",
+    replace: 'const pricesIncludeTax = () => 1;',
+  },
+  'counter-sale-adds-gst': {
+    file: 'src/api.js', suites: ['billing'],
+    find: 'tax_rate: taxRate, tax_inclusive: inclusive, paid_cents: 0 }).total_cents);',
+    replace: 'tax_rate: taxRate, tax_inclusive: 0, paid_cents: 0 }).total_cents);',
+  },
+  'owing-adds-gst': {
+    file: 'src/api.js', suites: ['billing'],
+    find: '* (CASE WHEN i.tax_inclusive = 1 THEN 1 ELSE 1 + i.tax_rate / 100 END)) AS INTEGER)',
+    replace: '* (1 + i.tax_rate / 100)) AS INTEGER)',
+  },
+  'receipt-hides-included-gst': {
+    file: 'src/notify.js', suites: ['billing', 'stripe-branding'],
+    find: "      ...(t.tax_cents ? [[`Includes ${taxLabel(t.tax_rate)}`, money(t.tax_cents)]] : []),\n",
+    replace: '',
+  },
 };
 
 const only = process.argv.slice(2);

@@ -484,6 +484,11 @@ function migrate() {
   // invoice id it can never collide after a demo reset re-uses id numbers.
   addColumn('invoices', 'pos_token', "pos_token TEXT NOT NULL DEFAULT ''");
   addColumn('payments', 'stripe_pi', "stripe_pi TEXT NOT NULL DEFAULT ''");
+  // Whether the invoice's prices already include its GST. New invoices take it
+  // from the salon's "prices include GST" setting; every invoice made before
+  // that existed added the tax on top, so they start at 0 and keep the totals
+  // they were paid at.
+  addColumn('invoices', 'tax_inclusive', 'tax_inclusive INTEGER NOT NULL DEFAULT 0');
   // Self-service cancellation: the token is the client's link from their
   // confirmation message; who/when is kept so the owner can see at a glance
   // whether the client dropped out or the salon called it off.
@@ -1040,6 +1045,10 @@ const DEFAULT_SETTINGS = {
   business_address: '12 Market Street',
   currency: '$',
   tax_rate: '0',
+  // Prices on the menu already include GST, as Australian law requires of any
+  // price shown to a consumer. Invoices show the GST inside the price rather
+  // than adding it; '0' adds it on top, for a salon that quotes ex-GST.
+  prices_include_tax: '1',
   open_min: '480',        // 08:00
   close_min: '1200',      // 20:00
   open_days: '1,2,3,4,5,6', // weekday numbers, 0=Sun … 6=Sat (default Mon–Sat)
@@ -1352,7 +1361,7 @@ export function seedDemo() {
   setSetting('business_email', 'hello@luxehair.studio');
   setSetting('business_phone', '(555) 010-2030');
   setSetting('business_address', '12 Market Street');
-  setSetting('tax_rate', '8.5');
+  setSetting('tax_rate', '10');
   setSetting('open_days', '1,2,3,4,5,6'); // the demo salon is closed Sundays (matches seeded appointments)
 
   const locationId = Number(
@@ -1513,8 +1522,8 @@ export function seedDemo() {
   // Bill most completed past appointments; leave a few outstanding so the
   // dashboard and invoice list show a realistic mix of paid / sent / draft.
   const insInvoice = db.prepare(
-    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO invoices (number, client_id, appointment_id, issue_date, due_date, status, tax_rate, tax_inclusive)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`
   );
   const insItem = db.prepare(
     'INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?, ?, ?, ?)'
@@ -1522,7 +1531,7 @@ export function seedDemo() {
   const insPayment = db.prepare(
     'INSERT INTO payments (invoice_id, amount_cents, method, paid_at) VALUES (?, ?, ?, ?)'
   );
-  const taxRate = 8.5;
+  const taxRate = 10; // GST, inside the prices
   for (const appt of pastAppointments) {
     if (rand() < 0.15) continue; // some visits not billed yet
     const roll = rand();
@@ -1536,8 +1545,8 @@ export function seedDemo() {
     if (rand() < 0.35) insItem.run(invId, 'Aftercare product', 1, 2200);
     if (status === 'paid') {
       const total = db
-        .prepare('SELECT CAST(ROUND(SUM(qty * unit_cents) * ? ) AS INTEGER) AS t FROM invoice_items WHERE invoice_id = ?')
-        .get(1 + taxRate / 100, invId).t;
+        .prepare('SELECT CAST(ROUND(SUM(qty * unit_cents)) AS INTEGER) AS t FROM invoice_items WHERE invoice_id = ?')
+        .get(invId).t;
       insPayment.run(invId, total, pick(['card', 'card', 'cash', 'transfer']), `${appt.date} 18:00:00`);
     }
   }
