@@ -127,6 +127,9 @@ before(async () => {
       ABR_GUID: 'test-guid',
       KAIRO_PRICE_CENTS: '41000',
       RESEND_API_BASE: resend.base,
+      // The platform's own sender, so its receipt and welcome email are real.
+      RESEND_API_KEY: 're_full_platform',
+      PLATFORM_FROM_EMAIL: 'hello@kairobookings.test',
     },
   });
 });
@@ -183,6 +186,15 @@ test('act 1: a business buys Kairo and a real salon comes out', async () => {
   assert.equal(row.pass_hash, '', 'the password hash is cleared after provisioning');
   assert.equal(row.salt, '');
   assert.ok(row.ready_at);
+
+  // And a receipt from Kairo, once, that she can hand her accountant.
+  const receipts = await eventually(() => {
+    const r = resend.sent.filter((m) => String(m.to).includes(OWNER.email) && /^Receipt KRO-\d{5} — Kairo for /.test(m.subject));
+    return r.length ? r : null;
+  }, 'the Kairo receipt was emailed');
+  assert.equal(receipts.length, 1, 'one receipt, not one per webhook');
+  assert.ok(receipts[0].html.includes('A$410.00'));
+  assert.ok(receipts[0].html.includes('Paid in full'));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

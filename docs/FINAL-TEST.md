@@ -26,7 +26,11 @@ before, from the website to a refund, with real money (A$5).
 3. Enter the code from the email.
    - ✔ It arrives within a minute. No text is sent: the email code is all it asks for.
 4. Pay A$5. Apple Pay is fine.
+   - ✔ Stripe's page says **Kairo**, with the K mark on dark, and the line by
+     the button promises a refund within 14 days.
    - ✔ You come back to start.kairobookings.com, and it says your Kairo is ready.
+   - ✔ A **Receipt KRO-…** email arrives: the amount, the card you used, who sold
+     it, and a link to Stripe's copy.
 5. Open the **"Welcome to Kairo — Final Test Salon is ready"** email.
    - ✔ It greets you by your first name and says how to reach Kairo support.
    - ✔ It says confirmations already go out by email.
@@ -76,7 +80,12 @@ before, from the website to a refund, with real money (A$5).
     - ✔ The slot is free again.
 12. Book once more. In Kairo, open the appointment, mark it done and take
     payment (cash).
-    - ✔ A receipt reaches the client email.
+    - ✔ A receipt reaches the client email: numbered, dated, the service and
+      its price, the total, "Paid · Cash", "Paid in full".
+    - ✔ With an ABN in Settings → Payments → Invoices & receipts, the next one
+      is titled **Tax invoice** and shows the GST and the ABN.
+    - ✔ If Stripe is connected and deposits are on, Stripe's page shows Final
+      Test Salon's name and colours, and the button says **Book**.
 
 ## D. Leave (5 min)
 

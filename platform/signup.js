@@ -209,7 +209,35 @@ export async function onPaid({ sessionId, paymentIntent, amountTotal }) {
   }
   db.prepare("UPDATE businesses SET stripe_payment_intent = ?, paid_at = datetime('now') WHERE id = ?").run(String(paymentIntent || ''), b.id);
   setState(b.id, 'paid', `${amountTotal || b.price_cents} cents`);
-  return advance(b.id);
+  // The receipt goes out once, here, on the first word that the money moved —
+  // alongside building the salon, never in its way.
+  const receipt = sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);
+  try {
+    return await advance(b.id);
+  } finally {
+    await receipt;
+  }
+}
+
+export const receiptNumber = (businessId) => `KRO-${String(businessId).padStart(5, '0')}`;
+
+/** Kairo's own receipt for the purchase. Its failures are recorded, never thrown. */
+export async function sendReceipt(businessId, paymentIntent, amountCents) {
+  try {
+    const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+    const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
+    let card = {};
+    try { card = await stripe.paymentDetails(paymentIntent); } catch { /* the receipt still goes, without the card */ }
+    const r = await notify.emailReceipt(owner.email, {
+      receiptNo: receiptNumber(b.id), ownerName: owner.name, businessName: b.name,
+      amountCents: Number(amountCents) || b.price_cents, card, receiptUrl: card.receipt_url || '',
+    });
+    record(b.id, r.ok ? 'receipt:sent' : 'receipt:failed', r.detail || '');
+    return r;
+  } catch (e) {
+    record(businessId, 'receipt:failed', e.message);
+    return { ok: false, detail: e.message };
+  }
 }
 
 /** Screen, then provision — or flag and wait for one tap. */

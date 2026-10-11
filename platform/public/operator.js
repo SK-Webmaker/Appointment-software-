@@ -317,6 +317,7 @@ async function openSalon(id) {
       ${b.state === 'ready' ? `<a class="btn" href="${esc(url)}/book" target="_blank" rel="noopener">Booking page</a>
         <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Their Kairo</a>
         <button class="btn" data-act="welcome" data-id="${b.id}">${icon('mail', 15)} Resend welcome</button>` : ''}
+      ${b.paid_at && !b.refunded_at ? `<button class="btn" data-act="receipt" data-id="${b.id}">${icon('mail', 15)} Resend receipt</button>` : ''}
       ${b.email ? `<a class="btn" href="mailto:${esc(b.email)}">${icon('mail', 15)} Email</a>` : ''}
       ${['ready', 'flagged', 'paid', 'provisioning', 'screening'].includes(b.state) && b.paid_at ? `<button class="btn danger" data-act="refund" data-id="${b.id}">Refund ${money(b.price_cents)}</button>` : ''}
       ${UNSETTLED.has(b.state) || b.state === 'ready' ? '' : `<button class="btn" data-act="remove" data-id="${b.id}" data-slug="${esc(b.slug)}">Remove test record</button>`}
@@ -346,8 +347,9 @@ const CONFIRM = {
   remove: (b) => `Remove the record for ${b.dataset.slug}?\n\nOnly for test signups. No money moves and no salon is touched; it just leaves this list and the totals. A salon that is still live can't be removed — refund it instead.`,
   approve: () => 'Approve this signup and build their salon now?',
   welcome: () => 'Send the Welcome to Kairo email to the owner again?',
+  receipt: () => 'Email the owner their receipt for Kairo again?',
 };
-const DONE = { done: 'Marked done', refund: 'Refunded', remove: 'Removed', approve: 'Approved — building now', welcome: 'Welcome email sent', retry: 'Trying again', 'send-copy': 'Their data was sent' };
+const DONE = { done: 'Marked done', refund: 'Refunded', remove: 'Removed', approve: 'Approved — building now', welcome: 'Welcome email sent', receipt: 'Receipt sent', retry: 'Trying again', 'send-copy': 'Their data was sent' };
 async function act(e) {
   const btn = e.target.closest('[data-act]');
   if (!btn) return;

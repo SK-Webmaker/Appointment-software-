@@ -6,6 +6,7 @@
 // salon sends goes from the salon's own Resend and ClickSend accounts, from
 // inside its own Kairo. This keeps that boundary visible: different file,
 // different credentials, different bill.
+import { SELLER, SELLER_COUNTRY } from './seller.js';
 const RESEND_KEY = () => String(process.env.RESEND_API_KEY || '').trim();
 const FROM = () => String(process.env.PLATFORM_FROM_EMAIL || '').trim();
 const CS_USER = () => String(process.env.CLICKSEND_USERNAME || '').trim();
@@ -104,6 +105,15 @@ const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;
 // email the platform sends, so "how do I reach Kairo" has one answer.
 export const SUPPORT_EMAIL = () => String(process.env.PLATFORM_SUPPORT_EMAIL || 'support@kairobookings.com').trim();
 export const GUIDE_URL = () => String(process.env.KAIRO_GUIDE_URL || 'https://kairobookings.com/guide').trim();
+// Where the Kairo mark is served from for emails. The platform serves its own
+// icons; an email needs an absolute address that will still work in a year.
+const ASSETS = () => String(process.env.PLATFORM_ASSET_ORIGIN || 'https://start.kairobookings.com').replace(/\/+$/, '');
+
+/** The Kairo mark and name, as the first row of every platform email. */
+const markRow = () => `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="width:34px;height:34px;vertical-align:middle"><img src="${ASSETS()}/icons/kairo-180.png" width="34" height="34" alt="K" style="display:block;width:34px;height:34px;border-radius:9px;border:0;background:#3b82f6;color:#ffffff;font-weight:800;font-size:19px;text-align:center;line-height:34px"></td>
+      <td style="padding-left:11px;color:#ffffff;font-weight:800;font-size:19px;letter-spacing:.06em">KAIRO</td>
+    </tr></table>`;
 
 /**
  * "Welcome to Kairo": the email a new owner gets the moment their Kairo is
@@ -129,7 +139,7 @@ export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo', o
   const emailLine = sending === 'none'
     ? 'Confirmations and reminders start sending once your email is connected. We will be in touch to set that up with you.'
     : 'Booking confirmations, reminders and receipts already go out by email with your business name on them, and replies come straight to you.';
-  const smsLine = 'Want text reminders too? In Kairo go to Settings → SMS → "Set up text messages". It takes about five minutes, and you pay ClickSend directly for your texts.';
+  const smsLine = 'Want text reminders too? In Kairo go to Settings → Messages → "Set up text messages". It takes about five minutes, a one-minute video shows every step, and you pay ClickSend directly for your texts.';
   const steps = [
     ['Sign in', `Open ${url} and sign in with the email and password you chose. A short setup walks you through your hours, services and team.`],
     ['Share your booking link', `Put ${book} in your Instagram bio and Google profile. Clients book themselves, any hour.`],
@@ -157,10 +167,7 @@ export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo', o
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f8;padding:28px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
   <tr><td style="background:linear-gradient(135deg,#0b1220,#15233f);background-color:#0f1a30;padding:26px 32px">
-    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="width:34px;height:34px;background:#3b82f6;border-radius:9px;color:#fff;font-weight:800;font-size:19px;text-align:center;vertical-align:middle">K</td>
-      <td style="padding-left:11px;color:#ffffff;font-weight:800;font-size:19px;letter-spacing:.06em">KAIRO</td>
-    </tr></table>
+    ${markRow()}
     <div style="color:#ffffff;font-size:26px;font-weight:700;line-height:1.25;margin-top:22px">${e(hi)}</div>
     <div style="color:#b6c3dc;font-size:15px;line-height:1.6;margin-top:8px">${e(businessName)} is set up and ready.</div>
   </td></tr>
@@ -197,4 +204,95 @@ export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo', o
 </td></tr></table></body></html>`;
 
   return sendEmail(to, `Welcome to Kairo — ${businessName} is ready`, text, html);
+};
+
+// ── The receipt for Kairo itself ──────────────────────────────────────────
+//
+// An owner who has just paid A$410 wants a receipt they can hand their
+// accountant: who sold it, what it was, when, how much, how it was paid, and
+// the number to quote. It comes from Kairo, looks like Kairo, and is separate
+// from the welcome email so it can be filed on its own.
+//
+// Who sold it comes from platform/seller.js, the same line the Terms read, so
+// the receipt and the contract can never name different people. The rest is
+// configuration: PLATFORM_ABN adds the ABN, PLATFORM_GST=1 says the price
+// includes GST (and so titles it a tax invoice and shows the GST in it).
+// Neither set, it is a plain receipt.
+
+const BRANDS = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', discover: 'Discover', jcb: 'JCB', diners: 'Diners Club', unionpay: 'UnionPay', eftpos_au: 'eftpos' };
+
+export function receiptFacts({ amountCents, card = {} }) {
+  const abn = String(process.env.PLATFORM_ABN || '').trim();
+  const gst = String(process.env.PLATFORM_GST || '') === '1';
+  const brand = BRANDS[String(card.brand || '').toLowerCase()] || (card.brand ? card.brand[0].toUpperCase() + card.brand.slice(1) : 'Card');
+  const cardLabel = card.last4 ? `${card.wallet ? `${card.wallet} · ` : ''}${brand} ending ${card.last4}` : (card.wallet || 'Card');
+  return {
+    title: abn && gst ? 'Tax invoice' : 'Receipt',
+    gstCents: gst ? Math.round(amountCents / 11) : 0,
+    seller: [`Kairo, sold by ${SELLER}, ${SELLER_COUNTRY}`, abn ? `ABN ${abn}` : ''].filter(Boolean).join(' · '),
+    cardLabel,
+  };
+}
+
+export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amountCents, paidAt = new Date(), card = {}, receiptUrl = '' }) => {
+  const e = escHtml;
+  const f = receiptFacts({ amountCents, card });
+  const aud = (c) => `A$${(c / 100).toFixed(2)}`;
+  const date = paidAt.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Australia/Melbourne' });
+  const first = String(ownerName || '').trim().split(/\s+/)[0] || '';
+  const support = SUPPORT_EMAIL();
+  const item = `Kairo — booking software for ${businessName}`;
+  const text = `${f.title} ${receiptNo}\n\n${first ? `Hi ${first}, thank you` : 'Thank you'} for buying Kairo.\n\n`
+    + `Date: ${date}\nBilled to: ${ownerName ? `${ownerName}, ` : ''}${businessName} (${to})\nFrom: ${f.seller}\n\n`
+    + `${item} — one payment, no monthly fee: ${aud(amountCents)}\n`
+    + `${f.gstCents ? `Includes GST: ${aud(f.gstCents)}\n` : ''}Total paid: ${aud(amountCents)} (${f.cardLabel})\n\n`
+    + `Not what you needed? You have 14 days for a full refund: in Kairo, Account → Refund and delete my Kairo.\n`
+    + `${receiptUrl ? `Stripe's copy of this payment: ${receiptUrl}\n` : ''}Questions: ${support}\n\n— The Kairo team\nkairobookings.com`;
+  const meta = (k, v) => `<tr><td style="padding:4px 0;color:#64748b;font-size:13px">${k}</td><td style="padding:4px 0;color:#0f172a;font-size:13px;text-align:right">${v}</td></tr>`;
+  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:0;background:#eef2f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<span style="display:none;max-height:0;overflow:hidden">${e(f.title)} ${e(receiptNo)} · ${e(aud(amountCents))} paid for Kairo.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f8;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+  <tr><td style="background:linear-gradient(135deg,#0b1220,#15233f);background-color:#0f1a30;padding:26px 32px">
+    ${markRow()}
+    <div style="color:#ffffff;font-size:24px;font-weight:700;line-height:1.25;margin-top:22px">Thank you for buying Kairo${first ? `, ${e(first)}` : ''}</div>
+    <div style="color:#b6c3dc;font-size:15px;line-height:1.6;margin-top:6px">Your receipt, for your records.</div>
+  </td></tr>
+  <tr><td style="padding:28px 32px 8px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:12px;border-collapse:separate">
+      <tr><td style="padding:18px 20px 6px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#0f172a;font-weight:700">${e(f.title)} <span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:99px;background:#ecfdf3;color:#067647;font-size:10.5px;letter-spacing:.1em">Paid</span></td>
+          <td style="font-size:12.5px;color:#64748b;text-align:right">${e(receiptNo)}</td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:4px 20px 10px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${meta('Date', e(date))}
+        ${meta('Billed to', `${ownerName ? `${e(ownerName)}<br>` : ''}${e(businessName)}<br>${e(to)}`)}
+        ${meta('From', e(f.seller))}
+      </table></td></tr>
+      <tr><td style="padding:0 20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:12px 0;border-top:1px solid #edf0f4;vertical-align:top"><div style="font-size:14px;color:#0f172a;font-weight:700">${e(item)}</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">One payment · no monthly fee, no commission</div></td>
+          <td style="padding:12px 0;border-top:1px solid #edf0f4;vertical-align:top;text-align:right;font-size:14px;color:#0f172a;white-space:nowrap">${e(aud(amountCents))}</td></tr>
+      </table></td></tr>
+      <tr><td style="padding:6px 20px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        ${f.gstCents ? `<tr><td style="padding:3px 0;font-size:13px;color:#475569">Includes GST</td><td style="padding:3px 0;font-size:13px;color:#0f172a;text-align:right">${e(aud(f.gstCents))}</td></tr>` : ''}
+        <tr><td style="padding:10px 0 2px;font-size:15px;font-weight:700;color:#0f172a;border-top:2px solid #0f172a">Total</td><td style="padding:10px 0 2px;font-size:15px;font-weight:700;color:#0f172a;text-align:right;border-top:2px solid #0f172a">${e(aud(amountCents))}</td></tr>
+      </table></td></tr>
+      <tr><td style="background:#f6f8fa;border-radius:0 0 12px 12px;padding:12px 20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr><td style="padding:4px 0;font-size:13px;color:#475569">Paid · ${e(f.cardLabel)}</td><td style="padding:4px 0;font-size:13px;font-weight:700;color:#0f172a;text-align:right">${e(aud(amountCents))}</td></tr>
+        <tr><td style="padding:4px 0;font-size:13px;color:#475569">Balance</td><td style="padding:4px 0;font-size:13px;font-weight:700;color:#067647;text-align:right">Paid in full</td></tr>
+      </table></td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:14px 32px 28px">
+    <p style="margin:0 0 10px;color:#475569;font-size:13.5px;line-height:1.6">Not what you needed? You have <b>14 days</b> for a full refund, no reason needed: in Kairo, Account → Refund and delete my Kairo.</p>
+    ${receiptUrl ? `<p style="margin:0 0 10px;color:#475569;font-size:13.5px;line-height:1.6"><a href="${e(receiptUrl)}" style="color:#2563eb;text-decoration:none;font-weight:600">Stripe's copy of this payment</a></p>` : ''}
+    <p style="margin:0;color:#475569;font-size:13.5px;line-height:1.6">Questions about this receipt? Email <a href="mailto:${e(support)}" style="color:#2563eb;text-decoration:none;font-weight:600">${e(support)}</a>.</p>
+  </td></tr>
+</table>
+<div style="color:#94a3b8;font-size:12px;line-height:1.6;margin-top:16px">Kairo · booking software for salons and studios · <a href="https://kairobookings.com" style="color:#94a3b8">kairobookings.com</a></div>
+</td></tr></table></body></html>`;
+  return sendEmail(to, `${f.title} ${receiptNo} — Kairo for ${businessName}`, text, html);
 };

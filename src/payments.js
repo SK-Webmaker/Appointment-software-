@@ -111,14 +111,14 @@ export function paymentInfo() {
  * deliberate: the day a third one is added, this is the only file that learns
  * about it.
  */
-export async function createCheckout({ appointmentId, items, origin, idemToken, returnPath = '/book' }) {
+export async function createCheckout({ appointmentId, items, origin, idemToken, returnPath = '/book', when = '' }) {
   const currency = getSetting('currency_code', 'aud') || 'aud';
   const provider = payProvider();
   if (provider === 'square') {
     return squareCheckout({ appointmentId, items, origin, currency, idemToken, returnPath });
   }
   if (provider === 'stripe') {
-    return stripeCheckout({ appointmentId, items, origin, currency, idemToken, returnPath });
+    return stripeCheckout({ appointmentId, items, origin, currency, idemToken, returnPath, when });
   }
   throw new Error('No payment provider is connected');
 }

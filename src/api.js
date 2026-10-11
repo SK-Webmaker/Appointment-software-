@@ -22,9 +22,10 @@ import {
   deliverMessage, processQueue, smsBalance, looksLikeEmail,
   requestOwnNumberCode, verifyOwnNumberCode, auNumber,
 } from './notify.js';
+import { invoiceTotals, formatAbn } from './invoice-math.js';
 import {
   depositCentsFor, stripeConfigured, createDepositCheckout, verifyDepositSession,
-  createPosCheckout, verifyPosSession, createStripeRefund,
+  createPosCheckout, verifyPosSession, createStripeRefund, whenLabel,
 } from './stripe.js';
 import {
   payProvider, payMode, paymentInfo, amountDueCents, paymentsConfigured, paymentRequired,
@@ -672,7 +673,7 @@ export const EDITABLE_SETTINGS = new Set([
   'booking_horizon_days', 'cancel_window_hours', 'client_cancel_enabled',
   'plan_name', 'plan_status', 'plan_price_cents', 'plan_interval',
   'plan_started_at', 'plan_renews_at', 'billing_contact', 'billing_note',
-  'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer',
+  'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer', 'business_abn',
   'open_days', 'day_rules', 'brand_scheme',
   'confirm_enabled', 'reminders_enabled', 'reminder_hours', 'notif_from_email',
   'owner_notify_enabled',
@@ -746,6 +747,12 @@ export function applySettings(body) {
     // unchecked it does not fail — it silently becomes weekly, because
     // backupDue falls back when the key is missing. That is how Kai came to
     // promise an owner monthly backups while the salon kept doing weekly ones.
+    // Kept as the owner typed it, but tidied: an ABN pasted as "12345678901"
+    // prints on a receipt the way the ATO writes it.
+    if (k === 'business_abn') {
+      setSetting(k, formatAbn(str(v, 30)));
+      continue;
+    }
     if (k === 'backup_frequency') {
       const val = str(v, 40).trim().toLowerCase();
       if (!Object.hasOwn(FREQUENCIES, val)) {
@@ -4046,13 +4053,8 @@ export const INVOICE_SELECT = `
   FROM invoices i
   LEFT JOIN clients c ON c.id = i.client_id`;
 
-export function invoiceTotals(inv) {
-  const taxable = Math.max(0, inv.subtotal_cents - inv.discount_cents);
-  inv.tax_cents = Math.round(taxable * (inv.tax_rate / 100));
-  inv.total_cents = taxable + inv.tax_cents;
-  inv.balance_cents = inv.total_cents - inv.paid_cents;
-  return inv;
-}
+// Worked out in one place, shared with the receipts (src/invoice-math.js).
+export { invoiceTotals };
 
 function getInvoice(id) {
   const inv = db.prepare(`${INVOICE_SELECT} WHERE i.id = ?`).get(id);
@@ -5814,7 +5816,7 @@ route('POST', '/api/public/book', async ({ req }) => {
       const due = amountDueCents(totalPriceCents, depositCents);
       if (due > 0 && items.length) {
         const session = await createPayCheckout({
-          appointmentId: apptId, items, origin, idemToken: String(apptId),
+          appointmentId: apptId, items, origin, idemToken: String(apptId), when: whenLabel(b.date, start),
         });
         db.prepare(`UPDATE appointments SET deposit_cents = ?, deposit_status = 'pending',
                     stripe_session_id = ?, pay_provider = ? WHERE id = ?`)
@@ -5829,7 +5831,7 @@ route('POST', '/api/public/book', async ({ req }) => {
   } else if (!wantsToPayNow && mode === 'deposit' && depositCents > 0 && stripeConfigured()) {
     try {
       const session = await createDepositCheckout({
-        appointmentId: apptId, serviceName: serviceLabel, depositCents, origin,
+        appointmentId: apptId, serviceName: serviceLabel, depositCents, origin, when: whenLabel(b.date, start),
       });
       db.prepare("UPDATE appointments SET deposit_cents = ?, deposit_status = 'pending', stripe_session_id = ? WHERE id = ?")
         .run(depositCents, session.session_id, apptId);
@@ -6142,6 +6144,19 @@ const cancelPayload = (ctx) => ({
     logo: getSetting('brand_logo', ''),
   },
 });
+
+/**
+ * Just enough to put a page in the business's colours: name, accent, scheme,
+ * whether there is a logo. For the small pages a client lands on after paying,
+ * which have no business loading the whole booking page's gallery to do it.
+ */
+route('GET', '/api/public/brand', async () => ({
+  business_name: getSetting('business_name', ''),
+  accent: getSetting('brand_accent', '#38bdf8'),
+  theme: getSetting('brand_theme', 'dark'),
+  scheme: getSetting('brand_scheme', ''),
+  logo: /^data:image\//i.test(getSetting('brand_logo', '') || ''),
+}), { auth: false });
 
 /**
  * The business's logo as a real image over HTTP.

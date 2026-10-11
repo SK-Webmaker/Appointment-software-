@@ -428,53 +428,87 @@ async function openInvoiceEditor({ invoice = null, onSaved } = {}) {
 
 function printInvoice(inv) {
   const s = state.settings;
-  const w = window.open('', '_blank', 'width=720,height=900');
-  w.document.write(`<!doctype html><html><head><title>${esc(inv.number)}</title>
+  // What the paper says it is. Paid, it is the client's receipt; with an ABN
+  // and GST on it, an Australian tax invoice (the words, the ABN and the GST
+  // amount are what a client needs to claim it).
+  const paid = inv.status === 'paid';
+  const abn = String(s.business_abn || '').trim();
+  const title = abn && inv.tax_cents > 0 ? 'Tax invoice' : paid ? 'Receipt' : 'Invoice';
+  const taxName = ['aud', 'nzd'].includes(String(s.currency_code || '').toLowerCase()) ? 'GST' : 'Tax';
+  const accent = /^#[0-9a-f]{6}$/i.test(s.brand_accent || '') ? s.brand_accent : '#2563eb';
+  const logo = /^data:image\//i.test(s.brand_logo || '') ? s.brand_logo : '';
+  const METHOD = { card: 'Card', square: 'Card (Square)', cash: 'Cash', transfer: 'Bank transfer', other: 'Other', stripe: 'Card' };
+  const when = (d) => (d ? new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+  const w = window.open('', '_blank', 'width=760,height=960');
+  w.document.write(`<!doctype html><html><head><title>${esc(title)} ${esc(inv.number)} · ${esc(s.business_name || '')}</title>
     <style>
-      body { font-family: -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 48px; font-size: 14px; }
-      .head { display: flex; justify-content: space-between; margin-bottom: 40px; }
-      h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
-      .muted { color: #666; font-size: 13px; line-height: 1.5; }
-      table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-      th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #888; padding: 8px 10px; border-bottom: 2px solid #222; }
-      td { padding: 10px; border-bottom: 1px solid #e5e5e5; }
-      .num { text-align: right; font-variant-numeric: tabular-nums; }
-      .totals { margin-left: auto; width: 260px; margin-top: 18px; }
-      .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
-      .grand { border-top: 2px solid #222; margin-top: 8px; padding-top: 10px !important; font-weight: 700; font-size: 17px; }
-      .badge { display: inline-block; padding: 3px 12px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
-        ${inv.status === 'paid' ? 'background:#d1fae5;color:#065f46' : 'background:#fef3c7;color:#92400e'} }
-      .foot { margin-top: 48px; color: #888; font-size: 12px; text-align: center; }
+      @page { margin: 18mm; }
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif; color: #101828; margin: 40px; font-size: 13.5px; }
+      .bar { height: 5px; background: ${accent}; border-radius: 3px; margin-bottom: 30px; }
+      .head { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 34px; }
+      .biz img { max-height: 56px; max-width: 200px; display: block; margin-bottom: 12px; }
+      .biz b { font-size: 18px; letter-spacing: -0.01em; }
+      .muted { color: #667085; font-size: 12.5px; line-height: 1.6; }
+      .doc { text-align: right; }
+      .doc h1 { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 8px; }
+      .doc .no { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .stamp { display: inline-block; margin-top: 10px; padding: 3px 12px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+        ${paid ? 'background:#ecfdf3;color:#067647' : inv.status === 'void' ? 'background:#f2f4f7;color:#475467' : 'background:#fffaeb;color:#b54708'} }
+      .to { margin-bottom: 8px; }
+      .to .lbl { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #667085; margin-bottom: 4px; }
+      .to b { font-size: 15px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 22px; }
+      th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #667085; padding: 8px 0; border-bottom: 1.5px solid #101828; }
+      td { padding: 11px 0; border-bottom: 1px solid #eaecf0; vertical-align: top; }
+      .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .totals { margin-left: auto; width: 280px; margin-top: 16px; }
+      .totals div { display: flex; justify-content: space-between; padding: 4px 0; font-variant-numeric: tabular-nums; }
+      .grand { border-top: 1.5px solid #101828; margin-top: 8px; padding-top: 10px !important; font-weight: 700; font-size: 16px; }
+      .paid { color: #067647; }
+      .due { color: #b54708; font-weight: 700; }
+      .pays { margin-top: 26px; }
+      .pays h2 { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: #667085; margin: 0 0 6px; }
+      .pays div { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f2f4f7; }
+      .note { margin-top: 22px; }
+      .foot { margin-top: 44px; padding-top: 14px; border-top: 1px solid #eaecf0; color: #98a2b3; font-size: 11.5px; display: flex; justify-content: space-between; gap: 12px; }
     </style></head><body>
+    <div class="bar"></div>
     <div class="head">
-      <div>
-        <h1>${esc(s.business_name || '')}</h1>
-        <div class="muted">${esc(s.business_address || '')}<br>${esc(s.business_phone || '')} · ${esc(s.business_email || '')}</div>
+      <div class="biz">
+        ${logo ? `<img src="${logo}" alt="">` : ''}
+        <b>${esc(s.business_name || '')}</b>
+        <div class="muted">${[s.business_address, s.business_phone, s.business_email].filter(Boolean).map(esc).join('<br>')}${abn ? `<br>ABN ${esc(abn)}` : ''}</div>
       </div>
-      <div style="text-align:right">
-        <h1>Invoice</h1>
-        <div class="muted">${esc(inv.number)}<br>Issued ${esc(inv.issue_date)}<br>Due ${esc(inv.due_date)}</div>
-        <div style="margin-top:8px"><span class="badge">${esc(inv.status)}</span></div>
+      <div class="doc">
+        <h1>${esc(title)}</h1>
+        <div class="no">${esc(inv.number)}</div>
+        <div class="muted">Issued ${esc(when(inv.issue_date))}${!paid && inv.due_date ? `<br>Due ${esc(when(inv.due_date))}` : ''}</div>
+        <span class="stamp">${esc(paid ? 'Paid' : inv.status === 'void' ? 'Void' : 'Due')}</span>
       </div>
     </div>
-    <div class="muted" style="margin-bottom:4px">Billed to</div>
-    <div style="font-weight:600;font-size:16px">${esc(inv.client_name || 'Walk-in client')}</div>
-    <div class="muted">${esc(inv.client_email || '')} ${esc(inv.client_phone || '')}</div>
+    <div class="to">
+      <div class="lbl">Billed to</div>
+      <b>${esc(inv.client_name || 'Walk-in client')}</b>
+      <div class="muted">${[inv.client_email, inv.client_phone].filter(Boolean).map(esc).join(' · ')}</div>
+    </div>
     <table>
       <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Amount</th></tr></thead>
       <tbody>${inv.items.map((it) => `<tr><td>${esc(it.description)}</td><td class="num">${it.qty}</td>
         <td class="num">${money(it.unit_cents)}</td><td class="num">${money(Math.round(it.qty * it.unit_cents))}</td></tr>`).join('')}</tbody>
     </table>
     <div class="totals">
-      <div><span>Subtotal</span><span>${money(inv.subtotal_cents)}</span></div>
+      ${inv.discount_cents || inv.tax_cents ? `<div><span>Subtotal</span><span>${money(inv.subtotal_cents)}</span></div>` : ''}
       ${inv.discount_cents ? `<div><span>Discount</span><span>−${money(inv.discount_cents)}</span></div>` : ''}
-      <div><span>Tax (${inv.tax_rate}%)</span><span>${money(inv.tax_cents)}</span></div>
+      ${inv.tax_cents ? `<div><span>${taxName} (${inv.tax_rate}%)</span><span>${money(inv.tax_cents)}</span></div>` : ''}
       <div class="grand"><span>Total</span><span>${money(inv.total_cents)}</span></div>
-      ${inv.paid_cents ? `<div><span>Paid</span><span>−${money(inv.paid_cents)}</span></div>` : ''}
-      ${inv.balance_cents > 0 && inv.status !== 'void' ? `<div style="font-weight:700"><span>Balance due</span><span>${money(inv.balance_cents)}</span></div>` : ''}
+      ${inv.paid_cents ? `<div class="paid"><span>Paid</span><span>${money(inv.paid_cents)}</span></div>` : ''}
+      ${inv.balance_cents > 0 && inv.status !== 'void' ? `<div class="due"><span>Balance due</span><span>${money(inv.balance_cents)}</span></div>` : ''}
     </div>
-    ${inv.notes ? `<p class="muted">${esc(inv.notes)}</p>` : ''}
-    <div class="foot">${esc(s.invoice_footer || '')}</div>
+    ${inv.payments?.length ? `<div class="pays"><h2>Payments</h2>${inv.payments.map((p) => `
+      <div><span>${esc(when(p.paid_at))} · ${esc(METHOD[p.method] || p.method)}</span><span class="num">${money(p.amount_cents)}</span></div>`).join('')}</div>` : ''}
+    ${inv.notes ? `<p class="muted note">${esc(inv.notes)}</p>` : ''}
+    <div class="foot"><span>${esc(s.invoice_footer || 'Thank you.')}</span><span>Powered by Kairo</span></div>
     <script>window.onload = () => window.print()</${'script'}>
     </body></html>`);
   w.document.close();

@@ -1084,6 +1084,9 @@ const DEFAULT_SETTINGS = {
   invoice_prefix: 'INV-',
   invoice_due_days: '7',
   invoice_footer: 'Thank you for your business!',
+  // Printed on receipts and invoices. With it and a tax rate, a receipt is
+  // titled "Tax invoice", which is what an Australian client claiming GST needs.
+  business_abn: '',
   // Notifications (work out of the box once provider keys are pasted in Settings)
   confirm_enabled: '1',
   reminders_enabled: '1',

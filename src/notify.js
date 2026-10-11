@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 import { db, getSetting, setSetting, replyToAddress, publicUrl, emailSender } from './db.js';
 import { forEachTenant, isMuted } from './tenant.js';
 import { renderEmail } from './email-html.js';
+import { invoiceTotals, formatAbn } from './invoice-math.js';
 
 // Overridable so the test suite can stand a local server in front of a
 // provider and exercise the real network path — the same seam src/stripe.js
@@ -41,6 +42,103 @@ const fmtTime = (min) => {
 const fmtDate = (s) => new Date(`${s}T12:00:00`).toLocaleDateString('en-US', {
   weekday: 'long', month: 'long', day: 'numeric',
 });
+
+// ── Receipts ───────────────────────────────────────────────────────────────
+//
+// A receipt is something a client files, forwards to an employer, or claims
+// GST on — so it reads like a printed one: what it is and its number, the
+// date, who it is for and from, each line with its price, the totals, and what
+// was paid. With an ABN and a tax rate it is titled "Tax invoice".
+
+const longDate = (d = new Date()) => d.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
+const stampDate = (stamp) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(stamp || ''));
+  return m ? longDate(new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`)) : longDate();
+};
+const taxLabel = (rate) => {
+  const code = String(getSetting('currency_code', 'aud') || '').toLowerCase();
+  return `${['aud', 'nzd'].includes(code) ? 'GST' : 'Tax'} (${Number(rate)}%)`;
+};
+const issuedBy = () => {
+  const biz = getSetting('business_name', '');
+  const abn = formatAbn(getSetting('business_abn', ''));
+  return abn ? `${biz} · ABN ${abn}` : biz;
+};
+const bookingRef = (id) => `BK-${String(id).padStart(5, '0')}`;
+
+/** The receipt for one payment against an invoice, with everything paid so far. */
+export function invoiceReceipt(invoiceId, amountCents, method) {
+  const inv = db.prepare(
+    `SELECT i.*, TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS client_name
+     FROM invoices i LEFT JOIN clients c ON c.id = i.client_id WHERE i.id = ?`
+  ).get(invoiceId);
+  if (!inv) return null;
+  const items = db.prepare('SELECT description, qty, unit_cents FROM invoice_items WHERE invoice_id = ? ORDER BY id').all(invoiceId);
+  const pays = db.prepare('SELECT amount_cents, paid_at FROM payments WHERE invoice_id = ? ORDER BY paid_at, id').all(invoiceId);
+  const t = invoiceTotals({
+    subtotal_cents: items.reduce((n, it) => n + Math.round(it.qty * it.unit_cents), 0),
+    discount_cents: inv.discount_cents || 0,
+    tax_rate: Number(inv.tax_rate) || 0,
+    paid_cents: pays.reduce((n, p) => n + p.amount_cents, 0),
+  });
+  const earlier = Math.max(0, t.paid_cents - amountCents);
+  const owing = Math.max(0, t.balance_cents);
+  return {
+    title: getSetting('business_abn', '').trim() && t.tax_cents > 0 ? 'Tax invoice' : 'Receipt',
+    number: inv.number,
+    paid: owing <= 0,
+    meta: [['Date', stampDate(pays.at(-1)?.paid_at)], ['Billed to', inv.client_name], ['From', issuedBy()]],
+    lines: items.map((it) => ({
+      label: it.description || 'Item',
+      sub: it.qty !== 1 ? `${it.qty} × ${money(it.unit_cents)}` : '',
+      amount: money(Math.round(it.qty * it.unit_cents)),
+    })),
+    totals: [
+      ...(t.discount_cents || t.tax_cents ? [['Subtotal', money(t.subtotal_cents)]] : []),
+      ...(t.discount_cents ? [['Discount', `−${money(t.discount_cents)}`]] : []),
+      ...(t.tax_cents ? [[taxLabel(t.tax_rate), money(t.tax_cents)]] : []),
+      ['Total', money(t.total_cents), 'strong'],
+    ],
+    payments: [
+      ...(earlier ? [['Paid earlier', money(earlier)]] : []),
+      [`Paid · ${methodLabel(method)}`, money(amountCents)],
+      owing > 0 ? ['Still to pay', money(owing), 'due'] : ['Balance', 'Paid in full', 'good'],
+    ],
+  };
+}
+
+/**
+ * The receipt for money taken online at booking: a deposit, or the whole
+ * booking paid up front. Which one is decided by the amount, because the same
+ * return from checkout serves both.
+ */
+export function onlineReceipt(a, amountCents) {
+  const services = db.prepare(
+    `SELECT sv.name, sv.price_cents FROM appointment_services aps JOIN services sv ON sv.id = aps.service_id
+     WHERE aps.appointment_id = ? ORDER BY aps.sort_order, aps.id`
+  ).all(a.id);
+  const total = services.reduce((n, s) => n + (s.price_cents || 0), 0);
+  const full = total > 0 && amountCents >= total;
+  const when = `${fmtDate(a.date)} at ${fmtTime(a.start_min)}${a.staff_name ? ` with ${a.staff_name}` : ''}`;
+  const name = [a.first_name, a.client_last].filter(Boolean).join(' ');
+  return {
+    full,
+    receipt: {
+      title: full ? 'Receipt' : 'Deposit receipt',
+      number: bookingRef(a.id),
+      paid: true,
+      meta: [['Date', longDate()], ['Billed to', name], ['From', issuedBy()]],
+      lines: full
+        ? services.map((s, i) => ({ label: s.name, sub: i === 0 ? when : '', amount: money(s.price_cents) }))
+        : [{ label: `Deposit · ${a.service_name || 'Appointment'}`, sub: when, amount: money(amountCents) }],
+      totals: [['Total', money(amountCents), 'strong']],
+      payments: full
+        ? [['Paid · Card, online', money(amountCents)], ['Balance', 'Paid in full', 'good']]
+        : [['Paid · Card, online', money(amountCents)],
+          total > amountCents ? ['Left to pay on the day', money(total - amountCents)] : ['On the day', 'Comes off your total', 'good']],
+    },
+  };
+}
 
 /** Local timestamp 'YYYY-MM-DD HH:MM' (string compare == time compare). */
 function localStamp(d = new Date()) {
@@ -269,32 +367,47 @@ function buildCopy(kind, a, extra = {}) {
   }
   if (kind === 'receipt') {
     if (extra.isDeposit) {
-      return {
-        subject: `Deposit received: ${money(extra.amountCents)} · ${biz}`,
-        body: `Hi ${name},\n\nWe've received your ${money(extra.amountCents)} deposit for ${what}${who} on ${when}. It comes off your total when you visit.\n\nSee you soon!\n${biz}${phoneLine}`,
+      const { full, receipt } = onlineReceipt(a, extra.amountCents);
+      return full ? {
+        subject: `Receipt ${receipt.number}: ${money(extra.amountCents)} paid · ${biz}`,
+        body: `Hi ${name},\n\nThank you — your ${what}${who} on ${when} is paid in full (${money(extra.amountCents)}). Receipt ${receipt.number}.\n\nSee you soon!\n${biz}${phoneLine}`,
+        html: renderEmail({
+          heading: 'Paid in full, thank you',
+          greeting: `Hi ${name},`,
+          paragraphs: ['Your booking is paid and confirmed. Here is your receipt — there is nothing to pay on the day.'],
+          receipt,
+          footNote: 'Questions about this receipt? Just reply to this email.',
+        }),
+      } : {
+        subject: `Deposit receipt ${receipt.number}: ${money(extra.amountCents)} · ${biz}`,
+        body: `Hi ${name},\n\nWe've received your ${money(extra.amountCents)} deposit for ${what}${who} on ${when}. It comes off your total when you visit. Receipt ${receipt.number}.\n\nSee you soon!\n${biz}${phoneLine}`,
         html: renderEmail({
           heading: 'Deposit received',
           greeting: `Hi ${name},`,
           paragraphs: ['Your deposit is in and your appointment is secured. It comes off your total on the day.'],
-          details: [['Deposit paid', money(extra.amountCents)], ...visitDetails],
+          receipt,
+          footNote: 'Questions about this receipt? Just reply to this email.',
         }),
       };
     }
     const paidInFull = !(extra.balanceCents > 0);
+    const receipt = extra.invoiceId ? invoiceReceipt(extra.invoiceId, extra.amountCents, extra.method) : null;
     return {
-      subject: `Receipt: ${money(extra.amountCents)} · ${a.invoiceNumber || biz}`,
+      subject: `${[receipt?.title === 'Tax invoice' ? 'Tax invoice' : 'Receipt', a.invoiceNumber].filter(Boolean).join(' ')}: ${money(extra.amountCents)} paid · ${biz}`,
       body: `Hi ${name},\n\nThis confirms your payment of ${money(extra.amountCents)} (${methodLabel(extra.method)}) for ${what}${who}.${paidInFull ? '\nPaid in full. Thank you!' : `\nRemaining balance: ${money(extra.balanceCents)}`}\n\n${biz}${phoneLine}`,
       html: renderEmail({
-        heading: paidInFull ? 'Payment received, thank you!' : 'Payment received',
+        heading: paidInFull ? 'Paid in full, thank you' : 'Payment received',
         greeting: `Hi ${name},`,
-        paragraphs: ['This confirms your payment. A summary for your records:'],
-        details: [
-          ['Amount paid', money(extra.amountCents)],
-          ['Method', methodLabel(extra.method)],
-          ['Invoice', a.invoiceNumber || ''],
-          ['Service', a.service_name || ''],
-          paidInFull ? ['Balance', 'Paid in full'] : ['Balance remaining', money(extra.balanceCents)],
-        ],
+        paragraphs: [paidInFull ? 'Thanks for coming in. Here is your receipt for your records.' : 'Thank you for your payment. Here is your receipt, with what is still to pay.'],
+        ...(receipt ? { receipt } : {
+          details: [
+            ['Amount paid', money(extra.amountCents)],
+            ['Method', methodLabel(extra.method)],
+            ['Invoice', a.invoiceNumber || ''],
+            paidInFull ? ['Balance', 'Paid in full'] : ['Balance remaining', money(extra.balanceCents)],
+          ],
+        }),
+        footNote: 'Questions about this receipt? Just reply to this email.',
       }),
     };
   }
@@ -439,7 +552,7 @@ export function queueReceiptMessage(invoiceId, { amountCents, method, balanceCen
   const channels = channelsFor('receipt', inv.client_email || ctx.client_email, inv.client_phone || ctx.client_phone);
   if (!channels.length) return;
 
-  const copy = buildCopy('receipt', ctx, { amountCents, method, balanceCents, invoiceNumber: inv.number });
+  const copy = buildCopy('receipt', { ...ctx, invoiceNumber: inv.number }, { amountCents, method, balanceCents, invoiceId });
   const now = localStamp();
   const ins = insMessage();
   for (const [channel, to] of channels) {

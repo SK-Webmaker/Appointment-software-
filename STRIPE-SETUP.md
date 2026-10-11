@@ -87,7 +87,22 @@ Still in the activation flow (or **Settings → Bank accounts and scheduling**):
   primitives Stripe Terminal uses, so a native wrapper with **Stripe Terminal
   Tap to Pay** can be added later without changing anything you set up today.
 
-## 9. Webhooks — deliberately not required
+## 9. How it looks to your clients — done for you
+
+Stripe's payment page shows **your business name, your colours and your logo**
+(a PNG or JPG logo, once your Kairo has its own web address), with a line by
+the button saying what the payment is for. Afterwards Kairo emails the client
+an itemised receipt with your branding — a **tax invoice** once your ABN is in
+**Settings → Payments → Invoices & receipts**.
+
+Two optional touches in your Stripe dashboard:
+
+1. **Settings → Public details → Statement descriptor**: your business name, so
+   clients recognise the charge on their card statement.
+2. **Settings → Customer emails → Successful payments: off**. Kairo already
+   sends the receipt; two receipts for one payment look like two charges.
+
+## 10. Webhooks — deliberately not required
 
 Many Stripe integrations need you to configure webhooks + signing secrets.
 Kairo doesn't: the server **asks Stripe directly** whether each POS session

@@ -358,7 +358,7 @@ async function api(req, res, url, ip) {
       return json(res, 200, { ok: true });
     }
 
-    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove|send-copy|welcome)$/.exec(p);
+    const m = /^\/api\/operator\/business\/(\d+)\/(approve|refund|retry|export|remove|send-copy|welcome|receipt)$/.exec(p);
     if (m && req.method === 'POST') {
       const id = Number(m[1]);
       if (m[2] === 'approve') {
@@ -373,6 +373,14 @@ async function api(req, res, url, ip) {
       if (m[2] === 'remove') { record(id, 'operator:remove'); return json(res, 200, await signup.removeTestRecord(id)); }
       if (m[2] === 'send-copy') { record(id, 'operator:send-copy'); return json(res, 200, await signup.sendPartingCopy(id)); }
       if (m[2] === 'welcome') { record(id, 'operator:welcome'); return json(res, 200, await signup.resendWelcome(id)); }
+      if (m[2] === 'receipt') {
+        const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(id);
+        if (!b) return json(res, 404, { error: 'No such business' });
+        if (!b.paid_at) return json(res, 409, { error: 'They have not paid, so there is no receipt to send' });
+        record(id, 'operator:receipt');
+        const r = await signup.sendReceipt(id, b.stripe_payment_intent, b.price_cents);
+        return r.ok ? json(res, 200, r) : json(res, 502, { error: `The receipt could not be sent: ${r.detail || 'unknown'}` });
+      }
       if (m[2] === 'refund') {
         const body = await readJson(req).catch(() => ({}));
         record(id, 'operator:refund', String(body.reason || ''));

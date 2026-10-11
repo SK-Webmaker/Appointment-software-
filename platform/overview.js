@@ -31,6 +31,7 @@ export const ACTIVITY = {
   'state:expired': 'Signup expired unpaid',
   'state:deleted': 'Closed their account',
   'email:ready': 'Welcome email sent',
+  'receipt:failed': 'Their receipt could not be emailed',
   'refund:copy-emailed': 'Their data was emailed to them',
   'refund:copy-failed': 'Their data could not be emailed',
   'purge:done': 'Files deleted',
@@ -57,6 +58,8 @@ const LABELS = {
   'operator:send-copy': 'You sent their data',
   'operator:retry': 'You retried the setup',
   'copy:emailed': 'Their data was emailed to them',
+  'receipt:sent': 'Receipt emailed',
+  'operator:receipt': 'You resent the receipt',
 };
 
 /** Monday 00:00 UTC of the week containing `ms`. */

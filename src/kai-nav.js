@@ -141,7 +141,7 @@ const SECTIONS = [
   { id: 'profile', title: 'Business profile', words: 'business profile name phone number email address details my business contact' },
   { id: 'hours', title: 'Hours & booking', words: 'hours opening closing times trading slots notice horizon cancellation window' },
   { id: 'brand', title: 'Booking page appearance', words: 'booking page appearance brand branding logo colour color colours theme font cover photo gallery tagline look' },
-  { id: 'billing', title: 'Billing defaults', words: 'billing defaults invoice tax gst prefix due days footer' },
+  { id: 'billing', title: 'Invoices & receipts', words: 'billing defaults invoice invoices receipt receipts tax gst abn prefix due days footer' },
   { id: 'notif', title: 'Notifications', words: 'notifications confirmations reminders receipts review requests emails what gets sent' },
   { id: 'sms', title: 'SMS', words: 'sms text messages texting clicksend sender number credit balance twilio telnyx' },
   { id: 'poscard', title: 'In-person card payments', words: 'card payments in person terminal square eftpos surcharge tap' },

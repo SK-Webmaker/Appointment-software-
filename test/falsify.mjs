@@ -1328,6 +1328,27 @@ const MUTATIONS = {
     find: "<span aria-hidden=\"true\">${icon('bulb', 15)}</span>",
     replace: "<span aria-hidden=\"true\">\u{1F4A1}</span>",
   },
+  // ── Paying: the checkout's branding and the receipts ──────────────────────
+  'checkout-unbranded': {
+    file: 'src/stripe.js', suites: ['stripe-branding'],
+    find: "    return await stripeRequest('/checkout/sessions', { ...params, ...checkoutBranding() }, idempotencyKey, BRANDING_VERSION);",
+    replace: "    return await stripeRequest('/checkout/sessions', params, idempotencyKey, BRANDING_VERSION);",
+  },
+  'branding-failure-loses-checkout': {
+    file: 'src/stripe.js', suites: ['stripe-branding'],
+    find: '    if (err.status !== 400) throw err;\n    console.warn(`Stripe would not take the checkout branding',
+    replace: '    throw err;\n    console.warn(`Stripe would not take the checkout branding',
+  },
+  'receipt-not-itemised': {
+    file: 'src/notify.js', suites: ['stripe-branding'],
+    find: '    const receipt = extra.invoiceId ? invoiceReceipt(extra.invoiceId, extra.amountCents, extra.method) : null;',
+    replace: '    const receipt = null;',
+  },
+  'kairo-receipt-never-sent': {
+    file: 'platform/signup.js', suites: ['journey'],
+    find: '  const receipt = sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);',
+    replace: '  const receipt = Promise.resolve();',
+  },
 };
 
 const only = process.argv.slice(2);

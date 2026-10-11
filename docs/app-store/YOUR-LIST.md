@@ -210,6 +210,13 @@ ever stops being true.
 Platform service → `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`. Until both
 are set, nobody can pay and nothing provisions.
 
+### D3b. Stripe's look · 10 min
+
+The payment pages and receipts are branded by Kairo already. Four short
+settings in your Stripe dashboard finish it: the name on card statements,
+Stripe's own emails in Kairo's colours, and one receipt instead of two.
+Click by click, with the logo files: `docs/stripe/BRANDING.md`.
+
 ### D4. Deploy the platform · needs A3
 
 Render → New → Blueprint → this repo → Blueprint file `platform/render.yaml`

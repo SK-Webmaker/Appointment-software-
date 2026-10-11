@@ -35,25 +35,54 @@ export function stripeMode() {
   return 'unknown';
 }
 
-async function call(path, params, idempotencyKey = '') {
+async function call(path, params, idempotencyKey = '', version = '') {
   const res = await fetch(`${API_BASE()}/v1${path}`, {
     method: params ? 'POST' : 'GET',
     headers: {
       Authorization: `Bearer ${key()}`,
       ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      ...(version ? { 'Stripe-Version': version } : {}),
     },
     body: params ? new URLSearchParams(params) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error?.message || `Stripe ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data?.error?.message || `Stripe ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
+// The page an owner pays Kairo on: Kairo's name, mark and colours, and the
+// three facts that decide a purchase said beside the button — one payment, no
+// monthly fee, fourteen days to change your mind. Per-checkout branding needs
+// this API version, so it is sent on this request alone; a Stripe that turns
+// the branding away gets the same checkout plain rather than no checkout.
+export const BRANDING_VERSION = '2025-09-30.clover';
+export function kairoBranding(origin = '') {
+  const out = {
+    'branding_settings[display_name]': 'Kairo',
+    'branding_settings[background_color]': '#0a0e16',
+    'branding_settings[button_color]': '#2f7fd6',
+    'branding_settings[font_family]': 'inter',
+    'branding_settings[border_style]': 'rounded',
+  };
+  const base = String(origin || '').replace(/\/+$/, '');
+  if (/^https:\/\//i.test(base)) {
+    out['branding_settings[icon][type]'] = 'url';
+    out['branding_settings[icon][url]'] = `${base}/icons/kairo-512.png`;
+  }
+  return out;
+}
+
 export async function createCheckout({ businessId, slug, name, email, priceCents, currency = 'aud', origin }) {
-  const session = await call('/checkout/sessions', {
+  const params = {
     mode: 'payment',
     customer_email: email,
+    'custom_text[submit][message]': `One payment for ${name}. No monthly fee, no commission — and a full refund within 14 days if Kairo isn't right for you.`,
+    'payment_intent_data[description]': `Kairo for ${name}`,
     'line_items[0][price_data][currency]': currency,
     'line_items[0][price_data][unit_amount]': String(priceCents),
     'line_items[0][price_data][product_data][name]': 'Kairo — booking software for one salon',
@@ -64,8 +93,35 @@ export async function createCheckout({ businessId, slug, name, email, priceCents
     'metadata[business_id]': String(businessId),
     'metadata[slug]': slug,
     'payment_intent_data[metadata][business_id]': String(businessId),
-  }, `kairo-signup-${businessId}`);
+  };
+  let session;
+  try {
+    session = await call('/checkout/sessions', { ...params, ...kairoBranding(origin) }, `kairo-signup-${businessId}`, BRANDING_VERSION);
+  } catch (err) {
+    if (err.status !== 400) throw err;
+    console.warn('Stripe would not take the checkout branding; sending it plain:', err.message);
+    session = await call('/checkout/sessions', params, `kairo-signup-${businessId}-plain`);
+  }
   return { url: session.url, id: session.id };
+}
+
+/**
+ * The card and Stripe's own receipt for a payment, for Kairo's receipt email.
+ * Never needed for anything to work: the receipt goes out without them.
+ */
+export async function paymentDetails(paymentIntent) {
+  if (!paymentIntent) return {};
+  const pi = await call(`/payment_intents/${encodeURIComponent(paymentIntent)}?expand[]=latest_charge`);
+  const ch = typeof pi.latest_charge === 'object' && pi.latest_charge ? pi.latest_charge : {};
+  const card = ch.payment_method_details?.card || {};
+  const wallet = card.wallet?.type || '';
+  return {
+    brand: String(card.brand || ''),
+    last4: String(card.last4 || ''),
+    wallet: wallet === 'apple_pay' ? 'Apple Pay' : wallet === 'google_pay' ? 'Google Pay' : '',
+    receipt_url: String(ch.receipt_url || ''),
+    amount: Number(pi.amount_received || pi.amount || 0),
+  };
 }
 
 export const getSession = (id) => call(`/checkout/sessions/${encodeURIComponent(id)}`);

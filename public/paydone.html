@@ -4,23 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Payment</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='t' x1='2' y1='2' x2='46' y2='46' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%2338bdf8'/%3E%3Cstop offset='1' stop-color='%233b82f6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12.5' fill='url(%23t)'/%3E%3Cpath d='M15.6 13V35' stroke='%23fff' stroke-width='4.6' stroke-linecap='round'/%3E%3Cpath d='M18.5 25.4A13 13 0 0 1 28.6 15.9' stroke='%23fff' stroke-width='4.6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M18.5 25.4L31.6 35' stroke='%23fff' stroke-width='4.6' stroke-linecap='round'/%3E%3Ccircle cx='33' cy='13.2' r='3.2' fill='%23bae6fd'/%3E%3C/svg%3E">
   <style>
-    body { margin:0; min-height:100vh; display:grid; place-items:center; background:#070a10;
-      font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:#e8edf6; }
-    .card { text-align:center; max-width:340px; padding:32px 24px; }
-    .badge { width:74px; height:74px; margin:0 auto 18px; border-radius:50%; display:grid; place-items:center; font-size:34px; }
-    .ok .badge { background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.45); }
-    .no .badge { background:rgba(251,191,36,.12); border:1px solid rgba(251,191,36,.45); }
-    h1 { font-size:21px; margin:0 0 8px; }
-    p { color:#9aa7bd; font-size:14px; line-height:1.6; margin:0; }
+    :root { --bg:#070a10; --text:#e8edf6; --text-2:#9aa7bd; --muted:#64748b; --border:#1c2636; --panel:#0e1520; --accent:#38bdf8; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text);
+      font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; -webkit-font-smoothing:antialiased; padding:24px; }
+    .card { text-align:center; max-width:360px; width:100%; }
+    #logo { min-height:8px; margin-bottom:18px; display:grid; place-items:center; }
+    #logo img { max-height:56px; max-width:180px; }
+    #biz { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-2); margin-bottom:26px; min-height:14px; }
+    .badge { width:76px; height:76px; margin:0 auto 20px; border-radius:50%; display:grid; place-items:center; }
+    .ok .badge { background:rgba(52,211,153,.12); color:#34d399; box-shadow:0 0 0 1px rgba(52,211,153,.4) inset; animation:pop .5s cubic-bezier(.2,1.5,.4,1) both; }
+    .no .badge { background:rgba(251,191,36,.12); color:#fbbf24; box-shadow:0 0 0 1px rgba(251,191,36,.4) inset; }
+    h1 { font-size:22px; line-height:1.3; margin:0 0 10px; letter-spacing:-.01em; }
+    p { color:var(--text-2); font-size:14.5px; line-height:1.6; margin:0; }
+    .foot { margin-top:34px; font-size:11.5px; color:var(--muted); }
+    @keyframes pop { from { transform:scale(.5); opacity:0; } }
+    @media (prefers-reduced-motion: reduce) { .ok .badge { animation:none; } }
   </style>
 </head>
 <body>
   <div class="card" id="card">
-    <div class="badge" id="badge">✓</div>
+    <div id="logo"></div>
+    <div id="biz"></div>
+    <div class="badge" id="badge"></div>
     <h1 id="title">Payment complete</h1>
-    <p id="msg">You're all set — show this screen to your stylist. A receipt is on its way if we have your email.</p>
+    <p id="msg">You're all set — show this screen at the counter. Your receipt is emailed to you if we have your address.</p>
+    <div class="foot">Card payment by Stripe · Powered by Kairo</div>
   </div>
-  <script src="/js/paydone.js"></script>
+  <script type="module" src="/js/paydone.js"></script>
 </body>
 </html>

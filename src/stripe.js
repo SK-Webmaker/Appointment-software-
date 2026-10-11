@@ -2,7 +2,8 @@
 // Configure in Settings → Payments: stripe_secret_key, deposit_type
 // (none|fixed|percent), deposit_value. With no key or type=none, online
 // booking simply skips the deposit step.
-import { getSetting } from './db.js';
+import { getSetting, publicUrl } from './db.js';
+import { resolveScheme } from '../public/js/schemes.js';
 
 export function depositCentsFor(service) {
   const type = getSetting('deposit_type', 'none');
@@ -22,7 +23,7 @@ export function stripeConfigured() {
 // (STRIPE_API_BASE=http://127.0.0.1:PORT). Production always uses the real API.
 const API_BASE = process.env.STRIPE_API_BASE || 'https://api.stripe.com';
 
-async function stripeRequest(path, params, idempotencyKey = '') {
+async function stripeRequest(path, params, idempotencyKey = '', version = '') {
   const key = getSetting('stripe_secret_key');
   const res = await fetch(`${API_BASE}/v1${path}`, {
     method: params ? 'POST' : 'GET',
@@ -32,25 +33,101 @@ async function stripeRequest(path, params, idempotencyKey = '') {
       // Stripe replays the original response for a reused key instead of
       // charging twice — our double-tap / retry safety net at the API level.
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      ...(version ? { 'Stripe-Version': version } : {}),
     },
     body: params ? new URLSearchParams(params) : undefined,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data?.error?.message || `Stripe error ${res.status}`);
+    const err = new Error(data?.error?.message || `Stripe error ${res.status}`);
+    err.status = res.status;
+    err.param = data?.error?.param || '';
+    throw err;
   }
   return data;
+}
+
+// ── How the salon's checkout looks ─────────────────────────────────────────
+//
+// A client tapping Pay on a salon's booking page used to land on a page that
+// said whatever the salon's Stripe account happened to be set to — often the
+// owner's legal name, on Stripe's default white, with no logo. They had just
+// been on a page in the salon's colours and had never heard of the name in
+// front of them, which is how a deposit becomes a "what is this charge?" call.
+//
+// So every checkout carries the salon's own branding: the business name, its
+// accent on the button, the background of its booking page, and its logo when
+// Stripe can fetch it. Stripe takes these per checkout from API version
+// 2025-09-30.clover, so that version is sent on these requests only — every
+// other call keeps the account's own version and the shapes Kairo reads.
+
+export const BRANDING_VERSION = '2025-09-30.clover';
+const HEX = /^#[0-9a-fA-F]{6}$/;
+// Formats Stripe will show. An SVG or WebP logo stays on the booking page and
+// the checkout shows the name alone.
+const STRIPE_IMAGE = /^data:image\/(png|jpe?g|gif);base64,/i;
+
+export function checkoutBranding() {
+  const out = {};
+  const name = String(getSetting('business_name', '') || '').trim();
+  if (name) out['branding_settings[display_name]'] = name.slice(0, 80);
+  const accent = String(getSetting('brand_accent', '') || '');
+  if (HEX.test(accent)) out['branding_settings[button_color]'] = accent;
+  const scheme = resolveScheme({ scheme: getSetting('brand_scheme', ''), theme: getSetting('brand_theme', '') });
+  out['branding_settings[background_color]'] = scheme.bg;
+  out['branding_settings[font_family]'] = 'inter';
+  out['branding_settings[border_style]'] = 'rounded';
+  // Stripe fetches the logo itself, so only from an address it can reach.
+  const origin = String(publicUrl() || '').replace(/\/+$/, '');
+  if (/^https:\/\//i.test(origin) && STRIPE_IMAGE.test(getSetting('brand_logo', '') || '')) {
+    out['branding_settings[icon][type]'] = 'url';
+    out['branding_settings[icon][url]'] = `${origin}/api/public/logo`;
+  }
+  return out;
+}
+
+/**
+ * Create a Checkout Session in the salon's branding. Branding is a nicety and
+ * taking the booking is not: if Stripe turns the branded request away (a logo
+ * it could not fetch, a setting it does not accept), the same checkout goes
+ * through plain, under its own idempotency key.
+ */
+async function createSession(params, idempotencyKey = '') {
+  try {
+    return await stripeRequest('/checkout/sessions', { ...params, ...checkoutBranding() }, idempotencyKey, BRANDING_VERSION);
+  } catch (err) {
+    if (err.status !== 400) throw err;
+    console.warn(`Stripe would not take the checkout branding (${err.param || err.message}); sending it plain`);
+    return stripeRequest('/checkout/sessions', params, idempotencyKey ? `${idempotencyKey}-plain` : '');
+  }
+}
+
+const money = (cents) => `${getSetting('currency', '$') || '$'}${((Number(cents) || 0) / 100).toFixed(2)}`;
+const clock = (min) => {
+  const h = Math.floor(min / 60), m = min % 60;
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+
+/** "Tuesday, October 13 at 10:00 AM" — the same words as the confirmation email. */
+export function whenLabel(date, startMin) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return '';
+  const day = new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return Number.isFinite(Number(startMin)) ? `${day} at ${clock(Number(startMin))}` : day;
 }
 
 /**
  * Create a Checkout Session for an appointment deposit.
  * Returns { url, session_id } or throws.
  */
-export async function createDepositCheckout({ appointmentId, serviceName, depositCents, origin }) {
+export async function createDepositCheckout({ appointmentId, serviceName, depositCents, origin, when = '' }) {
   const currency = (getSetting('currency_code', 'usd') || 'usd').toLowerCase();
   const biz = getSetting('business_name', 'Booking');
-  const session = await stripeRequest('/checkout/sessions', {
+  const session = await createSession({
     mode: 'payment',
+    submit_type: 'book',
+    'custom_text[submit][message]': `Your ${money(depositCents)} deposit holds ${serviceName}${when ? ` on ${when}` : ''}. It comes off your total on the day.`,
+    'payment_intent_data[description]': `Deposit · ${serviceName}${when ? ` · ${when}` : ''}`,
+    'payment_intent_data[metadata][appointment_id]': String(appointmentId),
     'line_items[0][price_data][currency]': currency,
     'line_items[0][price_data][unit_amount]': String(depositCents),
     'line_items[0][price_data][product_data][name]': `Booking deposit — ${serviceName}`,
@@ -71,7 +148,7 @@ export async function createDepositCheckout({ appointmentId, serviceName, deposi
  * payment: somebody paying $65 should see the $45 and the $20 that make it up,
  * or the first thing they do is ring and ask what they were charged for.
  */
-export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken, returnPath = '/book' }) {
+export async function createBookingCheckout({ appointmentId, items, origin, currency, idemToken, returnPath = '/book', when = '' }) {
   const cur = String(currency || getSetting('currency_code', 'aud') || 'aud').toLowerCase();
   const biz = getSetting('business_name', 'Booking');
   // Where the customer lands afterwards. Defaults to the booking page, which is
@@ -79,8 +156,13 @@ export async function createBookingCheckout({ appointmentId, items, origin, curr
   // them back to its own page instead, because /book cannot confirm an invite
   // and the money would be taken with no booking made.
   const back = `${origin}${returnPath}${returnPath.includes('?') ? '&' : '?'}`;
+  const what = items.map((it) => it.name).join(' + ');
   const params = {
     mode: 'payment',
+    submit_type: 'book',
+    'custom_text[submit][message]': `Paying now confirms ${what}${when ? ` on ${when}` : ''} with ${biz}.`,
+    'payment_intent_data[description]': `${what}${when ? ` · ${when}` : ''}`,
+    'payment_intent_data[metadata][appointment_id]': String(appointmentId),
     success_url: `${back}paid=success&appt=${appointmentId}&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${back}paid=cancelled&appt=${appointmentId}`,
     'metadata[appointment_id]': String(appointmentId),
@@ -92,8 +174,7 @@ export async function createBookingCheckout({ appointmentId, items, origin, curr
     params[`line_items[${i}][price_data][product_data][description]`] = biz;
     params[`line_items[${i}][quantity]`] = '1';
   });
-  const session = await stripeRequest('/checkout/sessions', params,
-    idemToken ? `kairo-appt-${appointmentId}-${idemToken}` : '');
+  const session = await createSession(params, idemToken ? `kairo-appt-${appointmentId}-${idemToken}` : '');
   return { url: session.url, session_id: session.id, provider: 'stripe' };
 }
 
@@ -134,7 +215,8 @@ export async function createPosCheckout({ invoiceId, items, origin, idemToken })
     cancel_url: `${origin}/pay-done?cancelled=1`,
     'metadata[invoice_id]': String(invoiceId),
     'payment_intent_data[metadata][invoice_id]': String(invoiceId),
-    'payment_intent_data[description]': `POS sale — ${biz}`,
+    'payment_intent_data[description]': `Sale · ${biz}`,
+    'custom_text[submit][message]': `Thank you for visiting ${biz}.`,
   };
   items.forEach((it, i) => {
     params[`line_items[${i}][price_data][currency]`] = currency;
@@ -142,7 +224,7 @@ export async function createPosCheckout({ invoiceId, items, origin, idemToken })
     params[`line_items[${i}][price_data][product_data][name]`] = it.description.slice(0, 120);
     params[`line_items[${i}][quantity]`] = String(it.qty);
   });
-  const session = await stripeRequest('/checkout/sessions', params, `kairo-pos-${idemToken || `inv-${invoiceId}`}`);
+  const session = await createSession(params, `kairo-pos-${idemToken || `inv-${invoiceId}`}`);
   return { url: session.url, session_id: session.id };
 }
 
