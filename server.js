@@ -18,6 +18,7 @@ import { VERSION } from './src/version.js';
 import { isLoginHost, loginHost } from './src/central-login.js';
 import { handleLoginHost } from './src/login-host.js';
 import { appStoreBanner } from './src/app-store.js';
+import { agentEnabled as kaiAgentOn, MODEL as kaiModel } from './src/kai-agent.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -499,6 +500,11 @@ server.listen(PORT, HOST, () => {
       const missing = Object.keys(apnsBits).filter((k) => !apnsSet.includes(k)).join(', ');
       console.log(`    !  Push: HALF SET — ${missing} missing, so it is off and owners fall back to email`);
     } else console.log('    Push: off — owners are told by email instead');
+    // Which Kai owners are talking to. Both work; only one can fill in forms
+    // and look things up, and nothing outside the server shows which it is.
+    console.log(kaiAgentOn()
+      ? `    Kai: the full assistant, on ${kaiModel()}`
+      : '    Kai: the built-in helper only — set KAIRO_ANTHROPIC_API_KEY for the full assistant');
     if (String(process.env.KAIRO_READ_ONLY || '') === '1') console.log('    !  KAIRO_READ_ONLY=1 — every salon is refusing writes');
     console.log('');
     return;
