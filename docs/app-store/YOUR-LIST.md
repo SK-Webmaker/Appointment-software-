@@ -1,6 +1,46 @@
 # Everything that needs you — decisions and actions
 
-*Written 11 September 2026, revised 12 September. Every line below was checked
+## Where things stand — 11 October 2026
+
+Checked today against the live services. Kairo 1.80.0 is live: Hair By Sha,
+Horahaircutz and the demo on the shard, signup and payment on the platform,
+the iPhone app on the App Store, and the website with its guide. Everything
+in the September list further down is done, except what this section names.
+
+**Left for you**
+
+1. **Resend Pro** (US$20 a month) on Kairo's own Resend account, the one that
+   sends as `bookings@kairobookings.com`. The free plan stops at 100 emails a
+   day across every salon together. Nothing in Kairo changes when you upgrade:
+   same account, same key.
+2. **Kai's full assistant** (optional, recommended). The live server reports
+   *"Kai: the built-in helper only"*: Ask Kai works, but only as the built-in
+   shortcuts, not the assistant that looks things up and fills in forms. To
+   switch it on, create an API key at console.anthropic.com and add it in
+   Render → `kairo-shard-au` → Environment as `KAIRO_ANTHROPIC_API_KEY` →
+   Save. Type it into Render yourself, never into a chat. The service backs
+   every salon up and restarts. It runs on Claude Sonnet, capped at 150
+   messages per salon per day (`docs/14-kai-agent.md` has the costs).
+
+**Optional, whenever it suits**
+
+- Stripe's own dashboard branding, ten minutes (`docs/stripe/BRANDING.md`).
+  Payment pages are already branded by Kairo on every payment.
+- `PLATFORM_ABN` and `PLATFORM_GST=1` on `kairo-platform`, once you have an
+  ABN and once you are registered for GST.
+- iPhone app 1.0.2, so the welcome video starts by itself inside the app too;
+  in 1.0.1 it waits for a tap. GitHub → Actions → ios → Run workflow with
+  *ship* ticked, then submit it in App Store Connect.
+- `CLOUDFLARE_API_TOKEN` on `kairo-platform`, only if a salon ever wants to
+  send from its own domain. Every salon sends through the shared sender
+  without it.
+- The suspended `hairbysha-booking` and `horahaircutz-booking` services on
+  Render still hold a 1 GB disk each. Delete them once you are sure you will
+  never want their old data; both salons have run on the shard since.
+
+---
+
+*The September list: written 11 September 2026, revised 12 September. Every line below was checked
 against the live services, the repo and the accounts on the day, not taken from
 memory.*
 
