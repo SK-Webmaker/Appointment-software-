@@ -1,17 +1,23 @@
 // The how-to videos: a still picture until pressed, so nothing downloads unless
-// somebody wants it, then the video itself with its own controls.
+// somebody wants it, then the video itself with its own controls. Both are
+// narrated (an Australian voice, with quiet music under it); pressing play is
+// a tap, so they start with the sound on. Captions are there for anyone who
+// turns them on, and the welcome video shows them while it plays muted.
 //
 // Served from /videos in byte ranges (server.js), which is what lets an iPhone
 // play them at all.
 import { esc, icon } from './ui.js';
 
 export const VIDEOS = {
-  welcome: { src: '/videos/kairo-welcome', poster: '/videos/kairo-welcome.jpg', title: 'Welcome to Kairo', length: '30 sec' },
+  welcome: { src: '/videos/kairo-welcome', poster: '/videos/kairo-welcome.jpg', title: 'Welcome to Kairo', length: '48 sec' },
   sms: { src: '/videos/kairo-sms-setup', poster: '/videos/kairo-sms-setup.jpg', title: 'Text reminders, step by step', length: '1 min' },
 };
 
 /** MP4 first, which every Apple device plays; WebM for browsers without H.264. */
 export const sources = (src) => `<source src="${esc(src)}.mp4" type="video/mp4"><source src="${esc(src)}.webm" type="video/webm">`;
+
+/** What is said, as captions (the .vtt beside each video). */
+export const captions = (src, { on = false } = {}) => `<track kind="captions" src="${esc(src)}.vtt" srclang="en" label="English"${on ? ' default' : ''}>`;
 
 /** A poster with a play button, and words beside it. */
 export function videoCard(key, { id = `vid-${key}`, title = '', sub = '', cls = '' } = {}) {
@@ -35,7 +41,7 @@ export function playVideo(box) {
   const v = VIDEOS[box?.dataset.video];
   if (!v) return;
   box.classList.add('playing');
-  box.innerHTML = `<video poster="${esc(v.poster)}" controls playsinline autoplay preload="auto">${sources(v.src)}</video>`;
+  box.innerHTML = `<video poster="${esc(v.poster)}" controls playsinline autoplay preload="auto">${sources(v.src)}${captions(v.src)}</video>`;
   box.querySelector('video')?.play?.().catch(() => { /* the controls are there to press */ });
 }
 

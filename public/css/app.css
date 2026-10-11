@@ -3801,6 +3801,16 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
   background: rgba(4, 8, 15, 0.78); color: #e8edf6; font-size: 11.5px; font-weight: 600; transition: opacity var(--dur-enter);
 }
 .wz-intro.playing .wz-intro-play, .wz-intro.playing .wz-intro-len { opacity: 0; pointer-events: none; }
+.wz-intro-sound {
+  position: absolute; top: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px 6px 9px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(4, 8, 15, 0.72); color: #e8edf6; font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); cursor: pointer;
+  transition: background var(--dur-state) var(--ease-out), border-color var(--dur-state);
+}
+.wz-intro-sound:hover { background: rgba(4, 8, 15, 0.88); border-color: rgba(255, 255, 255, 0.3); }
+.wz-intro-sound[hidden] { display: none; }
+.wz-intro video::cue { background: rgba(4, 8, 15, 0.74); color: #f4f7fb; font-family: Inter, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.35; }
 .wz-hero-mark { display: grid; place-items: center; margin: 4px auto 14px; }
 .wz-hero-mark svg { width: 64px; height: 64px; animation: wzFloat 4s ease-in-out infinite; }
 @keyframes wzFloat { 50% { transform: translateY(-5px); } }

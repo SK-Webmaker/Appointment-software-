@@ -1387,6 +1387,17 @@ const MUTATIONS = {
     find: '* (CASE WHEN i.tax_inclusive = 1 THEN 1 ELSE 1 + i.tax_rate / 100 END)) AS INTEGER)',
     replace: '* (1 + i.tax_rate / 100)) AS INTEGER)',
   },
+  // ── The narrated videos ───────────────────────────────────────────────────
+  'pressed-video-without-captions': {
+    file: 'public/js/video.js', suites: ['videos'],
+    find: '${sources(v.src)}${captions(v.src)}</video>',
+    replace: '${sources(v.src)}</video>',
+  },
+  'welcome-video-autoplays-loud': {
+    file: 'public/js/wizard.js', suites: ['videos'],
+    find: '<video poster="/videos/kairo-welcome.jpg" muted playsinline preload="metadata"',
+    replace: '<video poster="/videos/kairo-welcome.jpg" playsinline preload="metadata"',
+  },
   'receipt-hides-included-gst': {
     file: 'src/notify.js', suites: ['billing', 'stripe-branding'],
     find: "      ...(t.tax_cents ? [[`Includes ${taxLabel(t.tax_rate)}`, money(t.tax_cents)]] : []),\n",
@@ -1395,8 +1406,14 @@ const MUTATIONS = {
 };
 
 const only = process.argv.slice(2);
-const names = only.length ? only : Object.keys(MUTATIONS);
-for (const n of names) if (!MUTATIONS[n]) { console.error(`unknown mutation: ${n}`); process.exit(2); }
+const all = only.length ? only : Object.keys(MUTATIONS);
+for (const n of all) if (!MUTATIONS[n]) { console.error(`unknown mutation: ${n}`); process.exit(2); }
+// FALSIFY_SHARD=2/4 runs every fourth mutation starting at the second, so CI
+// can split the work across parallel jobs. Each shard still checks that every
+// mutation matches the code (below), so a stale one fails all of them.
+const shard = /^(\d+)\/(\d+)$/.exec(process.env.FALSIFY_SHARD || '');
+const names = shard ? all.filter((_, i) => i % Number(shard[2]) === Number(shard[1]) - 1) : all;
+if (shard && !(Number(shard[1]) >= 1 && Number(shard[1]) <= Number(shard[2]))) { console.error(`bad FALSIFY_SHARD: ${process.env.FALSIFY_SHARD}`); process.exit(2); }
 
 const SKIP = new Set(['.git', 'data', 'node_modules', 'docs', 'scratchpad', 'audit']);
 function copyRepo() {
@@ -1420,7 +1437,7 @@ function copyRepo() {
  * rather than one per run, and nothing is executed until they are fixed.
  */
 const stale = [];
-for (const name of names) {
+for (const name of all) {
   const m = MUTATIONS[name];
   const src = fs.readFileSync(path.join(ROOT, m.file), 'utf8');
   const count = src.split(m.find).length - 1;

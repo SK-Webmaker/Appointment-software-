@@ -60,6 +60,43 @@ test('a video is served in byte ranges, the way Safari asks for it', async () =>
   assert.equal(Number(whole.headers.get('content-length')), size);
 });
 
+test('both videos speak, and say it in captions too, timed inside the video', async () => {
+  const { plan } = await import('../tools/videos/stage/narration.js');
+  for (const [name, key] of [['kairo-welcome', 'welcome'], ['kairo-sms-setup', 'sms']]) {
+    const mp4 = fs.readFileSync(path.join(VIDEO_DIR, `${name}.mp4`));
+    assert.ok(mp4.includes('mp4a'), `${name}.mp4 has an AAC soundtrack`);
+    assert.ok(fs.readFileSync(path.join(VIDEO_DIR, `${name}.webm`)).includes('A_OPUS'), `${name}.webm has an Opus soundtrack`);
+    const vtt = fs.readFileSync(path.join(VIDEO_DIR, `${name}.vtt`), 'utf8');
+    assert.match(vtt, /^WEBVTT\n/);
+    const p = plan(key);
+    const cues = [...vtt.matchAll(/(\d\d):(\d\d):(\d\d)\.(\d{3}) --> (\d\d):(\d\d):(\d\d)\.(\d{3})\n(.+)/g)];
+    assert.equal(cues.length, p.cues.length, `${name}: one caption per line of the plan`);
+    let last = 0;
+    for (const c of cues) {
+      const t = (i) => Number(c[i]) * 3600 + Number(c[i + 1]) * 60 + Number(c[i + 2]) + Number(c[i + 3]) / 1000;
+      assert.ok(t(1) >= last - 1e-6 && t(5) > t(1), `${name}: captions in order, never overlapping (${c[9]})`);
+      assert.ok(t(5) <= p.duration + 0.01, `${name}: every caption ends inside the video`);
+      last = t(5);
+    }
+    assert.ok(vtt.includes('Kairo') && !vtt.includes('Cairo'), `${name}: the captions spell the name right`);
+  }
+  const r = await get('/videos/kairo-welcome.vtt');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /^text\/vtt/);
+  await r.arrayBuffer();
+});
+
+test('the welcome video starts silent with captions, and Sound on starts it again with the voice', () => {
+  const wiz = read('public/js/wizard.js');
+  assert.match(wiz, /<video[^>]*\bmuted\b/, 'a browser only starts a silent video by itself');
+  assert.match(wiz, /<track kind="captions" src="\/videos\/kairo-welcome\.vtt"/);
+  assert.match(wiz, /Sound on/);
+  assert.match(wiz, /v\.currentTime = 0; play\(true\)/, 'sound on starts from the top');
+  const vid = read('public/js/video.js');
+  assert.match(vid, /\$\{captions\(v\.src\)\}/, 'every pressed video carries its captions');
+  assert.doesNotMatch(vid.match(/export function playVideo[\s\S]*?\n\}/)[0], /muted/, 'pressing play is a tap, so it starts with sound');
+});
+
 test('the stills are served as pictures, and a missing video is a 404', async () => {
   const jpg = await get('/videos/kairo-welcome.jpg');
   assert.equal(jpg.status, 200);

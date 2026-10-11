@@ -32,16 +32,24 @@ jobs:
       # No install step: Kairo has no dependencies, and the tests use node:test.
       - run: npm test
 
+  # The same thing happened again in October: 236 mutations took longer than
+  # the hour this job had, and 1.78.0 and 1.79.0 were both cancelled. Raising
+  # the limit only moves the cliff, so the mutations are now split four ways
+  # and run side by side; each quarter takes about fifteen minutes. A stale
+  # mutation still fails every shard, because each one checks them all first.
   mutations:
-    name: mutations
+    name: mutations (${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
-    # Deliberately generous. This job breaks the code on purpose 119 times and
-    # runs a suite against each one; it is minutes of work, not seconds, and
-    # the failure mode being avoided is a timeout masquerading as a result.
-    timeout-minutes: 60
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm run test:falsify
+        env:
+          FALSIFY_SHARD: ${{ matrix.shard }}/4

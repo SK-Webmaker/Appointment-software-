@@ -201,7 +201,8 @@
 <div id="o-help" class="abs center t-sm" style="top:530px">Need a hand? Tap <b style="color:#dbe3ef">Help</b> in Kairo, or email <b style="color:#dbe3ef">support@kairobookings.com</b></div>
 
 <script type="module">
-import { anim, show, track, seek } from './engine.js';
+import { anim, show, track, seek, warp } from './engine.js';
+import { plan } from './narration.js';
 const MARK = (size, id) => `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none"><defs><linearGradient id="${id}" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse"><stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs><path d="M13.75 10.5V37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6L33.6 37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><circle cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/></svg>`;
 document.getElementById('i-mark').innerHTML = MARK(72, 'm1');
 document.getElementById('o-mark').innerHTML = MARK(64, 'm2');
@@ -366,6 +367,8 @@ show('#o-ticks', 55.5, null, { rise: 14, d: 0.8 });
 show('#o-help', 56.3, null, { rise: 10, d: 0.7 });
 
 window.DURATION = 61;
+// Each scene stretched to fit what is said over it (narration.js).
+warp(plan('sms').warp);
 window.ready = Promise.all([...document.images].map((i) => i.decode().catch(() => null))).then(() => document.fonts.ready);
 seek(0);
 </script>

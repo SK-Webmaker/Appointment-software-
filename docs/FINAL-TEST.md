@@ -40,8 +40,10 @@ before, from the website to a refund, with real money (A$5).
 ## B. Set it up as the owner (10 min)
 
 6. Go to **login.kairobookings.com** and sign in. The setup journey opens.
-   - ✔ A 30-second welcome video plays by itself, silently, at the top: what
-     Kairo does, what is already switched on, and that texts come later.
+   - ✔ A 48-second welcome video starts by itself at the top, silently, with
+     captions. Press **Sound on**: it starts again from the top with a
+     friendly Australian voice and quiet music. It shows what Kairo does,
+     what is already switched on, and that texts come later.
    - ✔ It greets you by your first name, and "Final Test Salon" is already
      filled in.
    - ✔ Pick a business type: it drafts a menu and moves on by itself.
@@ -60,7 +62,8 @@ before, from the website to a refund, with real money (A$5).
 8. Texts, as a new owner would: on the dashboard press **Set up texts** (or
    Settings → Messages → **Set up text messages**). Watch the one-minute video
    at the top first, then follow the four steps with your own ClickSend account.
-   - ✔ The video plays on the iPhone too (Settings → Messages, or Help).
+   - ✔ It is narrated, step by step, with the sound on from the first press.
+   - ✔ The video plays on the iPhone too, with sound (Settings → Messages, or Help).
    - ✔ It says "Connected" and shows your credit.
    - ✔ The last step sends a real text to your phone and says texts are on.
    - ✔ In step 9 the client's mobile gets the booking confirmation by text too.

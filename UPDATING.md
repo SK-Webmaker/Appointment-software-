@@ -154,23 +154,26 @@ Three consequences, and they are not negotiable:
 ## Before you deploy
 
 CI runs `npm test` and `npm run test:falsify` on every push
-(`.github/workflows/test.yml`), as two separate jobs — **tests** and
-**mutations**. **Check both are green for the commit you are about to deploy**
-— not for the branch, for the commit. That is the gate, and it is free.
+(`.github/workflows/test.yml`): one **tests** job, and the mutations split
+across four **mutations (1/4 … 4/4)** jobs that run side by side. **Check all
+five are green for the commit you are about to deploy** — not for the branch,
+for the commit. That is the gate, and it is free.
 
 > **A cancelled run is not a pass.** On 15 September nine consecutive runs were
 > found cancelled at exactly thirty minutes, the shard's own deployed commit
 > among them: the two commands shared one 30-minute budget and the falsifier had
 > grown past it. A cancelled run is neither green nor red, and it had been read
-> as "not red" for two days. If a run shows anything other than a green tick on
-> both jobs, treat the gate as unavailable and run the two commands locally
-> before deploying.
+> as "not red" for two days. It happened again in October, when 236 mutations
+> outgrew the mutations job's hour; that is why they are now split four ways.
+> If a run shows anything other than a green tick on every job, treat the gate
+> as unavailable and run the two commands locally before deploying.
 
 Locally, the same two commands:
 
 ```
-npm test              # 283 checks
-npm run test:falsify  # 127 deliberate breakages, all of which must be caught
+npm test              # 518 checks
+npm run test:falsify  # 236 deliberate breakages, all of which must be caught
+FALSIFY_SHARD=2/4 npm run test:falsify   # one quarter of them, as CI does
 ```
 
 > **A red mutations job is not always a surviving mutation.** On 16 September it

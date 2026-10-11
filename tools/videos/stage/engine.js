@@ -47,5 +47,22 @@ export function show(el, t0, t1, { d = 0.45, rise = 0, out = 0, s0 = 1, blur = 0
   if (t1 != null) k.push([t1 - d, { o: 1, y: 0, s: 1, b: 0 }], [t1, { o: 0, y: -out, s: 1, b: blur ? blur / 2 : 0 }, 'in']);
   anim(el, k);
 }
-export function seek(t) { for (const tr of tracks) tr.apply(tr.el, at(tr.keys, t)); }
+
+// A scene can be slowed to fit its narration without rewriting its keyframes:
+// warp([[renderedT, authoredT], ...]) maps the rendered timeline onto the one
+// the keyframes were written for.
+let WARP = null;
+export function warp(points) { WARP = points; window.DURATION = points[points.length - 1][0]; }
+function unwarp(t) {
+  if (!WARP) return t;
+  if (t <= WARP[0][0]) return WARP[0][1];
+  for (let i = 1; i < WARP.length; i++) {
+    const [n1, o1] = WARP[i];
+    const [n0, o0] = WARP[i - 1];
+    if (t <= n1) return n1 === n0 ? o1 : o0 + (o1 - o0) * ((t - n0) / (n1 - n0));
+  }
+  const [nl, ol] = WARP[WARP.length - 1];
+  return ol + (t - nl);
+}
+export function seek(t) { const u = unwarp(t); for (const tr of tracks) tr.apply(tr.el, at(tr.keys, u)); }
 window.seek = seek;

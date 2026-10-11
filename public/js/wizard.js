@@ -260,10 +260,12 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
   const introVideo = () => `
       <div class="wz-intro ${firstRun && !introSeen && !still() ? 'autoplay' : ''}" id="wz-intro">
         <video poster="/videos/kairo-welcome.jpg" muted playsinline preload="metadata"
-          aria-label="Welcome to Kairo — a 30-second video of what Kairo does and what is already switched on">
-          <source src="/videos/kairo-welcome.mp4" type="video/mp4"><source src="/videos/kairo-welcome.webm" type="video/webm"></video>
-        <button type="button" class="wz-intro-play" aria-label="Play the welcome video">${icon('play', 20)}</button>
-        <span class="wz-intro-len">30 sec</span>
+          aria-label="Welcome to Kairo — a 48-second narrated tour of what Kairo does and what is already switched on">
+          <source src="/videos/kairo-welcome.mp4" type="video/mp4"><source src="/videos/kairo-welcome.webm" type="video/webm">
+          <track kind="captions" src="/videos/kairo-welcome.vtt" srclang="en" label="English" default></video>
+        <button type="button" class="wz-intro-play" aria-label="Play the welcome video, with sound">${icon('play', 20)}</button>
+        <button type="button" class="wz-intro-sound" hidden></button>
+        <span class="wz-intro-len">48 sec</span>
       </div>`;
 
   const views = {
@@ -691,19 +693,41 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       </div>`;
   }
 
+  // The welcome video. A browser only starts a video by itself if it is
+  // silent, so it begins muted with its captions showing and a "Sound on"
+  // button, which starts it again from the top with the voice. Pressing play
+  // is a tap, so that starts it with the sound on straight away.
   function wireIntro() {
     const box = overlay.querySelector('#wz-intro');
     const v = box?.querySelector('video');
     if (!v) return;
-    const play = () => {
-      box.classList.add('playing');
-      v.play().then(() => { introSeen = true; }).catch(() => box.classList.remove('playing'));
+    const sound = box.querySelector('.wz-intro-sound');
+    const paint = () => {
+      sound.hidden = !box.classList.contains('playing');
+      sound.innerHTML = v.muted ? `${icon('volumeOff', 15)}<span>Sound on</span>` : `${icon('volume', 15)}<span>Sound off</span>`;
+      sound.setAttribute('aria-label', v.muted ? 'Turn the sound on and start again' : 'Turn the sound off');
+      const cc = v.textTracks?.[0];
+      if (cc) cc.mode = v.muted ? 'showing' : 'hidden';
     };
-    box.querySelector('.wz-intro-play').addEventListener('click', () => { v.currentTime = 0; play(); });
-    v.addEventListener('click', () => { if (!v.paused) v.pause(); else play(); });
-    v.addEventListener('pause', () => box.classList.remove('playing'));
-    v.addEventListener('ended', () => { box.classList.remove('playing'); box.classList.add('ended'); });
-    if (box.classList.contains('autoplay')) play();
+    const play = (withSound) => {
+      if (withSound) v.muted = false;
+      box.classList.add('playing');
+      v.play().then(() => { introSeen = true; paint(); }).catch(() => {
+        // Refused with sound (no tap behind it): play it silently instead.
+        if (!v.muted) { v.muted = true; play(false); return; }
+        box.classList.remove('playing'); paint();
+      });
+    };
+    box.querySelector('.wz-intro-play').addEventListener('click', () => { v.currentTime = 0; play(true); });
+    sound.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (v.muted) { v.currentTime = 0; play(true); } else { v.muted = true; paint(); }
+    });
+    v.addEventListener('click', () => { if (!v.paused) v.pause(); else play(!v.muted); });
+    v.addEventListener('pause', () => { box.classList.remove('playing'); paint(); });
+    v.addEventListener('ended', () => { box.classList.remove('playing'); box.classList.add('ended'); paint(); });
+    paint();
+    if (box.classList.contains('autoplay')) play(false);
   }
 
   /** Swap the stage to the current step, sliding in the direction of travel. */
