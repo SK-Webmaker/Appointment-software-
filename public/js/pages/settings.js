@@ -5,6 +5,7 @@ import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, o
 import { refreshKaiStatus } from '../kai-chat.js';
 import { state, refreshLookups } from '../app.js';
 import { openSmsSetup } from './sms-setup.js';
+import { videoCard, wireVideos } from '../video.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
 import { mountSmsCredit } from '../sms-credit.js';
@@ -196,6 +197,21 @@ export async function renderSettings(container, params) {
   // yet, which is not a business handing anybody a link.
   const onLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
   const rawLink = s.public_url_is_raw === '1' && !(onLocalhost && !s.public_url_effective);
+
+  // Texts: are they set up, and are they on? Until they are set up, the card
+  // is the guided setup and its video; the switch and the raw keys are folded
+  // away, because an owner who has never heard of ClickSend needs one button.
+  const keyIn = (k) => s[k] === '1' || s[k] === true;
+  const smsReady = s.sms_provider === 'telnyx' ? keyIn('telnyx_api_key_set')
+    : s.sms_provider === 'twilio' ? keyIn('twilio_token_set')
+      : Boolean(s.clicksend_username) && keyIn('clicksend_api_key_set');
+  const smsLive = smsReady && s.sms_notifications_enabled === '1';
+  const smsVideoCard = () => videoCard('sms', { id: 'sms-video', title: 'Watch it done first', sub: 'One minute, on the real ClickSend pages.' });
+  const smsSwitch = `
+          <label class="opt-out sms-switch">
+            <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} class="chk">
+            <span><b>Send texts</b><span>Off stops every text straight away; emails carry on.</span></span>
+          </label>`;
 
   // Hour options for the calendar view window ('' = auto).
   const calHourOpts = (cur, autoLabel, isEnd = false) => {
@@ -576,7 +592,7 @@ export async function renderSettings(container, params) {
             ${notifRow('reminders_enabled', 'chan_reminder', 'Appointment reminders', 'Sent a set number of hours before the visit.')}
             ${notifRow('receipts_enabled', 'chan_receipt', 'Payment receipts', 'Sent the moment a payment or deposit is recorded.')}
             ${notifRow('review_requests_enabled', 'chan_review_request', 'Review requests', 'Sent after a visit is marked Completed.')}
-            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>SMS only sends once you turn SMS on</b> in the SMS card. Until then everything goes by email, so nothing is billed by accident.</div>
+            <div class="hint" style="margin-top:8px">Choose Email, SMS, or both for each. <b>Texts only go out once they're set up</b> in the Text messages card. Until then everything goes by email, so nothing is billed by accident.</div>
           </div>
           <label style="display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text-2);cursor:pointer;margin-top:4px">
             <input type="checkbox" name="owner_notify_enabled" ${s.owner_notify_enabled === '1' ? 'checked' : ''} class="chk">
@@ -669,21 +685,39 @@ export async function renderSettings(container, params) {
       </div>` : ''}
 
       <div class="card" data-sec="sms">
-        <div class="card-title">SMS (text messages)</div>
+        <div class="card-title">Text messages</div>
+        ${smsReady ? `
         <!-- Credit is prepaid: when it runs out, texts simply stop. The number
              lives here, next to the switch that spends it. -->
         <div id="sms-credit" class="sms-credit is-loading">
           <div class="sc-main"><span class="sc-amount">·····</span>
             <span class="sc-sub">checking your ClickSend balance…</span></div>
+        </div>` : ''}
+        <div class="card-sub" style="margin-bottom:16px">${smsLive
+    ? `Texts are <b>on</b>. The messages set to <b>SMS</b> or <b>Email + SMS</b> above go by text as
+          well. You pay ClickSend directly, a few cents a text — Kairo adds nothing.`
+    : `Reminders by <b>text</b> as well as email — the surest way to stop no-shows. Texts go through
+          your own ClickSend account: you pay them a few cents a text and Kairo adds nothing. Off until
+          you set it up, so nothing is ever billed by accident.`}</div>
+        <!-- The guided path, first and on its own. An owner who has never heard
+             of ClickSend should never have to guess where a username and an API
+             key come from — or find out three weeks later, from a client, that
+             no reminder ever arrived. -->
+        <div class="sms-start">
+          ${smsLive ? '' : smsVideoCard()}
+          <div class="sms-start-go">
+            <button type="button" class="btn primary ss-launch" id="sms-guided">
+              ${icon('send', 14)} ${smsLive && s.clicksend_api_key_set ? 'Change text messages' : 'Set up text messages'}</button>
+            <span class="hint">${smsLive ? 'Change what is texted, or send another test.'
+    : 'Four steps, about five minutes. Texts switch on at the end, once a test reaches your phone.'}</span>
+          </div>
         </div>
-        <div class="card-sub" style="margin-bottom:16px">This is the master switch for SMS. Turn it on and the types you set to
-          <b>SMS</b> or <b>Email + SMS</b> above will text as well. SMS costs money per message (there's no free option), so
-          it's <b>off by default</b>, so nothing is billed unless you turn it on. You're billed by the provider directly, no markup.</div>
-        <form id="set-sms" style="display:flex;flex-direction:column;gap:13px">
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer">
-            <input type="checkbox" name="sms_notifications_enabled" ${s.sms_notifications_enabled === '1' ? 'checked' : ''} class="chk">
-            <span><b>Turn SMS on</b>, activating the SMS and Email + SMS choices set per notification type above</span>
-          </label>
+        <form id="set-sms" style="display:flex;flex-direction:column;gap:13px;margin-top:16px">
+          ${smsReady ? smsSwitch : ''}
+          <details class="ss-manual sms-advanced">
+            <summary>${smsReady ? 'Advanced: provider, keys and sender name' : 'Advanced: enter the details yourself, or use another provider'}</summary>
+            <div style="display:flex;flex-direction:column;gap:13px">
+          ${smsReady ? '' : smsSwitch}
           <div class="field"><label>SMS provider</label>
             <select name="sms_provider" id="sms-provider">
               <option value="clicksend" ${(s.sms_provider || 'clicksend') === 'clicksend' ? 'selected' : ''}>ClickSend · simplest setup, great for Australia</option>
@@ -694,25 +728,12 @@ export async function renderSettings(container, params) {
           </div>
 
           <div class="sms-fields" data-provider="clicksend">
-            <!-- The guided path. The raw fields below still work and stay for
-                 anyone who already knows what they're pasting, but an owner who
-                 has never heard of ClickSend should never have to guess where a
-                 username and an API key come from - or find out three weeks
-                 later, from a client, that no reminder ever arrived. -->
-            <button type="button" class="btn primary ss-launch" id="sms-guided">
-              ${icon('send', 14)} ${s.sms_notifications_enabled === '1' && s.clicksend_api_key_set ? 'Change text messages' : 'Set up text messages'}</button>
-            <div class="hint" style="margin:-4px 0 4px">About five minutes, and Kairo walks you through
-              it: open a ClickSend account, paste two things, and send yourself a test. Texts switch on
-              at the end.</div>
-            <details class="ss-manual">
-              <summary>Or enter the details yourself</summary>
             <div class="form-grid">
               <div class="field"><label>ClickSend username</label>
                 <input name="clicksend_username" value="${esc(s.clicksend_username || '')}" placeholder="your ClickSend login" autocomplete="off"></div>
               <div class="field"><label>ClickSend API key${keySaved(s.clicksend_api_key_set)}</label>
                 <input name="clicksend_api_key" type="password" value="" placeholder="${keyPlaceholder(s.clicksend_api_key_set, 'from ClickSend dashboard')}" autocomplete="off"></div>
             </div>
-            </details>
             <div class="field"><label>Sender name or number (optional)</label>
               <input name="clicksend_from" value="${esc(s.clicksend_from || '')}" placeholder="e.g. LuxeHair (business name) or +61…">
               <div class="hint">Two ways to do this. A <b>business-name sender</b> ("LuxeHair") looks best but needs a
@@ -756,12 +777,16 @@ export async function renderSettings(container, params) {
           </div>
 
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save SMS settings</button>
+            </div>
+          </details>
+          ${smsReady ? `<button class="btn" style="align-self:flex-start">${icon('check')} Save</button>` : ''}
         </form>
 
         <!-- The login for topping up credit on ClickSend's own site. Kept
              here, by the balance, because it is needed every few months and
-             forgotten in between. Its own form, never part of the one above. -->
-        <form class="cs-login" id="cs-login" autocomplete="off">
+             forgotten in between. Its own form, never part of the one above.
+             Only once ClickSend is connected: before that there is no login. -->
+        ${smsReady ? `<form class="cs-login" id="cs-login" autocomplete="off">
           <div class="cs-login-head">${icon('lock', 15)} <b>Your ClickSend login</b></div>
           <div class="hint">For topping up credit on the ClickSend website. Save it here so you don't have to
             remember it — only the business owner can see it, and Kairo never uses it to sign in anywhere.</div>
@@ -780,7 +805,7 @@ export async function renderSettings(container, params) {
             <a class="btn" href="https://dashboard.clicksend.com/" target="_blank" rel="noreferrer">${icon('external', 14)} Top up on ClickSend</a>
             <span class="hint" id="cs-login-state"></span>
           </div>
-        </form>
+        </form>` : ''}
       </div>
 
       <div class="card" data-sec="poscard">
@@ -1110,6 +1135,7 @@ export async function renderSettings(container, params) {
     const field = container.querySelector('#summary-hour-field');
     if (field) field.hidden = !e.target.checked;
   });
+  wireVideos(container);
   container.querySelector('#sms-guided')?.addEventListener('click', () => {
     openSmsSetup({ onDone: () => renderSettings(container, params) });
   });
@@ -1322,8 +1348,8 @@ export async function renderSettings(container, params) {
   if (autoEl) mountAutomations(autoEl, api);
 
   const creditEl = container.querySelector('#sms-credit');
-  const loadCredit = (refresh = false) => mountSmsCredit(creditEl, api, { refresh });
-  creditEl.addEventListener('click', (e) => {
+  const loadCredit = (refresh = false) => creditEl && mountSmsCredit(creditEl, api, { refresh });
+  creditEl?.addEventListener('click', (e) => {
     if (e.target.closest('[data-credit-refresh]')) loadCredit(true);
   });
   loadCredit();

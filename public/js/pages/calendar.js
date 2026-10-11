@@ -316,7 +316,7 @@ function apptHtml(a, showStaff = false) {
   return `
     <div class="appt s-${esc(a.status)}${notes ? ' has-note' : ''}" data-appt="${a.id}" tabindex="0" title="${esc(title)}"
       style="--c:${esc(color)};top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${width}% - 5px)">
-      ${tiny ? '' : `<div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · ⚡ online' : ''}${a.deposit_status === 'paid' ? ' · 💳 deposit' : ''}</div>`}
+      ${tiny ? '' : `<div class="a-time">${fmtTimeShort(a.start_min)} – ${fmtTime(a.end_min)}${a.source === 'online' ? ' · online' : ''}${a.deposit_status === 'paid' ? ' · deposit paid' : ''}</div>`}
       <div class="a-client">${esc(a.client_name || 'Walk-in')}${notes ? `<span class="a-noteflag" aria-label="Has client notes">${icon('note', 12)}</span>` : ''}</div>
       ${compact ? '' : `<div class="a-service">${esc(a.services_summary || a.service_name || '')}${showStaff && a.staff_name ? ` · ${esc(a.staff_name)}` : ''}</div>`}
       ${notes && roomy ? `<div class="a-note">${icon('note', 11)}<span>${esc(notes)}</span></div>` : ''}
@@ -725,7 +725,7 @@ export async function openAppointmentModal({
             `<option value="${s}" ${(a?.status || 'booked') === s ? 'selected' : ''}>${{ booked: 'Booked', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', no_show: 'No-show' }[s]}</option>`).join('')}</select></div>
         <div class="field span2"><label>Notes</label><textarea name="notes" placeholder="Anything the team should know…">${esc(a?.notes || '')}</textarea>
           <div class="hint">Saved to this booking and added to the client's record, dated, so it comes up next time.</div></div>
-        ${a?.deposit_status ? `<div class="span2 cell-sub">💳 Online deposit ${a.deposit_status === 'paid'
+        ${a?.deposit_status ? `<div class="span2 cell-sub">Online deposit ${a.deposit_status === 'paid'
           ? `<b style="color:var(--green)">${money(a.deposit_cents)} paid</b>, credited automatically at checkout`
           : '<b style="color:var(--amber)">pending</b>. The client started but didn\'t finish the deposit payment'}</div>` : ''}
       </form>`,

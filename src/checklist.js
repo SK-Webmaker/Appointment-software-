@@ -55,7 +55,7 @@ export function checklist() {
   items.push({
     id: 'texts',
     title: 'Text reminders',
-    why: 'Optional, and the best cure for no-shows. About five minutes. Texts go through your own ClickSend account — a few cents each, and Kairo adds nothing.',
+    why: 'Optional, and the best cure for no-shows. About five minutes, with a one-minute video that shows every step. Texts go through your own ClickSend account — a few cents each, and Kairo adds nothing.',
     required: false,
     done: smsReady,
     action: { label: 'Set up texts', hash: '#/settings?open=sms&setup=texts' },

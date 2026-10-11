@@ -81,9 +81,46 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.csv': 'text/csv; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.vtt': 'text/vtt; charset=utf-8',
 };
 
-function serveStatic(res, urlPath) {
+// The how-to videos. Served in byte ranges, because Safari — and so every
+// iPhone — will not play a video whose server cannot answer "bytes=0-1":
+// it asks for a range first and gives up on a plain 200.
+function serveVideo(req, res, filePath) {
+  fs.stat(filePath, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404); res.end('Not found'); return; }
+    const size = st.size;
+    const head = {
+      'Content-Type': MIME[path.extname(filePath).toLowerCase()],
+      'Accept-Ranges': 'bytes',
+      'Cache-Control': 'public, max-age=86400',
+    };
+    const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
+    if (!m || (m[1] === '' && m[2] === '')) {
+      res.writeHead(200, { ...head, 'Content-Length': size });
+      if (req.method === 'HEAD') { res.end(); return; }
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+    // "bytes=-500" is the last 500 bytes; "bytes=500-" is from 500 to the end.
+    let start = m[1] === '' ? Math.max(0, size - Number(m[2])) : Number(m[1]);
+    let end = m[1] === '' || m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+    if (start > end || start >= size) {
+      res.writeHead(416, { ...head, 'Content-Range': `bytes */${size}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, { ...head, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+    if (req.method === 'HEAD') { res.end(); return; }
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+  });
+}
+
+function serveStatic(res, urlPath, req = null) {
   let rel = urlPath === '/' ? '/index.html' : urlPath;
   if (rel === '/book') rel = '/book.html';
   if (rel === '/pay-done') rel = '/paydone.html'; // Stripe Checkout return page (POS sales)
@@ -101,6 +138,7 @@ function serveStatic(res, urlPath) {
   if (filePath !== PUBLIC_DIR && !filePath.startsWith(PUBLIC_DIR + path.sep)) {
     res.writeHead(403); res.end('Forbidden'); return;
   }
+  if (req && ['.mp4', '.webm'].includes(path.extname(filePath).toLowerCase())) { serveVideo(req, res, filePath); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) {
       // SPA fallback: hash-routed app, so any unknown path renders the shell.
@@ -365,7 +403,7 @@ async function handle(req, res, url, tenant) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405); res.end('Method not allowed'); return;
   }
-  serveStatic(res, url.pathname);
+  serveStatic(res, url.pathname, req);
 }
 
 // Universal links: a booking link tapped in Messages or Mail opens the app if

@@ -1,5 +1,5 @@
 // Public booking flow: service → staff → date & time → details → confirmed.
-import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate } from './ui.js';
+import { esc, icon, money, priceLabel, fmtTime, fmtDate, setCurrency, todayStr, addDaysStr, parseDate, kairoMark } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 import { lockZoom } from './nozoom.js';
 
@@ -342,7 +342,7 @@ function applyBrand(brand) {
 }
 
 function poweredHtml() {
-  return '<div class="powered">Powered by <b>◆ Kairo</b></div>';
+  return `<div class="powered">Powered by <b>${kairoMark(13, 'pw')} Kairo</b></div>`;
 }
 
 // --- Turnstile -------------------------------------------------------------
@@ -1731,7 +1731,7 @@ function renderConfirmed(res, { depositPaid = false, depositCents: paidCents = 0
         <div style="text-align:center">
           <b>${esc(res.service)}</b> with ${esc(res.staff)}<br>
           <span style="color:var(--text-2)">${fmtDate(res.date)} · ${fmtTime(res.start_min)} – ${fmtTime(res.end_min)}</span>
-          ${depositPaid ? `<br><span style="color:var(--green);font-weight:600">💳 ${money(paidCents)} deposit paid</span>` : ''}
+          ${depositPaid ? `<br><span style="color:var(--green);font-weight:600">${money(paidCents)} deposit paid</span>` : ''}
         </div>
       </div>
       ${res.patch_appointment ? `

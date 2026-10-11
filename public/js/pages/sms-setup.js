@@ -19,11 +19,11 @@
 import { api } from '../api.js';
 import { esc, icon, openModal, toast } from '../ui.js';
 import { state } from '../app.js';
+import { videoCard, wireVideos } from '../video.js';
 
 const CLICKSEND_SIGNUP = 'https://dashboard.clicksend.com/signup';
 const CLICKSEND_KEYS = 'https://dashboard.clicksend.com/account/subaccounts';
 const CLICKSEND_TOPUP = 'https://dashboard.clicksend.com/account/billing-recharge/top-up-account';
-
 /** The messages a salon can also send by text, in the order an owner cares. */
 const KINDS = [
   ['reminder', 'Appointment reminders', 'The one that stops no-shows.', true],
@@ -68,23 +68,32 @@ export async function openSmsSetup({ onDone = null } = {}) {
     title: 'Text your clients',
     wide: true,
     body: `
-      <p class="ss-lede">Clients get their reminders by <b>text</b> as well as email. It's the best way
-        to stop no-shows. Texts go through <b>ClickSend</b>, an Australian company. You pay them
-        directly, a few cents a text, and Kairo adds nothing. <b>About five minutes.</b></p>
+      <p class="ss-lede">Send reminders by <b>text</b> as well as email — the surest way to stop
+        no-shows. Texts go through <b>ClickSend</b>, an Australian company. You pay them directly, a
+        few cents a text, and Kairo adds nothing. <b>Four steps, about five minutes.</b></p>
+
+      ${videoCard('sms', { id: 'ss-video', title: 'Watch it done first', sub: 'One minute, on the real ClickSend pages — then follow along below.' })}
 
       ${stepHtml(1, 'Open a free ClickSend account', `
-        <p>Tap the button, sign up with your email and mobile, and type in the code ClickSend
-          texts you. New accounts come with <b>$2 of free credit</b> to try it.</p>
+        <ol class="ss-do">
+          <li>Tap <b>Open ClickSend</b>. It opens in a new tab — this screen stays here.</li>
+          <li>Fill in your name, business, email and a password, then tap <b>Start free trial</b>.</li>
+          <li>Follow ClickSend's prompts to confirm your details. You'll land on your ClickSend
+            dashboard, with free credit to try it.</li>
+        </ol>
         <a class="btn" href="${CLICKSEND_SIGNUP}" target="_blank" rel="noopener noreferrer">
           ${icon('external', 14)} Open ClickSend</a>
-        <p class="ss-note">Already have an account? Go straight to step 2. Come back to this screen
-          when you're signed in to ClickSend.</p>`, { done: connected, open: !connected })}
+        <p class="ss-note">Already have a ClickSend account? Sign in to it and go to step 2.</p>`, { done: connected, open: !connected })}
 
       ${stepHtml(2, 'Connect it to Kairo', `
-        <p>In ClickSend, tap the <b>key icon</b> at the top right. You'll see your
-          <b>Username</b> and your <b>API Key</b>. Copy each one into the boxes below.</p>
+        <ol class="ss-do">
+          <li>In ClickSend, tap the <b>key icon</b> at the top right. It shows your
+            <b>Username</b> and your <b>API Key</b>.</li>
+          <li>Copy the Username into the first box below, and the API Key into the second.</li>
+          <li>Tap <b>Connect</b>. Kairo checks them with ClickSend straight away.</li>
+        </ol>
         <a class="btn" href="${CLICKSEND_KEYS}" target="_blank" rel="noopener noreferrer">
-          ${icon('external', 14)} Show me where</a>
+          ${icon('external', 14)} Take me to my API Key</a>
         <form id="ss-creds" class="ss-form">
           <div class="field"><label>Username</label>
             <input name="username" autocomplete="off" autocapitalize="none" spellcheck="false"
@@ -125,11 +134,11 @@ export async function openSmsSetup({ onDone = null } = {}) {
         <div class="field" style="margin-top:12px"><label>Send the test text to</label>
           <input id="ss-test-to" inputmode="tel" value="${esc(phone)}" placeholder="your mobile, e.g. 0412 345 678"></div>
         <div class="ss-err" id="ss-test-err"></div>
-        <button class="btn primary" id="ss-test">${icon('send', 14)} ${live ? 'Save and send a test' : 'Turn on texts and send me a test'}</button>
+        <button class="btn primary ss-go" id="ss-test">${icon('send', 14)} ${live ? 'Save and send a test' : 'Turn on texts and send me a test'}</button>
         <div class="ss-ok" id="ss-test-ok" ${live ? '' : 'hidden'}>${live
           ? `${icon('check', 14)}<span>Texts are <b>on</b>.</span>` : ''}</div>
         <p class="ss-note">Texts only switch on once ClickSend accepts the test, so nothing goes
-          half-working to your clients. Turn them off any time in Settings → SMS.</p>`, { done: live })}
+          half-working to your clients. Turn them off any time in Settings → Messages.</p>`, { done: live })}
 
       <details class="ss-manual ss-own">
         <summary>Optional: send texts from your own mobile number</summary>
@@ -157,6 +166,7 @@ export async function openSmsSetup({ onDone = null } = {}) {
   });
 
   const $ = (sel) => m.querySelector(sel);
+  wireVideos(m);
   const fail = (sel, msg) => { $(sel).textContent = msg; };
   const markDone = (n, done = true) => {
     const step = m.querySelector(`.ss-step[data-step="${n}"]`);
@@ -243,8 +253,9 @@ export async function openSmsSetup({ onDone = null } = {}) {
       state.settings = await api.put('/api/settings', patch);
       const ok = $('#ss-test-ok');
       ok.hidden = false;
-      ok.innerHTML = `${icon('check', 14)}<span>Texts are <b>on</b>. A test is on its way to <b>${esc(to)}</b> —
-        it should arrive within a minute. If it doesn't, check your ClickSend credit.</span>`;
+      ok.innerHTML = `${icon('check', 14)}<span>Texts are <b>on</b>.
+        <span class="ss-ok-sub">A test is on its way to <b>${esc(to)}</b> and should arrive within a
+        minute. If it doesn't, check your ClickSend credit.</span></span>`;
       markDone(4);
       toast('Texts are on');
     } catch (e2) {

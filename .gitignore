@@ -29,3 +29,6 @@ scratchpad/
 notes-final.txt
 reply-final.txt
 client-videos/*.mp4
+
+# Screens captured for the how-to videos — regenerated, never committed.
+tools/videos/shots/

@@ -12,7 +12,8 @@
 //   - their name and their business's name in the words, and themselves already
 //     on the team;
 //   - steps that slide forwards and back, a short "building it" moment, and a
-//     burst of their own brand colour when it is live.
+//     quiet tick when it is live. (It was confetti once. Confetti over the
+//     link they need to copy is a party nobody asked for.)
 // Everything that moves stops for anyone who has asked their device for less
 // motion, and nothing depends on an animation finishing.
 import { api } from './api.js';
@@ -25,41 +26,41 @@ import { guideUrl, SUPPORT_EMAIL } from './help.js';
 // whose true price depends on the client (hair length, skin area, etc.) —
 // the same distinction Fresha's service menu makes; 'free' marks consults.
 const STARTER = {
-  salon: { label: 'Hair salon', emoji: '💇', services: [
+  salon: { label: 'Hair salon', icon: 'scissors', services: [
     ['Cut & Finish', 'Hair', 60, 55], ['Blow Dry', 'Hair', 45, 35],
     ['Root Colour', 'Colour', 105, 85], ['Full Colour', 'Colour', 120, 110, 'from'],
     ['Balayage', 'Colour', 150, 150, 'from'], ['Toner & Gloss', 'Colour', 45, 45],
     ['Deep Treatment', 'Treatments', 30, 30],
   ] },
-  barber: { label: 'Barbershop', emoji: '💈', services: [
+  barber: { label: 'Barbershop', icon: 'pole', services: [
     ['Skin Fade', 'Cuts', 45, 30], ['Haircut', 'Cuts', 30, 25],
     ['Beard Trim', 'Grooming', 20, 15], ['Cut & Beard', 'Cuts', 50, 38],
     ['Hot Towel Shave', 'Grooming', 40, 35], ['Kids Cut', 'Cuts', 20, 18],
   ] },
-  nails: { label: 'Nails', emoji: '💅', services: [
+  nails: { label: 'Nails', icon: 'polish', services: [
     ['Gel Manicure', 'Nails', 45, 35], ['Classic Manicure', 'Nails', 30, 25],
     ['Gel Pedicure', 'Nails', 60, 45], ['Acrylic Full Set', 'Nails', 90, 60, 'from'],
     ['Infills', 'Nails', 60, 40], ['Nail Art', 'Nails', 30, 20, 'from'],
   ] },
-  spa: { label: 'Spa & massage', emoji: '💆', services: [
+  spa: { label: 'Spa & massage', icon: 'leaf', services: [
     ['Swedish Massage', 'Massage', 60, 75], ['Deep Tissue Massage', 'Massage', 60, 85],
     ['Hot Stone Massage', 'Massage', 90, 120], ['Facial', 'Skincare', 60, 70],
     ['Body Scrub', 'Body', 45, 60],
   ] },
-  aesthetics: { label: 'Aesthetics / clinic', emoji: '✨', services: [
+  aesthetics: { label: 'Aesthetics / clinic', icon: 'drop', services: [
     ['Consultation', 'Consults', 30, 0, 'free'], ['Skin Treatment', 'Treatments', 45, 120, 'from'],
     ['Dermal Filler', 'Injectables', 45, 250, 'from'], ['Anti-wrinkle', 'Injectables', 30, 180, 'from'],
     ['Follow-up', 'Consults', 20, 35],
   ] },
-  fitness: { label: 'Fitness / trainer', emoji: '🏋️', services: [
+  fitness: { label: 'Fitness / trainer', icon: 'dumbbell', services: [
     ['Personal Training (60m)', 'Training', 60, 60], ['Personal Training (30m)', 'Training', 30, 35],
     ['Fitness Assessment', 'Training', 45, 40, 'free'], ['Small Group Session', 'Training', 60, 25],
   ] },
-  tattoo: { label: 'Tattoo & piercing', emoji: '🎨', services: [
+  tattoo: { label: 'Tattoo & piercing', icon: 'pen', services: [
     ['Consultation', 'Tattoo', 30, 0, 'free'], ['Small Tattoo', 'Tattoo', 60, 120, 'from'],
     ['Half-Day Session', 'Tattoo', 240, 450, 'from'], ['Piercing', 'Piercing', 30, 40],
   ] },
-  other: { label: 'Something else', emoji: '📅', services: [
+  other: { label: 'Something else', icon: 'calendar', services: [
     ['Standard Appointment', 'General', 60, 50], ['Short Appointment', 'General', 30, 30],
     ['Consultation', 'General', 45, 0, 'free'],
   ] },
@@ -210,7 +211,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
   // ---- the steps --------------------------------------------------------------
 
   /** One line on each step saying why it matters, or where to change it later. */
-  const tip = (text) => `<p class="wz-tip"><span aria-hidden="true">💡</span><span>${esc(text)}</span></p>`;
+  const tip = (text) => `<p class="wz-tip"><span aria-hidden="true">${icon('bulb', 15)}</span><span>${esc(text)}</span></p>`;
 
   /**
    * "You're ready": everything that is now true about their business, read
@@ -236,7 +237,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       ['Clients hear from you automatically', sendSay],
     ];
     const next = [
-      ['Text reminders', 'Settings → Messages → Set up text messages'],
+      ['Text reminders', 'Settings → Messages — a one-minute video shows every step'],
       [st.deposit_type !== 'none' && !consult ? 'Card payments (needed for your deposits)' : 'Card payments online', 'Settings → Payments'],
       ['The Kairo iPhone app', 'Next screen'],
     ];
@@ -251,18 +252,32 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       </div>`;
   }
 
+  // Thirty seconds of what Kairo does and what is already switched on, the
+  // first time somebody opens it. Muted and inline, so it plays by itself
+  // without startling anybody; a still with a play button for anyone who has
+  // asked their phone for less motion, or whose browser won't autoplay.
+  let introSeen = false;
+  const introVideo = () => `
+      <div class="wz-intro ${firstRun && !introSeen && !still() ? 'autoplay' : ''}" id="wz-intro">
+        <video poster="/videos/kairo-welcome.jpg" muted playsinline preload="metadata"
+          aria-label="Welcome to Kairo — a 30-second video of what Kairo does and what is already switched on">
+          <source src="/videos/kairo-welcome.mp4" type="video/mp4"><source src="/videos/kairo-welcome.webm" type="video/webm"></video>
+        <button type="button" class="wz-intro-play" aria-label="Play the welcome video">${icon('play', 20)}</button>
+        <span class="wz-intro-len">30 sec</span>
+      </div>`;
+
   const views = {
     welcome: () => `
-      <div class="wz-hero-mark">${LOGO_SVG}</div>
+      ${introVideo()}
       <h1>${firstName ? `Hi ${esc(firstName)}` : 'Welcome to Kairo'}</h1>
       <p class="wiz-lede">${startName
         ? `Let's get <b>${esc(startName)}</b> ready to take bookings.`
         : "Let's get your business ready to take bookings."} About five minutes, and you'll watch
         your booking page come to life as you go.</p>
       <ol class="wz-map">
-        ${[['🧭', 'What you do', 'We draft your menu'], ['🕘', 'When you open', 'Your hours and details'],
-          ['🎨', 'How it looks', 'Colours, logo, photo'], ['💌', 'How you work', 'Your team, bookings and messages']]
-          .map(([e, t, sub], i) => `<li style="--i:${i}"><span class="wz-map-e">${e}</span><span><b>${t}</b><small>${sub}</small></span></li>`).join('')}
+        ${[['tag', 'What you do', 'We draft your menu'], ['clock', 'When you open', 'Your hours and details'],
+          ['palette', 'How it looks', 'Colours, logo, photo'], ['users', 'How you work', 'Your team, bookings and messages']]
+          .map(([e, t, sub], i) => `<li style="--i:${i}"><span class="wz-map-e">${icon(e, 17)}</span><span><b>${t}</b><small>${sub}</small></span></li>`).join('')}
       </ol>
       ${firstRun && hasSamples ? `
         <div class="wiz-samples">
@@ -288,11 +303,11 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       <div class="wiz-grid">
         ${Object.entries(STARTER).map(([k, v], i) => `
           <button type="button" class="wiz-tile ${data.type === k ? 'sel' : ''}" data-type="${k}" style="--i:${i}" aria-pressed="${data.type === k}">
-            <span class="wiz-emoji">${v.emoji}</span><span>${esc(v.label)}</span>
+            <span class="wiz-emoji">${icon(v.icon, 22)}</span><span>${esc(v.label)}</span>
           </button>`).join('')}
       </div>
       <p class="wz-chip" id="w-type-note" ${data.type ? '' : 'hidden'}>${data.type
-        ? `✨ Drafted ${STARTER[data.type].services.length} ${esc(STARTER[data.type].label.toLowerCase())} services for you` : ''}</p>`,
+        ? `${icon('check', 14)} Drafted ${STARTER[data.type].services.length} ${esc(STARTER[data.type].label.toLowerCase())} services for you` : ''}</p>`,
 
     details: () => `
       <h2>How do clients find you?</h2>
@@ -347,8 +362,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         <div class="wiz-2col">
           <div class="field"><label>Style</label>
             <div class="wz-seg" id="w-theme-seg">
-              <button type="button" data-theme="dark" class="${data.settings.brand_theme === 'dark' ? 'on' : ''}">🌙 Dark</button>
-              <button type="button" data-theme="light" class="${data.settings.brand_theme === 'light' ? 'on' : ''}">☀️ Light</button>
+              <button type="button" data-theme="dark" class="${data.settings.brand_theme === 'dark' ? 'on' : ''}">${icon('moon', 14)} Dark</button>
+              <button type="button" data-theme="light" class="${data.settings.brand_theme === 'light' ? 'on' : ''}">${icon('sun', 14)} Light</button>
             </div><input type="hidden" id="w-theme" value="${esc(data.settings.brand_theme)}"></div>
           <div class="field"><label>Lettering</label>
             <select id="w-font"><option value="modern" ${data.settings.brand_font === 'modern' ? 'selected' : ''}>Modern</option><option value="classic" ${data.settings.brand_font === 'classic' ? 'selected' : ''}>Classic serif</option><option value="rounded" ${data.settings.brand_font === 'rounded' ? 'selected' : ''}>Rounded</option></select></div>
@@ -421,12 +436,12 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       <p class="wiz-sub">Pick the way you like to work. You can change it any time in Settings → Online booking.</p>
       <div class="wz-modes" role="radiogroup" aria-label="How clients book">
         <button type="button" class="wz-mode ${b.mode === 'online' ? 'sel' : ''}" data-mode="online" role="radio" aria-checked="${b.mode === 'online'}">
-          <span class="wz-mode-e">📅</span>
+          <span class="wz-mode-e">${icon('calendar', 20)}</span>
           <span><b>They book themselves, online</b>
             <span>Clients pick a service, a time and who with, any hour, from your booking link. Every booking lands in your calendar and pings your phone.</span></span>
         </button>
         <button type="button" class="wz-mode ${b.mode === 'consult' ? 'sel' : ''}" data-mode="consult" role="radio" aria-checked="${b.mode === 'consult'}">
-          <span class="wz-mode-e">💬</span>
+          <span class="wz-mode-e">${icon('send', 20)}</span>
           <span><b>A consultation first</b>
             <span>Clients message you before anything is booked. Once you've agreed what they need, you send them a booking link for that exact service and time.</span></span>
         </button>
@@ -466,7 +481,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         <label class="wiz-toggle"><input type="checkbox" id="w-reviews" ${data.settings.review_requests_enabled ? 'checked' : ''}>
           <span><b>Review requests</b><br><span class="wiz-muted">A quick "how was your visit?" after checkout</span></span></label>
         <div class="wiz-note">${icon('send', 14)} <span><b>Text reminders too?</b> Once you're in, go to
-          <b>Settings → SMS → Set up text messages</b>. About five minutes, and Kairo walks you through it.</span></div>
+          <b>Settings → Messages → Set up text messages</b>. About five minutes, with a one-minute video that shows every step.</span></div>
         <label class="wiz-toggle" ${data.booking.mode === 'consult' ? 'hidden' : ''}><input type="checkbox" id="w-deposit" ${data.settings.deposit_type !== 'none' ? 'checked' : ''}>
           <span><b>Take a deposit on online bookings</b><br><span class="wiz-muted">The strongest no-show protection (needs card payments connected later)</span></span></label>
         <div class="wiz-2col" id="w-deposit-opts" style="${data.settings.deposit_type !== 'none' ? '' : 'display:none'}">
@@ -478,9 +493,8 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       ${tip('Emails go out with your business name on them, and when a client replies it comes straight to your inbox.')}`,
 
     done: () => `
-      <div class="wz-burst" aria-hidden="true"></div>
       <div class="wiz-hero wiz-done wz-pop">${icon('check', 34)}</div>
-      <h1>${esc(Biz())} is open for bookings 🎉</h1>
+      <h1>${esc(Biz())} is open for bookings</h1>
       <p class="wiz-lede">Your booking page is live. Share it, and bookings land straight in your calendar.</p>
       <div class="wiz-linkbox">
         <span>${esc(siteUrl)}/book</span>
@@ -677,6 +691,21 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       </div>`;
   }
 
+  function wireIntro() {
+    const box = overlay.querySelector('#wz-intro');
+    const v = box?.querySelector('video');
+    if (!v) return;
+    const play = () => {
+      box.classList.add('playing');
+      v.play().then(() => { introSeen = true; }).catch(() => box.classList.remove('playing'));
+    };
+    box.querySelector('.wz-intro-play').addEventListener('click', () => { v.currentTime = 0; play(); });
+    v.addEventListener('click', () => { if (!v.paused) v.pause(); else play(); });
+    v.addEventListener('pause', () => box.classList.remove('playing'));
+    v.addEventListener('ended', () => { box.classList.remove('playing'); box.classList.add('ended'); });
+    if (box.classList.contains('autoplay')) play();
+  }
+
   /** Swap the stage to the current step, sliding in the direction of travel. */
   function paintStep(direction = 1) {
     const id = STEPS[idx];
@@ -719,6 +748,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
   // ---- wiring --------------------------------------------------------------
 
   function wire(id) {
+    if (id === 'welcome') wireIntro();
     overlay.querySelectorAll('input[name="wiz_samples"]').forEach((r) => {
       r.addEventListener('change', () => { data.fresh = r.value === 'clear'; });
     });
@@ -751,7 +781,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         });
         const note = overlay.querySelector('#w-type-note');
         note.hidden = false;
-        note.textContent = `✨ Drafted ${data.services.length} ${STARTER[data.type].label.toLowerCase()} services for you`;
+        note.innerHTML = `${icon('check', 14)} Drafted ${data.services.length} ${esc(STARTER[data.type].label.toLowerCase())} services for you`;
         paintPreview();
         // The first choice carries them on; a change of mind stays put.
         if (first) setTimeout(() => { if (STEPS[idx] === 'type') go(1); }, still() ? 0 : 650);
@@ -767,7 +797,7 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
         capture();
         const st = data.settings;
         overlay.querySelector('#w-hours-say').textContent = st.open_days.length
-          ? `🕘 Open ${daysPhrase(st.open_days)}, ${clock(st.open_min)} – ${clock(st.close_min)}`
+          ? `Open ${daysPhrase(st.open_days)}, ${clock(st.open_min)} – ${clock(st.close_min)}`
           : 'Pick at least one day you open';
         paintPreview();
       };
@@ -887,7 +917,6 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       });
     }
 
-    if (id === 'done') celebrate();
   }
 
   // Enter moves on, the way a form would — but never from a list being edited,
@@ -991,40 +1020,6 @@ export function runSetupWizard({ firstRun = true, settings = {}, user = null, ha
       toast(err.message || 'Setup failed — please try again', 'err');
       paintStep(0); // back to the messages step, with everything they chose still there
     }
-  }
-
-  // A burst of their own colour. Short, falls away by itself, never in the way.
-  function celebrate() {
-    if (still()) return;
-    const host = overlay.querySelector('.wz-burst');
-    if (!host || typeof document.createElement('canvas').getContext !== 'function') return;
-    const c = document.createElement('canvas');
-    const w = host.clientWidth || 600, h = 320;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    c.width = w * dpr; c.height = h * dpr; c.style.width = `${w}px`; c.style.height = `${h}px`;
-    host.appendChild(c);
-    const ctx = c.getContext('2d');
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
-    const colours = [data.settings.brand_accent, '#ffffff', '#fbbf24', data.settings.brand_accent];
-    const bits = Array.from({ length: 110 }, () => ({
-      x: w / 2, y: 120, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 8 - 3,
-      r: Math.random() * 5 + 3, a: Math.random() * Math.PI, va: (Math.random() - 0.5) * 0.3,
-      col: colours[Math.floor(Math.random() * colours.length)],
-    }));
-    const t0 = performance.now();
-    const frame = (t) => {
-      const age = t - t0;
-      ctx.clearRect(0, 0, w, h);
-      for (const b of bits) {
-        b.vy += 0.22; b.x += b.vx; b.y += b.vy; b.a += b.va;
-        ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age / 2200);
-        ctx.translate(b.x, b.y); ctx.rotate(b.a); ctx.fillStyle = b.col;
-        ctx.fillRect(-b.r / 2, -b.r / 4, b.r, b.r / 2); ctx.restore();
-      }
-      if (age < 2200 && c.isConnected) requestAnimationFrame(frame); else c.remove();
-    };
-    requestAnimationFrame(frame);
   }
 
   function close() { overlay.remove(); }

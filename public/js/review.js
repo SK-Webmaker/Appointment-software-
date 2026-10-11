@@ -2,7 +2,7 @@
 // message, lands here (token in the URL path), rates 1-5 stars, optionally
 // leaves a comment. Happy clients (4-5★) get an extra nudge to also post on
 // Google if the business has set a review link.
-import { esc, icon, fmtDate } from './ui.js';
+import { esc, icon, fmtDate, kairoMark } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 
 const root = document.getElementById('review');
@@ -96,7 +96,7 @@ function renderForm(info) {
       <textarea class="rv-comment" id="rv-comment" placeholder="Anything you'd like to add? (optional)"></textarea>
       <button class="btn primary" id="rv-submit" style="width:100%;justify-content:center" disabled>${icon('check')} Submit review</button>
     </div>
-    <div class="powered">Powered by <b>◆ Kairo</b></div>`;
+    <div class="powered">Powered by <b>${kairoMark(13, `pw`)} Kairo</b></div>`;
 
   const stars = [...root.querySelectorAll('.star-btn')];
   const paint = (n) => stars.forEach((s, i) => s.classList.toggle('on', i < n));
@@ -143,7 +143,7 @@ function renderThankYou(info, { rating, googleUrl, alreadyDone } = {}) {
           <a class="rv-google" id="rv-google" href="${esc(googleUrl)}" target="_blank" rel="noopener noreferrer">${icon('link', 15)} Leave a Google review</a>
         </div>` : ''}
     </div>
-    <div class="powered">Powered by <b>◆ Kairo</b></div>`;
+    <div class="powered">Powered by <b>${kairoMark(13, `pw`)} Kairo</b></div>`;
 
   // Tell Kairo they went through, but never stand in the way of it. The link
   // opens Google directly — routing it through a redirect would put this app in

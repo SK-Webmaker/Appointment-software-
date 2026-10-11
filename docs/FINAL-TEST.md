@@ -36,6 +36,8 @@ before, from the website to a refund, with real money (A$5).
 ## B. Set it up as the owner (10 min)
 
 6. Go to **login.kairobookings.com** and sign in. The setup journey opens.
+   - ✔ A 30-second welcome video plays by itself, silently, at the top: what
+     Kairo does, what is already switched on, and that texts come later.
    - ✔ It greets you by your first name, and "Final Test Salon" is already
      filled in.
    - ✔ Pick a business type: it drafts a menu and moves on by itself.
@@ -44,13 +46,17 @@ before, from the website to a refund, with real money (A$5).
      services and team.
    - ✔ You are already listed on the team.
    - ✔ The last step says "Building Final Test Salon…", then "Final Test Salon
-     is open for bookings 🎉", then offers the App Store app.
+     is open for bookings", then offers the App Store app.
+   - ✔ **Show me around** walks through every page in the menu, then Ask Kai
+     and New appointment — 17 stops, with Back and Skip on each. On a phone
+     the menu slides open for it and closes after.
 7. On the iPhone, install **Kairo** from the App Store and sign in with the
    same email and password. Allow notifications.
    - ✔ It opens straight into Final Test Salon.
 8. Texts, as a new owner would: on the dashboard press **Set up texts** (or
-   Settings → SMS → **Set up text messages**). Follow it with your own
-   ClickSend account.
+   Settings → Messages → **Set up text messages**). Watch the one-minute video
+   at the top first, then follow the four steps with your own ClickSend account.
+   - ✔ The video plays on the iPhone too (Settings → Messages, or Help).
    - ✔ It says "Connected" and shows your credit.
    - ✔ The last step sends a real text to your phone and says texts are on.
    - ✔ In step 9 the client's mobile gets the booking confirmation by text too.

@@ -1,0 +1,372 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>SMS setup video</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* ── the browser window ─────────────────────────────────────────── */
+  #win { left: 420px; top: 92px; width: 812px; height: 536px; border-radius: 14px; overflow: hidden;
+    background: #0b1018; border: 1px solid #222d3e; box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.02) inset; }
+  #bar { position: absolute; left: 0; right: 0; top: 0; height: 36px; background: #111824; border-bottom: 1px solid #1c2636;
+    display: flex; align-items: center; padding: 0 14px; gap: 7px; }
+  #bar i { width: 10px; height: 10px; border-radius: 50%; background: #2a3546; display: block; }
+  #addr { position: absolute; left: 50%; top: 7px; width: 360px; height: 22px; margin-left: -180px; border-radius: 7px;
+    background: #0b1018; border: 1px solid #1c2636; }
+  #addr span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 11.5px; color: #9aa7bd; letter-spacing: .01em; }
+  #addr svg { width: 10px; height: 10px; }
+  #view { position: absolute; left: 6px; right: 6px; top: 42px; bottom: 6px; overflow: hidden; border-radius: 8px; background: #070a10; }
+  #cam { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; transform-origin: 0 0; }
+  #cam > img, #cam > .layer { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; }
+  #curtain { position: absolute; inset: 0; background: #0b1018; }
+  /* cursor + ring live in camera space */
+  #cursor { position: absolute; left: 0; top: 0; width: 26px; height: 26px; transform-origin: 0 0; z-index: 20; }
+  #cursor svg { filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+  .ripple { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+    border: 2.5px solid rgba(56,189,248,.9); z-index: 19; }
+  .ring { position: absolute; border-radius: 12px; border: 2.5px solid #38bdf8; z-index: 18;
+    box-shadow: 0 0 0 6px rgba(56,189,248,.16); }
+  .chip { position: absolute; z-index: 21; padding: 6px 11px; border-radius: 8px; background: #0f172a; color: #e8edf6;
+    font-size: 15px; font-weight: 600; display: flex; gap: 6px; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .chip svg { color: #34d399; }
+
+  /* ── the ClickSend picture (simplified, labelled as such) ───────── */
+  #csd { background: #f4f6f9; color: #1e293b; font-family: 'Inter', sans-serif; }
+  #csd .top { position: absolute; left: 0; right: 0; top: 0; height: 60px; background: #fff; border-bottom: 1px solid #e3e8ef;
+    display: flex; align-items: center; padding: 0 26px; gap: 12px; }
+  #csd .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 21px; color: #1593d1; letter-spacing: -.01em; }
+  #csd .logo b { width: 30px; height: 24px; border-radius: 7px; background: #1593d1; display: block; position: relative; }
+  #csd .logo b::after { content: ''; position: absolute; left: 6px; bottom: -6px; border: 6px solid transparent; border-top-color: #1593d1; border-left-color: #1593d1; }
+  #csd .icons { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  #csd .ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: #475569; }
+  #csd .ic.key { background: #e6f4fb; color: #0f7fb8; }
+  #csd .av { width: 36px; height: 36px; border-radius: 50%; background: #1e293b; color: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 700; }
+  #csd .side { position: absolute; left: 0; top: 60px; bottom: 0; width: 220px; background: #fff; border-right: 1px solid #e3e8ef; padding: 18px 14px; }
+  #csd .side div { height: 40px; border-radius: 9px; display: flex; align-items: center; padding: 0 14px; font-size: 15px; color: #475569; font-weight: 500; }
+  #csd .side div.on { background: #e6f4fb; color: #0f7fb8; font-weight: 650; }
+  #csd .main { position: absolute; left: 252px; top: 92px; right: 32px; }
+  #csd h1 { font-size: 27px; font-weight: 750; letter-spacing: -.02em; color: #0f172a; }
+  #csd .sub { margin-top: 6px; color: #64748b; font-size: 15.5px; }
+  #csd .cards { margin-top: 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  #csd .card { background: #fff; border: 1px solid #e3e8ef; border-radius: 14px; height: 150px; padding: 20px; }
+  #csd .card span { display: block; color: #64748b; font-size: 14px; }
+  #csd .card b { display: block; margin-top: 10px; font-size: 30px; font-weight: 750; color: #0f172a; }
+  #csd .card i { display: block; margin-top: 14px; height: 8px; width: 70%; border-radius: 4px; background: #eef2f6; }
+  #csd .wide { margin-top: 18px; height: 250px; background: #fff; border: 1px solid #e3e8ef; border-radius: 14px; }
+  #creds { position: absolute; right: 26px; top: 70px; width: 560px; background: #fff; border-radius: 16px; border: 1px solid #e3e8ef;
+    box-shadow: 0 24px 60px rgba(15,23,42,.18); padding: 24px 24px 20px; z-index: 5; }
+  #creds h2 { font-size: 21px; font-weight: 750; color: #0f172a; letter-spacing: -.01em; }
+  #creds p { margin-top: 4px; font-size: 14px; color: #64748b; }
+  #creds label { display: block; margin-top: 18px; font-size: 13.5px; font-weight: 600; color: #334155; }
+  #creds .row { margin-top: 7px; display: flex; gap: 8px; }
+  #creds .val { flex: 1; height: 44px; border-radius: 10px; border: 1px solid #d5dde7; background: #f8fafc; display: flex; align-items: center;
+    padding: 0 13px; font-size: 15px; color: #0f172a; font-family: 'Inter', sans-serif; letter-spacing: .01em; white-space: nowrap; }
+  #creds .cp { width: 82px; height: 44px; border-radius: 10px; background: #1593d1; color: #fff; display: grid; place-items: center; font-size: 14.5px; font-weight: 650; }
+  #creds .regen { margin-top: 16px; font-size: 13.5px; color: #94a3b8; }
+  #tag { position: absolute; left: 14px; bottom: 14px; z-index: 6; padding: 6px 11px; border-radius: 8px; background: rgba(15,23,42,.86);
+    color: #e2e8f0; font-size: 13px; font-weight: 500; }
+
+  /* ── left-hand captions ──────────────────────────────────────────── */
+  .cap { left: 56px; top: 0; width: 330px; height: 720px; display: flex; flex-direction: column; justify-content: center; }
+  .cap .eb { font-size: 13px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; color: #38bdf8; }
+  .cap h2 { margin-top: 12px; font-size: 34px; line-height: 1.12; font-weight: 700; }
+  .cap p { margin-top: 16px; font-size: 18px; line-height: 1.55; color: #b4c0d3; }
+  .cap p b { color: #fff; font-weight: 600; }
+  .cap .note { margin-top: 18px; font-size: 14px; color: #7f8ea6; display: flex; gap: 8px; align-items: center; }
+  #steps { left: 56px; top: 600px; display: flex; gap: 8px; }
+  #steps div { width: 52px; height: 4px; border-radius: 2px; background: #1c2636; overflow: hidden; }
+  #steps div i { display: block; height: 100%; width: 100%; background: #38bdf8; transform-origin: 0 50%; }
+  #brand { left: 56px; top: 56px; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+
+  /* ── intro / outro ───────────────────────────────────────────────── */
+  .center { left: 0; width: 1280px; text-align: center; }
+  .t-xl { font-size: 64px; font-weight: 750; line-height: 1.05; }
+  .t-md { font-size: 24px; color: #b4c0d3; }
+  .t-sm { font-size: 17px; color: #8796ae; line-height: 1.6; }
+  .pill { display: inline-flex; align-items: center; gap: 9px; padding: 9px 16px; border-radius: 999px; border: 1px solid #22304a;
+    background: rgba(18,26,40,.7); font-size: 16px; color: #cbd5e1; }
+  .ticks { display: inline-grid; gap: 14px; text-align: left; }
+  .ticks div { display: flex; align-items: center; gap: 12px; font-size: 21px; color: #dbe3ef; }
+  .ticks svg { flex: none; color: #34d399; }
+
+  /* phone */
+  #phone { left: 905px; top: 120px; width: 250px; height: 500px; border-radius: 40px; background: #05070b; border: 2px solid #2a3546;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6); overflow: hidden; z-index: 30; }
+  #phone .scr { position: absolute; inset: 8px; border-radius: 33px; overflow: hidden;
+    background: linear-gradient(160deg, #1d3a5f 0%, #0d1b2e 55%, #0a1220 100%); }
+  #phone .isl { position: absolute; left: 50%; top: 12px; width: 76px; height: 22px; margin-left: -38px; background: #000; border-radius: 12px; }
+  #phone .time { position: absolute; left: 0; right: 0; top: 64px; text-align: center; font-size: 56px; font-weight: 300; color: #f1f5f9; letter-spacing: -.02em; }
+  #phone .date { position: absolute; left: 0; right: 0; top: 46px; text-align: center; font-size: 13px; color: #cbd5e1; font-weight: 500; }
+  #notif { position: absolute; left: 10px; right: 10px; top: 168px; border-radius: 18px; padding: 11px 12px; background: rgba(241,245,249,.86);
+    color: #0f172a; font-size: 12.5px; line-height: 1.38; }
+  #notif .h { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #475569; margin-bottom: 4px; }
+  #notif .h b { width: 18px; height: 18px; border-radius: 5px; background: #34c759; display: block; }
+  #notif .h span { margin-left: auto; }
+</style></head>
+<body>
+<div class="bg"></div><div class="grain"></div>
+
+<!-- intro -->
+<div id="i-mark" class="abs center" style="top:170px"></div>
+<div id="i-title" class="abs center display t-xl" style="top:262px">Turn on text reminders</div>
+<div id="i-sub" class="abs center" style="top:356px"><span class="pill">Four steps · about five minutes</span></div>
+<div id="i-line" class="abs center t-sm" style="top:420px">Texts go through <b style="color:#dbe3ef">ClickSend</b>, an Australian SMS company.<br>You pay them directly, a few cents a text. Kairo adds nothing.</div>
+
+<!-- brand, top left during the walkthrough -->
+<div id="brand" class="abs"><span id="b-mark"></span>Kairo <span style="color:#64748b;font-weight:500">· Text messages</span></div>
+
+<!-- captions -->
+<div id="c0" class="abs cap"><div class="eb">Before you start</div><h2 class="display">Open Settings, then Messages</h2>
+  <p>Tap <b>Set up text messages</b>. It's on your dashboard's setup list too, as <b>Set up texts</b>.</p></div>
+<div id="c1" class="abs cap"><div class="eb">Step 1 of 4</div><h2 class="display">Open a free ClickSend account</h2>
+  <p>Tap <b>Open ClickSend</b>. It opens in a new tab, and Kairo stays open in this one.</p></div>
+<div id="c2" class="abs cap"><div class="eb">Step 1 of 4</div><h2 class="display">Fill in your details</h2>
+  <p>Your name, business, email and a password — or <b>Sign up with Google</b>. Then tap <b>Start free trial</b> and follow ClickSend's prompts to confirm.</p></div>
+<div id="c3" class="abs cap"><div class="eb">Step 2 of 4</div><h2 class="display">Find your API Key</h2>
+  <p>In ClickSend, tap the <b>key icon</b> at the top right. It shows your <b>Username</b> and <b>API Key</b>. Copy each one.</p></div>
+<div id="c4" class="abs cap"><div class="eb">Step 2 of 4</div><h2 class="display">Paste them into Kairo</h2>
+  <p>Username in the first box, API Key in the second. Tap <b>Connect</b> and Kairo checks them with ClickSend straight away.</p></div>
+<div id="c5" class="abs cap"><div class="eb">Step 3 of 4</div><h2 class="display">Check your credit</h2>
+  <p>Kairo reads your ClickSend balance for you. Free credit covers the test. Before going live, add about <b>$20</b> — a few hundred texts.</p></div>
+<div id="c6" class="abs cap"><div class="eb">Step 4 of 4</div><h2 class="display">Choose what to text, then test</h2>
+  <p>Reminders and confirmations are ticked for you. Check the mobile number, then tap <b>Turn on texts and send me a test</b>.</p></div>
+<div id="c7" class="abs cap"><div class="eb">Step 4 of 4</div><h2 class="display">Texts are on</h2>
+  <p>They only switch on once ClickSend accepts the test, so nothing goes half-working to your clients.</p></div>
+
+<div id="steps" class="abs"><div><i id="s1"></i></div><div><i id="s2"></i></div><div><i id="s3"></i></div><div><i id="s4"></i></div></div>
+
+<!-- the window -->
+<div id="win" class="abs">
+  <div id="bar"><i></i><i></i><i></i>
+    <div id="addr">
+      <span id="a-kairo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>luxehair.kairobookings.com</span>
+      <span id="a-signup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>dashboard.clicksend.com/signup</span>
+      <span id="a-dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>dashboard.clicksend.com</span>
+    </div>
+  </div>
+  <div id="view">
+    <div id="cam">
+      <img id="k-settings" src="../shots/k-settings.png">
+      <img id="k-modal-1" src="../shots/k-modal-1.png">
+      <img id="cs-0" src="../shots/cs-signup-0.png">
+      <img id="cs-1" src="../shots/cs-signup-1.png">
+      <img id="cs-2" src="../shots/cs-signup-2.png">
+      <img id="cs-3" src="../shots/cs-signup-3.png">
+      <div id="csd" class="layer">
+        <div class="top"><div class="logo"><b></b>ClickSend</div>
+          <div class="icons">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+            <div class="ic key" id="keyicon"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></div>
+            <div class="av">M</div>
+          </div></div>
+        <div class="side"><div class="on">Dashboard</div><div>Messages</div><div>Contacts</div><div>Reports</div><div>Billing</div><div>Settings</div></div>
+        <div class="main"><h1>Welcome, Mia</h1><div class="sub">Luxe Hair · Free trial</div>
+          <div class="cards"><div class="card"><span>Balance</span><b>$2.00</b><i></i></div><div class="card"><span>Sent this month</span><b>0</b><i></i></div><div class="card"><span>Delivery rate</span><b>—</b><i></i></div></div>
+          <div class="wide"></div></div>
+        <div id="creds"><h2>API Credentials</h2><p>Use these to connect apps such as Kairo.</p>
+          <label>Username</label><div class="row"><div class="val">mia@luxehair.com.au</div><div class="cp" id="cp1">Copy</div></div>
+          <label>API Key</label><div class="row"><div class="val">8F3C2A71-4D9E-B6A0-55E2-C91D7F04AB36</div><div class="cp" id="cp2">Copy</div></div>
+          <div class="regen">Regenerate API Key</div></div>
+      </div>
+      <img id="k-modal-2" src="../shots/k-modal-2.png">
+      <img id="k-modal-2u" src="../shots/k-modal-2u.png">
+      <img id="k-modal-2k" src="../shots/k-modal-2k.png">
+      <img id="k-modal-3" src="../shots/k-modal-3.png">
+      <img id="k-modal-4" src="../shots/k-modal-4.png">
+      <img id="k-modal-5" src="../shots/k-modal-5.png">
+      <div id="ring" class="ring"></div>
+      <div id="chip1" class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>Copied</div>
+      <div id="chip2" class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>Copied</div>
+      <div id="chip3" class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>Pasted</div>
+      <div id="chip4" class="chip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>Pasted</div>
+      <div id="rip" class="ripple"></div>
+      <div id="cursor"><svg width="26" height="26" viewBox="0 0 26 26"><path d="M5 2.5v18.2l4.6-4.3 3 6.8 3.3-1.4-3-6.7h6.4z" fill="#fff" stroke="#0b1220" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+    </div>
+    <div id="tag">Simplified picture — your ClickSend screen may look a little different</div>
+    <div id="curtain"></div>
+  </div>
+</div>
+
+<!-- phone -->
+<div id="phone" class="abs"><div class="scr"><div class="isl"></div><div class="date">Saturday 11 October</div><div class="time">9:41</div>
+  <div id="notif"><div class="h"><b></b>MESSAGES<span>now</span></div><b style="font-size:13px">Luxe Hair</b><br>Test from Luxe Hair: texts are working. Your clients' reminders will arrive just like this.</div></div></div>
+
+<!-- outro -->
+<div id="o-mark" class="abs center" style="top:118px"></div>
+<div id="o-title" class="abs center display t-xl" style="top:196px">That's it.</div>
+<div id="o-sub" class="abs center t-md" style="top:286px">Reminders now go by text and email.</div>
+<div id="o-ticks" class="abs center" style="top:352px"><div class="ticks">
+  <div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>Reminders and confirmations by text</div>
+  <div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>Everything else by email, as before</div>
+  <div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>Change or switch off any time in Settings → Messages</div>
+</div></div>
+<div id="o-help" class="abs center t-sm" style="top:530px">Need a hand? Tap <b style="color:#dbe3ef">Help</b> in Kairo, or email <b style="color:#dbe3ef">support@kairobookings.com</b></div>
+
+<script type="module">
+import { anim, show, track, seek } from './engine.js';
+const MARK = (size, id) => `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none"><defs><linearGradient id="${id}" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse"><stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs><path d="M13.75 10.5V37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6L33.6 37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><circle cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/></svg>`;
+document.getElementById('i-mark').innerHTML = MARK(72, 'm1');
+document.getElementById('o-mark').innerHTML = MARK(64, 'm2');
+document.getElementById('b-mark').innerHTML = MARK(26, 'm3');
+const $ = (id) => document.getElementById(id);
+
+// ── intro ──
+show('#i-mark', 0.15, 4.5, { rise: 14, s0: 0.92, d: 0.7 });
+show('#i-title', 0.45, 4.55, { rise: 22, d: 0.8, out: 16 });
+show('#i-sub', 0.85, 4.6, { rise: 16, d: 0.7, out: 12 });
+show('#i-line', 1.25, 4.65, { rise: 14, d: 0.7, out: 10 });
+
+// ── window, brand and step bar ──
+anim('#win', [[4.55, { o: 0, y: 34, s: 0.965 }], [5.35, { o: 1, y: 0, s: 1 }, 'out'], [53.6, { o: 1, y: 0, s: 1 }], [54.3, { o: 0, y: -18, s: 0.985 }, 'in']]);
+show('#brand', 4.8, 54.3, { d: 0.6 });
+show('#steps', 4.9, 54.3, { d: 0.6 });
+const bar = (el, t0, t1) => track($(el), [[0, { k: 0 }], [t0, { k: 0 }], [t1, { k: 1 }, 'io']], (n, v) => { n.style.transform = `scaleX(${v.k.toFixed(4)})`; });
+bar('s1', 9.4, 18.2); bar('s2', 18.4, 34.4); bar('s3', 34.6, 40.8); bar('s4', 41.0, 47.4);
+
+// ── captions ──
+const cap = (id, t0, t1) => show(`#${id}`, t0, t1, { rise: 18, d: 0.55, out: 10 });
+cap('c0', 5.0, 9.3); cap('c1', 9.4, 11.2); cap('c2', 11.4, 18.3); cap('c3', 18.5, 26.6);
+cap('c4', 26.8, 34.4); cap('c5', 34.6, 41.0); cap('c6', 41.2, 46.9); cap('c7', 47.0, 54.2);
+
+// ── address bar ──
+const addr = (id, ranges) => anim(`#${id}`, ranges.flatMap(([a, b]) => [[a, { o: 0 }], [a + 0.25, { o: 1 }], [b - 0.25, { o: 1 }], [b, { o: 0 }]]));
+addr('a-kairo', [[4.5, 10.95], [26.55, 60]]);
+addr('a-signup', [[10.95, 18.4]]);
+addr('a-dash', [[18.4, 26.55]]);
+
+// ── screens (crossfades) ──
+const scr = (id, t0, t1, d = 0.35) => anim(`#${id}`, [[t0, { o: 0 }], [t0 + d, { o: 1 }, 'soft'], ...(t1 ? [[t1, { o: 1 }], [t1 + d, { o: 0 }, 'soft']] : [])]);
+// A page change happens behind a dip to dark: the old screen goes at the
+// bottom of the dip and the new one is already there, so nothing double-exposes.
+const DIPS = [10.95, 18.4, 26.55, 31.65, 41.1, 45.7];
+const cut = (id, tin, tout) => anim(`#${id}`, [[tin - 0.001, { o: 0 }], [tin, { o: 1 }, 'lin'], ...(tout ? [[tout - 0.001, { o: 1 }], [tout, { o: 0 }, 'lin']] : [])]);
+scr('k-settings', 4.4, 8.6);
+anim('#k-modal-1', [[8.3, { o: 0 }], [8.7, { o: 1 }, 'soft'], [10.949, { o: 1 }], [10.95, { o: 0 }, 'lin']]);
+cut('cs-0', 10.95, 13.6); scr('cs-1', 13.35, 14.9, 0.25); scr('cs-2', 14.65, 16.75, 0.25);
+anim('#cs-3', [[16.5, { o: 0 }], [16.75, { o: 1 }, 'soft'], [18.399, { o: 1 }], [18.4, { o: 0 }, 'lin']]);
+cut('csd', 18.4, 26.55);
+anim('#k-modal-2', [[26.549, { o: 0 }], [26.55, { o: 1 }, 'lin'], [28.75, { o: 1 }], [29.0, { o: 0 }, 'soft']]);
+scr('k-modal-2u', 28.5, 30.15, 0.25);
+anim('#k-modal-2k', [[29.9, { o: 0 }], [30.15, { o: 1 }, 'soft'], [31.649, { o: 1 }], [31.65, { o: 0 }, 'lin']]);
+cut('k-modal-3', 31.65, 41.1); cut('k-modal-4', 41.1, 45.7); cut('k-modal-5', 45.7, null);
+// the ClickSend credentials panel drops in when the key is pressed
+anim('#creds', [[21.5, { o: 0, y: -10, s: 0.98 }], [21.9, { o: 1, y: 0, s: 1 }, 'out']]);
+show('#tag', 18.8, 26.4, { d: 0.4 });
+// page changes behind a quick dim, so a jump in place never shows
+const dip = (p, down = 0.2, up = 0.3) => [[p - down, { o: 0 }], [p, { o: 1 }, 'in'], [p + up, { o: 0 }, 'out']];
+anim('#curtain', [[0, { o: 1 }], [4.6, { o: 1 }], [5.0, { o: 0 }],
+  ...dip(10.95), ...dip(18.4), ...dip(26.55), ...dip(31.65, 0.16, 0.24), ...dip(41.1, 0.16, 0.24), ...dip(45.7, 0.16, 0.24)]);
+
+// ── camera: a rectangle of the 1280×800 page to fill the window with ──
+const VW = 800, VH = 488;
+const FULL = { x: 0, y: 0, w: 1280, h: 800 };
+const cams = [
+  [0, FULL], [5.6, FULL], [7.0, { x: 690, y: 130, w: 590, h: 370 }],
+  [8.3, { x: 690, y: 130, w: 590, h: 370 }], [9.2, { x: 230, y: 90, w: 820, h: 512 }],
+  [10.95, { x: 230, y: 90, w: 820, h: 512 }], [10.951, FULL],
+  [11.6, FULL], [12.8, { x: 30, y: 300, w: 620, h: 420 }],
+  [16.0, { x: 30, y: 300, w: 620, h: 420 }], [17.0, { x: 30, y: 400, w: 620, h: 400 }],
+  [18.39, { x: 30, y: 400, w: 620, h: 400 }], [18.4, FULL],
+  [19.8, FULL], [21.0, { x: 700, y: 0, w: 580, h: 360 }], [22.4, { x: 680, y: 40, w: 600, h: 366 }],
+  [26.55, { x: 680, y: 40, w: 600, h: 366 }], [26.551, { x: 290, y: 290, w: 740, h: 452 }],
+  [31.65, { x: 290, y: 290, w: 740, h: 452 }], [31.651, { x: 290, y: 400, w: 740, h: 452 }],
+  [35.0, { x: 290, y: 400, w: 740, h: 452 }], [35.9, { x: 290, y: 470, w: 740, h: 330 }],
+  [41.1, { x: 290, y: 470, w: 740, h: 330 }], [41.101, { x: 290, y: 160, w: 740, h: 480 }],
+  [45.7, { x: 290, y: 160, w: 740, h: 480 }], [45.701, { x: 290, y: 330, w: 740, h: 452 }],
+];
+let camS = 1, camX = 0, camY = 0;
+const fit = (r) => {
+  const base = Math.max(VW / 1280, VH / 800);
+  let s = Math.max(base, Math.min(VW / r.w, VH / r.h));
+  let x = VW / 2 - (r.x + r.w / 2) * s, y = VH / 2 - (r.y + r.h / 2) * s;
+  x = Math.min(0, Math.max(VW - 1280 * s, x)); y = Math.min(0, Math.max(VH - 800 * s, y));
+  return { s, x, y };
+};
+track($('cam'), cams.map(([t, r], i) => [t, r, 'io']), (n, r) => {
+  const f = fit(r); camS = f.s; camX = f.x; camY = f.y;
+  n.style.transform = `translate(${f.x.toFixed(2)}px, ${f.y.toFixed(2)}px) scale(${f.s.toFixed(5)})`;
+});
+
+// ── cursor (page coordinates) and its clicks ──
+// Positions inside the ClickSend picture, measured rather than guessed.
+const inCam = (el) => { let x = 0, y = 0, n = el; while (n && n.id !== 'cam') { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; } return { x, y, w: el.offsetWidth, h: el.offsetHeight }; };
+const mid = (el) => { const r = inCam(el); return { x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2) }; };
+const credsBox = inCam($('creds'));
+const cp1 = inCam($('cp1')), cp2 = inCam($('cp2'));
+const P = {
+  set: { x: 881, y: 431 }, open: { x: 413, y: 401 },
+  first: { x: 200, y: 414 }, last: { x: 430, y: 414 }, company: { x: 320, y: 497 }, email: { x: 320, y: 580 }, pass: { x: 300, y: 663 }, start: { x: 320, y: 727 },
+  key: mid($('keyicon')), cp1: mid($('cp1')), cp2: mid($('cp2')),
+  user: { x: 560, y: 428 }, apikey: { x: 560, y: 507 }, connect: { x: 657, y: 570 },
+  test: { x: 470, y: 607 },
+};
+const cur = [
+  [0, { x: 1000, y: 700, o: 0 }], [6.2, { x: 1000, y: 700, o: 0 }], [6.5, { x: 1000, y: 690, o: 1 }],
+  [7.8, { ...P.set, o: 1 }], [9.0, { ...P.set, o: 1 }], [10.3, { ...P.open, o: 1 }], [10.75, { ...P.open, o: 1 }], [10.9, { ...P.open, o: 0 }],
+  [11.8, { x: 700, y: 560, o: 0 }], [12.2, { x: 680, y: 560, o: 1 }], [13.1, { ...P.first, o: 1 }], [13.9, { ...P.last, o: 1 }],
+  [14.5, { ...P.company, o: 1 }], [15.4, { ...P.email, o: 1 }], [16.2, { ...P.pass, o: 1 }], [17.5, { ...P.start, o: 1 }], [18.15, { ...P.start, o: 1 }], [18.3, { ...P.start, o: 0 }],
+  [19.2, { x: 700, y: 420, o: 0 }], [19.5, { x: 690, y: 420, o: 1 }], [21.1, { ...P.key, o: 1 }], [22.6, { ...P.key, o: 1 }], [23.4, { ...P.cp1, o: 1 }],
+  [24.4, { ...P.cp1, o: 1 }], [24.9, { ...P.cp2, o: 1 }], [26.2, { ...P.cp2, o: 1 }], [26.4, { ...P.cp2, o: 0 }],
+  [27.2, { x: 900, y: 650, o: 0 }], [27.5, { x: 890, y: 640, o: 1 }], [28.2, { ...P.user, o: 1 }], [29.0, { ...P.user, o: 1 }], [29.6, { ...P.apikey, o: 1 }],
+  [30.5, { ...P.apikey, o: 1 }], [31.2, { ...P.connect, o: 1 }], [31.6, { ...P.connect, o: 1 }], [31.8, { ...P.connect, o: 0 }],
+  [43.4, { x: 820, y: 700, o: 0 }], [43.7, { x: 810, y: 690, o: 1 }], [45.1, { ...P.test, o: 1 }], [45.6, { ...P.test, o: 1 }], [45.8, { ...P.test, o: 0 }],
+];
+track($('cursor'), cur, (n, v) => {
+  n.style.opacity = v.o.toFixed(3);
+  n.style.transform = `translate(${v.x}px, ${v.y}px) scale(${(1 / camS).toFixed(5)})`;
+});
+const clicks = [8.0, 10.6, 13.2, 14.0, 14.6, 15.5, 16.3, 17.7, 21.3, 23.55, 25.05, 28.3, 29.7, 31.35, 45.3];
+const clickAt = (t) => {
+  // where the cursor is at that moment
+  let p = cur[0][1];
+  for (let i = 1; i < cur.length; i++) if (cur[i][0] <= t) p = { ...p, ...cur[i][1] };
+  return p;
+};
+const rip = $('rip');
+track(rip, [[0, { t: 0 }], [100, { t: 100 }, 'lin']], (n, v) => {
+  const t = v.t; const c = clicks.find((c0) => t >= c0 && t < c0 + 0.5);
+  if (c == null) { n.style.opacity = 0; return; }
+  const k = (t - c) / 0.5; const p = clickAt(c);
+  n.style.opacity = (1 - k).toFixed(3);
+  n.style.transform = `translate(${p.x + 3}px, ${p.y + 3}px) scale(${((0.35 + k * 0.9) / camS).toFixed(4)})`;
+});
+
+// ── highlight rings (page coordinates) ──
+const rings = [
+  [7.2, 8.4, { x: 776, y: 405, w: 210, h: 50 }],
+  [9.3, 10.8, { x: 327, y: 373, w: 172, h: 56 }],
+  [21.9, 23.2, { x: credsBox.x + 12, y: cp1.y - 34, w: credsBox.w - 24, h: cp2.y + cp2.h - cp1.y + 44 }],
+  [32.3, 34.6, { x: 325, y: 510, w: 300, h: 44 }],
+  [35.8, 38.8, { x: 325, y: 612, w: 330, h: 44 }],
+  [41.9, 43.6, { x: 325, y: 190, w: 665, h: 316 }],
+  [46.4, 49.5, { x: 325, y: 485, w: 665, h: 82 }],
+];
+track($('ring'), [[0, { t: 0 }], [100, { t: 100 }, 'lin']], (n, v) => {
+  const r = rings.find(([a, b]) => v.t >= a && v.t <= b);
+  if (!r) { n.style.opacity = 0; return; }
+  const [a, b, box] = r; const fade = Math.min(1, (v.t - a) / 0.3, (b - v.t) / 0.3);
+  n.style.opacity = Math.max(0, fade).toFixed(3);
+  const grow = 1 + 0.02 * Math.sin((v.t - a) * 3.2);
+  n.style.left = `${box.x}px`; n.style.top = `${box.y}px`; n.style.width = `${box.w}px`; n.style.height = `${box.h}px`;
+  n.style.transform = `scale(${grow.toFixed(4)})`; n.style.borderWidth = `${(2.5 / camS).toFixed(2)}px`;
+});
+
+// ── little confirmations ──
+const chip = (id, t0, t1, x, y) => { const n = $(id); n.style.left = `${x}px`; n.style.top = `${y}px`; show(n, t0, t1, { rise: 6, d: 0.25 }); };
+chip('chip1', 23.65, 24.7, cp1.x - 16, cp1.y + cp1.h + 6); chip('chip2', 25.15, 26.3, cp2.x - 16, cp2.y + cp2.h + 6);
+chip('chip3', 28.45, 29.4, 860, 410); chip('chip4', 29.85, 30.9, 860, 489);
+
+// ── phone ──
+anim('#phone', [[47.2, { o: 0, x: 60, y: 30 }], [48.1, { o: 1, x: 0, y: 0 }, 'out'], [53.2, { o: 1, x: 0, y: 0 }], [53.9, { o: 0, x: 50, y: 10 }, 'in']]);
+anim('#notif', [[48.6, { o: 0, y: -16, s: 0.96 }], [49.1, { o: 1, y: 0, s: 1 }, 'out']]);
+
+// ── outro ──
+show('#o-mark', 54.4, null, { rise: 12, d: 0.7, s0: 0.92 });
+show('#o-title', 54.6, null, { rise: 20, d: 0.8 });
+show('#o-sub', 55.0, null, { rise: 14, d: 0.7 });
+show('#o-ticks', 55.5, null, { rise: 14, d: 0.8 });
+show('#o-help', 56.3, null, { rise: 10, d: 0.7 });
+
+window.DURATION = 61;
+window.ready = Promise.all([...document.images].map((i) => i.decode().catch(() => null))).then(() => document.fonts.ready);
+seek(0);
+</script>
+</body></html>

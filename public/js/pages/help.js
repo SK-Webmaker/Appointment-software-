@@ -6,6 +6,7 @@
 import { esc, icon } from '../ui.js';
 import { state } from '../app.js';
 import { guideUrl, SUPPORT_EMAIL } from '../help.js';
+import { videoCard, wireVideos } from '../video.js';
 
 const TOPICS = [
   ['getting-started', 'Getting started', 'Signing in, the setup journey and the checklist', 'zap'],
@@ -37,6 +38,19 @@ export async function renderHelp(container) {
         <div class="help-hero-s">How to do everything in Kairo, step by step — from your first booking to your last refund.</div>
       </div>
       <a class="btn primary" href="${esc(guideUrl())}" target="_blank" rel="noopener noreferrer">${icon('external', 14)} Open the guide</a>
+    </div>
+
+    <div class="help-watch">
+      ${videoCard('welcome', { id: 'help-v-welcome', sub: 'What Kairo does for you, and what is already switched on.' })}
+      ${videoCard('sms', { id: 'help-v-sms', sub: 'Turn on text reminders with ClickSend, on the real pages.' })}
+      <div class="ss-video help-tour">
+        <span class="help-tour-ic">${icon('grid', 20)}</span>
+        <div class="ss-video-text">
+          <b>Take the tour again</b>
+          <span>A quick lap of every part of Kairo, pointing at the real thing.</span>
+          <button type="button" class="btn" id="help-tour">${icon('chevR', 14)} Start the tour</button>
+        </div>
+      </div>
     </div>
 
     <div class="help-grid">
@@ -71,6 +85,12 @@ export async function renderHelp(container) {
     </div>
     <div class="help-foot">Kairo v${esc(state.version || '')}</div>`;
 
+  wireVideos(container);
+  container.querySelector('#help-tour').addEventListener('click', async () => {
+    const { runTour } = await import('../tour.js');
+    location.hash = '#/dashboard';
+    setTimeout(() => runTour({ force: true }), 600);
+  });
   container.querySelector('#help-kai').addEventListener('click', async () => {
     const { open } = await import('../kai.js');
     open();

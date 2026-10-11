@@ -10,7 +10,7 @@
 //
 // The notice period is shown before they commit, and there is a phone number
 // instead of a dead end when they've left it too late.
-import { esc, icon, fmtDate, fmtTime } from './ui.js';
+import { esc, icon, fmtDate, fmtTime, kairoMark } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 import { lockZoom } from './nozoom.js';
 
@@ -78,7 +78,7 @@ const callHtml = (info, lead) => `
     ? ` Please call us on <span class="cx-phone">${esc(info.business_phone)}</span> and we'll sort it out.`
     : ' Please get in touch and we\'ll sort it out.'}</div>`;
 
-const poweredHtml = () => '<div class="powered">Powered by <b>Kairo</b></div>';
+const poweredHtml = () => `<div class="powered">Powered by <b>${kairoMark(13, 'pw')} Kairo</b></div>`;
 
 function shell(info, inner) {
   root.innerHTML = `${headHtml(info)}<div class="cx-card">${inner}</div>${poweredHtml()}`;

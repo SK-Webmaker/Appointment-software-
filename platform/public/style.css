@@ -290,6 +290,8 @@ button.link { background: none; border: 0; color: var(--accent); cursor: pointer
   background: var(--panel-2); color: var(--dim); border: 1px solid var(--line);
 }
 .big { font-size: 42px; text-align: center; line-height: 1; margin-bottom: 10px; }
+.done-tick { display: inline-grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: rgba(52, 211, 153, 0.14); color: #34d399; }
+.done-tick.wait { background: rgba(56, 189, 248, 0.12); color: #38bdf8; }
 
 .spin {
   display: inline-block; width: 30px; height: 30px; border-radius: 50%;

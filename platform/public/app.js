@@ -211,7 +211,7 @@ async function renderStatus() {
     localStorage.removeItem(KEY);
     app.innerHTML = `${header(0)}
       <div class="card">
-        <div class="big">🎉</div>
+        <div class="big"><span class="done-tick"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
         <h2 style="text-align:center">${esc(st.business_name)} is ready</h2>
         <p class="lede" style="text-align:center">Sign in with the email and password you chose.</p>
         <a class="primary" href="${esc(st.url)}" style="display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700">Open ${esc(st.slug)}.${esc(price.base_domain)}</a>
@@ -230,7 +230,7 @@ async function renderStatus() {
 
   app.innerHTML = `${header(4)}
     <div class="card" style="text-align:center">
-      <div class="big">${st.state === 'flagged' ? '🔎' : '<span class="spin"></span>'}</div>
+      <div class="big">${st.state === 'flagged' ? '<span class="done-tick wait"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>' : '<span class="spin"></span>'}</div>
       <h2>${st.state === 'flagged' ? 'Just checking a couple of details' : 'Setting up your Kairo'}</h2>
       <p class="lede">${esc(st.message)}</p>
       ${st.state === 'flagged' ? '<p class="hint">Nothing more for you to do. We\'ll email you.</p>' : ''}

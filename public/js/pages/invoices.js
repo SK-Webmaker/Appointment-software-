@@ -279,7 +279,7 @@ function openPaymentModal(inv, onDone) {
       const updated = await api.post(`/api/invoices/${inv.id}/payments`, {
         amount_cents: cents, method: fd.get('method'), note: fd.get('note'),
       });
-      toast(updated.status === 'paid' ? 'Paid in full 🎉' : 'Payment recorded');
+      toast(updated.status === 'paid' ? 'Paid in full' : 'Payment recorded');
       m.close(); onDone?.();
     } catch (err) { toast(err.message, 'err'); }
   };

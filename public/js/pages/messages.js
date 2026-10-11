@@ -124,7 +124,7 @@ export async function renderMessages(container) {
               <td data-th="To" class="rf-head"><div class="cell-main">${esc(m.client_name || m.to_addr)}</div>
                   <div class="cell-sub">${esc(m.to_addr)}</div></td>
               <td data-th="Type">${esc(KIND[m.kind] || m.kind)}</td>
-              <td data-th="Channel">${m.channel === 'sms' ? '💬 SMS' : '✉️ Email'}</td>
+              <td data-th="Channel">${m.channel === 'sms' ? 'SMS' : 'Email'}</td>
               <td data-th="Appointment">${m.appt_date ? `${fmtDate(m.appt_date)} · ${fmtTime(m.appt_start)}` : '—'}</td>
               <td data-th="Led to">${m.led_to_bookings
                 ? `<span class="led-to">${m.led_to_bookings === 1 ? 'booked' : `${m.led_to_bookings} booked`}${

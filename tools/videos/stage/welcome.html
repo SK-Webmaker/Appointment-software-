@@ -1,0 +1,195 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Welcome video</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  .win { left: 420px; top: 92px; width: 812px; height: 536px; border-radius: 14px; overflow: hidden; background: #0b1018;
+    border: 1px solid #222d3e; box-shadow: 0 40px 90px rgba(0,0,0,.55); }
+  .win .bar { position: absolute; left: 0; right: 0; top: 0; height: 36px; background: #111824; border-bottom: 1px solid #1c2636;
+    display: flex; align-items: center; padding: 0 14px; gap: 7px; }
+  .win .bar i { width: 10px; height: 10px; border-radius: 50%; background: #2a3546; display: block; }
+  .win .addr { position: absolute; left: 50%; top: 7px; width: 300px; height: 22px; margin-left: -150px; border-radius: 7px; background: #0b1018;
+    border: 1px solid #1c2636; font-size: 11.5px; color: #9aa7bd; display: flex; align-items: center; justify-content: center; }
+  .view { position: absolute; left: 6px; right: 6px; top: 42px; bottom: 6px; overflow: hidden; border-radius: 8px; background: #070a10; }
+  .cam { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; transform-origin: 0 0; }
+  .cam img { position: absolute; left: 0; top: 0; width: 1280px; height: 800px; }
+
+  .cap { left: 56px; top: 0; width: 330px; height: 720px; display: flex; flex-direction: column; justify-content: center; }
+  .cap .eb { font-size: 13px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; color: #38bdf8; }
+  .cap h2 { margin-top: 12px; font-size: 38px; line-height: 1.1; font-weight: 700; }
+  .cap p { margin-top: 16px; font-size: 18.5px; line-height: 1.55; color: #b4c0d3; }
+  .cap p b { color: #fff; font-weight: 600; }
+  #brand { left: 56px; top: 56px; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+
+  /* phone */
+  .phone { width: 300px; height: 620px; border-radius: 46px; background: #05070b; border: 2px solid #2a3546;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6); overflow: hidden; }
+  .phone .scr { position: absolute; inset: 9px; border-radius: 38px; overflow: hidden; background: #0b1220; }
+  .phone .isl { position: absolute; left: 50%; top: 11px; width: 86px; height: 24px; margin-left: -43px; background: #000; border-radius: 13px; z-index: 5; }
+  .phone .scr img { position: absolute; left: 0; top: 0; width: 100%; }
+
+  .center { left: 0; width: 1280px; text-align: center; }
+  .t-xl { font-size: 70px; font-weight: 750; line-height: 1.04; }
+  .t-md { font-size: 24px; color: #b4c0d3; }
+
+  /* already on */
+  .on-row { display: flex; align-items: center; gap: 16px; padding: 15px 18px; border: 1px solid #1f2a3c; border-radius: 14px;
+    background: rgba(14,21,32,.85); width: 470px; }
+  .on-row .tick { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(52,211,153,.14); color: #34d399; }
+  .on-row b { display: block; font-size: 19px; font-weight: 650; }
+  .on-row span { display: block; font-size: 15px; color: #8fa0b8; margin-top: 2px; }
+  .on-row em { margin-left: auto; font-style: normal; font-size: 13px; font-weight: 600; color: #34d399; padding: 4px 9px; border-radius: 999px; background: rgba(52,211,153,.1); }
+
+  /* the email */
+  #mail { left: 700px; top: 150px; width: 470px; border-radius: 16px; overflow: hidden; background: #eef1f5; box-shadow: 0 40px 80px rgba(0,0,0,.5); }
+  #mail .chrome { height: 46px; background: #fff; border-bottom: 1px solid #e6eaf0; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 13.5px; color: #475569; }
+  #mail .chrome b { color: #0f172a; }
+  #mail .av { width: 28px; height: 28px; border-radius: 50%; background: #2563eb; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  #mail .card { margin: 18px; border-radius: 14px; overflow: hidden; background: #fff; }
+  #mail .head { padding: 16px 24px 14px; text-align: center; border-bottom: 1px solid #e6eaf0; font-weight: 750; font-size: 18px; color: #101828; letter-spacing: -.01em; }
+  #mail .body { padding: 20px 24px 22px; color: #3b4657; font-size: 14.5px; line-height: 1.6; }
+  #mail h3 { font-size: 22px; color: #101828; margin-bottom: 10px; letter-spacing: -.01em; }
+  #mail .det { margin: 14px 0; background: #f5f7fa; border-radius: 10px; padding: 8px 16px; }
+  #mail .det div { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+  #mail .det span { color: #6b7686; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; }
+  #mail .det b { color: #101828; }
+  #mail .btn { display: block; text-align: center; background: #2563eb; color: #fff; border-radius: 10px; padding: 11px; font-weight: 650; font-size: 14px; }
+
+  /* texts later */
+  #sms { left: 720px; top: 200px; width: 480px; }
+  #sms .pill { white-space: nowrap; }
+  .bubble { display: inline-block; max-width: 330px; padding: 13px 16px; border-radius: 20px 20px 20px 6px; background: #1f2a3c; color: #e8edf6;
+    font-size: 17px; line-height: 1.45; box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+  .who { font-size: 13px; color: #7f8ea6; margin: 0 0 8px 6px; }
+  .pill { display: inline-flex; align-items: center; gap: 9px; padding: 9px 16px; border-radius: 999px; border: 1px solid #22304a; background: rgba(18,26,40,.7); font-size: 16px; color: #cbd5e1; }
+  .path { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 17px; color: #dbe3ef; font-weight: 600; }
+  .path i { font-style: normal; color: #5b6b84; }
+</style></head>
+<body>
+<div class="bg"></div><div class="grain"></div>
+
+<!-- intro -->
+<div id="i-mark" class="abs center" style="top:196px"></div>
+<div id="i-title" class="abs center display t-xl" style="top:292px">Welcome to Kairo</div>
+<div id="i-sub" class="abs center t-md" style="top:388px">Bookings, clients and payments, in one calm place.</div>
+
+<div id="brand" class="abs"><span id="b-mark"></span>Kairo</div>
+
+<!-- captions -->
+<div id="c1" class="abs cap"><div class="eb">Your day</div><h2 class="display">A calendar that keeps up with you</h2>
+  <p>Book, move and block time in a tap. Drag an appointment, and Kairo tells the client.</p></div>
+<div id="c2" class="abs cap"><div class="eb">Your booking page</div><h2 class="display">Clients book themselves</h2>
+  <p>Day or night, from your Instagram or Google profile. Every booking lands straight in your calendar.</p></div>
+<div id="c3" class="abs cap"><div class="eb">Your business</div><h2 class="display">Clients, payments and takings</h2>
+  <p>Every visit, note and payment kept for you — and how the week is going, at a glance.</p></div>
+<div id="c5" class="abs cap"><div class="eb">When you're ready</div><h2 class="display">Add text reminders</h2>
+  <p>It takes about five minutes, through your own ClickSend account. A one-minute video shows every step.</p>
+  <div class="path">Settings <i>→</i> Messages</div></div>
+
+<!-- window -->
+<div id="win" class="abs win"><div class="bar"><i></i><i></i><i></i><div class="addr">luxehair.kairobookings.com</div></div>
+  <div class="view"><div id="cam" class="cam">
+    <img id="w-cal" src="../shots/w-calendar.png">
+    <img id="w-cli" src="../shots/w-clients.png">
+    <img id="w-dash" src="../shots/w-dashboard.png">
+  </div></div></div>
+
+<!-- phone -->
+<div id="phone" class="abs phone" style="left:700px;top:50px"><div class="isl"></div><div class="scr">
+  <img id="b1" src="../shots/w-book-1.png"><img id="b2" src="../shots/w-book-2.png"><img id="b3" src="../shots/w-book-3.png">
+</div></div>
+
+<!-- already on -->
+<div id="on-h" class="abs" style="left:56px;top:118px;width:560px">
+  <div style="font-size:13px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:#38bdf8">Already switched on</div>
+  <div class="display" style="margin-top:12px;font-size:38px;line-height:1.1;font-weight:700">Your clients hear from you, automatically</div>
+</div>
+<div id="on1" class="abs on-row" style="left:56px;top:262px"><span class="tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><b>Booking confirmations</b><span>The moment someone books</span></div><em>On</em></div>
+<div id="on2" class="abs on-row" style="left:56px;top:342px"><span class="tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><b>Reminders</b><span>24 hours before every visit</span></div><em>On</em></div>
+<div id="on3" class="abs on-row" style="left:56px;top:422px"><span class="tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><b>Payment receipts</b><span>Whenever a payment is taken</span></div><em>On</em></div>
+<div id="on4" class="abs on-row" style="left:56px;top:502px"><span class="tick"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span><div><b>Review requests</b><span>A quick "how was it?" after each visit</span></div><em>On</em></div>
+<div id="on-note" class="abs" style="left:58px;top:592px;font-size:16px;color:#8796ae">By email, free, with your business name on every one.</div>
+
+<div id="mail" class="abs"><div class="chrome"><span class="av">L</span><div><b>Luxe Hair</b><br><span style="font-size:12px">Reminder: Full Colour on Tue 13 Oct</span></div></div>
+  <div class="card"><div class="head">Luxe Hair</div><div class="body">
+    <h3>See you soon!</h3><div style="color:#101828;font-weight:700;margin-bottom:6px">Hi Amara,</div>
+    A friendly reminder about your upcoming visit:
+    <div class="det"><div><span>When</span><b>Tue 13 Oct, 10:00 AM</b></div><div><span>Service</span><b>Full Colour</b></div><div><span>With</span><b>Maya</b></div></div>
+    <div class="btn">Can't make it? Cancel here</div></div></div></div>
+
+<!-- texts later -->
+<div id="sms" class="abs"><div class="who">Luxe Hair · Text message</div>
+  <div class="bubble">Hi Amara, a reminder of your Full Colour with Maya tomorrow at 10:00 AM at Luxe Hair.</div>
+  <div style="margin-top:22px"><span class="pill"><svg width="14" height="14" viewBox="0 0 24 24"><polygon points="7 4.5 19.5 12 7 19.5" fill="#38bdf8"/></svg>Watch: Text reminders, step by step · 1 min</span></div></div>
+
+<!-- outro -->
+<div id="o-mark" class="abs center" style="top:214px"></div>
+<div id="o-title" class="abs center display t-xl" style="top:300px">Let's set up your business</div>
+<div id="o-sub" class="abs center t-md" style="top:398px">About five minutes. You can change anything later.</div>
+
+<script type="module">
+import { anim, show, track, seek } from './engine.js';
+const MARK = (size, id) => `<svg width="${size}" height="${size}" viewBox="0 0 48 48" fill="none"><defs><linearGradient id="${id}" x1="12" y1="9" x2="36" y2="39" gradientUnits="userSpaceOnUse"><stop stop-color="#e0f2fe"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs><path d="M13.75 10.5V37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6A16 16 0 0 1 29.6 13.9" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><path d="M17.2 25.6L33.6 37.5" stroke="url(#${id})" stroke-width="5.5" stroke-linecap="round"/><circle cx="35.2" cy="10.4" r="3.9" fill="#38bdf8"/></svg>`;
+document.getElementById('i-mark').innerHTML = MARK(78, 'm1');
+document.getElementById('o-mark').innerHTML = MARK(66, 'm2');
+document.getElementById('b-mark').innerHTML = MARK(26, 'm3');
+const $ = (id) => document.getElementById(id);
+
+// intro 0–3.1
+show('#i-mark', 0.1, 3.0, { rise: 16, s0: 0.9, d: 0.75 });
+show('#i-title', 0.4, 3.05, { rise: 24, d: 0.85, out: 16, blur: 6 });
+show('#i-sub', 0.85, 3.1, { rise: 14, d: 0.7, out: 12 });
+show('#brand', 3.0, 22.4, { d: 0.6 });
+
+const cap = (id, t0, t1) => show(`#${id}`, t0, t1, { rise: 18, d: 0.55, out: 10 });
+cap('c1', 3.1, 7.7); cap('c2', 7.8, 12.3); cap('c3', 12.4, 16.6); cap('c5', 22.7, 26.5);
+
+// window: calendar, then clients, then the dashboard's numbers
+anim('#win', [[2.9, { o: 0, y: 30, s: 0.965 }], [3.7, { o: 1, y: 0, s: 1 }, 'out'], [7.4, { o: 1, x: 0 }], [7.9, { o: 0, x: -30 }, 'in'],
+  [12.2, { o: 0, x: 30, y: 0 }], [12.8, { o: 1, x: 0 }, 'out'], [16.3, { o: 1, x: 0, y: 0 }], [16.8, { o: 0, y: -16 }, 'in']]);
+anim('#w-cal', [[0, { o: 1 }], [12.1, { o: 1 }], [12.11, { o: 0 }, 'lin']]);
+anim('#w-cli', [[12.1, { o: 0 }], [12.11, { o: 1 }, 'lin'], [14.3, { o: 1 }], [14.7, { o: 0 }, 'soft']]);
+anim('#w-dash', [[14.3, { o: 0 }], [14.7, { o: 1 }, 'soft']]);
+const VW = 800, VH = 488;
+const fit = (r) => {
+  const base = Math.max(VW / 1280, VH / 800);
+  const s = Math.max(base, Math.min(VW / r.w, VH / r.h));
+  let x = VW / 2 - (r.x + r.w / 2) * s, y = VH / 2 - (r.y + r.h / 2) * s;
+  x = Math.min(0, Math.max(VW - 1280 * s, x)); y = Math.min(0, Math.max(VH - 800 * s, y));
+  return { s, x, y };
+};
+const FULL = { x: 0, y: 0, w: 1280, h: 800 };
+track($('cam'), [[0, FULL], [3.6, FULL], [7.6, { x: 250, y: 160, w: 720, h: 450 }, 'io'],
+  [12.1, { x: 250, y: 160, w: 720, h: 450 }], [12.11, { x: 200, y: 60, w: 1080, h: 675 }], [14.3, { x: 280, y: 160, w: 1000, h: 625 }, 'io'],
+  [14.5, { x: 250, y: 60, w: 1030, h: 644 }], [16.6, { x: 290, y: 80, w: 980, h: 612 }, 'io']], (n, r) => {
+  const f = fit(r); n.style.transform = `translate(${f.x.toFixed(2)}px, ${f.y.toFixed(2)}px) scale(${f.s.toFixed(5)})`;
+});
+
+// phone: the client's side, three taps
+anim('#phone', [[7.7, { o: 0, y: 40, s: 0.96 }], [8.5, { o: 1, y: 0, s: 1 }, 'out'], [11.9, { o: 1, y: 0 }], [12.4, { o: 0, y: -20 }, 'in']]);
+// screenshots are 390 wide at 3x; the phone screen is 282 wide → scale by width (img is 100% wide)
+anim('#b1', [[0, { o: 1 }], [9.4, { o: 1, x: 0 }], [9.9, { o: 0, x: -60 }, 'io']]);
+anim('#b2', [[9.4, { o: 0, x: 80 }], [9.9, { o: 1, x: 0 }, 'io'], [10.8, { o: 1, x: 0 }], [11.3, { o: 0, x: -60 }, 'io']]);
+anim('#b3', [[10.8, { o: 0, x: 80 }], [11.3, { o: 1, x: 0 }, 'io']]);
+// show the selected service and the Continue bar on screen two: scroll it a little
+
+// already switched on
+show('#on-h', 16.8, 22.5, { rise: 18, d: 0.6, out: 10 });
+[['on1', 17.4], ['on2', 17.9], ['on3', 18.4], ['on4', 18.9]].forEach(([id, t]) => {
+  anim(`#${id}`, [[t, { o: 0, x: -24 }], [t + 0.5, { o: 1, x: 0 }, 'out'], [22.0, { o: 1, x: 0 }], [22.5, { o: 0, x: 0 }, 'in']]);
+});
+show('#on-note', 19.6, 22.5, { rise: 8, d: 0.5 });
+anim('#mail', [[17.2, { o: 0, y: 40, s: 0.97 }], [18.0, { o: 1, y: 0, s: 1 }, 'out'], [22.0, { o: 1, y: 0 }], [22.5, { o: 0, y: -14 }, 'in']]);
+
+// texts, later
+anim('#sms', [[22.9, { o: 0, y: 30 }], [23.6, { o: 1, y: 0 }, 'out'], [26.0, { o: 1, y: 0 }], [26.5, { o: 0, y: -12 }, 'in']]);
+
+// outro
+show('#o-mark', 26.6, null, { rise: 12, d: 0.7, s0: 0.92 });
+show('#o-title', 26.8, null, { rise: 20, d: 0.8, blur: 6 });
+show('#o-sub', 27.3, null, { rise: 12, d: 0.7 });
+
+window.DURATION = 29.5;
+window.ready = Promise.all([...document.images].map((i) => i.decode().catch(() => null))).then(() => document.fonts.ready);
+seek(0);
+</script>
+</body></html>

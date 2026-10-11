@@ -561,7 +561,9 @@ route('GET', '/api/auth/verify-email', async ({ res, query }) => {
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
 <body style="margin:0;display:grid;place-items:center;min-height:100vh;background:#0b1220;font-family:system-ui,sans-serif;color:#e8edf6">
 <div style="text-align:center;max-width:420px;padding:24px">
-  <div style="font-size:44px;margin-bottom:12px">${good ? '✅' : '⚠️'}</div>
+  <div style="width:56px;height:56px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:${good ? 'rgba(52,211,153,.14);color:#34d399' : 'rgba(251,191,36,.14);color:#fbbf24'}">${good
+    ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9.5"/></svg>'}</div>
   <h1 style="font-size:21px;margin:0 0 8px">${title}</h1>
   <p style="color:#9aa7bd;line-height:1.6;margin:0 0 22px">${msg}</p>
   <a href="/" style="color:#38bdf8;font-weight:600;text-decoration:none">Go to your workspace →</a>
@@ -4013,19 +4015,19 @@ export async function sendTestMessage(b) {
   const target = str(b.to, 200) || (channel === 'sms' ? getSetting('business_phone') : getSetting('business_email'));
   if (!target) throw httpError(400, 'No destination — set your business email/phone first');
   const testHtml = channel === 'email' ? renderEmail({
-    heading: 'Your notifications are working!',
+    heading: 'Your emails are working',
     greeting: 'Hi there,',
     paragraphs: [
-      `This is a test from ${getSetting('business_name', 'Kairo')}. If you're reading this, your email setup is live —`
+      `This is a test from ${getSetting('business_name', 'Kairo')}. If you're reading this, your email is set up —`
       + ' confirmations, reminders, receipts and review requests will look just like this.',
     ],
-    details: [['Status', 'Connected ✓'], ['Sent from', getSetting('notif_from_email', '')]],
+    details: [['Status', 'Connected'], ['Sent from', getSetting('notif_from_email', '')]],
   }) : '';
   const info = db.prepare(
     `INSERT INTO messages (channel, kind, to_addr, subject, body, html, status, send_after)
      VALUES (?, 'test', ?, ?, ?, ?, 'queued', '')`
   ).run(channel, target,
-        'Kairo test message', `This is a test from ${getSetting('business_name', 'Kairo')} — your notification setup works! 🎉`, testHtml);
+        'Kairo test message', `Test from ${getSetting('business_name', 'Kairo')}: texts are working. Your clients' reminders will arrive just like this.`, testHtml);
   const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(info.lastInsertRowid);
   const result = await deliverMessage(msg);
   return { ok: result.ok, status: result.status, detail: result.detail };

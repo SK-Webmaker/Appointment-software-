@@ -1310,6 +1310,24 @@ const MUTATIONS = {
     find: "  const r = await sendEmail(to, `Your ${biz} data from Kairo`, text, '', { attachments });",
     replace: "  const r = await sendEmail(to, `Your ${biz} data from Kairo`, text, '');",
   },
+  // ── The videos, the tour and the look ─────────────────────────────────────
+  // An iPhone plays nothing without byte ranges; the tour must reach every page;
+  // emoji must not creep back into what owners and clients read.
+  'video-no-ranges': {
+    file: 'server.js', suites: ['videos'],
+    find: "  if (req && ['.mp4', '.webm'].includes(path.extname(filePath).toLowerCase())) { serveVideo(req, res, filePath); return; }",
+    replace: '',
+  },
+  'tour-skips-products': {
+    file: 'public/js/tour.js', suites: ['videos'],
+    find: "  { sel: nav('products'),",
+    replace: "  { sel: '#no-such-thing',",
+  },
+  'emoji-in-the-wizard': {
+    file: 'public/js/wizard.js', suites: ['videos'],
+    find: "<span aria-hidden=\"true\">${icon('bulb', 15)}</span>",
+    replace: "<span aria-hidden=\"true\">\u{1F4A1}</span>",
+  },
 };
 
 const only = process.argv.slice(2);

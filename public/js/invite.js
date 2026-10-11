@@ -27,7 +27,7 @@
 //   yet booked — because that is what is true, and a client who leaves here
 //   believing they have an appointment they do not have is the single worst
 //   outcome this page can produce.
-import { esc, icon, fmtDate, fmtTime } from './ui.js';
+import { esc, icon, fmtDate, fmtTime, kairoMark } from './ui.js';
 import { resolveScheme, applyScheme } from './schemes.js';
 import { lockZoom } from './nozoom.js';
 
@@ -86,7 +86,7 @@ const detailsHtml = (inv) => `
   </dl>
   ${inv.note ? `<div class="cx-callout">${esc(inv.note)}</div>` : ''}`;
 
-const poweredHtml = () => '<div class="powered">Powered by <b>Kairo</b></div>';
+const poweredHtml = () => `<div class="powered">Powered by <b>${kairoMark(13, 'pw')} Kairo</b></div>`;
 
 function shell(inv, inner) {
   root.innerHTML = `${headHtml(inv)}<div class="cx-card">${inner}</div>${poweredHtml()}`;
