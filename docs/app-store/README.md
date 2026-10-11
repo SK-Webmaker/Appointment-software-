@@ -9,9 +9,11 @@ session loses nothing.
 
 - Stop at the end of every phase and get the owner's approval before starting
   the next. No building during a research phase.
-- Never touch the two live services (`hairbysha-booking`,
-  `horahaircutz-booking`) without saying what is about to happen first.
-  Reading their configuration is fine; changing anything is not, without notice.
+- Never touch the live services (`kairo-shard-au`, where Hair By Sha and
+  Horahaircutz now run, and `kairo-platform`) without saying what is about to
+  happen first. Reading their configuration is fine; changing anything is not,
+  without notice. (Their old services, `hairbysha-booking` and
+  `horahaircutz-booking`, were deleted on 11 October 2026.)
 - Write deliverables to files in this folder.
 - Say when something is a bad idea, including things in the brief.
 - Do not gold-plate.

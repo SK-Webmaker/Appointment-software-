@@ -28,15 +28,14 @@ in the September list further down is done, except what this section names.
   Payment pages are already branded by Kairo on every payment.
 - `PLATFORM_ABN` and `PLATFORM_GST=1` on `kairo-platform`, once you have an
   ABN and once you are registered for GST.
-- iPhone app 1.0.2, so the welcome video starts by itself inside the app too;
-  in 1.0.1 it waits for a tap. GitHub → Actions → ios → Run workflow with
-  *ship* ticked, then submit it in App Store Connect.
 - `CLOUDFLARE_API_TOKEN` on `kairo-platform`, only if a salon ever wants to
   send from its own domain. Every salon sends through the shared sender
   without it.
-- The suspended `hairbysha-booking` and `horahaircutz-booking` services on
-  Render still hold a 1 GB disk each. Delete them once you are sure you will
-  never want their old data; both salons have run on the shard since.
+
+**Done since:** iPhone app 1.0.2 (build 23) uploaded and submitted to Apple,
+so the welcome video starts by itself inside the app once Apple approves it;
+the old `hairbysha-booking` and `horahaircutz-booking` services deleted, so
+Render now runs only `kairo-shard-au` and `kairo-platform`.
 
 ---
 

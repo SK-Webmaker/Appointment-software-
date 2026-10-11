@@ -23,6 +23,11 @@
 > deploy, and re-mute the shard copy — in that order. Keep it until at least
 > 29 September.
 >
+> **11 October 2026: that rollback is gone.** Both old services
+> (`hairbysha-booking` and `horahaircutz-booking`) were deleted once each
+> salon had run on the shard for weeks. Her data now lives only on the shard,
+> which backs every salon up before each update and on its own schedule.
+>
 > What follows is the runsheet as written beforehand, kept because the reasoning
 > is what matters next time.
 
