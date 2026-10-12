@@ -37,6 +37,10 @@ import {
   requestReset, peekReset, consumeReset, forgetResets, maskEmail, FORGOT_REPLY,
   sendPasswordChangedEmail, sendEmailChangedNotice,
 } from './password-reset.js';
+import {
+  refundCodeWait, mintRefundCode, forgetRefundCode, takeRefundCode, putBackRefundCode, emailRefundCode,
+  REFUND_CODE_SAY, REFUND_CODE_GAP_MS, REFUND_CODE_TTL_MS,
+} from './refund-code.js';
 import { VERSION } from './version.js';
 import { verifyTurnstile, turnstileSiteKey, turnstileEnabled } from './turnstile.js';
 import {
@@ -3747,6 +3751,49 @@ route('GET', '/api/account/guarantee', async () => {
 });
 
 /**
+ * The six digits a refund needs, emailed to the owner's own sign-in address.
+ *
+ * A refund ends the business, so the last step proves the person at the screen
+ * is the person who reads the owner's email — not whoever picked up a phone
+ * left signed in on the front desk. The rules are in src/refund-code.js.
+ */
+route('POST', '/api/account/refund/code', async ({ user }) => {
+  if (user?.role && user.role !== 'owner') throw httpError(403, 'Only the owner can ask for a refund.');
+  const { platform_url: platform, connect_token: token } = platformHandles();
+  if (!platform || !token) throw httpError(400, 'This Kairo was not bought through the store, so there is nothing to refund here.');
+  const owner = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(user.id);
+  if (!owner?.email) throw httpError(400, 'Add your email in Account first, so the code has somewhere to go.');
+  const wait = refundCodeWait(owner.id);
+  if (wait) {
+    throw Object.assign(httpError(429, `A code was sent a moment ago. You can ask for another in ${wait} seconds.`),
+      { data: { retry_after: wait } });
+  }
+  // The amount, so the email says exactly what the code does. Asked of the
+  // platform that took the card, never of the page: a number a browser sent
+  // would be somebody else's words in an email from Kairo.
+  let amount = '';
+  try {
+    const r = await fetch(`${platform}/api/connect/status?t=${encodeURIComponent(token)}`, { signal: AbortSignal.timeout(5000) });
+    const cents = r.ok ? Number((await r.json()).price_cents || 0) : 0;
+    if (cents > 0) amount = `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+  } catch { /* the email says "refund" without the figure */ }
+  const now = Date.now();
+  const code = mintRefundCode(owner.id, now);
+  const sent = await emailRefundCode(owner, code, { amount });
+  if (!sent.ok) {
+    forgetRefundCode(owner.id, now);
+    console.error(`refund code: could not email ${maskEmail(owner.email)} — ${String(sent.detail || '').slice(0, 160)}`);
+    throw httpError(502, "We couldn't email your code just now. Nothing has changed. Try again in a minute, or contact Kairo support if it keeps happening.");
+  }
+  return {
+    ok: true,
+    sent_to: maskEmail(owner.email),
+    expires_in_min: Math.round(REFUND_CODE_TTL_MS / 60_000),
+    resend_after: Math.ceil(REFUND_CODE_GAP_MS / 1000),
+  };
+});
+
+/**
  * Asking for that refund, from inside the app.
  *
  * Inside the window the platform refunds automatically — a policy that says
@@ -3759,7 +3806,7 @@ route('GET', '/api/account/guarantee', async () => {
  * not would find out from their bank statement.
  */
 route('POST', '/api/account/refund', async ({ req, user }) => {
-  const b = checkBody(await readJson(req).catch(() => ({})), { reason: s.str(300), confirm: s.str(40) });
+  const b = checkBody(await readJson(req).catch(() => ({})), { reason: s.str(300), confirm: s.str(40), code: s.str(12) });
   if (user?.role && user.role !== 'owner') {
     throw httpError(403, 'Only the owner can ask for a refund.');
   }
@@ -3771,6 +3818,14 @@ route('POST', '/api/account/refund', async ({ req, user }) => {
   }
   const { platform_url: platform, connect_token: token } = platformHandles();
   if (!platform || !token) throw httpError(400, 'This Kairo was not bought through the store, so there is nothing to refund here.');
+  // And the six digits from the owner's inbox. Taken now, so a second press
+  // with the same code cannot start a second refund; put back below if the
+  // refund does not happen for a reason that is not theirs.
+  const code = takeRefundCode(user.id, b.code);
+  if (!code.ok) {
+    throw Object.assign(httpError(400, REFUND_CODE_SAY[code.why]),
+      { data: { code_error: code.why, ...(code.tries_left != null ? { tries_left: code.tries_left } : {}) } });
+  }
   let r;
   try {
     r = await fetch(`${platform}/api/connect/refund`, {
@@ -3780,10 +3835,14 @@ route('POST', '/api/account/refund', async ({ req, user }) => {
       signal: AbortSignal.timeout(20000),
     });
   } catch {
+    putBackRefundCode(code.taken);
     throw httpError(502, 'Could not reach the billing service. Nothing was charged or changed — please try again in a minute.');
   }
   const out = await r.json().catch(() => ({}));
-  if (!r.ok) throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');
+  if (!r.ok) {
+    putBackRefundCode(code.taken);
+    throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');
+  }
   return out;
 });
 

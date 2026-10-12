@@ -71,6 +71,12 @@ export function renderEmail(p) {
 
   const receipt = p.receipt ? receiptBlock(p.receipt) : '';
 
+  // A one-time code, large and spaced, so it can be typed without a second look.
+  const codeBlock = p.code ? `
+    <div style="margin:20px 0 6px;text-align:center;">
+      <div style="display:inline-block;padding:14px 22px 14px 30px;border-radius:12px;background:#f5f7fa;border:1px solid #e6eaf0;font-family:Menlo,Consolas,'Courier New',monospace;font-size:32px;font-weight:bold;letter-spacing:0.3em;color:#101828;">${esc(p.code)}</div>
+    </div>` : '';
+
   const paragraphs = (p.paragraphs || []).map((t) =>
     `<p style="margin:0 0 14px;font-size:14.5px;line-height:1.65;color:#3b4657;">${esc(t)}</p>`
   ).join('');
@@ -88,6 +94,7 @@ export function renderEmail(p) {
     <tr><td style="background:#ffffff;padding:28px 32px 24px;border-radius:0 0 14px 14px;">
       ${p.greeting ? `<p style="margin:0 0 14px;font-size:14.5px;line-height:1.65;color:#101828;font-weight:bold;">${esc(p.greeting)}</p>` : ''}
       ${paragraphs}
+      ${codeBlock}
       ${receipt}
       ${detailCard}
       ${ctaBlock ? `<div style="text-align:center;">${ctaBlock}</div>` : ''}

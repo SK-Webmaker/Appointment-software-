@@ -3064,23 +3064,75 @@ a:focus-visible,
 .gtee-say { font-size: 13px; color: var(--text-2); line-height: 1.55; }
 .gtee-card .btn { align-self: flex-start; }
 
-/* "Are you sure?" before a refund. Each line is one thing the refund does,
-   icon first so the list can be scanned; the ones that cannot be taken back
-   are tinted red. The button stays locked until the box is ticked. */
+/* The refund, one screen at a time (account.js → refundFlow). Five screens in
+   one window: what would be lost, what a refund does, the emailed code, the
+   stages as they happen, and the end. Each screen slides in from the side it
+   is heading to; lists arrive one line after another so they are read, not
+   skimmed. Nothing here is decoration for its own sake: every movement is a
+   step changing, a number landing, or a stage being done. */
+.rf-flow { min-width: 0; }
+.rf-steps { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rf-steps li { min-width: 0; }
+.rf-steps i {
+  display: block; height: 4px; border-radius: 4px; background: var(--border); overflow: hidden; position: relative;
+}
+.rf-steps i::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--red);
+  transform: scaleX(0); transform-origin: left; transition: transform var(--dur-view) var(--ease-out);
+}
+.rf-steps li.now i::after, .rf-steps li.done i::after { transform: scaleX(1); }
+.rf-steps li.done i::after { background: var(--text-2); }
+/* The end: every step turns green, left to right. */
+.rf-steps.complete li i::after { background: var(--green); transition: transform var(--dur-view) var(--ease-out), background 400ms ease; }
+.rf-steps.complete li:nth-child(2) i::after { transition-delay: 0s, 90ms; }
+.rf-steps.complete li:nth-child(3) i::after { transition-delay: 0s, 180ms; }
+.rf-steps.complete li:nth-child(4) i::after { transition-delay: 0s, 270ms; }
+.rf-steps span {
+  display: block; margin-top: 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; transition: color var(--dur-state) ease;
+}
+.rf-steps li.now span { color: var(--text); font-weight: 600; }
+.rf-stage { --dir: 1; }
+.rf-stage.rf-back { --dir: -1; }
+.rf-stage.rf-in { animation: rf-slide-in var(--dur-view) var(--ease-out) both; }
+.rf-stage.rf-out { animation: rf-slide-out 170ms var(--ease-in-out) both; }
+@keyframes rf-slide-in { from { opacity: 0; transform: translateX(calc(28px * var(--dir))); } }
+@keyframes rf-slide-out { to { opacity: 0; transform: translateX(calc(-28px * var(--dir))); } }
+@keyframes rf-rise { from { opacity: 0; transform: translateY(8px); } }
+.modal.rf-busy [data-close], .rf-busy .modal [data-close] { visibility: hidden; }
+
 .rf-lede { color: var(--text-2); line-height: 1.6; margin: 0 0 14px; }
-.rf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.rf-row {
+.rf-lede b { color: var(--text); }
+
+/* 1. Before you go */
+.rf-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
+.rf-tile {
+  padding: 12px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  animation: rf-rise var(--dur-view) var(--ease-out) both;
+}
+.rf-tile:nth-child(2) { animation-delay: 60ms; } .rf-tile:nth-child(3) { animation-delay: 120ms; } .rf-tile:nth-child(4) { animation-delay: 180ms; }
+.rf-tile b { display: block; font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text); }
+.rf-tile span { display: block; margin-top: 4px; font-size: 12px; color: var(--text-2); line-height: 1.4; }
+.rf-tile.warn { border-color: var(--danger-line, rgba(248, 113, 113, .28)); }
+.rf-tile.warn b { color: var(--red); }
+.rf-gains, .rf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rf-gain, .rf-row {
   display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+  animation: rf-rise var(--dur-view) var(--ease-out) both; animation-delay: calc(240ms + var(--i, 0) * 70ms);
 }
-.rf-row b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
-.rf-row .rf-detail { display: block; font-size: 12.5px; color: var(--text-2); line-height: 1.5; margin-top: 2px; }
-.rf-row .rf-detail b { display: inline; font-size: inherit; }
+.rf-gain b, .rf-row b { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); }
+.rf-gain .rf-detail, .rf-row .rf-detail { display: block; font-size: 12.5px; color: var(--text-2); line-height: 1.5; margin-top: 2px; }
+.rf-gain .rf-detail b, .rf-row .rf-detail b { display: inline; font-size: inherit; }
 .rf-ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
   background: var(--surface-3, rgba(255, 255, 255, .05)); color: var(--text-2); }
+.rf-gain .rf-ic { color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+
+/* 2. What a refund does */
+.rf-row { animation-delay: calc(var(--i, 0) * 70ms); }
 .rf-row.bad { border-color: var(--danger-line, rgba(248, 113, 113, .28)); }
 .rf-row.bad .rf-ic { color: var(--red); background: rgba(248, 113, 113, .1); }
-.rf-ack { margin-top: 14px; }
+.rf-ack { margin-top: 14px; animation: rf-rise var(--dur-view) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms); }
 .rf-ack:has(input:checked) { border-color: var(--red); background: rgba(248, 113, 113, .07); }
 .rf-go:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
 .rf-go:not(:disabled):hover { background: var(--red); filter: brightness(1.08); }
@@ -3089,12 +3141,118 @@ a:focus-visible,
   border: 2px solid currentColor; border-right-color: transparent; animation: rf-spin .7s linear infinite;
 }
 @keyframes rf-spin { to { transform: rotate(360deg); } }
-.rf-done { text-align: center; }
-.rf-done p { color: var(--text-2); line-height: 1.6; margin: 0 0 10px; }
-.rf-done p b { color: var(--text); }
-.rf-tick { width: 46px; height: 46px; margin: 4px auto 14px; border-radius: 50%; display: grid; place-items: center;
-  color: var(--green, #199e70); background: color-mix(in srgb, var(--green, #199e70) 14%, transparent); }
-@media (prefers-reduced-motion: reduce) { .rf-spin { animation: none; } }
+
+/* 3. It's you: the emailed code */
+.rf-code { text-align: center; }
+.rf-envelope {
+  width: 60px; height: 60px; margin: 10px auto 16px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); position: relative;
+  animation: rf-pop 420ms var(--ease-spring) both;
+}
+.rf-envelope::after {
+  content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--accent);
+  opacity: 0; animation: rf-ring 1.4s var(--ease-out) 300ms 2;
+}
+@keyframes rf-pop { from { opacity: 0; transform: scale(.6); } }
+@keyframes rf-ring { from { opacity: .55; transform: scale(1); } to { opacity: 0; transform: scale(1.55); } }
+.rf-digits { display: flex; justify-content: center; gap: 8px; margin: 6px 0 10px; }
+.rf-digits input {
+  width: 46px; height: 56px; padding: 0; text-align: center; font-size: 24px; font-weight: 700;
+  font-variant-numeric: tabular-nums; border-radius: 10px; border: 1.5px solid var(--border);
+  background: var(--panel-2); color: var(--text); caret-color: var(--accent);
+  transition: border-color var(--dur-state) ease, transform var(--dur-press) ease, box-shadow var(--dur-state) ease;
+  animation: rf-rise var(--dur-view) var(--ease-out) both;
+}
+.rf-digits input:nth-child(2) { animation-delay: 40ms; } .rf-digits input:nth-child(3) { animation-delay: 80ms; }
+.rf-digits input:nth-child(4) { animation-delay: 120ms; } .rf-digits input:nth-child(5) { animation-delay: 160ms; }
+.rf-digits input:nth-child(6) { animation-delay: 200ms; }
+.rf-digits input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+/* Each box selects its digit on focus so typing replaces it; the highlight
+   itself would read as a glitch in a box this size. */
+.rf-digits input::selection { background: transparent; }
+.rf-digits input.filled { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.rf-digits.rf-shake { animation: rf-shake 420ms var(--ease-in-out); }
+.rf-digits.rf-shake input { border-color: var(--red); }
+@keyframes rf-shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+.rf-code-err { min-height: 1.2em; }
+.rf-resend { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 10px; font-size: 12.5px; color: var(--muted); }
+.rf-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+@media (max-width: 420px) {
+  .rf-digits { gap: 6px; }
+  .rf-digits input { width: 40px; height: 50px; font-size: 21px; }
+}
+
+/* 4. Refunding: the stages, ticked only when the server has answered */
+.rf-work { text-align: center; padding: 6px 0 2px; }
+.rf-orbit {
+  width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; position: relative;
+  border: 3px solid var(--border);
+}
+.rf-orbit span {
+  position: absolute; inset: -3px; border-radius: 50%; border: 3px solid transparent;
+  border-top-color: var(--accent); border-right-color: var(--accent); animation: rf-spin .9s linear infinite;
+}
+.rf-orbit.settled { border-color: var(--green); transition: border-color var(--dur-enter) ease; }
+.rf-orbit.settled span { animation: none; opacity: 0; transition: opacity var(--dur-enter) ease; }
+.rf-stages { list-style: none; margin: 0 auto 16px; padding: 0; display: inline-flex; flex-direction: column; gap: 10px; text-align: left; }
+.rf-stages li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); transition: color var(--dur-state) ease; }
+.rf-stages i {
+  flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); position: relative;
+  transition: border-color var(--dur-state) ease, background var(--dur-state) ease;
+}
+.rf-stages li.now { color: var(--text); }
+.rf-stages li.now i { border-color: var(--accent); border-right-color: transparent; animation: rf-spin .8s linear infinite; }
+.rf-stages li.past { color: var(--text-2); }
+.rf-stages li.past i { border-color: var(--text-2); }
+.rf-stages li.done { color: var(--text); }
+.rf-stages li.done i { border-color: var(--green); background: var(--green); animation: rf-pop 260ms var(--ease-spring) both; }
+.rf-stages li.done i::after {
+  content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.rf-stages li.warn { color: var(--amber); }
+.rf-stages li.warn i { border-color: var(--amber); background: var(--amber); }
+.rf-stages li.warn i::after { content: '!'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 800; color: var(--bg); }
+
+/* 5. The end: a seal that draws itself, then what happened, line by line */
+.rf-end { text-align: center; padding: 4px 0 2px; }
+.rf-seal { width: 72px; height: 72px; display: block; margin: 0 auto 14px; }
+.rf-seal circle {
+  fill: color-mix(in srgb, var(--green) 12%, transparent); stroke: var(--green); stroke-width: 3;
+  stroke-dasharray: 176; stroke-dashoffset: 176; transform: rotate(-90deg); transform-origin: center;
+  animation: rf-draw 620ms var(--ease-out) forwards;
+}
+.rf-seal path {
+  fill: none; stroke: var(--green); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 40; stroke-dashoffset: 40; animation: rf-draw 360ms var(--ease-out) 520ms forwards;
+}
+@keyframes rf-draw { to { stroke-dashoffset: 0; } }
+.rf-end h3 { margin: 0 0 8px; font-size: 19px; color: var(--text); animation: rf-rise var(--dur-view) var(--ease-out) 700ms both; }
+.rf-end > p { color: var(--text-2); line-height: 1.6; margin: 0 0 12px; animation: rf-rise var(--dur-view) var(--ease-out) 800ms both; }
+.rf-end > p b { color: var(--text); }
+.rf-receipt {
+  margin: 4px 0 14px; padding: 4px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--border);
+  text-align: left; animation: rf-rise var(--dur-view) var(--ease-out) 880ms both;
+}
+.rf-receipt div {
+  display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-top: 1px solid var(--border-soft);
+  animation: rf-rise var(--dur-view) var(--ease-out) both; animation-delay: calc(960ms + var(--i, 0) * 90ms);
+}
+.rf-receipt div:first-child { border-top: 0; }
+.rf-receipt dt { margin: 0; font-size: 13px; color: var(--text-2); min-width: 0; }
+.rf-receipt dd { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); text-align: right; }
+.rf-end .rf-thanks { font-size: 13px; animation-delay: 1.3s; }
+.rf-end .rf-leaving { font-size: 12px; color: var(--muted); margin: 0; animation-delay: 1.4s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-spin, .rf-orbit span, .rf-stages li.now i { animation: none; }
+  .rf-stage.rf-in, .rf-stage.rf-out, .rf-tile, .rf-gain, .rf-row, .rf-ack, .rf-envelope, .rf-envelope::after,
+  .rf-digits input, .rf-digits.rf-shake, .rf-stages li.done i, .rf-end h3, .rf-end > p, .rf-receipt, .rf-receipt div {
+    animation: none;
+  }
+  .rf-seal circle, .rf-seal path { animation: none; stroke-dashoffset: 0; }
+  .rf-steps i::after { transition: none; }
+}
 
 /* ---------------------------------------------------------------------------
    Booking page: the sticky section bar, and the sections it follows

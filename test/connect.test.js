@@ -40,6 +40,23 @@ async function provision(overrides = {}) {
   throw new Error('never became ready');
 }
 
+/**
+ * A refund needs the six digits emailed to the owner. These salons have no
+ * email of their own yet, so lend each one a sender first, then read the code
+ * out of the inbox the way the owner would.
+ */
+async function refundCode(host, cookie, slug) {
+  const set = await shard.api('PUT', '/api/settings', {
+    host, cookie, body: { resend_api_key: resend.fullKey, notif_from_email: `hello@${slug}.${DOMAIN}` },
+  });
+  assert.equal(set.status, 200, set.text);
+  const before = resend.sent.length;
+  const r = await shard.api('POST', '/api/account/refund/code', { host, cookie, body: {} });
+  assert.equal(r.status, 200, r.text);
+  const mail = resend.sent.slice(before).find((m) => /refund code/i.test(m.subject));
+  return /\b(\d{6})\b/.exec(mail.text)[1];
+}
+
 before(async () => {
   stripe = await mockStripe();
   abr = await mockAbr({});
@@ -419,9 +436,10 @@ test('a refund asked for inside the app reaches the platform and returns the mon
   const host = `${slug}.${DOMAIN}`;
   const { cookie } = await shard.login('ref@abchair.example', PERSON.password, { host });
 
+  const code = await refundCode(host, cookie, slug);
   const before = stripe.refunds.length;
   const r = await shard.api('POST', '/api/account/refund', {
-    host, cookie, body: { reason: 'not for me', confirm: 'refund-and-delete' },
+    host, cookie, body: { reason: 'not for me', confirm: 'refund-and-delete', code },
   });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.refunded, true);
@@ -449,6 +467,9 @@ test('a Kairo with no platform behind it says so rather than drawing a countdown
 
     const r = await solo.api('POST', '/api/account/refund', { cookie, body: { confirm: 'refund-and-delete' } });
     assert.equal(r.status, 400, 'and asking is refused with a reason, not a crash');
+    const c = await solo.api('POST', '/api/account/refund/code', { cookie, body: {} });
+    assert.equal(c.status, 400, 'nor is a code emailed for a refund that cannot happen');
+    assert.match(c.json.error, /not bought through the store/);
   } finally {
     await solo.stop();
   }
@@ -474,11 +495,19 @@ test('a refund the platform refuses is never reported as done', async () => {
   });
   assert.equal(patched.status, 200, patched.text);
 
+  const code = await refundCode(host, cookie, 'refused');
   const before = stripe.refunds.length;
-  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { reason: 'try it', confirm: 'refund-and-delete' } });
+  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { reason: 'try it', confirm: 'refund-and-delete', code } });
   assert.ok(r.status >= 400, `refused must not read as success — got ${r.status} ${r.text}`);
   assert.notEqual(r.json?.refunded, true, 'and certainly not "refunded: true"');
+  assert.equal(r.json?.code_error, undefined, 'refused by the billing service, not by the code');
   assert.equal(stripe.refunds.length, before, 'no money moved');
+
+  // The refund did not happen, and not because of anything the owner typed:
+  // the same code still works for the next try, without another email.
+  const retry = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code } });
+  assert.ok(retry.status >= 400);
+  assert.equal(retry.json?.code_error, undefined, 'the code was given back, not spent on a refund that never happened');
 
   // And the salon is still running, because nothing was actually cancelled.
   const st = (await platform.api('GET', `/api/status?token=${token}`)).json;

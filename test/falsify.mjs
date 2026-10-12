@@ -1276,6 +1276,40 @@ const MUTATIONS = {
     find: "  if (b.confirm !== 'refund-and-delete') {",
     replace: '  if (false) {',
   },
+  'refund-without-the-emailed-code': {
+    // A ticked box is not proof. Whoever is at the screen must read the owner's email.
+    file: 'src/api.js', suites: ['refund-delete'],
+    find: '  const code = takeRefundCode(user.id, b.code);\n  if (!code.ok) {',
+    replace: '  const code = takeRefundCode(user.id, b.code);\n  if (false) {',
+  },
+  'refund-code-endless-guesses': {
+    file: 'src/refund-code.js', suites: ['refund-delete'],
+    find: '    const left = row.tries_left - 1;',
+    replace: '    const left = row.tries_left;',
+  },
+  'refund-code-never-expires': {
+    file: 'src/refund-code.js', suites: ['refund-delete'],
+    find: "  if (row.expires_at <= now) return { ok: false, why: 'expired' };",
+    replace: '',
+  },
+  'refund-code-stored-plain': {
+    // A plain hash of six digits is a million-row lookup away from the code.
+    file: 'src/refund-code.js', suites: ['refund-delete'],
+    find: "const hash = (userId, code) => crypto\n  .createHmac('sha256', String(getSetting('session_secret', '') || 'kairo'))\n  .update(`refund:${userId}:${code}`).digest('hex');",
+    replace: "const hash = (userId, code) => crypto.createHash('sha256').update(String(code)).digest('hex');",
+  },
+  'refund-code-resent-without-limit': {
+    // Pressing "send" a hundred times must not put a hundred emails in an inbox.
+    file: 'src/api.js', suites: ['refund-delete'],
+    find: '  const wait = refundCodeWait(owner.id);\n  if (wait) {',
+    replace: '  const wait = refundCodeWait(owner.id);\n  if (false) {',
+  },
+  'refund-code-spent-on-a-failed-refund': {
+    // The billing service said no; the owner's code must not go with it.
+    file: 'src/api.js', suites: ['connect'],
+    find: "  if (!r.ok) {\n    putBackRefundCode(code.taken);",
+    replace: '  if (!r.ok) {',
+  },
   'refund-deletes-data-it-never-sent': {
     // The copy could not be emailed; deleting anyway leaves the owner with nothing.
     file: 'platform/signup.js', suites: ['connect'],

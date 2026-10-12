@@ -287,7 +287,7 @@ describe('deleting the account from inside the app', () => {
     // The same was true of the other two things an owner does about their own
     // account. A route with no button is a promise in the release notes.
     const src = fs.readFileSync(path.join(ROOT, 'public/js/pages/account.js'), 'utf8');
-    for (const route of ['/api/account/delete', '/api/account/refund', '/api/auth/logout-everywhere']) {
+    for (const route of ['/api/account/delete', '/api/account/refund', '/api/account/refund/code', '/api/auth/logout-everywhere']) {
       assert.ok(src.includes(`'${route}'`),
         `nothing on the Account page calls ${route} — the owner cannot get to it`);
     }

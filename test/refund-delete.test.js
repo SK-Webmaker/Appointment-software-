@@ -4,14 +4,17 @@
 // back, the salon switched off, and its data deleted for good a week later.
 // Each of those is checked here against the real shard and platform — the
 // copy in the owner's inbox with spreadsheets attached, the refund in Stripe,
-// the folder gone from the disk — along with the two refusals that keep it
-// safe: no refund without the confirmation step, and no deletion of a salon
-// that is still switched on or was switched off too recently.
+// the folder gone from the disk — along with the refusals that keep it safe:
+// no refund without the confirmation step, none without the six digits
+// emailed to the owner, and no deletion of a salon that is still switched on
+// or was switched off too recently.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { startKairo, startPlatform, openDateAhead } from './helpers/kairo.js';
 import { mockStripe, mockAbr, mockResend } from './helpers/mocks.js';
 import { sign } from '../src/platform-sign.js';
@@ -81,6 +84,27 @@ const row = (slug) => {
   const d = platform.platformDb();
   try { return d.prepare('SELECT * FROM businesses WHERE slug = ?').get(slug); } finally { d.close(); }
 };
+/** One salon's own database, opened the way a person with the disk would. */
+const salonDb = (slug, fn) => {
+  const d = new DatabaseSync(path.join(shardDir, 'tenants', slug, 'kairo.db'));
+  d.exec('PRAGMA busy_timeout = 5000');
+  try { return fn(d); } finally { d.close(); }
+};
+
+/** Ask for a refund code and read it out of the owner's inbox, as they would. */
+async function emailedCode(host, cookie, to) {
+  const before = resend.sent.length;
+  const r = await shard.api('POST', '/api/account/refund/code', { host, cookie, body: {} });
+  assert.equal(r.status, 200, r.text);
+  const mail = resend.sent.slice(before).find((m) => /refund code/i.test(m.subject));
+  assert.ok(mail, 'the code was emailed');
+  assert.deepEqual(mail.to, [to], 'to the owner, nobody else');
+  const code = /\b(\d{6})\b/.exec(mail.text)?.[1];
+  assert.ok(code, 'with six digits in it');
+  return { code, mail, reply: r.json };
+}
+/** A code that is certainly not this one. */
+const notThe = (code, n = 1) => String((Number(code) + n) % 1_000_000).padStart(6, '0');
 
 test('refund and delete: the copy is emailed first, the money goes back, and the files go a week later', async () => {
   await buy('leaving', 'leaving@salon.example');
@@ -115,8 +139,36 @@ test('refund and delete: the copy is emailed first, the money goes back, and the
   assert.equal(stripe.refunds.length, refundsBefore, 'no money moved');
   assert.equal((await shard.api('GET', '/api/public/info', { host })).status, 200, 'and the salon is still on');
 
+  // Nor is a ticked box: whoever is at the screen has to read the owner's email.
+  const noCode = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete' } });
+  assert.equal(noCode.status, 400, noCode.text);
+  assert.equal(noCode.json.code_error, 'missing');
+  const guessed = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code: '123456' } });
+  assert.equal(guessed.status, 400, 'a code nobody was sent');
+  assert.equal(guessed.json.code_error, 'none');
+  assert.equal(stripe.refunds.length, refundsBefore, 'still no money moved');
+
+  const { code, mail: codeMail, reply } = await emailedCode(host, cookie, 'leaving@salon.example');
+  assert.equal(reply.sent_to, 'le•••@salon.example', 'the page says which inbox, without spelling it out');
+  assert.match(codeMail.subject, new RegExp(`^${code} `), 'the digits are in the subject, for the lock screen');
+  assert.match(codeMail.html, new RegExp(code), 'and big in the email itself');
+  assert.match(codeMail.text, /10 minutes/);
+  assert.match(codeMail.text, /refund \$410 and close leaving salon/, 'it says exactly what the code does');
+
+  // Pressing "send" again at once sends nothing more.
+  const resend2 = await shard.api('POST', '/api/account/refund/code', { host, cookie, body: {} });
+  assert.equal(resend2.status, 429, resend2.text);
+  assert.ok(resend2.json.retry_after > 0 && resend2.json.retry_after <= 45, 'and says how long to wait');
+
+  // A wrong code is a plain refusal that says how many tries are left.
+  const wrong = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code: notThe(code) } });
+  assert.equal(wrong.status, 400, wrong.text);
+  assert.equal(wrong.json.code_error, 'wrong');
+  assert.equal(wrong.json.tries_left, 4);
+  assert.equal(stripe.refunds.length, refundsBefore, 'no money moved');
+
   const sentBefore = resend.sent.length;
-  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete' } });
+  const r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code } });
   assert.equal(r.status, 200, r.text);
   assert.equal(r.json.refunded, true);
   assert.equal(r.json.copy_emailed, true);
@@ -169,11 +221,12 @@ test('when the copy cannot be emailed, nothing is deleted until a person has sen
   await buy('unsent', 'unsent@salon.example');
   const host = `unsent.${DOMAIN}`;
   const { cookie } = await shard.login('unsent@salon.example', PASSWORD, { host });
+  const { code } = await emailedCode(host, cookie, 'unsent@salon.example');
 
   resend.down = true;
   let r;
   try {
-    r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete' } });
+    r = await shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code } });
   } finally {
     resend.down = false;
   }
@@ -208,4 +261,42 @@ test('when the copy cannot be emailed, nothing is deleted until a person has sen
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline && !row('unsent').files_purged_at) await new Promise((r2) => setTimeout(r2, 200));
   assert.equal(fs.existsSync(path.join(shardDir, 'tenants', 'unsent')), false, 'then the files go');
+});
+
+test('a refund code stops working after five wrong tries, and after ten minutes', async () => {
+  await buy('guessing', 'guessing@salon.example');
+  const host = `guessing.${DOMAIN}`;
+  const { cookie } = await shard.login('guessing@salon.example', PASSWORD, { host });
+  const refund = (code) => shard.api('POST', '/api/account/refund', { host, cookie, body: { confirm: 'refund-and-delete', code } });
+  const refundsBefore = stripe.refunds.length;
+
+  const { code } = await emailedCode(host, cookie, 'guessing@salon.example');
+  // Only a keyed hash is kept: a copy of the database is not a copy of the code.
+  const stored = salonDb('guessing', (d) => d.prepare('SELECT code_hash FROM refund_codes').all());
+  assert.equal(stored.length, 1);
+  assert.notEqual(stored[0].code_hash, code);
+  assert.notEqual(stored[0].code_hash, crypto.createHash('sha256').update(code).digest('hex'), 'and not a plain hash a table could reverse');
+  assert.ok(!stored[0].code_hash.includes(code));
+
+  for (let n = 1; n <= 5; n++) {
+    const r = await refund(notThe(code, n));
+    assert.equal(r.status, 400, r.text);
+    assert.equal(r.json.code_error, n < 5 ? 'wrong' : 'used_up', `try ${n}`);
+  }
+  const late = await refund(code);
+  assert.equal(late.status, 400, 'the right code, after five wrong ones, is refused too');
+  assert.equal(late.json.code_error, 'used_up');
+  assert.match(late.json.error, /Send a new one/);
+  assert.equal(stripe.refunds.length, refundsBefore, 'no money moved');
+  assert.equal((await shard.api('GET', '/api/public/info', { host })).status, 200, 'and the salon is still on');
+
+  // A fresh code, ten minutes later.
+  salonDb('guessing', (d) => d.prepare("UPDATE refund_codes SET sends = ''").run());
+  const { code: fresh } = await emailedCode(host, cookie, 'guessing@salon.example');
+  salonDb('guessing', (d) => d.prepare('UPDATE refund_codes SET expires_at = ?').run(Date.now() - 1));
+  const stale = await refund(fresh);
+  assert.equal(stale.status, 400, stale.text);
+  assert.equal(stale.json.code_error, 'expired');
+  assert.equal(stripe.refunds.length, refundsBefore, 'still nothing');
+  assert.equal((await shard.api('GET', '/api/public/info', { host })).status, 200);
 });

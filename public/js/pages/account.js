@@ -75,8 +75,8 @@ function guaranteeCard(g) {
         </div>
         <div class="gtee-say">
           ${live
-    ? 'Nothing happens on the first press. The next screen tells you exactly what a refund does, and asks you to confirm.'
-    : 'This sends a request to a person rather than refunding automatically. You will hear back by email.'}
+    ? 'Nothing happens on the first press. The next screens show what you would be giving up and exactly what a refund does, then we email you a code to confirm it is you.'
+    : 'This sends a request to a person rather than refunding automatically. We email you a code first to confirm it is you, and you hear back by email.'}
         </div>
       </div>
       ${live ? '' : `
@@ -95,130 +95,422 @@ function guaranteeCard(g) {
 const dollars = (cents) => `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
 
 /** One line of the refund warning: what happens, then the detail. */
-const warnRow = (ic, head, detail, tone = '') => `
-  <li class="rf-row ${tone}">
+const warnRow = (ic, head, detail, tone = '', i = 0) => `
+  <li class="rf-row ${tone}" style="--i:${i}">
     <span class="rf-ic">${icon(ic, 16)}</span>
     <span><b>${head}</b><span class="rf-detail">${detail}</span></span>
   </li>`;
 
-/**
- * "Are you sure?" for the refund inside the 14 days. Everything here is what
- * the server actually does, in the order it does it, so the list is the
- * promise and the button is the decision.
- */
-function confirmRefund(g, a) {
-  const amount = g.price_cents ? dollars(g.price_cents) : 'what you paid';
-  const biz = esc(a.business.name || 'your business');
-  const upcoming = Number(a.usage?.upcoming || 0);
-  const m = openModal({
-    title: 'Are you sure?',
-    body: `
-      <div class="rf-confirm">
-        <p class="rf-lede">This refunds <b>${esc(amount)}</b> and deletes <b>${biz}</b> from Kairo.
-          Please read all of it before you confirm.</p>
-        <ul class="rf-list">
-          ${warnRow('card', `${esc(amount)} goes back to the card that paid`,
-            'Usually 5–10 business days to show on your statement, depending on your bank.')}
-          ${warnRow('globe', 'Your Kairo closes straight away',
-            'Your booking page stops working. Clients can no longer book, change or cancel online.', 'bad')}
-          ${warnRow('mail', 'Your clients stop hearing from you',
-            upcoming
-              ? `No more confirmations, reminders or texts — including for the <b>${upcoming} appointment${upcoming === 1 ? '' : 's'}
-                 already booked</b>. Let ${upcoming === 1 ? 'that client' : 'those clients'} know yourself.`
-              : 'No more confirmations, reminders or texts are sent.', upcoming ? 'bad' : '')}
-          ${warnRow('logout', 'Everyone is signed out',
-            'You, your team, and the Kairo iPhone app. Nobody can sign in to this Kairo again.')}
-          ${warnRow('download', 'A copy is emailed to you first',
-            'Your clients, appointments, invoices, payments and services, as spreadsheets, to the email you signed up with. Keep it — it will be the only copy.')}
-          ${warnRow('trash', 'Then all of it is deleted, for good',
-            `7 days after the refund, everything in ${biz} is permanently deleted from Kairo's servers. Backup copies expire on their own after that.`, 'bad')}
-          ${warnRow('alert', 'This cannot be undone',
-            'To use Kairo again you would need to buy it again and set it up from the start.', 'bad')}
-        </ul>
-        <label class="confirm-opt rf-ack">
-          <input type="checkbox" class="chk" id="rf-ack">
-          <span><b>I understand. Refund me and delete ${biz}.</b>
-            <span class="co-hint">I have read the list above.</span></span>
-        </label>
-        <div class="login-error" id="rf-err" role="alert"></div>
-      </div>`,
-    footer: `<div class="spacer"></div>
-      <button class="btn" data-keep>Keep my Kairo</button>
-      <button class="btn danger rf-go" data-go disabled>${icon('trash', 14)} Yes, refund and delete</button>`,
-  });
-  const ack = m.querySelector('#rf-ack');
-  const go = m.querySelector('[data-go]');
-  const keep = m.querySelector('[data-keep]');
-  const errEl = m.querySelector('#rf-err');
-  ack.onchange = () => { go.disabled = !ack.checked; };
-  keep.onclick = () => m.close();
-  go.onclick = async () => {
-    if (!ack.checked) return;
-    go.disabled = true; keep.disabled = true; ack.disabled = true;
-    go.innerHTML = '<span class="rf-spin" aria-hidden="true"></span> Refunding…';
-    errEl.textContent = '';
-    try {
-      const r = await api.post('/api/account/refund', { confirm: 'refund-and-delete' });
-      refunded(m, r, amount);
-    } catch (e) {
-      errEl.textContent = e.message;
-      go.disabled = false; keep.disabled = false; ack.disabled = false;
-      go.innerHTML = `${icon('trash', 14)} Yes, refund and delete`;
-    }
+// ── The refund, one screen at a time ───────────────────────────────────────
+//
+// A refund is the one thing in Kairo that cannot be taken back, so it is not a
+// single "Are you sure?". It is five screens in one window:
+//
+//   1. Before you go: what this salon would be giving up, in its own numbers
+//   2. What happens: every consequence, in the order the server does it, and a
+//      box to tick that says it was read
+//   3. It's you: six digits emailed to the owner's sign-in address. The server
+//      refuses the refund without them (src/refund-code.js)
+//   4. Refunding: each stage on screen, and none of them ticked until the
+//      server has said it is done
+//   5. Done: what happened, then signed out, because the salon is closed
+//
+// After the 14 days the same flow sends a request a person reads instead, and
+// says so at every step.
+
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pause = (ms) => new Promise((r) => setTimeout(r, reducedMotion() ? Math.min(ms, 40) : ms));
+
+/** A number that counts up and lands, rather than just appearing. */
+function countUp(el, to) {
+  const n = Number(to) || 0;
+  if (reducedMotion() || !n) { el.textContent = n.toLocaleString(); return; }
+  const t0 = performance.now();
+  const tick = (t) => {
+    const p = Math.min(1, (t - t0) / 900);
+    el.textContent = Math.round(n * (1 - (1 - p) ** 3)).toLocaleString();
+    if (p < 1) requestAnimationFrame(tick);
   };
+  requestAnimationFrame(tick);
 }
 
-/**
- * Done. The salon is already off, so there is nowhere left to go inside it:
- * say what happened, then sign out — the app back to its own sign-in.
- */
-function refunded(m, r, amount) {
+const tile = (n, label, tone = '') => `
+  <div class="rf-tile ${tone}"><b data-count="${Number(n) || 0}">0</b><span>${label}</span></div>`;
+
+const gain = (ic, head, detail, i) => `
+  <li class="rf-gain" style="--i:${i}">
+    <span class="rf-ic">${icon(ic, 16)}</span>
+    <span><b>${head}</b><span class="rf-detail">${detail}</span></span>
+  </li>`;
+
+function refundFlow(g, a, container) {
+  const live = Number(g.days_left || 0) > 0;
+  const amount = g.price_cents ? dollars(g.price_cents) : 'what you paid';
+  const bizName = a.business.name || 'your business';
+  const biz = esc(bizName);
+  const u = a.usage || {};
+  const upcoming = Number(u.upcoming || 0);
+  const reason = container.querySelector('#acct-refund-reason')?.value.trim() || '';
+  const STEPS = ['Before you go', 'What happens', "It's you", live ? 'Done' : 'Sent'];
+
+  let busy = false;      // a request in flight: the window stays open until it answers
+  let closed = false;    // the salon is gone: closing the window signs out
+  let sent = null;       // { to, at, resendAt } once a code has been emailed
+  let timer = 0;
+
   const leave = () => { if (!nativeSignedOut()) location.reload(); };
-  const body = m.querySelector('.modal-body');
+  const m = openModal({
+    title: STEPS[0],
+    body: `
+      <div class="rf-flow">
+        <ol class="rf-steps" aria-label="Refund steps">${STEPS.map((s, i) => `<li data-i="${i}"><i></i><span>${s}</span></li>`).join('')}</ol>
+        <div class="rf-stage" aria-live="polite"></div>
+      </div>`,
+    footer: ' ',
+    onClose: () => { clearInterval(timer); removeEventListener('keydown', holdKeys, true); if (closed) leave(); },
+  });
+  const stage = m.querySelector('.rf-stage');
   const foot = m.querySelector('.modal-foot');
-  m.querySelector('.modal-head h2').textContent = r.already ? 'Already refunded' : 'Refunded';
-  body.innerHTML = `
-    <div class="rf-done">
-      <div class="rf-tick">${icon('check', 22)}</div>
-      ${r.already ? '<p>This Kairo had already been refunded.</p>' : `
-      <p><b>${esc(amount)} is on its way back to your card.</b> Allow 5–10 business days.</p>
-      <p>${r.copy_emailed
-        ? 'A copy of your data has been emailed to you. Keep that email.'
-        : 'We could not email your data just now. It is kept safe, and a person will send it to you by hand — nothing is deleted until you have it.'}</p>
-      <p>Your Kairo is closed${r.files_deleted_after ? ', and its data will be deleted in 7 days' : ''}. Thank you for trying it.</p>`}
-    </div>`;
-  foot.innerHTML = '<div class="spacer"></div><button class="btn primary" data-leave>Done</button>';
-  foot.querySelector('[data-leave]').onclick = leave;
-  m.querySelector('[data-close]').onclick = leave;
-  setTimeout(leave, 15000);
-}
+  const head = m.querySelector('.modal-head h2');
+  const scroller = m.querySelector('.modal-body');
 
-/** After the 14 days: a request a person reads, not a refund. */
-async function askForRefund(container, refundBtn) {
-  const yes = await confirmDialog('Ask for a refund',
-    'This sends a request to a person, along with anything you wrote. Nothing is refunded or switched off '
-    + 'until somebody has read it. If it is approved, it works like any refund: your data is emailed to you, '
-    + 'your Kairo is closed, and its data is deleted 7 days later.',
-    { okText: 'Send the request' });
-  if (!yes) return;
-  refundBtn.disabled = true;
-  try {
-    const note = container.querySelector('#acct-refund-reason');
-    const r = await api.post('/api/account/refund', { reason: note ? note.value.trim() : '', confirm: 'refund-and-delete' });
-    if (r.refunded) {
-      // The window turned out to be open after all (the page was loaded just
-      // before midnight): it was refunded, and the salon is already off.
-      toast('Refunded. A copy of your data is on its way by email.', 'ok');
-      setTimeout(() => { if (!nativeSignedOut()) location.reload(); }, 2500);
+  // While the refund is running, the window cannot be closed into a state
+  // where the owner never learns whether it happened.
+  function holdKeys(e) { if (busy && e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); } }
+  addEventListener('keydown', holdKeys, true);
+  m.addEventListener('mousedown', (e) => { if (busy) e.stopImmediatePropagation(); }, true);
+  m.addEventListener('click', (e) => { if (busy && e.target.closest('[data-close]')) e.stopImmediatePropagation(); }, true);
+  const setBusy = (on) => { busy = on; m.classList.toggle('rf-busy', on); };
+
+  /** Swap the screen: the old one slides away, the new one slides in. */
+  async function show(step, title, html, footer, { back = false } = {}) {
+    clearInterval(timer);
+    m.querySelectorAll('.rf-steps li').forEach((li, k) => {
+      li.classList.toggle('done', k < step);
+      li.classList.toggle('now', k === step);
+      if (k === step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+    if (stage.childElementCount) {
+      stage.classList.remove('rf-in');
+      stage.classList.add('rf-out');
+      stage.classList.toggle('rf-back', back);
+      await pause(170);
+    }
+    head.textContent = title;
+    stage.innerHTML = html;
+    foot.innerHTML = footer;
+    stage.classList.remove('rf-out');
+    stage.classList.toggle('rf-back', back);
+    void stage.offsetWidth; // restart the arrival animation
+    stage.classList.add('rf-in');
+    scroller.scrollTop = 0;
+    const keep = foot.querySelector('[data-keep]');
+    if (keep) keep.onclick = () => m.close();
+  }
+
+  // ── 1. Before you go ────────────────────────────────────────────────────
+  async function giveUp({ back = false } = {}) {
+    const anyNumbers = [u.clients, upcoming, u.online_bookings_30d, u.messages_this_month].some((n) => Number(n) > 0);
+    const appts = Number(u.appointments_30d || 0);
+    const host = String(a.instance?.booking_url || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+    await show(0, 'Before you go', `
+      <div class="rf-lose">
+        <p class="rf-lede">${appts
+          ? `In the last 30 days Kairo kept <b>${appts.toLocaleString()} appointment${appts === 1 ? '' : 's'}</b> on track for ${biz}.
+             Here's what ${live ? 'a refund' : 'a refund, if it is approved,'} takes away.`
+          : `Here's what ${biz} would be giving up.`}</p>
+        ${anyNumbers ? `<div class="rf-tiles">
+          ${tile(u.clients, Number(u.clients) === 1 ? 'client on your books' : 'clients on your books')}
+          ${tile(upcoming, upcoming === 1 ? 'appointment still to come' : 'appointments still to come', upcoming ? 'warn' : '')}
+          ${tile(u.online_bookings_30d, 'booked online in 30 days')}
+          ${tile(u.messages_this_month, 'messages sent for you this month')}
+        </div>` : ''}
+        <ul class="rf-gains">
+          ${gain('globe', 'Your own booking page', a.instance?.online_booking && host
+            ? `Clients book themselves, day or night, at <b>${esc(host)}</b>.`
+            : 'Clients book themselves, day or night, without a phone call.', 0)}
+          ${gain('clock', 'Reminders that send themselves', 'Confirmations and reminders go out on their own, so fewer clients forget.', 1)}
+          ${gain('calendar', 'Your whole book in one place', 'Your calendar, your clients and their notes, invoices and payments, on any device.', 2)}
+          ${gain('phone', 'Kairo on your iPhone', 'Your day and your clients in your pocket, wherever you are.', 3)}
+          ${gain('dollar', 'Already paid for, for good', `${esc(amount)} once. No subscription and nothing more to pay, ever.`, 4)}
+        </ul>
+      </div>`, `
+      <button class="btn" data-next>${live ? 'Continue to the refund' : 'Continue'}</button>
+      <div class="spacer"></div>
+      <button class="btn primary" data-keep>${icon('check', 14)} Keep my Kairo</button>`, { back });
+    stage.querySelectorAll('[data-count]').forEach((el, i) => setTimeout(() => countUp(el, el.dataset.count), reducedMotion() ? 0 : 120 + i * 90));
+    foot.querySelector('[data-next]').onclick = () => consequences();
+  }
+
+  // ── 2. What happens ─────────────────────────────────────────────────────
+  async function consequences({ back = false } = {}) {
+    const rows = live ? [
+      ['card', `${esc(amount)} goes back to the card that paid`,
+        'Usually 5–10 business days to show on your statement, depending on your bank.'],
+      ['globe', 'Your Kairo closes straight away',
+        'Your booking page stops working. Clients can no longer book, change or cancel online.', 'bad'],
+      ['mail', 'Your clients stop hearing from you',
+        upcoming
+          ? `No more confirmations, reminders or texts — including for the <b>${upcoming} appointment${upcoming === 1 ? '' : 's'}
+             already booked</b>. Let ${upcoming === 1 ? 'that client' : 'those clients'} know yourself.`
+          : 'No more confirmations, reminders or texts are sent.', upcoming ? 'bad' : ''],
+      ['logout', 'Everyone is signed out',
+        'You, your team, and the Kairo iPhone app. Nobody can sign in to this Kairo again.'],
+      ['download', 'A copy is emailed to you first',
+        'Your clients, appointments, invoices, payments and services, as spreadsheets, to the email you signed up with. Keep it — it will be the only copy.'],
+      ['trash', 'Then all of it is deleted, for good',
+        `7 days after the refund, everything in ${biz} is permanently deleted from Kairo's servers. Backup copies expire on their own after that.`, 'bad'],
+      ['alert', 'This cannot be undone',
+        'To use Kairo again you would need to buy it again and set it up from the start.', 'bad'],
+    ] : [
+      ['send', 'Your request goes to a person',
+        `Along with anything you wrote. Nothing is refunded or switched off until somebody has read it.`],
+      ['mail', 'You hear back by email', 'At the address on the account, whatever the answer is.'],
+      ['alert', 'If it is approved, it works like any refund',
+        `A copy of your data is emailed to you, ${esc(amount)} goes back to your card, ${biz} closes and everybody is signed out.
+         Its data is deleted for good 7 days later.`, 'bad'],
+    ];
+    await show(1, live ? 'What a refund does' : 'What asking does', `
+      <p class="rf-lede">${live
+        ? `This refunds <b>${esc(amount)}</b> and deletes <b>${biz}</b> from Kairo. Please read all of it before you go on.`
+        : 'The 14-day window has passed, so this is a request rather than an automatic refund.'}</p>
+      <ul class="rf-list">${rows.map(([ic, h, d, tone], i) => warnRow(ic, h, d, tone, i)).join('')}</ul>
+      <label class="confirm-opt rf-ack" style="--i:${rows.length}">
+        <input type="checkbox" class="chk" id="rf-ack">
+        <span><b>${live ? `I understand. Refund me and delete ${biz}.` : 'I understand. Send my refund request.'}</b>
+          <span class="co-hint">I have read the list above.</span></span>
+      </label>
+      <div class="login-error" id="rf-err" role="alert"></div>`, `
+      <button class="btn" data-back>${icon('chevL', 14)} Back</button>
+      <div class="spacer"></div>
+      <button class="btn" data-keep>Keep my Kairo</button>
+      <button class="btn danger rf-go" data-go disabled>${icon('mail', 14)} Email me a code</button>`, { back });
+    const ack = stage.querySelector('#rf-ack');
+    const go = foot.querySelector('[data-go]');
+    ack.onchange = () => { go.disabled = !ack.checked; };
+    foot.querySelector('[data-back]').onclick = () => giveUp({ back: true });
+    go.onclick = async () => {
+      if (!ack.checked) return;
+      // A code from a minute ago is still good: going back and forth does not
+      // fill the inbox.
+      if (sent && Date.now() - sent.at < 9 * 60_000) { itsYou(); return; }
+      go.disabled = true;
+      go.innerHTML = '<span class="rf-spin" aria-hidden="true"></span> Sending…';
+      const err = stage.querySelector('#rf-err');
+      err.textContent = '';
+      try {
+        await emailCode();
+        itsYou();
+      } catch (e) {
+        err.textContent = e.message;
+        go.disabled = false;
+        go.innerHTML = `${icon('mail', 14)} Email me a code`;
+      }
+    };
+  }
+
+  /** Ask the server to email a code. A 429 means one went out moments ago: use that one. */
+  async function emailCode() {
+    try {
+      const r = await api.post('/api/account/refund/code', {});
+      sent = { to: r.sent_to, at: Date.now(), resendAt: Date.now() + (r.resend_after || 45) * 1000 };
+    } catch (e) {
+      if (e.status !== 429) throw e;
+      sent = { to: sent?.to || 'your email', at: sent?.at || Date.now(), resendAt: Date.now() + (e.data?.retry_after || 45) * 1000 };
+    }
+  }
+
+  // ── 3. It's you ─────────────────────────────────────────────────────────
+  async function itsYou({ back = false, problem = '', why = '', typed = '' } = {}) {
+    const finalLabel = live ? `${icon('trash', 14)} Refund ${esc(amount)} and delete` : `${icon('send', 14)} Send my request`;
+    await show(2, "Confirm it's you", `
+      <div class="rf-code">
+        <div class="rf-envelope" aria-hidden="true">${icon('mail', 26)}</div>
+        <p class="rf-lede">We've emailed a 6-digit code to <b>${esc(sent.to)}</b>. Type it in to confirm it's really you.</p>
+        <div class="rf-digits" role="group" aria-label="The 6-digit code from the email">
+          ${[0, 1, 2, 3, 4, 5].map((i) => `<input inputmode="numeric" pattern="[0-9]*" maxlength="1" aria-label="Digit ${i + 1}"
+              ${i === 0 ? 'autocomplete="one-time-code"' : 'autocomplete="off"'} data-d="${i}">`).join('')}
+        </div>
+        <div class="login-error rf-code-err" role="alert">${esc(problem)}</div>
+        <div class="rf-resend"><button type="button" class="btn small" data-resend disabled>Send a new code</button>
+          <span data-wait></span></div>
+        <p class="rf-note">It works for 10 minutes. Can't see it? Check your spam folder, and use the newest one.</p>
+      </div>`, `
+      <button class="btn" data-back>${icon('chevL', 14)} Back</button>
+      <div class="spacer"></div>
+      <button class="btn" data-keep>Keep my Kairo</button>
+      <button class="btn danger rf-go" data-final disabled>${finalLabel}</button>`, { back });
+
+    const boxes = [...stage.querySelectorAll('[data-d]')];
+    const final = foot.querySelector('[data-final]');
+    const errEl = stage.querySelector('.rf-code-err');
+    const digits = () => boxes.map((b) => b.value).join('');
+    const sync = () => {
+      final.disabled = digits().length !== 6;
+      boxes.forEach((b) => b.classList.toggle('filled', !!b.value));
+    };
+    /** Spread typed or pasted digits across the boxes from `from` onwards. */
+    const spread = (from, text) => {
+      const ds = String(text).replace(/\D/g, '').slice(0, 6 - from).split('');
+      ds.forEach((d, k) => { boxes[from + k].value = d; });
+      boxes[Math.min(from + ds.length, 5)].focus();
+      sync();
+      if (ds.length) errEl.textContent = '';
+    };
+    boxes.forEach((b, i) => {
+      b.addEventListener('input', () => {
+        const v = b.value.replace(/\D/g, '');
+        b.value = '';
+        if (v) spread(i, v); else sync();
+      });
+      b.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !b.value && i > 0) { boxes[i - 1].value = ''; boxes[i - 1].focus(); sync(); e.preventDefault(); }
+        else if (e.key === 'ArrowLeft' && i > 0) boxes[i - 1].focus();
+        else if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
+        else if (e.key === 'Enter' && !final.disabled) final.click();
+      });
+      b.addEventListener('paste', (e) => { e.preventDefault(); spread(i, e.clipboardData.getData('text')); });
+      b.addEventListener('focus', () => b.select());
+    });
+    if (why) {
+      const row = stage.querySelector('.rf-digits');
+      row.classList.add('rf-shake');
+      setTimeout(() => row.classList.remove('rf-shake'), 500);
+    }
+    // The billing service failed, not the code: it was given back, so it is
+    // still in the boxes for another try.
+    if (typed) { typed.split('').forEach((d, k) => { boxes[k].value = d; }); sync(); }
+    setTimeout(() => (typed ? final : boxes[0]).focus({ preventScroll: true }), reducedMotion() ? 0 : 200);
+
+    // "Send a new code", with the wait shown rather than a button that does nothing.
+    const resend = stage.querySelector('[data-resend]');
+    const waitEl = stage.querySelector('[data-wait]');
+    const tickWait = () => {
+      const s = Math.max(0, Math.ceil((sent.resendAt - Date.now()) / 1000));
+      resend.disabled = s > 0;
+      waitEl.textContent = s > 0 ? `in ${s}s` : '';
+    };
+    tickWait();
+    timer = setInterval(tickWait, 1000);
+    resend.onclick = async () => {
+      resend.disabled = true;
+      try {
+        await emailCode();
+        boxes.forEach((b) => { b.value = ''; });
+        sync();
+        boxes[0].focus();
+        errEl.textContent = '';
+        toast(`A new code is on its way to ${sent.to}.`);
+      } catch (e) { errEl.textContent = e.message; }
+      tickWait();
+    };
+
+    foot.querySelector('[data-back]').onclick = () => consequences({ back: true });
+    final.onclick = () => { if (digits().length === 6) refunding(digits()); };
+  }
+
+  // ── 4. Refunding ────────────────────────────────────────────────────────
+  async function refunding(code) {
+    const stages = live
+      ? ["Confirming it's you", 'Emailing you a copy of your data', `Refunding ${esc(amount)} to your card`, `Closing ${biz}`]
+      : ["Confirming it's you", 'Sending your request to a person'];
+    setBusy(true);
+    await show(3, live ? 'Refunding' : 'Sending', `
+      <div class="rf-work">
+        <div class="rf-orbit" aria-hidden="true"><span></span></div>
+        <ul class="rf-stages">${stages.map((s) => `<li><i aria-hidden="true"></i><span>${s}</span></li>`).join('')}</ul>
+        <p class="rf-note">Keep this window open. It takes a few seconds.</p>
+      </div>`, '');
+    foot.style.display = 'none';
+    const rows = [...stage.querySelectorAll('.rf-stages li')];
+    let at = 0;
+    rows[0].classList.add('now');
+    // The marker walks forward while the server works, but stops on the last
+    // stage: nothing is ticked as done until the server has said so.
+    timer = setInterval(() => {
+      if (at >= rows.length - 1) return;
+      rows[at].classList.replace('now', 'past');
+      rows[++at].classList.add('now');
+    }, reducedMotion() ? 250 : 1100);
+
+    let r;
+    try {
+      [r] = await Promise.all([
+        api.post('/api/account/refund', { confirm: 'refund-and-delete', code, ...(reason ? { reason } : {}) }),
+        pause(1600),
+      ]);
+    } catch (e) {
+      clearInterval(timer);
+      setBusy(false);
+      foot.style.display = '';
+      // Back to the code, saying why. Nothing has changed on any of these paths.
+      const why = e.data?.code_error || '';
+      await itsYou({ back: true, problem: e.message, why: why || 'failed', typed: why ? '' : code });
       return;
     }
-    if (r.queued) toast('Request sent — somebody will read it and come back to you.', 'ok');
-    else if (r.already) toast('This Kairo has already been refunded.', 'ok');
-    renderAccount(container);
-  } catch (err) {
-    refundBtn.disabled = false;
-    toast(err.message, 'err');
+    clearInterval(timer);
+    // Now tick them, one after another, as the server reported them.
+    for (let k = 0; k < rows.length; k++) {
+      rows[k].classList.remove('now', 'past');
+      const copyStage = live && k === 1;
+      rows[k].classList.add(copyStage && r.refunded && !r.copy_emailed ? 'warn' : 'done');
+      if (copyStage && r.refunded && !r.copy_emailed) rows[k].querySelector('span').textContent = 'Your copy will be sent by hand';
+      await pause(260);
+    }
+    stage.querySelector('.rf-orbit').classList.add('settled');
+    await pause(420);
+    closed = Boolean(r.refunded || r.already);
+    setBusy(false);
+    foot.style.display = '';
+    m.querySelector('.rf-steps').classList.add('complete');
+    done(r);
   }
+
+  // ── 5. Done ─────────────────────────────────────────────────────────────
+  async function done(r) {
+    const seal = `<svg class="rf-seal" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="28"/><path d="M20 33.5l8.5 8.5L45 24"/></svg>`;
+    if (!r.refunded && !r.already) {
+      // After the window: a request, sent. The salon carries on as it was.
+      await show(3, 'Request sent', `
+        <div class="rf-end">${seal}
+          <h3>Your request is with us</h3>
+          <p>A person will read it and email you at the address on the account.
+            Nothing has been refunded or switched off in the meantime — ${biz} carries on as it was.</p>
+        </div>`, '<div class="spacer"></div><button class="btn primary" data-ok>Done</button>');
+      m.querySelectorAll('.rf-steps li').forEach((li) => li.classList.add('done'));
+      foot.querySelector('[data-ok]').onclick = () => { m.close(); renderAccount(container); };
+      return;
+    }
+    const deleteOn = r.files_deleted_after ? fmtDate(String(r.files_deleted_after).slice(0, 10), { weekday: false }) : '';
+    await show(3, r.already ? 'Already refunded' : 'Refund complete', `
+      <div class="rf-end">${seal}
+        ${r.already ? `<h3>Already refunded</h3><p>This Kairo had already been refunded and closed.</p>` : `
+        <h3>Refund complete</h3>
+        <p><b>${esc(amount)}</b> is on its way back to the card that paid. Allow 5–10 business days.</p>
+        <dl class="rf-receipt">
+          <div style="--i:0"><dt>Refunded</dt><dd>${esc(amount)}</dd></div>
+          <div style="--i:1"><dt>Copy of your data</dt><dd>${r.copy_emailed ? 'Emailed to you' : 'Being sent to you by hand'}</dd></div>
+          <div style="--i:2"><dt>${biz}</dt><dd>Closed, everyone signed out</dd></div>
+          <div style="--i:3"><dt>Deleted for good</dt><dd>${deleteOn ? `On ${esc(deleteOn)}` : 'Not until you have your copy'}</dd></div>
+        </dl>
+        <p class="rf-thanks">Thank you for trying Kairo. Keep the email with your data: it's the only copy.</p>`}
+        <p class="rf-leaving">Signing you out in <b data-left>30</b> seconds.</p>
+      </div>`, '<div class="spacer"></div><button class="btn primary" data-ok>Done</button>');
+    m.querySelectorAll('.rf-steps li').forEach((li) => { li.classList.add('done'); li.classList.remove('now'); });
+    foot.querySelector('[data-ok]').onclick = leave;
+    // The salon is closed and this session with it: there is nothing left to
+    // do here, so the screen leaves on its own if nobody presses Done.
+    const until = Date.now() + 30_000;
+    const left = stage.querySelector('[data-left]');
+    timer = setInterval(() => {
+      const s = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      left.textContent = String(s);
+      if (!s) { clearInterval(timer); leave(); }
+    }, 500);
+  }
+
+  giveUp();
 }
 
 export async function renderAccount(container) {
@@ -458,19 +750,12 @@ export async function renderAccount(container) {
     if (!nativeSignedOut()) location.reload();
   };
 
-  // The refund. Nothing happens on the first press: it opens "Are you sure?",
-  // which says everything a refund does — the money, the booking page, the
-  // clients already booked, the sign-out, the copy, the deletion — and only a
-  // ticked box unlocks the button that does it. The server refuses a refund
-  // that did not come through this step.
+  // The refund. Nothing happens on the first press: it opens the step-by-step
+  // window above — what would be lost, what a refund does, then six digits
+  // from the owner's email. The server refuses a refund that did not come
+  // through it.
   const refundBtn = container.querySelector('#acct-refund');
-  if (refundBtn) {
-    refundBtn.onclick = () => {
-      const live = Number(guarantee?.days_left || 0) > 0;
-      if (live) confirmRefund(guarantee, a);
-      else askForRefund(container, refundBtn);
-    };
-  }
+  if (refundBtn) refundBtn.onclick = () => refundFlow(guarantee, a, container);
 
   // Changing the email asks for the password, so the field appears the moment
   // the address differs from the one on the account — and not before.

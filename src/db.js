@@ -750,6 +750,18 @@ function migrate() {
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  // The six digits emailed before a refund. One row per person, only the
+  // keyed hash kept, and the recent send times for the throttle. See
+  // src/refund-code.js.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS refund_codes (
+      user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      code_hash   TEXT NOT NULL DEFAULT '',
+      expires_at  INTEGER NOT NULL DEFAULT 0,
+      tries_left  INTEGER NOT NULL DEFAULT 0,
+      sends       TEXT NOT NULL DEFAULT ''
+    );
+  `);
   // Kai's conversations with the owner: what was said (the model's own
   // history, kept exactly as the API returned it), what the owner sees, and
   // anything waiting on a Confirm press. See src/kai-agent.js.

@@ -95,14 +95,26 @@ before, from the website to a refund, with real money (A$5).
 ## D. Leave (5 min)
 
 13. In Kairo, go to **Account** and press **Refund and delete my Kairo**.
-    - ✔ Nothing happens yet: **Are you sure?** opens and lists what a refund
-      does: money back, booking page off, clients stop hearing (with how many
-      are booked), everyone signed out, a copy emailed first, data deleted 7
-      days later, can't be undone.
-    - ✔ **Yes, refund and delete** stays greyed out until you tick
-      "I understand". **Keep my Kairo** closes it and changes nothing.
-    - Tick it and press **Yes, refund and delete**.
-    - ✔ It says **Refunded**, then signs you out.
+    - ✔ Nothing happens yet: **Before you go** opens with the salon's own
+      numbers (clients, appointments still to come, online bookings, messages)
+      and what a refund takes away. **Keep my Kairo** closes it and changes
+      nothing.
+    - Press **Continue to the refund**.
+    - ✔ **What a refund does** lists, one line after another: money back,
+      booking page off, clients stop hearing (with how many are booked),
+      everyone signed out, a copy emailed first, data deleted 7 days later,
+      can't be undone. **Email me a code** stays greyed out until you tick
+      "I understand".
+    - Tick it and press **Email me a code**.
+    - ✔ An email "123456 is your Kairo refund code" arrives at the sign-in
+      address, saying it refunds A$5 and closes Final Test Salon.
+    - Type one digit wrong first and press **Refund $5 and delete**.
+    - ✔ It says the code doesn't match, the boxes shake, and nothing changes.
+    - Type the right code and press **Refund $5 and delete**.
+    - ✔ Each stage ticks off: confirming it's you, emailing your data,
+      refunding, closing. Then a green tick draws itself and **Refund
+      complete** shows what happened, and signs you out after 30 seconds (or
+      when you press **Done**).
     - ✔ A$5 back in Stripe.
     - ✔ An email "Your Final Test Salon data from Kairo" with clients,
       appointments, invoices, payments and services attached (they open in
