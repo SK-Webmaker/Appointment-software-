@@ -1175,8 +1175,8 @@ const MUTATIONS = {
   'refund-reports-success-it-did-not-get': {
     // An owner told "refunded" who was not finds out from their bank statement.
     file: 'src/api.js', suites: ['connect'],
-    find: "  if (!r.ok) throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');",
-    replace: '  if (!r.ok) return { refunded: true };',
+    find: "    throw httpError(r.status === 404 ? 404 : 502, out?.error || 'The refund could not be completed. Nothing has changed.');",
+    replace: '    return { refunded: true };',
   },
   'page-hours-lose-the-per-day-override': {
     // The page would show the salon's default hours on a day it opens late,
