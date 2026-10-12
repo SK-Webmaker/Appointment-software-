@@ -1,31 +1,27 @@
 ---
 name: website-sale
-description: Selling small-business websites built in Lovable, paid by Stripe payment link. Two plans. "handover": $350 once, and the client gets a website they own outright (Netlify Drop ZIP + code ZIP) with no Lovable trace and no support. "managed": $550 today + $30/month, and we keep hosting and updating the site. Use when the owner says "new website for <business>", "send <business> the payment link", "check website payments", or "hand off <business>".
+description: Selling small-business websites built in Lovable, paid by Stripe payment link (AUD). Two plans, both hosted by us. "setup": A$350 today (includes first year of hosting and domain), then A$20/year from month 12. "managed": A$550 + A$24.99 first month today, then A$24.99/month with unlimited routine updates. Use when the owner says "new website for <business>", "send <business> the payment link", "check website payments", "set up <business>" or "update <business>: <change>".
 ---
 
-# Website sales: two plans
+# Website sales: two plans (prices in AUD)
 
-| Plan | Price | After payment |
-|---|---|---|
-| `handover` | $350 AUD once | Sections 1–5: client gets the files, then we're done |
-| `managed` | $550 AUD today + $30 AUD/month | Section 6: we host the site and make changes on request |
+The website hand-off (ZIP) option is retired. Every site now stays hosted by us, on the client's own domain.
 
-Ask the owner which plan if they don't say.
+| Plan | Today | After that | Content changes |
+|---|---|---|---|
+| `setup` (Website Setup) | A$350, includes year 1 hosting + domain registration | A$20/year "Annual Domain and Infrastructure", first charged 365 days after checkout | Small updates A$25 each |
+| `managed` (Website + Ongoing Management) | A$574.99 (A$550 setup + A$24.99 month 1) | A$24.99/month | Unlimited routine updates to existing content. New pages, redesigns and new features quoted separately |
 
-**Reusable links** (the owner sends these to clients themselves; they never switch off; checkout asks for "Business name"):
-- $350 handover: https://buy.stripe.com/aFa28qeiG0Ph5mE5fYcfK02 (plink_1UO1LkA3ztX1T5c4orrnyyQT)
-- $550 + $30/month managed: https://buy.stripe.com/3cIfZg3E21Tl3ew23McfK03 (plink_1UO1LmA3ztX1T5c4HLTrmzsw)
+In both plans the domain is registered to the client and belongs to them. Ask the owner which plan if they don't say.
 
-`stripe-check.sh` lists every payment on these as `PAID <session> <plan> <business> <email>`. Match the business
-name to the client, and never run `stripe-mark-delivered.sh` on a reusable link. Everything below is the handover plan unless marked managed.
+**Reusable links** (the owner sends these to any client; checkout asks for "Business name"):
+- Website Setup: https://buy.stripe.com/fZu8wO0rQ2Xp5mE7o6cfK05 (plink_1UPbgAA3ztX1T5c45DZrNWEw)
+- Website + Ongoing Management: https://buy.stripe.com/fZu6oGcayfKbbL25fYcfK06 (plink_1UPbh3A3ztX1T5c4GEzz0oPW)
 
-# $350 handover: build → pay → hand off → done
-
-The deal: $350 AUD once. We build the site; once paid, the client gets it and owns it. No hosting,
-no edits and no support after delivery. Clients must never see that the site was made with Lovable or AI.
+Retired (switched off 2026-10-12, never reactivate): the A$350 hand-off link and the A$550 + A$30/month link.
 
 Scripts live next to this file. Stripe calls go to `api.stripe.com`; the environment adds the
-owner's restricted key automatically, so never ask for, print or store a key.
+owner's restricted key automatically, so never ask for, print or store a key. The key is LIVE.
 
 ## 1. Intake (owner tells you about the business)
 You need: business name, what they do, suburb/city, phone, email, opening hours, socials,
@@ -34,94 +30,56 @@ Ask once for anything missing. Do not invent prices, reviews, awards or follower
 
 ## 2. Build in Lovable (uses the owner's Lovable credits)
 `create_project` in workspace "sachi's Lovable" with this in the first message, then iterate with `send_message`:
-> Simple marketing website for <business>. Static pages only: no login, no database, no Lovable Cloud,
-> no server functions, no forms that need a backend (contact = tap-to-call, mailto, Google Maps link,
-> socials). Put every image in public/images/ and reference it as /images/<file> (never import images
-> from src/assets). Never mention Lovable anywhere: page titles, meta tags, social preview image, favicon,
-> README, package name, comments. Social/canonical URLs use https://<client-domain>/.
+> Simple marketing website for <business>. No login, no database, no forms that need a backend
+> (contact = tap-to-call, mailto, Google Maps link, socials). Never mention Lovable anywhere visible:
+> page titles, meta tags, social preview image, favicon. Social/canonical URLs use https://<client-domain>/.
 Then send the owner the `preview_url` to show the client.
 
 Before a site is sold, it must have: real photos (no "photo to come"), working buttons/links,
 real contact details, and no placeholder text.
 
-## 3. Payment link (when the client approves the preview)
+## 3. Payment
+Usually the owner sends a reusable link above. For a link with the client's name on it (one sign-up only):
 ```bash
-.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email> handover   # or: managed
+.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email> setup     # or: managed, monthly-<dollars>
 ```
-Prints the link and `livemode=`. The owner's key is LIVE: every link takes real money, so only
-create links for real, approved clients (switch off any mistake at once with stripe-mark-delivered.sh). Each link takes exactly one payment. Send the client the preview + payment link
-(email in step 5, or give the owner the text to forward).
+Switch off a mistaken or old link at once: `stripe-mark-delivered.sh <plink_id> retired`.
 
-## 4. Check payments (hourly routine, or when the owner asks)
+## 4. Check payments (when the owner asks)
 ```bash
 .claude/skills/website-sale/stripe-check.sh   # read-only
 ```
-Act only on `PAID_NOT_DELIVERED` lines. Never deliver on `UNPAID`.
+Reusable links print one `PAID <session> <plan> <business> <email>` line per payment. Match the business name to the client.
 
-## 5. Hand off a paid site
-1. Copy the Lovable project into a scratch folder: `list_files` + `read_file` for every text file
-   (skip `.lovable/`, `AGENTS.md`, `roadmap.md`, lockfiles). Images and other binary files (marked
-   `binary: true`) can't be read that way; download them from the live site:
-   `.claude/skills/website-sale/fetch-assets.sh <preview_url or published url> <dir> public/favicon.ico public/images/...`
-2. Remove Lovable code: delete `src/lib/lovable-error-reporting.ts` and its imports/calls; in
-   `__root.tsx` and route `head()` replace any `*.lovable.app` URL with the client's domain.
-3. Build both ZIPs: `.claude/skills/website-sale/build-handoff.sh <dir> <slug> <out-dir>`
-   It stops with exit 2/3 if "lovable" appears anywhere. Fix the files and re-run; never bypass it.
-4. Browser check: `node .claude/skills/website-sale/check-site.mjs <SITE_DIR printed above>`
-   It must print `OK`. Look at the `check-1280.png` / `check-390.png` screenshots yourself.
-5. Send both ZIPs to the owner (SendUserFile) with the delivery email filled in (point clients to the video made from client-video-guide.md). The owner uploads them
-   to Google Drive, shares the links and sends the email. (Uploading the ZIPs to a public host so Drive can
-   pick them up was refused for security, and Gmail blocks ZIPs that contain .js files, so they can't be attached.)
-   Client emails that need no files (preview + payment link) may be sent from kairobooking18@gmail.com
-   (Composio `gmail`, alias "business"). Each send needs the owner's approval in Composio.
-   Never use the personal account yewankiri@gmail.com, or Resend's mail.hairbyshacamberwell.com (a client's domain).
-6. `.claude/skills/website-sale/stripe-mark-delivered.sh <plink_id>`. This turns the link off and
-   records delivery so it is never paid or delivered twice.
-7. Tell the owner, in one line: "<Business> paid $350 and the files were delivered."
+## 5. Go live after payment (both plans)
+1. Publish the Lovable project, then connect the client's domain in Lovable (Project → Settings → Domains;
+   needs the owner's paid Lovable plan). Register the domain in the client's name; give the owner the
+   DNS steps Lovable shows, to pass on if the client registers it themselves.
+2. Single-sign-up links only: `stripe-mark-delivered.sh <plink_id>`. Never run it on the reusable links.
+3. Tell the owner, in one line: "<Business> is live at <domain>."
 
-## 6. Managed plan ($550 + $30/month)
-Same intake, build and preview as above. Then:
-1. Payment link: `stripe-link.sh "<Business>" <email> managed`. Stripe charges $580 at sign-up ($550 + month 1), then $30 every
-   month after on the same card, with no action needed from us. Each link takes one sign-up.
-2. When `stripe-check.sh` shows it `PAID_NOT_DELIVERED` with plan `managed`, don't build ZIPs. The site
-   stays in the owner's Lovable account:
-   - Publish the Lovable project, then connect the client's domain in Lovable (Project → Settings → Domains;
-     needs the owner's paid Lovable plan). The domain is bought in the client's name; give the owner
-     the DNS steps Lovable shows, to pass on.
-   - Then run `stripe-mark-delivered.sh <plink_id>` (switches the sign-up link off) and tell the owner it's live.
-3. Changes: when the owner relays a client's request ("update <business>: <change>"), `send_message`
-   to that Lovable project, check the preview, publish, and confirm to the owner in one line.
-   Included: small updates (text, photos, hours, prices, a new section). Anything bigger, ask the owner.
-4. Cancelling: the key can't touch subscriptions. The owner cancels in the Stripe dashboard
-   (Customers → the client → subscription → Cancel). After that, unpublish the site only if the owner says so.
-5. Missed payments: Stripe retries the card and emails the client by itself. The owner sees failures in
-   Stripe → Subscriptions. Never take a site offline for non-payment unless the owner says so.
+## 6. Changes
+- `managed`: when the owner relays a request ("update <business>: <change>"), `send_message` to that Lovable
+  project, check the preview, publish, confirm in one line. Included: routine updates to existing content
+  (text, photos, hours, prices). New pages, redesigns and new features: tell the owner it needs a quote.
+- `setup`: small content updates are A$25 each. Confirm the owner has charged for it before making the change.
 
-## Emails (sign as the owner's business, never mention AI or Lovable)
+## 7. Cancelling and missed payments
+The key can't touch subscriptions. The owner cancels in the Stripe dashboard
+(Customers → the client → subscription → Cancel). Stripe retries failed cards and emails the client by itself.
+Never take a site offline unless the owner says so.
 
-**Preview + payment**
+## Email: preview + payment (sign as the owner's business, never mention AI or Lovable)
 > Subject: Your new website is ready to view
 > Hi <name>, your website is ready to look at: <preview link>
-> Happy with it? Pay here and it's yours to keep: <payment link> ($350, one-time).
-> (Managed plan instead: "Pay here to go live: <payment link>. $580 today ($550 website + first month), then $30 a month for hosting,
-> updates and changes. Just message us whenever you need something changed. Cancel any time.")
-> Once paid, we'll email your website files with simple steps to put it online. It's a final sale once delivered.
-
-**Delivery**
-> Subject: Your website is yours. Here's how to put it online
-> Hi <name>, thank you! Here are your two files (download links):
-> - <slug>-website.zip: your website
-> - <slug>-code.zip: keep this safe. Any web developer can use it to make changes in the future.
->
-> Put it online (about 10 minutes, free):
-> 1. Go to app.netlify.com/drop and sign up free (Sign up with Google is easiest).
-> 2. Unzip <slug>-website.zip, then drag the folder onto the page. Your site is live.
-> 3. Buy your domain (e.g. at Namecheap or Cloudflare) in your own name, with auto-renew on.
-> 4. In Netlify, open your site → Domain management → Add a domain, and follow the steps shown.
->
-> Everything is in your name, so you own it completely. Thanks for your business!
+> Happy with it? Choose a plan:
+> - Website Setup: A$350 today, including your first year of hosting and domain. Then A$20 a year from
+>   year two. Small updates A$25 each. <setup link>
+> - Website + Ongoing Management: A$574.99 today, then A$24.99 a month. Hosting, domain, support and
+>   unlimited routine updates included. <managed link>
+> Your domain is registered to you and belongs to you either way.
 
 ## Never
 - Use a client's Stripe key or a Kairo salon's key. Payments go to the owner's own Stripe only.
-- Refund, change prices, or touch anything in Stripe beyond the three scripts.
-- Deliver before `stripe-check.sh` shows the link as paid.
+- Refund, change prices, change tax or payment settings, or touch anything in Stripe beyond the scripts.
+- Reactivate a retired link.
