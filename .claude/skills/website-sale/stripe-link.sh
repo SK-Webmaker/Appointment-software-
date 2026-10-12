@@ -1,51 +1,52 @@
 #!/usr/bin/env bash
-# Create a payment link for one client.
-# Usage: stripe-link.sh "Business Name" client@email.com [handover|managed] [reusable]
-#   reusable: no one-payment limit; the checkout asks for the business name. Never switch these off with stripe-mark-delivered.sh.
-#   handover (default): $350 AUD once. Client keeps the site.
-#   monthly-<dollars>:  that amount every month, nothing up front (e.g. monthly-35). Cancel any time.
-#   managed:            $550 AUD build + $30 AUD/month. Day one = $580 (Stripe bills month 1 at sign-up), then $30 monthly.
+# Create a payment link (all prices in AUD).
+# Usage: stripe-link.sh "Business Name" client@email.com <setup|managed|monthly-<dollars>> [reusable]
+#   setup:    A$350 today (website + first year of hosting and domain), then A$20/year
+#             "Annual Domain and Infrastructure", first charged 365 days after checkout (Stripe trial).
+#   managed:  A$550 setup + A$24.99 first month today (A$574.99), then A$24.99 every month.
+#   monthly-<dollars>: that amount every month, nothing up front (e.g. monthly-35). Cancel any time.
+#   reusable: no one-payment limit. Every link asks the customer for their business name.
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
-NAME="$1"; EMAIL="$2"; PLAN="${3:-handover}"; MODE="${4:-single}"; CURRENCY=aud
+NAME="$1"; EMAIL="$2"; PLAN="${3:?plan required}"; MODE="${4:-single}"; CURRENCY=aud
 S=https://api.stripe.com/v1
 json() { python3 -c 'import sys,json;d=json.load(sys.stdin);e=d.get("error");sys.exit("Stripe error: "+e["message"]) if e else print(d'"$1"')'; }
-product() { curl -sS $S/products -d name="$1" -d "metadata[kind]=website-sale" | json '["id"]'; }
+# product "<name>" "<description>"
+product() { curl -sS $S/products --data-urlencode name="$1" --data-urlencode description="$2" -d "metadata[kind]=website-sale" -d "metadata[plan]=$PLAN" | json '["id"]'; }
+FOR=""; [ "$NAME" != "your business" ] && FOR=" — $NAME"
+EXTRA=()
 
 case "$PLAN" in
-  handover)
-    P=$(product "Website — $NAME")
-    PRICE=$(curl -sS $S/prices -d product="$P" -d unit_amount=35000 -d currency=$CURRENCY | json '["id"]')
-    ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
-    SUBMIT="One-time payment. The website is yours to keep. Final sale once your files are delivered."
-    DONE="Thank you! Your website files are on their way to your email." ;;
+  setup)
+    P1=$(product "Website Setup$FOR" "A custom website built for your business. Includes the first year of hosting and domain registration. The domain is registered to you and belongs to you. Small content updates are A\$25 each.")
+    P2=$(product "Annual Domain and Infrastructure$FOR" "A yearly contribution toward domain management, hosting configuration and basic technical upkeep. First charged 12 months after purchase.")
+    ONE=$(curl -sS $S/prices -d product="$P1" -d unit_amount=35000 -d currency=$CURRENCY | json '["id"]')
+    YR=$(curl -sS $S/prices -d product="$P2" -d unit_amount=2000 -d currency=$CURRENCY -d "recurring[interval]=year" | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$ONE" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$YR" -d "line_items[1][quantity]=1")
+    EXTRA+=(-d "subscription_data[trial_period_days]=365")
+    SUBMIT="Today: A\$350 website setup, including your first year of hosting and domain registration. Your domain is registered to you and belongs to you. From 12 months after today: A\$20 a year (Annual Domain and Infrastructure). Small content updates: A\$25 each."
+    DONE="Thank you! We'll be in touch shortly to get your website live." ;;
   managed)
-    P1=$(product "Website build — $NAME")
-    P2=$(product "Website management — $NAME")
-    SETUP=$(curl -sS $S/prices -d product="$P1" -d unit_amount=55000 -d currency=$CURRENCY | json '["id"]')
-    MONTHLY=$(curl -sS $S/prices -d product="$P2" -d unit_amount=3000 -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
-    ITEMS=(-d "line_items[0][price]=$SETUP" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$MONTHLY" -d "line_items[1][quantity]=1")
-    SUBMIT="Today: \$550 website + \$30 first month = \$580. Then \$30 a month for ongoing management and updates. Cancel any time by messaging us."
-    DONE="Thank you! Your website is going live. For any changes, just message us." ;;
+    P1=$(product "Website Setup (Managed)$FOR" "A custom website built, set up and launched for your business.")
+    P2=$(product "Website Management$FOR" "Includes hosting and domain costs, ongoing support, unlimited routine updates to existing content, enhanced SEO, and website performance analytics on request. New pages, redesigns and new features are quoted separately.")
+    ONE=$(curl -sS $S/prices -d product="$P1" -d unit_amount=55000 -d currency=$CURRENCY | json '["id"]')
+    MO=$(curl -sS $S/prices -d product="$P2" -d unit_amount=2499 -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$ONE" -d "line_items[0][quantity]=1" -d "line_items[1][price]=$MO" -d "line_items[1][quantity]=1")
+    SUBMIT="Today: A\$574.99 (A\$550 setup + A\$24.99 for your first month). Then A\$24.99 a month, charged automatically. Includes hosting and domain, support, unlimited routine updates to existing content, enhanced SEO and analytics on request. New pages, redesigns and new features are quoted separately."
+    DONE="Thank you! We'll be in touch shortly to get your website live. For any changes, just message us." ;;
   monthly-*)
     AMT="${PLAN#monthly-}"; [[ "$AMT" =~ ^[0-9]+$ ]] || { echo "use monthly-<whole dollars>"; exit 1; }
-    P=$(product "Website care, monthly — $NAME")
+    P=$(product "Website care, monthly$FOR" "Monthly website care.")
     PRICE=$(curl -sS $S/prices -d product="$P" -d unit_amount=$((AMT*100)) -d currency=$CURRENCY -d "recurring[interval]=month" | json '["id"]')
     ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
-    SUBMIT="\$$AMT a month, charged automatically. No lock-in: cancel any time by messaging us."
+    SUBMIT="A\$$AMT a month, charged automatically. No lock-in: cancel any time by messaging us."
     DONE="Thank you! You're all set. To cancel at any time, just message us." ;;
-  *) echo "plan must be handover, managed or monthly-<dollars>"; exit 1 ;;
+  *) echo "plan must be setup, managed or monthly-<dollars>"; exit 1 ;;
 esac
 
-if [ "$MODE" = reusable ]; then
-  EXTRA=(-d "metadata[reusable]=true" -d "custom_fields[0][key]=business" -d "custom_fields[0][type]=text"
-         -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
-else
-  EXTRA=(-d "restrictions[completed_sessions][limit]=1")
-fi
-if [[ "$PLAN" == monthly-* && "$MODE" != reusable ]]; then
-  EXTRA+=(-d "custom_fields[0][key]=business" -d "custom_fields[0][type]=text" -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
-fi
+if [ "$MODE" = reusable ]; then EXTRA+=(-d "metadata[reusable]=true")
+else EXTRA+=(-d "restrictions[completed_sessions][limit]=1"); fi
+EXTRA+=(-d "custom_fields[0][key]=business" -d "custom_fields[0][type]=text" -d "custom_fields[0][label][type]=custom" -d "custom_fields[0][label][custom]=Business name")
 
 curl -sS $S/payment_links "${ITEMS[@]}" "${EXTRA[@]}" \
   -d "metadata[kind]=website-sale" -d "metadata[plan]=$PLAN" -d "metadata[business]=$NAME" -d "metadata[client_email]=$EMAIL" \
