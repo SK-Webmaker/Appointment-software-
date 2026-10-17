@@ -264,6 +264,11 @@ export async function mockClickSend({ balance = 25.5 } = {}) {
     if (url.pathname === '/sms/send' && req.method === 'POST') {
       const body = JSON.parse((await readBody(req)) || '{}');
       texts.push(body.messages[0]);
+      // An account with no credit left: ClickSend takes the request and
+      // refuses the message inside it.
+      if (m.smsStatus && m.smsStatus !== 'SUCCESS') {
+        return send(200, { response_code: 'SUCCESS', response_msg: 'Messages queued for delivery.', data: { total_price: 0, messages: [{ status: m.smsStatus }] } });
+      }
       return send(200, { response_code: 'SUCCESS', data: { total_price: 0.077, messages: [{ status: 'SUCCESS' }] } });
     }
     return send(404, { response_msg: `not mocked: ${req.method} ${url.pathname}` });
@@ -303,6 +308,7 @@ export async function mockApns({ keys, bundleId = 'com.kairobookings.kairo' } = 
   const sent = [];
   const dead = new Set();
   const bad = new Set();
+  const foreign = new Set();
   let reject = null;           // set to a reason string to fail every send
 
   const server = http2.createServer();
@@ -337,6 +343,7 @@ export async function mockApns({ keys, bundleId = 'com.kairobookings.kairo' } = 
 
       if (String(headers['apns-topic'] || '') !== bundleId) return fail(400, 'TopicDisallowed');
       if (bad.has(deviceToken)) return fail(400, 'BadDeviceToken');
+      if (foreign.has(deviceToken)) return fail(400, 'DeviceTokenNotForTopic');
       if (dead.has(deviceToken)) return fail(410, 'Unregistered');
 
       let payload = null;
@@ -356,6 +363,8 @@ export async function mockApns({ keys, bundleId = 'com.kairobookings.kairo' } = 
     kill: (t) => dead.add(String(t).toLowerCase()),
     /** Apple's answer for a token that was never ours. */
     disown: (t) => bad.add(String(t).toLowerCase()),
+    /** Apple's answer for a token that belongs to some other app. */
+    foreign: (t) => foreign.add(String(t).toLowerCase()),
     failWith: (reason) => { reject = reason; },
     close: () => new Promise((r) => server.close(r)),
   };

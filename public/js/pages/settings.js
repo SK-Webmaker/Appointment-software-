@@ -167,6 +167,68 @@ export const SETTINGS_GROUPS = [
 const GROUP_OF = Object.fromEntries(SETTINGS_GROUPS.flatMap((g) => g.secs.map((sec) => [sec, g.id])));
 const GROUP_KEY = 'kairo_settings_group';
 
+/** "3 minutes ago", from the server's UTC "YYYY-MM-DD HH:MM:SS". */
+function ago(sqlTime) {
+  if (!sqlTime) return '';
+  const then = new Date(`${String(sqlTime).replace(' ', 'T')}Z`).getTime();
+  const s = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  const d = Math.round(s / 86400);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+}
+
+/**
+ * The phones signed in as this person, each with whether its alerts are
+ * arriving: when Apple last took one for it, and in plain words what went
+ * wrong if it refused. Plus the button that proves it, end to end.
+ */
+function mountPushPhones(container) {
+  const box = container.querySelector('#push-phones');
+  if (!box) return;
+  const draw = async () => {
+    let r;
+    try { r = await api.get('/api/app/devices'); } catch { box.innerHTML = ''; return; }
+    if (!r.devices.length) {
+      box.innerHTML = '<div class="hint">No phone is signed in as you yet. Open the Kairo app on your phone, sign in, and allow notifications when it asks.</div>';
+      return;
+    }
+    box.innerHTML = r.devices.map((d) => `
+      <div class="push-phone ${d.problem ? 'bad' : ''}">
+        <span class="pp-ic">${icon('phone', 16)}</span>
+        <span class="pp-text"><b>${esc(d.name)}</b>
+          <span>${d.problem ? esc(d.problem)
+            : d.last_push_at ? `Last notification ${esc(ago(d.last_push_at))}`
+              : `Signed in ${esc(ago(d.signed_in_at))} · no notification yet`}</span></span>
+        <button type="button" class="btn small" data-forget="${d.id}" aria-label="Remove ${esc(d.name)}">Remove</button>
+      </div>`).join('');
+    box.querySelectorAll('[data-forget]').forEach((b) => {
+      b.onclick = async () => {
+        const ok = await confirmDialog('Remove this phone?', 'It stops getting notifications until somebody signs in to Kairo on it again.', { okText: 'Remove' });
+        if (!ok) return;
+        try { await api.del(`/api/app/devices/${b.dataset.forget}`); toast('Phone removed'); } catch (e) { toast(e.message, 'err'); }
+        draw();
+      };
+    });
+  };
+  draw();
+  const test = container.querySelector('#push-test');
+  const say = container.querySelector('#push-test-say');
+  if (test) test.onclick = async () => {
+    test.disabled = true;
+    say.textContent = 'Sending…';
+    try {
+      const r = await api.post('/api/app/push/test', {});
+      say.textContent = `Sent to ${r.sent} phone${r.sent === 1 ? '' : 's'}. Check your lock screen.`;
+    } catch (e) {
+      say.textContent = e.message;
+    }
+    test.disabled = false;
+    draw();
+  };
+}
+
 export async function renderSettings(container, params) {
   const s = state.settings;
   const live = await livePageSections(s);
@@ -652,6 +714,12 @@ export async function renderSettings(container, params) {
         : appStore
           ? `<b>No phone is signed in yet</b> — <a href="${esc(appStore)}" target="_blank" rel="noopener noreferrer">get Kairo from the App Store</a> and sign in, and these start working.`
           : '<b>No phone is signed in yet</b> — install Kairo on your phone and sign in, and these start working.'}</div>
+        ${push && push.available ? `
+        <div class="push-phones" id="push-phones" aria-live="polite"><div class="hint">Checking your phones…</div></div>
+        <div class="push-test-row">
+          <button type="button" class="btn" id="push-test">${icon('send', 14)} Send a test notification</button>
+          <span class="hint" id="push-test-say">Goes to every phone signed in as you.</span>
+        </div>` : ''}
         <form id="set-apppush" style="display:flex;flex-direction:column;gap:11px">
           ${[
     ['push_new_booking', 'When somebody books', 'The one that earns the app its place on your home screen — you find out from your own book, not from an email tonight.', '1'],
@@ -659,6 +727,8 @@ export async function renderSettings(container, params) {
     ['push_payment_check', 'When a booking link says it has been paid', 'Only matters if you confirm payments yourself. Tells you there is money to check and somebody waiting on you.', '1'],
     ['push_daily_summary', 'A summary each morning', 'How many appointments today and when the first one is. Silent on a day with nothing in it.', '0'],
     ['push_enquiry', 'When somebody sends a special request', 'They asked for a time you don\'t offer and are waiting on an answer. The sooner you see it, the more likely they still book.', '1'],
+    ['push_payment_received', 'When a client pays online', 'A deposit or a full payment made on your booking page, the moment it lands.', '1'],
+    ['push_review', 'When a client leaves a review', 'The stars and what they wrote. A low one is worth a call while the visit is still fresh.', '1'],
   ].map(([key, label, hint, dflt]) => `
             <label class="opt-out">
               <input type="checkbox" class="chk" name="${key}" ${(s[key] ?? dflt) === '1' ? 'checked' : ''}>
@@ -672,8 +742,9 @@ export async function renderSettings(container, params) {
             <div class="hint">Your salon's own time.</div></div>
           <button class="btn primary" style="align-self:flex-start">${icon('check')} Save phone notifications</button>
         </form>
-        <div class="hint" style="margin-top:12px">Reminders to <b>clients</b> are separate — those are
-          the email and SMS settings below, and they go to the customer, not to you.</div>
+        <div class="hint" style="margin-top:12px">Always sent, whatever is ticked: a new sign-in to your
+          account, and texts stopping because your SMS credit ran out. Reminders to <b>clients</b> are
+          separate — those are the email and SMS settings below, and they go to the customer, not to you.</div>
       </div>
 
       ${kai && kai.server ? `
@@ -1129,8 +1200,9 @@ export async function renderSettings(container, params) {
   container.querySelector('#set-apppush')?.addEventListener('submit', (e) => {
     e.preventDefault();
     saveSettings(e.target, ['push_new_booking', 'push_cancellation', 'push_payment_check',
-      'push_daily_summary', 'push_summary_hour', 'push_enquiry']);
+      'push_daily_summary', 'push_summary_hour', 'push_enquiry', 'push_payment_received', 'push_review']);
   });
+  mountPushPhones(container);
   container.querySelector('#set-kai')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     await saveSettings(e.target, ['kai_enabled']);

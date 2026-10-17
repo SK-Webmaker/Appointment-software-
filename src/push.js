@@ -11,6 +11,7 @@
 import http2 from 'node:http2';
 import crypto from 'node:crypto';
 import { db } from './db.js';
+import { current as currentTenant } from './tenant.js';
 
 const env = (k, d = '') => String(process.env[k] || d).trim();
 
@@ -81,6 +82,23 @@ export function registerDevice(userId, token, { platform = 'ios', name = '' } = 
 /** Sign-out forgets the phone, so a sold or lent phone stops getting the book. */
 export function forgetDevice(token) {
   return db.prepare('DELETE FROM devices WHERE token = ?').run(token).changes;
+}
+
+/**
+ * The phones signed in for one person, for the Settings card: what each one
+ * is called, when it last received an alert, and what Apple last said if it
+ * refused one. Never the token.
+ */
+export function describeDevices(userId) {
+  return db.prepare(
+    `SELECT id, name, platform, created_at, last_seen_at, last_push_at, last_error, last_error_at
+       FROM devices WHERE user_id = ? AND failed_at = '' ORDER BY id`
+  ).all(userId);
+}
+
+/** One of this person's own phones, taken off their account. */
+export function forgetDeviceById(userId, id) {
+  return db.prepare('DELETE FROM devices WHERE id = ? AND user_id = ?').run(id, userId).changes;
 }
 
 export function devicesFor(userId = null) {
@@ -160,13 +178,36 @@ export async function sendToDevice(device, note) {
   if (note.collapseId) headers['apns-collapse-id'] = String(note.collapseId).slice(0, 64);
 
   const out = await postToApns(device.token, headers, payload);
-  if (out.status === 410 || out.reason === 'BadDeviceToken' || out.reason === 'Unregistered') {
+  // DeviceTokenNotForTopic: a token from some other app. As permanent as the
+  // other two — it will never reach Kairo on that phone.
+  if (out.status === 410 || DEAD.has(out.reason)) {
     db.prepare("UPDATE devices SET failed_at = datetime('now'), failed_reason = ? WHERE id = ?")
       .run(out.reason || 'Unregistered', device.id);
     return { ...out, dropped: true };
   }
-  if (out.ok) db.prepare("UPDATE devices SET last_push_at = datetime('now') WHERE id = ?").run(device.id);
+  if (out.ok) db.prepare("UPDATE devices SET last_push_at = datetime('now'), last_error = '', last_error_at = '' WHERE id = ?").run(device.id);
+  else {
+    db.prepare("UPDATE devices SET last_error = ?, last_error_at = datetime('now') WHERE id = ?")
+      .run(`${out.status || 'no answer'} ${out.reason || ''}`.trim().slice(0, 120), device.id);
+  }
   return out;
+}
+
+const DEAD = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic']);
+
+/**
+ * What Apple's refusal means, in words an owner can act on. Apple's own reason
+ * codes are kept in the log; this is what the Settings card and the test button
+ * say.
+ */
+export function explainRefusal(r = {}) {
+  const why = String(r.reason || '');
+  if (r.status === 403 || /ProviderToken|TopicDisallowed|BadTopic/.test(why)) {
+    return "Apple refused Kairo's notification key. That's on Kairo's side, not your phone: contact Kairo support.";
+  }
+  if (DEAD.has(why) || r.status === 410) return 'This phone no longer has the Kairo app. Open Kairo on it and sign in again.';
+  if (!r.status) return "Apple didn't answer. Try again in a minute.";
+  return `Apple didn't accept it (${r.status}${why ? ` ${why}` : ''}). Try again in a minute.`;
 }
 
 /**
@@ -186,5 +227,14 @@ export async function pushToOwner(note, { userId = null } = {}) {
     if (r.ok) sent += 1;
     results.push(r);
   }
+  // One line per alert, so "did it reach the phone?" has an answer in the
+  // logs: the kind, how many phones Apple took it for, and Apple's reason for
+  // any it refused. Never a token, never the text of the alert.
+  let slug = '';
+  try { slug = currentTenant()?.slug || ''; } catch { /* single salon */ }
+  const refused = results.filter((r) => !r.ok).map((r) => `${r.status || 'no answer'} ${r.reason || ''}`.trim());
+  const line = `push${slug ? ` [${slug}]` : ''} ${note.data?.kind || 'alert'}: ${sent}/${devices.length} phone${devices.length === 1 ? '' : 's'}`
+    + (refused.length ? ` — Apple refused: ${[...new Set(refused)].join(', ')}` : '');
+  (refused.length ? console.error : console.log)(line);
   return { sent, of: devices.length, results };
 }

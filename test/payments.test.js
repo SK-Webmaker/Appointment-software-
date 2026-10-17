@@ -20,9 +20,10 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { startKairo, openDateAhead } from './helpers/kairo.js';
+import { apnsKeyPair, mockApns } from './helpers/mocks.js';
 
 let k, cookie, staffId, haircut, beardId;
-let stripeMock, squareMock;
+let stripeMock, squareMock, apns;
 const seen = { stripe: [], square: [] };
 let squarePaid = true;
 
@@ -102,10 +103,17 @@ before(async () => {
   mocks();
   await new Promise((r) => stripeMock.listen(4961, r));
   await new Promise((r) => squareMock.listen(4962, r));
+  // The owner's phone, so money arriving can be checked as an alert too.
+  const keys = apnsKeyPair();
+  apns = await mockApns({ keys });
   k = await startKairo({
-    env: { STRIPE_API_BASE: 'http://127.0.0.1:4961', SQUARE_API_BASE: 'http://127.0.0.1:4962' },
+    env: {
+      STRIPE_API_BASE: 'http://127.0.0.1:4961', SQUARE_API_BASE: 'http://127.0.0.1:4962',
+      KAIRO_APNS_HOST: apns.base, KAIRO_APNS_KEY: keys.p8, KAIRO_APNS_KEY_ID: keys.keyId, KAIRO_APNS_TEAM_ID: keys.teamId,
+    },
   });
   ({ cookie } = await k.login());
+  await api('POST', '/api/app/devices', { token: 'e5'.repeat(32), platform: 'ios' });
   await api('POST', '/api/setup/skip');
   await set({
     business_name: 'Sharp Cuts', business_tz: 'Australia/Melbourne',
@@ -124,6 +132,7 @@ before(async () => {
 after(async () => {
   await k.stop();
   stripeMock.close(); squareMock.close();
+  await apns?.close();
 });
 
 test('with nothing connected, no card is offered', async () => {
@@ -186,11 +195,23 @@ test('a payment is verified with the provider, never taken on trust', async () =
   squarePaid = true;
   const r = await bookBoth();
   const id = r.json.appointment_id;
+  const before = apns.sent.length;
   const good = await k.api('POST', '/api/public/confirm-payment', {
     body: { appointment_id: id, session_id: 'ord_1' },
   });
   assert.equal(good.json.paid, true);
   assert.equal(good.json.provider, 'square', 'it remembers which processor took it');
+
+  // The owner's phone hears that the money arrived — once, however many times
+  // the client's browser comes back to confirm it.
+  const until = Date.now() + 6000;
+  const paidAlerts = () => apns.sent.slice(before).filter((x) => x.payload.kind === 'payment');
+  while (!paidAlerts().length && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+  assert.equal(paidAlerts().length, 1, 'the owner is told it was paid');
+  assert.match(paidAlerts()[0].payload.aps.alert.body, /Pat Customer paid \$65\.00 for /);
+  await k.api('POST', '/api/public/confirm-payment', { body: { appointment_id: id, session_id: 'ord_1' } });
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(paidAlerts().length, 1, 'and not again when the page is reloaded');
 
   // Somebody else's reference must not attach to this booking.
   const wrong = await k.api('POST', '/api/public/confirm-payment', {

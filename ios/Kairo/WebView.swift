@@ -89,14 +89,26 @@ struct KairoWebView: UIViewRepresentable {
            !session.host.isEmpty, web.url?.host?.lowercased() == session.host {
             context.coordinator.tokenSent = true
             let name = Coordinator.jsString(UIDevice.current.name)
+            // Retried, because a phone that failed to hand its token over once
+            // would otherwise get no notifications until the app is next
+            // opened, and nobody would know why. Five tries over about half a
+            // minute, then the next launch tries again.
             let js = """
             (function () {
-              fetch('/api/app/devices', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ token: '\(token)', platform: 'ios', name: \(name) })
-              }).catch(function () {});
+              var body = JSON.stringify({ token: '\(token)', platform: 'ios', name: \(name) });
+              function attempt(n) {
+                fetch('/api/app/devices', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'content-type': 'application/json' },
+                  body: body
+                }).then(function (r) {
+                  if (!r.ok && r.status !== 400 && n < 5) setTimeout(function () { attempt(n + 1); }, 1500 * (n + 1));
+                }).catch(function () {
+                  if (n < 5) setTimeout(function () { attempt(n + 1); }, 1500 * (n + 1));
+                });
+              }
+              attempt(0);
             })();
             """
             web.evaluateJavaScript(js)

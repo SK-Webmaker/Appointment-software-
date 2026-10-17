@@ -463,6 +463,11 @@ function migrate() {
     if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   };
   addColumn('staff', 'location_id', 'location_id INTEGER REFERENCES locations(id)');
+  // The last time Apple refused an alert for this phone, and why. Cleared by
+  // the next one it accepts. Unlike failed_at, the phone is still tried: a
+  // refusal like this is usually about Kairo's key, not about the phone.
+  addColumn('devices', 'last_error', "last_error TEXT NOT NULL DEFAULT ''");
+  addColumn('devices', 'last_error_at', "last_error_at TEXT NOT NULL DEFAULT ''");
   addColumn('appointments', 'deposit_cents', "deposit_cents INTEGER NOT NULL DEFAULT 0");
   addColumn('appointments', 'deposit_status', "deposit_status TEXT NOT NULL DEFAULT ''"); // ''|pending|paid
   addColumn('appointments', 'stripe_session_id', "stripe_session_id TEXT NOT NULL DEFAULT ''");

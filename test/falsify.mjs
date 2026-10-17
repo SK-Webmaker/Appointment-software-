@@ -1269,6 +1269,64 @@ const MUTATIONS = {
     find: "  record(businessId, 'code:email', e.ok ? 'sent' : e.detail);\n  return { email: e };",
     replace: "  record(businessId, 'code:email', e.ok ? 'sent' : e.detail);\n  newCode(ownerId, 'phone');\n  return { email: e };",
   },
+  // ── The owner's phone ──────────────────────────────────────────────────────
+  'a-move-reads-as-a-cancellation': {
+    // "Ava cancelled" then "New booking" for one move: two alerts, one of them wrong.
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: "reason: 'Moved to a new time', notifyClient: false, ownerAlert: false });",
+    replace: "reason: 'Moved to a new time', notifyClient: false });",
+  },
+  'client-cancellation-never-reaches-the-phone': {
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: "    if (ownerAlert && by === 'client') notifyOwnerOfCancellation(id).catch(() => {});",
+    replace: '',
+  },
+  'client-cancellation-emailed-as-well': {
+    // The phone got it; an email on top is the duplicate the app replaces.
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: "notifyOwner: ownerAlert && by !== 'client' });",
+    replace: 'notifyOwner: true });',
+  },
+  'payment-never-reaches-the-phone': {
+    file: 'src/api.js', suites: ['payments'],
+    find: "  if (!a || !(cents > 0)) return { sent: 0, skipped: 'nothing paid' };",
+    replace: "  return { sent: 0, skipped: 'nothing paid' };",
+  },
+  'review-never-reaches-the-phone': {
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: '  pushReview(Number(review.lastInsertRowid)).catch(() => {});',
+    replace: '',
+  },
+  'texts-stop-in-silence': {
+    file: 'src/notify.js', suites: ['owner-phone'],
+    find: "  if (status === 'failed' && msg.channel === 'sms') textsStopped(result.detail).catch(() => {});",
+    replace: '',
+  },
+  'texts-stopped-every-time': {
+    file: 'src/notify.js', suites: ['owner-phone'],
+    find: "  if (Date.now() - last < TEXTS_STOPPED_EVERY_MS) return { sent: 0, skipped: 'already told today' };",
+    replace: '',
+  },
+  'another-apps-token-kept-forever': {
+    file: 'src/push.js', suites: ['owner-phone'],
+    find: "const DEAD = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic']);",
+    replace: "const DEAD = new Set(['BadDeviceToken', 'Unregistered']);",
+  },
+  'a-refusal-never-clears': {
+    file: 'src/push.js', suites: ['owner-phone'],
+    find: "SET last_push_at = datetime('now'), last_error = '', last_error_at = '' WHERE id = ?",
+    replace: "SET last_push_at = datetime('now') WHERE id = ?",
+  },
+  'test-button-hides-apples-answer': {
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: '      : explainRefusal(out.results.find((r) => !r.ok)));',
+    replace: "      : 'Apple did not accept it');",
+  },
+  'phone-list-leaks-the-token': {
+    file: 'src/api.js', suites: ['owner-phone'],
+    find: '  devices: describeDevices(user.id).map((d) => ({\n    id: d.id,',
+    replace: '  devices: devicesFor(user.id).map((d) => ({\n    token: d.token, id: d.id,',
+  },
   // ── Refund and delete ─────────────────────────────────────────────────────
   'refund-without-are-you-sure': {
     // One tap must never refund and delete a business.

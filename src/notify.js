@@ -16,6 +16,7 @@
 import crypto from 'node:crypto';
 import { db, getSetting, setSetting, replyToAddress, publicUrl, emailSender } from './db.js';
 import { forEachTenant, isMuted } from './tenant.js';
+import { pushToOwner, pushConfigured } from './push.js';
 import { renderEmail } from './email-html.js';
 import { invoiceTotals, formatAbn } from './invoice-math.js';
 
@@ -418,6 +419,30 @@ function buildCopy(kind, a, extra = {}) {
       }),
     };
   }
+  if (kind === 'owner_new_booking' && extra.movedFrom) {
+    // A client moving their own booking is one event, not a cancellation and a
+    // new booking: it says where it went and where it was.
+    const clientName = [a.first_name, a.client_last].filter(Boolean).join(' ') || 'A client';
+    const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
+    const was = `${fmtDate(extra.movedFrom.date)} at ${fmtTime(extra.movedFrom.start_min)}`;
+    return {
+      subject: `Moved: ${clientName}, ${what} to ${fmtDate(a.date)}`,
+      body: `${clientName} moved their booking online\n\n${what}${who}\nNow: ${when}\nWas: ${was}${contact ? `\nContact: ${contact}` : ''}\n\nYour calendar already shows the new time.\n${biz}`,
+      html: renderEmail({
+        heading: 'A client moved their booking',
+        paragraphs: [`${clientName} moved their appointment online. Your calendar already shows the new time:`],
+        details: [
+          ['Customer', clientName],
+          ['Contact', contact],
+          ['Service', a.service_name || ''],
+          ['With', a.staff_name || ''],
+          ['Now', when],
+          ['Was', was],
+        ],
+        footNote: 'You get these because new-booking alerts are on (Settings → Messages → Notifications).',
+      }),
+    };
+  }
   if (kind === 'owner_new_booking') {
     const clientName = [a.first_name, a.client_last].filter(Boolean).join(' ') || 'A new client';
     const contact = [a.client_phone, a.client_email].filter(Boolean).join(' · ');
@@ -525,14 +550,14 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
  * public booking route calls this — staff bookings don't alert the owner,
  * they made them.
  */
-export function queueOwnerNotification(apptId) {
+export function queueOwnerNotification(apptId, { movedFrom = null } = {}) {
   if (getSetting('owner_notify_enabled', '1') !== '1') return;
   const to = getSetting('business_email', '');
   if (!to) return;
   const a = apptContext(apptId);
   if (!a) return;
 
-  const copy = buildCopy('owner_new_booking', a);
+  const copy = buildCopy('owner_new_booking', a, { movedFrom });
   insMessage().run(a.id, a.client_id || null, 'email', 'owner_new_booking', to, copy.subject, copy.body, copy.html, localStamp());
 }
 
@@ -677,7 +702,7 @@ export function chaseReviews({ now = new Date() } = {}) {
  * it's really cancelled, the owner gets an alert so a freed slot never goes
  * unnoticed. Sent whoever cancelled, so neither side is ever left guessing.
  */
-export function queueCancellationMessages(apptId, { by = 'owner', notifyClient = true, holdSeconds = 0 } = {}) {
+export function queueCancellationMessages(apptId, { by = 'owner', notifyClient = true, holdSeconds = 0, notifyOwner = true } = {}) {
   const a = apptContext(apptId);
   if (!a) return;
   const ins = insMessage();
@@ -696,11 +721,20 @@ export function queueCancellationMessages(apptId, { by = 'owner', notifyClient =
     }
   }
 
-  // → the owner, by email only (an internal alert should never cost a text)
+  // → the owner, by email only (an internal alert should never cost a text).
+  // A client's cancellation goes to the owner's phone first, and the caller
+  // asks for this email only if the phone did not get it.
+  if (notifyOwner) queueOwnerCancellation(apptId, { by });
+}
+
+/** The owner's own record that an appointment is off. Email only; never a text. */
+export function queueOwnerCancellation(apptId, { by = 'owner' } = {}) {
+  const a = apptContext(apptId);
+  if (!a) return;
   const ownerTo = getSetting('business_email', '');
   if (ownerTo && getSetting('owner_notify_enabled', '1') === '1') {
     const copy = buildCopy('owner_cancellation', a, { by });
-    ins.run(a.id, a.client_id || null, 'email', 'owner_cancellation', ownerTo, copy.subject, copy.body, copy.html, now);
+    insMessage().run(a.id, a.client_id || null, 'email', 'owner_cancellation', ownerTo, copy.subject, copy.body, copy.html, localStamp());
   }
 }
 
@@ -894,7 +928,10 @@ async function sendClickSend(to, body) {
     if (Number.isFinite(price) && price > 0) setSetting('sms_last_price', String(price));
     return { ok: true, detail: `Delivered via ClickSend${data?.data?.total_price != null ? ` (cost ${data.data.total_price})` : ''}` };
   }
-  return { ok: false, detail: `ClickSend: ${data?.response_msg || msgStatus || `HTTP ${res.status}`}` };
+  // A request ClickSend accepted can still carry a message it refused
+  // (INSUFFICIENT_CREDIT, say): that status is the reason, not "SUCCESS".
+  const refused = msgStatus && msgStatus !== 'SUCCESS' ? msgStatus : '';
+  return { ok: false, detail: `ClickSend: ${refused || data?.response_msg || `HTTP ${res.status}`}${refused && data?.response_msg && data.response_code !== 'SUCCESS' ? ` (${data.response_msg})` : ''}` };
 }
 
 /**
@@ -1064,7 +1101,43 @@ export async function deliverMessage(msg) {
   const status = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed';
   db.prepare('UPDATE messages SET status = ?, detail = ?, sent_at = ? WHERE id = ?')
     .run(status, result.detail, result.ok ? localStamp() : '', msg.id);
+  if (status === 'failed' && msg.channel === 'sms') textsStopped(result.detail).catch(() => {});
   return { ...result, status };
+}
+
+/**
+ * Tell the owner's phone when texts have stopped for everybody, not just one
+ * client: the credit has run out, or the provider no longer accepts the key.
+ * Otherwise reminders stop in silence and the first the owner hears of it is
+ * an empty chair.
+ *
+ * One number that cannot take a text is that client's problem and is not
+ * sent here. At most once a day, and always on: it is not a preference, it
+ * is the reminders being off.
+ */
+export const TEXTS_STOPPED_EVERY_MS = 24 * 60 * 60 * 1000;
+export function textsStoppedReason(detail) {
+  const d = String(detail || '');
+  if (/INSUFFICIENT|insufficient|credit|balance/i.test(d)) return 'credit';
+  if (/\b401\b|UNAUTHORI[SZ]ED|Invalid credentials|authenticat/i.test(d)) return 'key';
+  return '';
+}
+async function textsStopped(detail) {
+  const why = textsStoppedReason(detail);
+  if (!why || !pushConfigured()) return { sent: 0, skipped: why ? 'not configured' : 'one client' };
+  const last = Number(getSetting('push_texts_stopped_at', '0')) || 0;
+  if (Date.now() - last < TEXTS_STOPPED_EVERY_MS) return { sent: 0, skipped: 'already told today' };
+  setSetting('push_texts_stopped_at', String(Date.now()));
+  const provider = { twilio: 'Twilio', telnyx: 'Telnyx' }[getSetting('sms_provider', 'clicksend')] || 'ClickSend';
+  return pushToOwner({
+    title: 'Texts have stopped',
+    body: why === 'credit'
+      ? `Your ${provider} credit has run out, so clients aren't getting text reminders. Top up in ${provider} and they start again.`
+      : `${provider} no longer accepts your key, so clients aren't getting text reminders. Open Settings → Messages to fix it.`,
+    threadId: 'account',
+    collapseId: 'texts-stopped',
+    data: { kind: 'texts_stopped' },
+  });
 }
 
 /** Process everything due. Called by the scheduler and after queueing. */

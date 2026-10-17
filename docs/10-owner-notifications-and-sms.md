@@ -15,9 +15,27 @@ down the page, and the two are deliberately not the same control.
 | Notification | Default | When it fires |
 |---|---|---|
 | When somebody books | **On** | A booking comes in through the booking page or a booking link |
-| When somebody cancels | **On** | A client cancels or moves — never when the owner does it themselves |
+| (the same switch) | | A client moves their own booking: **one** alert, "Booking moved", with the new and the old time |
+| When somebody cancels | **On** | A client cancels — never when the owner does it themselves |
 | When a booking link says it has been paid | **On** | Only under the `link` payment route with owner confirmation |
 | A summary each morning | **Off** | Once a day at the chosen hour: "6 appointments today. First at 9:00." |
+| When somebody sends a special request | **On** | A client asks for a time the page doesn't offer |
+| When a client pays online | **On** | A deposit or full payment made on the booking page lands |
+| When a client leaves a review | **On** | The stars and what they wrote |
+| *Always* — a new sign-in | — | The account was opened from a browser it has not seen before |
+| *Always* — texts have stopped | — | Texts are failing for everybody (credit ran out, or the key stopped working). At most once a day |
+
+**Proving it works.** The card lists every phone signed in as you, with when
+it last received an alert and, if Apple refused one, why in plain words. **Send
+a test notification** goes to all of them and says what happened. Every alert
+also leaves one line in the server log — `push [salon] booking: 1/1 phones`, or
+Apple's reason when it refused — so a broken key is visible, not silent.
+
+**Phone first, inbox only if missed.** A new booking and a client's
+cancellation go to the phone; the owner's email is sent only when Apple did
+not take the alert for any phone (none signed in, Apple refused, or no answer
+within five seconds). The owner's own cancellations are not alerts, and their
+email is the record.
 
 **Each one is its own switch.** An owner who can only have all of them or none
 picks none, and then the app is a thing they dismiss rather than a thing they

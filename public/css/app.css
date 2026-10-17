@@ -4133,3 +4133,18 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .help-card .card-sub { margin: 6px 0 14px; line-height: 1.6; }
 .help-small { max-width: 760px; }
 .help-foot { color: var(--muted); font-size: 12px; text-align: center; margin: 22px 0 4px; }
+
+/* Settings → Phone notifications: each phone, and whether its alerts arrive. */
+.push-phones { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+.push-phone { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--panel-2); min-width: 0; }
+.push-phone .pp-ic { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px;
+  color: var(--green); background: color-mix(in srgb, var(--green) 12%, transparent); }
+.push-phone .pp-text { flex: 1; min-width: 0; }
+.push-phone .pp-text b { display: block; font-size: 13.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.push-phone .pp-text span { display: block; font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+.push-phone.bad { border-color: color-mix(in srgb, var(--amber) 40%, var(--border)); }
+.push-phone.bad .pp-ic { color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
+.push-phone.bad .pp-text span { color: var(--amber); }
+.push-test-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
+.push-test-row .hint { margin: 0; }

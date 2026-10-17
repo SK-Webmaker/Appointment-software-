@@ -18,7 +18,7 @@ import { checkPassword, checkBreached, MIN_LENGTH as PASSWORD_MIN } from './pass
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages, queueRescheduleMessage,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
-  queueCancellationMessages, cancelUrlFor,
+  queueCancellationMessages, queueOwnerCancellation, cancelUrlFor,
   deliverMessage, processQueue, smsBalance, looksLikeEmail,
   requestOwnNumberCode, verifyOwnNumberCode, auNumber,
 } from './notify.js';
@@ -59,7 +59,10 @@ import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
 import { opportunities } from './opportunities.js';
 import { checklist } from './checklist.js';
-import { pushConfigured, registerDevice, forgetDevice, devicesFor, pushToOwner } from './push.js';
+import {
+  pushConfigured, registerDevice, forgetDevice, devicesFor, pushToOwner,
+  describeDevices, forgetDeviceById, explainRefusal,
+} from './push.js';
 import {
   bookingRuleFor, ruleSettings, noShowsFor, DEPOSIT_WINDOW_DAYS, BLOCK_WINDOW_DAYS,
 } from './booking-rules.js';
@@ -717,6 +720,7 @@ export const EDITABLE_SETTINGS = new Set([
   // What the owner's phone is allowed to interrupt them for.
   'push_new_booking', 'push_cancellation', 'push_payment_check',
   'push_daily_summary', 'push_summary_hour', 'push_enquiry',
+  'push_payment_received', 'push_review',
   'enquiries_enabled', 'enquiries_note',
   // The salon's own no to Kai, over every user's yes (see kaiOn).
   'kai_enabled',
@@ -2526,7 +2530,7 @@ route('PATCH', '/api/appointments/:id/status', async ({ req, params }) => {
  */
 const CANCEL_HOLD_SECONDS = 120;
 
-function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true } = {}) {
+function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true, ownerAlert = true } = {}) {
   const a = db.prepare('SELECT id, status FROM appointments WHERE id = ?').get(id);
   if (!a) return null;
   const already = a.status === 'cancelled';
@@ -2539,7 +2543,10 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
     ).run(a.status, new Date().toISOString().slice(0, 19).replace('T', ' '),
       by === 'client' ? 'client' : 'owner', str(reason, 300), id);
     cancelQueuedMessages(id);          // no reminder for a visit that isn't happening
-    queueCancellationMessages(id, { by, notifyClient, holdSeconds });
+    // The owner's copy: the record of their own cancellation, sent now; a
+    // client's, to the phone first (below); a move, nothing — the new booking
+    // carries the news.
+    queueCancellationMessages(id, { by, notifyClient, holdSeconds, notifyOwner: ownerAlert && by !== 'client' });
     // The slot is free again — tell anyone waiting for it. Deliberately after
     // the cancellation is committed and wrapped so it can never be the reason
     // an appointment fails to cancel: a broken waitlist must cost the owner an
@@ -2561,7 +2568,7 @@ function cancelAppointment(id, { by = 'owner', reason = '', notifyClient = true 
     }
     // The owner's phone. Never awaited and never able to throw: the booking is
     // already cancelled, and Apple being slow must not turn that into an error.
-    pushCancellation(id, { by }).catch(() => {});
+    if (ownerAlert && by === 'client') notifyOwnerOfCancellation(id).catch(() => {});
   }
   // Whether the client was actually told — counted, not assumed. Asking for a
   // message doesn't create a way to send one: a walk-in with no email or phone
@@ -3387,6 +3394,8 @@ route('GET', '/api/app/config', async ({ user }) => ({
       payment_check: getSetting('push_payment_check', '1') === '1',
       daily_summary: getSetting('push_daily_summary', '0') === '1',
       enquiry: getSetting('push_enquiry', '1') === '1',
+      payment_received: getSetting('push_payment_received', '1') === '1',
+      review: getSetting('push_review', '1') === '1',
       summary_hour: clampInt(getSetting('push_summary_hour', '7'), 0, 23, 7),
     },
   },
@@ -3408,6 +3417,8 @@ function wantsPush(kind) {
     payment_check: 'push_payment_check',
     daily_summary: 'push_daily_summary',
     enquiry: 'push_enquiry',
+    payment: 'push_payment_received',
+    review: 'push_review',
   }[kind];
   if (!key) return true; // a test push is always wanted: it was just asked for
   return getSetting(key, '1') === '1';
@@ -3421,7 +3432,7 @@ function wantsPush(kind) {
  * Collapsed per appointment so a customer who books, cancels and rebooks
  * leaves one notification on the lock screen rather than three.
  */
-async function pushNewBooking(apptId) {
+async function pushNewBooking(apptId, { movedFrom = null } = {}) {
   if (!wantsPush('booking')) return { sent: 0, skipped: 'not wanted' };
   // Appointments carry no service name of their own — one booking can bundle
   // several — so it is read the way every other screen reads it.
@@ -3443,6 +3454,16 @@ async function pushNewBooking(apptId) {
   const who = `${a.first_name || 'Someone'} ${a.last_name || ''}`.trim();
   const hh = String(Math.floor(a.start_min / 60)).padStart(2, '0');
   const mm = String(a.start_min % 60).padStart(2, '0');
+  if (movedFrom) {
+    // One event, said once: not "cancelled" followed by "new booking".
+    return pushToOwner({
+      title: 'Booking moved',
+      body: `${who} moved ${a.services_summary || a.service_name || 'their appointment'} to ${a.date} ${hh}:${mm} (was ${movedFrom.date} ${clock(movedFrom.start_min)}).`,
+      threadId: 'bookings',
+      collapseId: `appt-${a.id}`,
+      data: { kind: 'moved', appointment_id: a.id, date: a.date },
+    });
+  }
   return pushToOwner({
     title: 'New booking',
     body: `${who} — ${a.services_summary || a.service_name || 'an appointment'}, ${a.date} ${hh}:${mm}`,
@@ -3590,7 +3611,7 @@ const OWNER_PUSH_WAIT_MS = Number(process.env.KAIRO_OWNER_PUSH_WAIT_MS || 5000);
  * indefinitely, because the failure that matters here is not a duplicate
  * email, it is a booking the owner never hears about.
  */
-async function notifyOwnerOfBooking(apptId) {
+async function notifyOwnerOfBooking(apptId, { movedFrom = null } = {}) {
   let sent = 0;
   try {
     // unref() so a pending timer can never be the reason the process lingers.
@@ -3599,16 +3620,97 @@ async function notifyOwnerOfBooking(apptId) {
       timer = setTimeout(() => resolve({ sent: 0, skipped: 'apns timed out' }), OWNER_PUSH_WAIT_MS);
       if (typeof timer.unref === 'function') timer.unref();
     });
-    const out = await Promise.race([pushNewBooking(apptId), gaveUp]);
+    const out = await Promise.race([pushNewBooking(apptId, { movedFrom }), gaveUp]);
     clearTimeout(timer);
     sent = Number(out && out.sent) || 0;
   } catch {
     sent = 0;
   }
   if (sent > 0) return { channel: 'push', sent };
-  queueOwnerNotification(apptId);
+  queueOwnerNotification(apptId, { movedFrom });
   processQueue().catch(() => {});
   return { channel: 'email', sent: 0 };
+}
+
+const clock = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+/**
+ * Tell the owner a client cancelled: the same rule as a booking, phone first
+ * and the inbox only if the phone did not get it. (The owner's own
+ * cancellations are not alerts at all; their email copy is the record.)
+ *
+ * When the phone cannot possibly get it (push off, no phone signed in, this
+ * kind switched off) the email is queued at once rather than after a wait, so
+ * nothing about the cancellation itself depends on Apple.
+ */
+async function notifyOwnerOfCancellation(apptId) {
+  if (!wantsPush('cancellation') || !devicesFor().length) {
+    queueOwnerCancellation(apptId, { by: 'client' });
+    processQueue().catch(() => {});
+    return { channel: 'email', sent: 0 };
+  }
+  let sent = 0;
+  try {
+    let timer;
+    const gaveUp = new Promise((resolve) => {
+      timer = setTimeout(() => resolve({ sent: 0, skipped: 'apns timed out' }), OWNER_PUSH_WAIT_MS);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+    const out = await Promise.race([pushCancellation(apptId, { by: 'client' }), gaveUp]);
+    clearTimeout(timer);
+    sent = Number(out && out.sent) || 0;
+  } catch {
+    sent = 0;
+  }
+  if (sent > 0) return { channel: 'push', sent };
+  queueOwnerCancellation(apptId, { by: 'client' });
+  processQueue().catch(() => {});
+  return { channel: 'email', sent: 0 };
+}
+
+/**
+ * "Ava paid $40 online for Thursday 2pm." Money arriving is the other thing
+ * an owner wants to hear about without opening anything.
+ */
+async function pushPaymentReceived(apptId, cents) {
+  if (!wantsPush('payment')) return { sent: 0, skipped: 'not wanted' };
+  const a = db.prepare(
+    `SELECT a.id, a.date, a.start_min, c.first_name, c.last_name
+       FROM appointments a LEFT JOIN clients c ON c.id = a.client_id WHERE a.id = ?`
+  ).get(apptId);
+  if (!a || !(cents > 0)) return { sent: 0, skipped: 'nothing paid' };
+  const who = `${a.first_name || 'Someone'} ${a.last_name || ''}`.trim();
+  return pushToOwner({
+    title: 'Paid online',
+    body: `${who} paid ${getSetting('currency', '$')}${(cents / 100).toFixed(2)} for ${a.date} ${clock(a.start_min)}.`,
+    threadId: 'payments',
+    collapseId: `paid-${a.id}`,
+    data: { kind: 'payment', appointment_id: a.id, date: a.date },
+  });
+}
+
+/**
+ * "★★★★★ Ava: Loved it." A low score is the one an owner most wants to hear
+ * about straight away, while there is still time to call the client.
+ */
+async function pushReview(reviewId) {
+  if (!wantsPush('review')) return { sent: 0, skipped: 'not wanted' };
+  const r = db.prepare(
+    `SELECT r.id, r.rating, r.comment, r.appointment_id, a.date, c.first_name, c.last_name
+       FROM reviews r LEFT JOIN appointments a ON a.id = r.appointment_id
+       LEFT JOIN clients c ON c.id = r.client_id WHERE r.id = ?`
+  ).get(reviewId);
+  if (!r) return { sent: 0, skipped: 'no review' };
+  const who = `${r.first_name || 'A client'} ${r.last_name || ''}`.trim();
+  const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+  const said = String(r.comment || '').trim();
+  return pushToOwner({
+    title: `New review ${stars}`,
+    body: said ? `${who}: "${said.length > 110 ? `${said.slice(0, 107)}…` : said}"` : `${who} rated their visit ${r.rating} out of 5.`,
+    threadId: 'reviews',
+    collapseId: `review-${r.id}`,
+    data: { kind: 'review', appointment_id: r.appointment_id, ...(r.date ? { date: r.date } : {}) },
+  });
 }
 
 /**
@@ -3638,16 +3740,39 @@ route('DELETE', '/api/app/devices', async ({ req }) => {
   return { ok: true, removed: forgetDevice(str(b.token, 200).toLowerCase()) };
 });
 
+/**
+ * The phones signed in as this person, and whether each one is getting its
+ * alerts: when Apple last took one for it, and what Apple said if it refused.
+ */
+route('GET', '/api/app/devices', async ({ user }) => ({
+  available: pushConfigured(),
+  devices: describeDevices(user.id).map((d) => ({
+    id: d.id, name: d.name || 'Phone', platform: d.platform,
+    signed_in_at: d.created_at, last_seen_at: d.last_seen_at, last_push_at: d.last_push_at,
+    problem: d.last_error ? explainRefusal({ status: Number(d.last_error.split(' ')[0]) || 0, reason: d.last_error.split(' ').slice(1).join(' ') }) : '',
+  })),
+}));
+
+/** Take one of your own phones off your account, from any device. */
+route('DELETE', '/api/app/devices/:id', async ({ params, user }) => {
+  if (!forgetDeviceById(user.id, Number(params.id))) throw httpError(404, 'That phone is not signed in to your account');
+  return { ok: true };
+});
+
 /** So the owner can prove to themselves that push works, rather than hope. */
 route('POST', '/api/app/push/test', async ({ user }) => {
-  if (!pushConfigured()) throw httpError(400, 'Push is not configured on this server');
+  if (!pushConfigured()) throw httpError(400, "Phone notifications aren't switched on for this server yet.");
   const out = await pushToOwner({
     title: getSetting('business_name', 'Kairo'),
-    body: 'Push notifications are working.',
+    body: "Notifications are working. This is where you'll hear about new bookings, cancellations and payments.",
     collapseId: 'test',
     data: { kind: 'test' },
   }, { userId: user.id });
-  if (!out.sent) throw httpError(400, out.skipped === 'no devices' ? 'No phone is signed in yet' : 'Apple did not accept it');
+  if (!out.sent) {
+    throw httpError(400, out.skipped === 'no devices'
+      ? 'No phone is signed in yet. Open the Kairo app on your phone, sign in, and allow notifications.'
+      : explainRefusal(out.results.find((r) => !r.ok)));
+  }
   return { ok: true, sent: out.sent, of: out.of };
 });
 
@@ -5928,7 +6053,7 @@ route('POST', '/api/public/book', async ({ req }) => {
       // alongside it reads as something having gone wrong. The waitlist offer
       // still fires, because the old slot genuinely is free again and somebody
       // may want it.
-      cancelAppointment(old.id, { by: 'client', reason: 'Moved to a new time', notifyClient: false });
+      cancelAppointment(old.id, { by: 'client', reason: 'Moved to a new time', notifyClient: false, ownerAlert: false });
       moved = { from_date: old.date, from_start_min: old.start_min };
     }
   }
@@ -5940,7 +6065,7 @@ route('POST', '/api/public/book', async ({ req }) => {
   // The owner is told separately: phone first, inbox only if that misses.
   // Not awaited and never able to throw — the booking is already made, and
   // Apple being slow must not turn a good booking into an error page.
-  notifyOwnerOfBooking(apptId).catch(() => {});
+  notifyOwnerOfBooking(apptId, moved ? { movedFrom: { date: moved.from_date, start_min: moved.from_start_min } } : {}).catch(() => {});
 
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(apptId);
   return {
@@ -6009,6 +6134,7 @@ route('POST', '/api/public/confirm-payment', async ({ req }) => {
         .run(cents, appt.id);
       queueDepositReceipt(appt.id, cents);
       processQueue().catch(() => {});
+      pushPaymentReceived(appt.id, cents).catch(() => {});
     }
   }
   const full = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(appt.id);
@@ -6044,6 +6170,7 @@ route('POST', '/api/public/confirm-deposit', async ({ req }) => {
         .run(cents, appt.id);
       queueDepositReceipt(appt.id, cents);
       processQueue().catch(() => {});
+      pushPaymentReceived(appt.id, cents).catch(() => {});
     }
   }
   const full = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(appt.id);
@@ -6449,8 +6576,9 @@ route('POST', '/api/public/review', async ({ req }) => {
   if (db.prepare('SELECT 1 FROM reviews WHERE appointment_id = ?').get(a.id)) {
     throw httpError(409, 'You already left a review for this visit — thank you!');
   }
-  db.prepare('INSERT INTO reviews (appointment_id, client_id, staff_id, rating, comment) VALUES (?, ?, ?, ?, ?)')
+  const review = db.prepare('INSERT INTO reviews (appointment_id, client_id, staff_id, rating, comment) VALUES (?, ?, ?, ?, ?)')
     .run(a.id, a.client_id, a.staff_id, rating, str(b.comment, 1000));
+  pushReview(Number(review.lastInsertRowid)).catch(() => {});
   return { ok: true, google_review_url: rating >= 4 ? getSetting('google_review_url', '') : '' };
 }, { auth: false });
 

@@ -90,6 +90,8 @@ test('the app is told exactly what it will be woken for, in both directions', as
     payment_check: false,
     daily_summary: true,
     enquiry: true,
+    payment_received: true,
+    review: true,
     summary_hour: 8,
   });
   assert.equal(typeof cfg.json.push.available, 'boolean');
@@ -98,6 +100,7 @@ test('the app is told exactly what it will be woken for, in both directions', as
   await set({
     push_new_booking: '1', push_cancellation: '0',
     push_payment_check: '1', push_daily_summary: '0', push_summary_hour: '6',
+    push_payment_received: '0', push_review: '0',
   });
   const flipped = await k.api('GET', '/api/app/config', { cookie });
   assert.deepEqual(flipped.json.push.kinds, {
@@ -106,9 +109,11 @@ test('the app is told exactly what it will be woken for, in both directions', as
     payment_check: true,
     daily_summary: false,
     enquiry: true,
+    payment_received: false,
+    review: false,
     summary_hour: 6,
   });
-  await set({ push_summary_hour: '8', push_cancellation: '1' });
+  await set({ push_summary_hour: '8', push_cancellation: '1', push_payment_received: '1', push_review: '1' });
 });
 
 test('an out-of-range summary hour is clamped into a real hour', async () => {
