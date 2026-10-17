@@ -959,7 +959,7 @@ const MUTATIONS = {
   },
   'dead-device-kept-forever': {
     file: 'src/push.js', suites: ['app'],
-    find: "  if (out.status === 410 || out.reason === 'BadDeviceToken' || out.reason === 'Unregistered') {",
+    find: '  if (out.status === 410 || DEAD.has(out.reason)) {',
     replace: '  if (false) {',
   },
   'delete-without-the-password': {
