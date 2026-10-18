@@ -318,8 +318,11 @@ struct KairoWebView: UIViewRepresentable {
                 Task { @MainActor [weak self] in
                     let allowed = await Push.ask()
                     // What the iPhone allows, for Settings in the page.
+                    // The completion-handler form: inside a Task the plain call
+                    // resolves to the async, throwing overload.
                     self?.web?.evaluateJavaScript(
-                        "window.kairoPush = Object.assign(window.kairoPush || {}, { permission: '\(allowed)' }); window.dispatchEvent(new Event('kairo-push'));")
+                        "window.kairoPush = Object.assign(window.kairoPush || {}, { permission: '\(allowed)' }); window.dispatchEvent(new Event('kairo-push'));",
+                        completionHandler: nil)
                 }
             case "signed-out":
                 if let web { backToSignIn(web) }
