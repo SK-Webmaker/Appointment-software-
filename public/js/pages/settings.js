@@ -10,6 +10,7 @@ import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
 import { mountSmsCredit } from '../sms-credit.js';
 import { mountAutomations } from '../automations.js';
+import { inApp, signedIn as nativeSignedIn } from '../native.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
@@ -184,17 +185,48 @@ function ago(sqlTime) {
  * arriving: when Apple last took one for it, and in plain words what went
  * wrong if it refused. Plus the button that proves it, end to end.
  */
+/**
+ * Inside the app, what THIS iPhone says about notifications, in words an owner
+ * can act on. The app reports it (window.kairoPush): what the iPhone allows,
+ * whether the phone registered with Kairo, and Apple's reason if it refused.
+ * An app from before it could report (version 2 and earlier) is the build that
+ * was signed without the push entitlement, and says so.
+ */
+function thisPhoneNote(hasPhones) {
+  if (!inApp()) return '';
+  const p = window.kairoPush || {};
+  const v = Number(window.kairoNative?.version || 0);
+  const bad = (msg) => `<div class="push-this bad">${icon('alert', 15)}<span>${msg}</span></div>`;
+  const tryAgain = '<button type="button" class="btn small" id="push-this-retry">Try again</button>';
+  if (p.error) {
+    return /aps-environment|entitlement/i.test(p.error)
+      ? bad(`This version of the Kairo app can't receive notifications. Update Kairo, open it again, and this phone will sign itself in. <span class="pt-why">Apple said: ${esc(p.error)}</span>`)
+      : bad(`This iPhone couldn't turn notifications on. Apple said: ${esc(p.error)} ${tryAgain}`);
+  }
+  if (p.permission === 'denied') {
+    return bad(`Notifications are switched off for Kairo on this iPhone. Turn them on in the iPhone's Settings → Kairo → Notifications, then come back and press ${tryAgain}`);
+  }
+  if (p.registered) return '';
+  if (v < 3 && !hasPhones) {
+    return bad(`This version of the Kairo app can't turn notifications on: it was built without Apple's permission for them. The next update fixes it. Until then, new bookings and cancellations are emailed to you, so nothing is missed.`);
+  }
+  if (!hasPhones) return bad(`This iPhone hasn't signed in for notifications yet. ${tryAgain}`);
+  return '';
+}
+
 function mountPushPhones(container) {
   const box = container.querySelector('#push-phones');
   if (!box) return;
   const draw = async () => {
     let r;
     try { r = await api.get('/api/app/devices'); } catch { box.innerHTML = ''; return; }
+    const note = thisPhoneNote(r.devices.length > 0);
     if (!r.devices.length) {
-      box.innerHTML = '<div class="hint">No phone is signed in as you yet. Open the Kairo app on your phone, sign in, and allow notifications when it asks.</div>';
+      box.innerHTML = note || '<div class="hint">No phone is signed in as you yet. Open the Kairo app on your phone, sign in, and allow notifications when it asks.</div>';
+      wireRetry();
       return;
     }
-    box.innerHTML = r.devices.map((d) => `
+    box.innerHTML = note + r.devices.map((d) => `
       <div class="push-phone ${d.problem ? 'bad' : ''}">
         <span class="pp-ic">${icon('phone', 16)}</span>
         <span class="pp-text"><b>${esc(d.name)}</b>
@@ -203,6 +235,7 @@ function mountPushPhones(container) {
               : `Signed in ${esc(ago(d.signed_in_at))} · no notification yet`}</span></span>
         <button type="button" class="btn small" data-forget="${d.id}" aria-label="Remove ${esc(d.name)}">Remove</button>
       </div>`).join('');
+    wireRetry();
     box.querySelectorAll('[data-forget]').forEach((b) => {
       b.onclick = async () => {
         const ok = await confirmDialog('Remove this phone?', 'It stops getting notifications until somebody signs in to Kairo on it again.', { okText: 'Remove' });
@@ -212,6 +245,16 @@ function mountPushPhones(container) {
       };
     });
   };
+  // "Try again" asks the app to go through it all again: permission, Apple's
+  // token, and signing this phone in to Kairo.
+  const wireRetry = () => {
+    const b = box.querySelector('#push-this-retry');
+    if (b) b.onclick = () => { b.disabled = true; nativeSignedIn(); setTimeout(draw, 4000); };
+  };
+  // The app reports as it learns, so the card redraws when it does.
+  if (window.kairoPushRedraw) window.removeEventListener('kairo-push', window.kairoPushRedraw);
+  window.kairoPushRedraw = () => { if (box.isConnected) draw(); };
+  window.addEventListener('kairo-push', window.kairoPushRedraw);
   draw();
   const test = container.querySelector('#push-test');
   const say = container.querySelector('#push-test-say');

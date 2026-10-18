@@ -3731,8 +3731,28 @@ route('POST', '/api/app/devices', async ({ req, user }) => {
     platform: b.platform === 'android' ? 'android' : 'ios',
     name: str(b.name, 80),
   });
+  // In the log, so "is her phone registered?" has an answer without anybody
+  // opening a database: which salon, which person, what the phone is called.
+  // Never the token.
+  console.log(`push${salonTag()} phone signed in: ${str(b.name, 80) || 'a phone'} (user ${user.id})`);
   return { ok: true, id: row.id, push_available: pushConfigured() };
 });
+
+/**
+ * The app could not get a push token from Apple, and says why in Apple's own
+ * words. Logged, because a phone that cannot register is otherwise invisible:
+ * it looks exactly like a phone that has not been opened yet.
+ */
+route('POST', '/api/app/push-problem', async ({ req, user }) => {
+  const b = checkBody(await readJson(req), { error: s.str(300) });
+  console.error(`push${salonTag()} a phone could not turn on notifications (user ${user.id}): ${str(b.error, 300) || 'no reason given'}`);
+  return { ok: true };
+});
+
+/** " [hairbysha]" in a log line, or nothing on a single-salon install. */
+function salonTag() {
+  try { const slug = currentTenant()?.slug; return slug ? ` [${slug}]` : ''; } catch { return ''; }
+}
 
 /** Signing out on a phone must stop that phone getting the book. */
 route('DELETE', '/api/app/devices', async ({ req }) => {

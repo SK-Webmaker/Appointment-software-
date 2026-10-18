@@ -207,3 +207,19 @@ test("a token from another app is struck off, and a phone can be taken off from 
   await k.api('POST', '/api/app/push/test', { cookie });
   assert.ok(apns.sent.slice(from).every((x) => x.deviceToken !== spare), 'a removed phone gets nothing');
 });
+
+test('a phone signing in, and a phone Apple refused, both leave a line in the log', async () => {
+  // "Is her phone registered?" must have an answer without opening a
+  // database, and a phone Apple would not give a token to must not look like
+  // a phone nobody has opened yet.
+  const token = 'd4'.repeat(32);
+  await k.api('POST', '/api/app/devices', { cookie, body: { token, platform: 'ios', name: 'Reception iPhone' } });
+  assert.match(k.log(), /push phone signed in: Reception iPhone \(user \d+\)/);
+  assert.ok(!k.log().includes(token), 'never the token');
+
+  assert.equal((await k.api('POST', '/api/app/push-problem', { body: { error: 'x' } })).status, 401, 'only a signed-in app can report');
+  const said = 'no valid “aps-environment” entitlement string found for application';
+  const r = await k.api('POST', '/api/app/push-problem', { cookie, body: { error: said } });
+  assert.equal(r.status, 200);
+  assert.ok(k.log().includes(`a phone could not turn on notifications (user`) && k.log().includes(said), 'Apple\'s own words are in the log');
+});

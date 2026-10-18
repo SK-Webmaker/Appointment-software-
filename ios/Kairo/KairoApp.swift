@@ -43,13 +43,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
-        MainActor.assumeIsolated { session?.deviceToken = hex }
+        MainActor.assumeIsolated {
+            session?.pushError = nil
+            session?.deviceToken = hex
+        }
     }
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // Not fatal and not worth a dialog: the app works without push, and the
-        // checklist in the workspace already says whether a phone is signed in.
+        // Not fatal and not worth a dialog: the app works without push. But it
+        // is reported — to Settings in the page and to the server's log —
+        // because a phone that silently cannot register is how every build up
+        // to 1.0.2 shipped without anybody knowing.
         let detail = error.localizedDescription
         MainActor.assumeIsolated { session?.pushError = detail }
     }

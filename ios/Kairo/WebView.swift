@@ -28,7 +28,8 @@ struct KairoWebView: UIViewRepresentable {
         // anything is drawn, so those links never flash up and disappear.
         controller.addUserScript(WKUserScript(
             source: """
-            window.kairoNative = { version: 2, platform: 'ios' };
+            window.kairoNative = { version: 3, platform: 'ios' };
+            window.kairoPush = window.kairoPush || {};
             if (document.documentElement) document.documentElement.classList.add('kairo-app');
             """,
             injectionTime: .atDocumentStart,
@@ -103,12 +104,35 @@ struct KairoWebView: UIViewRepresentable {
                   headers: { 'content-type': 'application/json' },
                   body: body
                 }).then(function (r) {
+                  window.kairoPush = Object.assign(window.kairoPush || {}, { registered: r.ok, status: r.status });
+                  window.dispatchEvent(new Event('kairo-push'));
                   if (!r.ok && r.status !== 400 && n < 5) setTimeout(function () { attempt(n + 1); }, 1500 * (n + 1));
                 }).catch(function () {
                   if (n < 5) setTimeout(function () { attempt(n + 1); }, 1500 * (n + 1));
                 });
               }
               attempt(0);
+            })();
+            """
+            web.evaluateJavaScript(js)
+        }
+        // Apple would not give this phone a token. Said to the page (Settings
+        // shows it) and to the salon's server (it lands in the log), once per
+        // reason, so the next person debugging this reads Apple's own words.
+        if let problem = session.pushError, problem != context.coordinator.problemSent,
+           !session.host.isEmpty, web.url?.host?.lowercased() == session.host {
+            context.coordinator.problemSent = problem
+            let said = Coordinator.jsString(problem)
+            let js = """
+            (function () {
+              window.kairoPush = Object.assign(window.kairoPush || {}, { error: \(said) });
+              window.dispatchEvent(new Event('kairo-push'));
+              fetch('/api/app/push-problem', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ error: \(said) })
+              }).catch(function () {});
             })();
             """
             web.evaluateJavaScript(js)
@@ -120,6 +144,7 @@ struct KairoWebView: UIViewRepresentable {
         weak var web: WKWebView?
         weak var spinner: UIActivityIndicatorView?
         var tokenSent = false
+        var problemSent: String?
         var lastPath: String?
 
         init(session: Session) {
@@ -290,7 +315,12 @@ struct KairoWebView: UIViewRepresentable {
                   let type = body["type"] as? String else { return }
             switch type {
             case "signed-in":
-                Task { @MainActor in await Push.ask() }
+                Task { @MainActor [weak self] in
+                    let allowed = await Push.ask()
+                    // What the iPhone allows, for Settings in the page.
+                    self?.web?.evaluateJavaScript(
+                        "window.kairoPush = Object.assign(window.kairoPush || {}, { permission: '\(allowed)' }); window.dispatchEvent(new Event('kairo-push'));")
+                }
             case "signed-out":
                 if let web { backToSignIn(web) }
             case "retry":

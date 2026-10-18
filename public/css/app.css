@@ -4148,3 +4148,8 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .push-phone.bad .pp-text span { color: var(--amber); }
 .push-test-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
 .push-test-row .hint { margin: 0; }
+.push-this { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; }
+.push-this.bad { color: var(--text); background: color-mix(in srgb, var(--amber) 10%, transparent); border: 1px solid color-mix(in srgb, var(--amber) 40%, var(--border)); }
+.push-this.bad > svg { flex: none; color: var(--amber); margin-top: 2px; }
+.push-this .btn { margin-left: 4px; }
+.push-this .pt-why { display: block; color: var(--text-2); font-size: 12px; margin-top: 4px; }

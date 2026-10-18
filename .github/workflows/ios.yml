@@ -36,6 +36,10 @@ on:
         description: 'Also archive and upload to TestFlight'
         type: boolean
         default: false
+      check_only:
+        description: 'Archive and sign, check the entitlements, but upload nothing'
+        type: boolean
+        default: false
       version:
         description: 'App Store version number, e.g. 1.0.1 (blank: from the tag, else 1.0.0)'
         type: string
@@ -81,7 +85,7 @@ jobs:
 
   testflight:
     name: archive and upload
-    if: github.event_name == 'release' || inputs.ship
+    if: github.event_name == 'release' || inputs.ship || inputs.check_only
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -214,6 +218,38 @@ jobs:
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             archive
 
+      # The archive above is unsigned, and an unsigned app carries NO
+      # entitlements: they only enter the binary when it is signed. The export
+      # re-signs for distribution from the entitlements the archived app already
+      # has, so without this step the App Store build shipped with none at all.
+      #
+      # That is how every build up to 1.0.2 went out: iOS let the owner switch
+      # notifications on (asking needs no entitlement), then refused to give
+      # the phone a push token ("no valid aps-environment entitlement"), so no
+      # phone ever registered and no notification was ever sent. The same loss
+      # took the associated domains with it, so booking links never opened the
+      # app either.
+      #
+      # Signing the archived app ad hoc with the entitlements file puts them in
+      # the binary; the export then keeps them when it signs for real.
+      - name: Put the entitlements into the archived app
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: ios
+        run: |
+          set -o pipefail
+          APP=build/Kairo.xcarchive/Products/Applications/Kairo.app
+          echo "Entitlements in the archive as built:"
+          codesign -d --entitlements - --xml "$APP" 2>/dev/null || echo "  (none: the app is unsigned)"
+          if [ "${{ inputs.check_only }}" = "true" ]; then
+            # Proof of the old way, for the record: export it untouched and
+            # show what the signed app would have carried.
+            cp -R build/Kairo.xcarchive build/Unfixed.xcarchive
+          fi
+          codesign --force --sign - --timestamp=none --generate-entitlement-der \
+            --entitlements Kairo/Kairo.entitlements "$APP"
+          echo "Entitlements now in the archived app:"
+          codesign -d --entitlements - --xml "$APP"
+
       - name: Export and upload to TestFlight
         if: steps.secrets.outputs.ready == 'true'
         working-directory: ios
@@ -229,14 +265,52 @@ jobs:
             <key>uploadSymbols</key><true/>
           </dict></plist>
           PLIST
-          xcodebuild -exportArchive \
-            -archivePath build/Kairo.xcarchive \
-            -exportOptionsPlist build/ExportOptions.plist \
-            -exportPath build/export \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          # Signed to a local .ipa first, so what Apple would receive can be
+          # checked before anything is sent: the upload below only happens if
+          # the signed app carries the push and app-link entitlements.
+          sed 's#<string>upload</string>#<string>export</string>#' build/ExportOptions.plist > build/ExportLocal.plist
+          export_to() {
+            xcodebuild -exportArchive \
+              -archivePath "$1" \
+              -exportOptionsPlist "$2" \
+              -exportPath "$3" \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+              -authenticationKeyID "$ASC_KEY_ID" \
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          }
+          entitlements_of() {
+            rm -rf build/check && mkdir -p build/check
+            unzip -q "$(ls "$1"/*.ipa | head -1)" -d build/check
+            codesign -d --entitlements - --xml build/check/Payload/Kairo.app 2>/dev/null \
+              || codesign -d --entitlements :- build/check/Payload/Kairo.app
+          }
+          if [ -d build/Unfixed.xcarchive ]; then
+            # The record only: none of this may stop the real check below.
+            if export_to build/Unfixed.xcarchive build/ExportLocal.plist build/unfixed; then
+              echo "The signed app the OLD way would have carried:"
+              entitlements_of build/unfixed | tee build/unfixed.txt || true
+              if grep -q aps-environment build/unfixed.txt; then echo "  -> it had the push entitlement"
+              else echo "  -> NO push entitlement: phones could never register"; fi
+            else
+              echo "The old way did not even export."
+            fi
+          fi
+          export_to build/Kairo.xcarchive build/ExportLocal.plist build/local
+          echo "The signed app carries:"
+          entitlements_of build/local | tee build/signed.txt
+          grep -q 'aps-environment' build/signed.txt \
+            || { echo "::error::The signed app has no push entitlement. Phones could never register for notifications. Not uploading."; exit 1; }
+          tr -d '\n\t ' < build/signed.txt | grep -q '<key>aps-environment</key><string>production</string>' \
+            || { echo "::error::The push entitlement is not 'production', so every token would belong to the sandbox. Not uploading."; exit 1; }
+          grep -q 'com.apple.developer.associated-domains' build/signed.txt \
+            || { echo "::error::The signed app has no associated domains, so booking links would not open it. Not uploading."; exit 1; }
+          echo "Push (production) and associated domains are in the signed app."
+          if [ "${{ inputs.check_only }}" = "true" ]; then
+            echo "check_only: nothing uploaded."
+            exit 0
+          fi
+          export_to build/Kairo.xcarchive build/ExportOptions.plist build/export
 
       # "Error Downloading App Information" and its siblings are what
       # -exportArchive prints; the reason it actually got from Apple is written
