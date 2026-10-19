@@ -169,6 +169,19 @@ a { color: var(--accent); text-decoration: none; }
 }
 .security-banner svg { flex: none; }
 .security-banner a { color: var(--red); font-weight: 700; text-decoration: underline; }
+.update-banner {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px 10px;
+  padding: 10px calc(24px + var(--safe-right)) 10px calc(24px + var(--safe-left));
+  font-size: 13px; line-height: 1.5; color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.update-banner svg { color: var(--accent); }
+.update-banner .ub-actions { display: flex; gap: 6px; }
+@media (max-width: 620px) {
+  .update-banner { grid-template-columns: auto 1fr; padding-left: calc(16px + var(--safe-left)); padding-right: calc(16px + var(--safe-right)); }
+  .update-banner .ub-actions { grid-column: 2; }
+}
 .topbar {
   display: flex; align-items: center; gap: 14px;
   min-height: calc(62px + var(--safe-top));

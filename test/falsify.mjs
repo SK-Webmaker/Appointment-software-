@@ -286,6 +286,31 @@ const MUTATIONS = {
     find: "      const hit = (body.results || []).find((r) => r.bundleId === BUNDLE_ID);",
     replace: "      const hit = (body.results || [])[0];",
   },
+  'update-offered-to-an-app-ahead-of-the-store': {
+    file: 'public/js/native.js', suites: ['app-store'],
+    find: "  return Boolean(mine && VERSION_RE.test(String(storeVersion || '')) && isNewer(storeVersion, mine));",
+    replace: "  return Boolean(mine && VERSION_RE.test(String(storeVersion || '')) && storeVersion !== mine);",
+  },
+  'versions-compared-as-text': {
+    file: 'public/js/native.js', suites: ['app-store'],
+    find: "  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {",
+    replace: "  return String(a) > String(b);\n  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {",
+  },
+  'old-builds-taken-as-the-oldest': {
+    file: 'public/js/native.js', suites: ['app-store'],
+    find: "const BRIDGE_APP = { 1: '1.0.0', 2: '1.0.2', 3: '1.0.3' };",
+    replace: "const BRIDGE_APP = { 1: '1.0.0', 2: '1.0.0', 3: '1.0.0' };",
+  },
+  'store-version-taken-unchecked': {
+    file: 'src/app-store.js', suites: ['app-store'],
+    find: "        return { id: String(hit.trackId), version: VERSION_RE.test(String(hit.version)) ? String(hit.version) : '' };",
+    replace: "        return { id: String(hit.trackId), version: String(hit.version ?? '') };",
+  },
+  'store-version-not-told-to-the-app': {
+    file: 'src/api.js', suites: ['app-store'],
+    find: "  app_store_version: appStoreVersion(),\n",
+    replace: '',
+  },
   'app-store-id-unchecked': {
     file: 'src/app-store.js', suites: ['app-store'],
     find: "  if (/^\\d{6,12}$/.test(pinned)) return pinned;",

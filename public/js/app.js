@@ -22,7 +22,7 @@ import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
 import { mountKai, open as openKai } from './kai.js';
 import { mountChecklist } from './checklist.js';
-import { signedIn as nativeSignedIn, signedOut as nativeSignedOut } from './native.js';
+import { signedIn as nativeSignedIn, signedOut as nativeSignedOut, inApp, updateAvailable } from './native.js';
 
 export const state = {
   user: null,
@@ -223,6 +223,7 @@ function renderShell() {
             it's in an email, so it isn't private to you yet. Set your own in
             <a href="#/account">Account → Security</a>. Takes ten seconds.</span>
         </div>` : ''}
+        <div id="app-update"></div>
         <main class="content"><div id="setup-checklist"></div><div class="page" id="page"></div></main>
       </div>
     </div>`;
@@ -255,11 +256,50 @@ function renderShell() {
   // What is left before this salon is really running. Hides itself for good
   // once every line is done, and never blocks the page while it loads.
   mountChecklist(root.querySelector('#setup-checklist')).catch(() => {});
+  // Inside the iPhone app, an app older than the App Store's says so.
+  mountAppUpdate(root.querySelector('#app-update')).catch(() => {});
 
   // Pull down at the top of any page to reload it. On a home-screen app there
   // is no address bar and so no reload button; this is the only way to ask for
   // fresh figures without closing the app.
   enablePullToRefresh(root.querySelector('.content'), () => refreshAll());
+}
+
+// "Later" puts the update off for a day on this phone, then it asks again.
+const LATER_KEY = 'kairo_update_later';
+const LATER_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Inside the app, when the App Store has a newer Kairo than this one: a strip
+ * under the top bar with the button that opens Kairo's App Store page, where
+ * Apple's own Update button is. In a browser, or on an app that is up to date,
+ * nothing at all.
+ */
+async function mountAppUpdate(box) {
+  if (!box || !inApp()) return;
+  const c = await api.get('/api/app/config');
+  if (!c.app_store_url || !updateAvailable(c.app_store_version)) return;
+  try {
+    if (Date.now() - Number(localStorage.getItem(LATER_KEY) || 0) < LATER_MS) return;
+  } catch { /* no storage: it just asks every time */ }
+  // The builds before 1.0.3 were signed without Apple's permission for
+  // notifications, so for those the update is not a nicety.
+  const noPush = Number(window.kairoNative?.version || 0) < 3;
+  box.innerHTML = `
+    <div class="update-banner" role="status">
+      ${icon('download', 16)}
+      <span class="ub-text">${noPush
+    ? '<b>Update Kairo to get booking notifications on this phone.</b> This version can\'t show them. The update fixes it and keeps you signed in.'
+    : `<b>A new version of Kairo is ready</b> (${esc(c.app_store_version)}).`}</span>
+      <span class="ub-actions">
+        <a class="btn primary small" href="${esc(c.app_store_url)}" target="_blank" rel="noopener noreferrer">Update</a>
+        <button type="button" class="btn small ghost" id="update-later">Later</button>
+      </span>
+    </div>`;
+  box.querySelector('#update-later').onclick = () => {
+    try { localStorage.setItem(LATER_KEY, String(Date.now())); } catch { /* it comes back next launch */ }
+    box.innerHTML = '';
+  };
 }
 
 /**

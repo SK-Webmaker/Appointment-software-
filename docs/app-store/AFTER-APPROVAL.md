@@ -139,6 +139,10 @@ day per salon, about 1–3 US cents a message.
   phone-notifications card. Never on a booking page. If it has not appeared
   after two days, copy the *Apple ID* number from App Store Connect → App
   Information into Render as `KAIRO_APP_STORE_ID`.
+- **Update prompts.** The same lookup says which version the App Store is
+  giving out. Inside the app, a phone running an older Kairo gets an
+  **Update** strip under the top bar and an **Update Kairo** button in
+  Settings → App & Kai, both opening the App Store page. See `SHIP-1.0.3.md`.
 
 ---
 

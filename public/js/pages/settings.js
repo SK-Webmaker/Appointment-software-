@@ -10,7 +10,7 @@ import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
 import { mountSmsCredit } from '../sms-credit.js';
 import { mountAutomations } from '../automations.js';
-import { inApp, signedIn as nativeSignedIn } from '../native.js';
+import { inApp, signedIn as nativeSignedIn, updateAvailable } from '../native.js';
 
 // Secret keys are never sent to the browser — the API returns a `<key>_set`
 // flag instead. These render the "already saved" affordance.
@@ -192,15 +192,23 @@ function ago(sqlTime) {
  * An app from before it could report (version 2 and earlier) is the build that
  * was signed without the push entitlement, and says so.
  */
-function thisPhoneNote(hasPhones) {
+function thisPhoneNote(hasPhones, store = {}) {
   if (!inApp()) return '';
   const p = window.kairoPush || {};
   const v = Number(window.kairoNative?.version || 0);
   const bad = (msg) => `<div class="push-this bad">${icon('alert', 15)}<span>${msg}</span></div>`;
   const tryAgain = '<button type="button" class="btn small" id="push-this-retry">Try again</button>';
+  // The App Store page, where Apple's own Update button is. Only once the App
+  // Store really has a newer Kairo: before that the page would say "Open".
+  const update = store.url && updateAvailable(store.version)
+    ? ` <a class="btn primary small" href="${esc(store.url)}" target="_blank" rel="noopener noreferrer">Update Kairo</a>`
+    : '';
+  const meanwhile = update
+    ? 'Tap Update Kairo, then open Kairo again: this phone signs itself in.'
+    : "The update is with Apple now. When it's out, an Update button appears here, and iPhones with automatic updates get it by themselves.";
   if (p.error) {
     return /aps-environment|entitlement/i.test(p.error)
-      ? bad(`This version of the Kairo app can't receive notifications. Update Kairo, open it again, and this phone will sign itself in. <span class="pt-why">Apple said: ${esc(p.error)}</span>`)
+      ? bad(`This version of the Kairo app can't receive notifications. ${meanwhile}${update} <span class="pt-why">Apple said: ${esc(p.error)}</span>`)
       : bad(`This iPhone couldn't turn notifications on. Apple said: ${esc(p.error)} ${tryAgain}`);
   }
   if (p.permission === 'denied') {
@@ -208,19 +216,19 @@ function thisPhoneNote(hasPhones) {
   }
   if (p.registered) return '';
   if (v < 3 && !hasPhones) {
-    return bad(`This version of the Kairo app can't turn notifications on: it was built without Apple's permission for them. The next update fixes it. Until then, new bookings and cancellations are emailed to you, so nothing is missed.`);
+    return bad(`This version of the Kairo app can't turn notifications on: it was built without Apple's permission for them. ${meanwhile} Until then, new bookings and cancellations are emailed to you, so nothing is missed.${update}`);
   }
   if (!hasPhones) return bad(`This iPhone hasn't signed in for notifications yet. ${tryAgain}`);
   return '';
 }
 
-function mountPushPhones(container) {
+function mountPushPhones(container, store) {
   const box = container.querySelector('#push-phones');
   if (!box) return;
   const draw = async () => {
     let r;
     try { r = await api.get('/api/app/devices'); } catch { box.innerHTML = ''; return; }
-    const note = thisPhoneNote(r.devices.length > 0);
+    const note = thisPhoneNote(r.devices.length > 0, store);
     if (!r.devices.length) {
       box.innerHTML = note || '<div class="hint">No phone is signed in as you yet. Open the Kairo app on your phone, sign in, and allow notifications when it asks.</div>';
       wireRetry();
@@ -754,7 +762,10 @@ export async function renderSettings(container, params) {
       ? 'Push isn\'t switched on for this server yet, so these are saved but nothing will arrive.'
       : push.devices > 0
         ? `<b>${push.devices} phone${push.devices === 1 ? '' : 's'} signed in.</b>`
-        : appStore
+        : inApp()
+          // Already in the app: what this phone needs is in the note below.
+          ? '<b>No phone is signed in yet.</b>'
+          : appStore
           ? `<b>No phone is signed in yet</b> — <a href="${esc(appStore)}" target="_blank" rel="noopener noreferrer">get Kairo from the App Store</a> and sign in, and these start working.`
           : '<b>No phone is signed in yet</b> — install Kairo on your phone and sign in, and these start working.'}</div>
         ${push && push.available ? `
@@ -1245,7 +1256,7 @@ export async function renderSettings(container, params) {
     saveSettings(e.target, ['push_new_booking', 'push_cancellation', 'push_payment_check',
       'push_daily_summary', 'push_summary_hour', 'push_enquiry', 'push_payment_received', 'push_review']);
   });
-  mountPushPhones(container);
+  mountPushPhones(container, { url: appStore, version: (appConfig && appConfig.app_store_version) || '' });
   container.querySelector('#set-kai')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     await saveSettings(e.target, ['kai_enabled']);

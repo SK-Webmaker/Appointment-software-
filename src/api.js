@@ -102,7 +102,7 @@ import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
   waitlistEnabled, autofillEnabled,
 } from './waitlist.js';
-import { appStoreUrl } from './app-store.js';
+import { appStoreUrl, appStoreVersion } from './app-store.js';
 import crypto from 'node:crypto';
 
 const APPT_STATUSES = new Set(['booked', 'confirmed', 'completed', 'cancelled', 'no_show']);
@@ -3383,6 +3383,8 @@ route('GET', '/api/app/config', async ({ user }) => ({
   booking_url: publicUrl() ? `${publicUrl()}/book` : '',
   // '' until Apple's listing is known (src/app-store.js).
   app_store_url: appStoreUrl(),
+  // What the App Store is giving out, so an app older than it offers the update.
+  app_store_version: appStoreVersion(),
   push: {
     available: pushConfigured(),
     devices: devicesFor(user.id).length,

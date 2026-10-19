@@ -26,9 +26,16 @@ struct KairoWebView: UIViewRepresentable {
         // "install Kairo on your phone" prompt and offers push instead, and the
         // front door hides its links to the website. The class goes on before
         // anything is drawn, so those links never flash up and disappear.
+        //
+        // `app` is this build's own version, so the page can tell when the App
+        // Store has a newer one and offer the Update button (public/js/native.js).
+        // Digits and dots only: it is pasted into script.
+        let info = Bundle.main.infoDictionary
+        let appVersion = String((info?["CFBundleShortVersionString"] as? String ?? "").filter { $0.isNumber || $0 == "." }.prefix(20))
+        let appBuild = String((info?["CFBundleVersion"] as? String ?? "").filter { $0.isNumber || $0 == "." }.prefix(20))
         controller.addUserScript(WKUserScript(
             source: """
-            window.kairoNative = { version: 3, platform: 'ios' };
+            window.kairoNative = { version: 3, platform: 'ios', app: '\(appVersion)', build: '\(appBuild)' };
             window.kairoPush = window.kairoPush || {};
             if (document.documentElement) document.documentElement.classList.add('kairo-app');
             """,
