@@ -357,6 +357,33 @@ test('the whole thing, end to end: form → codes → payment → a salon taking
   assert.ok(row.ready_at);
 });
 
+test('a signup remembers which page of the website sent it, and only ever a page name', async () => {
+  const { token } = await fullSignup({ slug: 'fromfresha', email: 'from@fresha.example', business_name: 'From Fresha Hair', source: 'fresha-price' });
+  await waitFor(token, 'ready');
+  const d = platform.platformDb();
+  assert.equal(d.prepare("SELECT source FROM businesses WHERE slug = 'fromfresha'").get().source, 'fresha-price');
+  d.close();
+  assert.match(platform.log(), /signup: started fromfresha from fresha-price/);
+  assert.match(platform.log(), /signup: paid fromfresha from fresha-price/, 'the sale is in the server log with its page');
+
+  // Anything that is not a page name is no source at all.
+  const r = await platform.api('POST', '/api/signup', {
+    body: { ...PERSON, slug: 'oddsource', email: 'odd@source.example', business_name: 'Odd Source Hair', source: 'x" onclick=alert(1)' },
+    headers: { 'cf-connecting-ip': '192.0.2.201' },
+  });
+  assert.equal(r.status, 200, r.text);
+  const d2 = platform.platformDb();
+  assert.equal(d2.prepare("SELECT source FROM businesses WHERE slug = 'oddsource'").get().source, '');
+  d2.close();
+  assert.match(platform.log(), /signup: started oddsource from direct/);
+
+  // The operator sees it beside the salon.
+  const op = await platform.api('POST', '/api/operator/login', { body: { password: 'operator-pass-2026!!' } });
+  const cookie = /kairo_operator=[^;]+/.exec(op.headers.get('set-cookie'))[0];
+  const overview = await platform.api('GET', '/api/operator/overview', { cookie });
+  assert.equal(overview.json.salons.find((s) => s.slug === 'fromfresha').source, 'fresha-price');
+});
+
 test('a business name another Kairo already uses is flagged for the owner to look at', async () => {
   const { token } = await fullSignup({ slug: 'twinname', business_name: 'Code Test Salon', email: 'twin@example.com', abn: '' });
   const st = await waitFor(token, ['flagged', 'ready']);

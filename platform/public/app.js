@@ -9,6 +9,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const money = (c) => `A$${(c / 100).toFixed(2).replace(/\.00$/, '')}`;
 let price = { price_cents: 41000, base_domain: 'kairobookings.com' };
 let token = localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '';
+// The website page that sent them here (?from=fresha-price), kept through a
+// reload so the signup still says where it came from. A page name, nothing more.
+const FROM_KEY = 'kairo_signup_from';
+const from = (() => {
+  const given = new URLSearchParams(location.search).get('from') || '';
+  try {
+    if (/^[a-z0-9][a-z0-9-]{0,59}$/.test(given)) sessionStorage.setItem(FROM_KEY, given);
+    return sessionStorage.getItem(FROM_KEY) || '';
+  } catch { return /^[a-z0-9][a-z0-9-]{0,59}$/.test(given) ? given : ''; }
+})();
 
 async function call(method, path, body) {
   const res = await fetch(path, {
@@ -135,6 +145,7 @@ function renderForm(prefill = {}, error = '') {
     btn.disabled = true; btn.textContent = 'Creating…';
     const data = Object.fromEntries(['business_name', 'slug', 'name', 'phone', 'email', 'abn', 'password'].map((k) => [k, app.querySelector(`#${k}`).value.trim()]));
     data.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne';
+    data.source = from;
     try {
       const out = await call('POST', '/api/signup', data);
       token = out.token;

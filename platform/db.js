@@ -133,6 +133,9 @@ db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_connect ON businesses(connect
 // Deleting an account is not the same as never having had one: the row stays,
 // so the address is not handed to somebody else while the files still exist.
 addColumn('businesses', 'deleted_at', "deleted_at TEXT NOT NULL DEFAULT ''");
+// Which page of the website the buyer arrived from (?from= on the signup link),
+// so it is known which pages actually sell. Never personal: a page name or ''.
+addColumn('businesses', 'source', "source TEXT NOT NULL DEFAULT ''");
 addColumn('businesses', 'purge_after', "purge_after TEXT NOT NULL DEFAULT ''");
 // A refund's own deletion, done by the platform rather than by hand. Separate
 // from purge_after on purpose: only refunds from 1.76.0 on set it, so no record

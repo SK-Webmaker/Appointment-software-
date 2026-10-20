@@ -88,6 +88,8 @@ export async function startSignup(input, { ip = '' } = {}) {
   const abnDigits = clean(input.abn, 20).replace(/\s/g, '');
   const slug = clean(input.slug, 40).toLowerCase() || slugify(businessName);
   const password = String(input.password ?? '');
+  // A page name from the website's signup links, or nothing.
+  const source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';
 
   if (!name) throw err(400, 'Your name is required');
   if (businessName.length < 2) throw err(400, 'Your business name is required');
@@ -116,11 +118,13 @@ export async function startSignup(input, { ip = '' } = {}) {
   const { salt, hash } = hashPassword(password);
   const token = crypto.randomBytes(24).toString('base64url');
   const info = db.prepare(
-    `INSERT INTO businesses (owner_id, slug, name, abn, tz, phone, price_cents, pass_hash, salt, signup_ip, token)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, PRICE_CENTS(), hash, salt, clean(ip, 60), token);
+    `INSERT INTO businesses (owner_id, slug, name, abn, tz, phone, price_cents, pass_hash, salt, signup_ip, token, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, PRICE_CENTS(), hash, salt, clean(ip, 60), token, source);
   const businessId = Number(info.lastInsertRowid);
-  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}`);
+  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}${source ? ` (from ${source})` : ''}`);
+  // In the server log too, without the person: the marketing run reads these.
+  console.log(`signup: started ${slug} from ${source || 'direct'}`);
 
   await sendCodes(ownerId, email, businessId);
   return { token, slug, business_id: businessId };
@@ -209,6 +213,7 @@ export async function onPaid({ sessionId, paymentIntent, amountTotal }) {
   }
   db.prepare("UPDATE businesses SET stripe_payment_intent = ?, paid_at = datetime('now') WHERE id = ?").run(String(paymentIntent || ''), b.id);
   setState(b.id, 'paid', `${amountTotal || b.price_cents} cents`);
+  console.log(`signup: paid ${b.slug} from ${b.source || 'direct'}`);
   // The receipt goes out once, here, on the first word that the money moved —
   // alongside building the salon, never in its way.
   const receipt = sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);

@@ -286,6 +286,16 @@ const MUTATIONS = {
     find: "      const hit = (body.results || []).find((r) => r.bundleId === BUNDLE_ID);",
     replace: "      const hit = (body.results || [])[0];",
   },
+  'signup-forgets-the-page-that-sold-it': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, PRICE_CENTS(), hash, salt, clean(ip, 60), token, source);",
+    replace: "  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, PRICE_CENTS(), hash, salt, clean(ip, 60), token, '');",
+  },
+  'signup-source-taken-unchecked': {
+    file: 'platform/signup.js', suites: ['signup'],
+    find: "  const source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';",
+    replace: "  const source = String(input.source ?? '').slice(0, 60);",
+  },
   'update-offered-to-an-app-ahead-of-the-store': {
     file: 'public/js/native.js', suites: ['app-store'],
     find: "  return Boolean(mine && VERSION_RE.test(String(storeVersion || '')) && isNewer(storeVersion, mine));",

@@ -113,7 +113,7 @@ export async function overview() {
     }
   }
 
-  const salons = db.prepare(`SELECT b.id, b.slug, b.name, b.state, b.price_cents, b.created_at, b.paid_at, b.ready_at, b.refunded_at,
+  const salons = db.prepare(`SELECT b.id, b.slug, b.name, b.state, b.price_cents, b.created_at, b.paid_at, b.ready_at, b.refunded_at, b.source,
         b.abn, b.abn_name, b.files_purged_at, o.name AS owner, o.email, o.phone
       FROM businesses b LEFT JOIN owners o ON o.id = b.owner_id WHERE b.${KEPT} ORDER BY b.id DESC LIMIT 500`).all()
     .map((b) => ({ ...b, refund_days_left: b.state === 'ready' && b.paid_at ? Math.max(0, refundDaysLeft(b)) : 0 }));

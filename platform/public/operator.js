@@ -254,7 +254,7 @@ function salonRow(b) {
   return `<div class="item" data-open="${b.id}" role="button" tabindex="0">
     <div class="av">${esc(initials(b.name))}</div>
     <div class="body"><div class="nm">${esc(b.name)}</div>
-      <div class="meta">${esc(b.owner || '')}${b.owner ? ' · ' : ''}<span class="mono">${esc(b.slug)}</span></div></div>
+      <div class="meta">${esc(b.owner || '')}${b.owner ? ' · ' : ''}<span class="mono">${esc(b.slug)}</span>${b.source ? ` · from ${esc(b.source)}` : ''}</div></div>
     <div class="right"><div class="amt">${b.paid_at ? money(b.price_cents) : ''}</div>${pill(b)}</div>
   </div>`;
 }
