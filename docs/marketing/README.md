@@ -96,7 +96,9 @@ and logs `signup: started <slug> from <page>` / `signup: paid <slug> from
 
 ## What runs by itself, every week
 
-A scheduled Claude session (Monday morning, Melbourne time) follows
+A scheduled run every Monday at 7:48am Melbourne time (the scheduled task
+"Kairo weekly marketing run", firing into the Kairo session, which holds the
+Lovable, Render and Firecrawl access the run needs) follows
 [`WEEKLY-RUN.md`](WEEKLY-RUN.md):
 
 1. Re-reads Fresha's and Timely's pricing pages; updates `rivals.ts` and the

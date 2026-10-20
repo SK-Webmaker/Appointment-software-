@@ -16,6 +16,8 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 - **Positions:** kairobookings.com not on page 1 for any switching query
   (expected on day 0). Page 1 for "fresha alternative australia" is ten
   competitors, all monthly.
-- **Signups / sales by page:** source tracking goes live with platform 1.85.0.
+- **Signups / sales by page:** source tracking live with platform 1.85.0. Checked end
+  to end on the live site: /fresha-price → Start → the signup form sends
+  `source: "fresha-price"` (request intercepted; nothing created).
 - **Needs the owner:** nothing. Optional: submit the sitemap in Google Search
   Console and request indexing for /fresha-alternative and /fresha-price.
