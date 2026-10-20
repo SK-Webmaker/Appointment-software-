@@ -49,7 +49,8 @@ If a repo is not in the session, add it with the `add_repo` tool and clone it.
 ## The steps
 
 ### 1. Re-check the prices
-Scrape `https://www.fresha.com/pricing` and `https://www.gettimely.com/pricing/`
+Scrape `https://www.fresha.com/pricing`, `https://www.gettimely.com/pricing/`
+and `https://squareup.com/au/en/appointments/pricing`
 with Australian location (`firecrawl_scrape`, `location: {country: "AU"}`,
 `maxAge: 0`). Compare every field in `rivals.ts`.
 - Same → set `CHECKED_ON` to today.
@@ -118,14 +119,14 @@ Finish with a short plain-English summary — that is what the owner reads.
 Verify each vendor's Australian price before writing; drop an item whose
 vendor has no published Australian price.
 
-1. `/square-appointments-alternative` — Square Appointments AU (note: Square has
-   a free plan for individuals; the angle is teams and the paid plans)
-2. `/booksy-alternative` — barbers; Booksy AU pricing
-3. `/kitomba-alternative` — Kitomba (AU/NZ salon software)
-4. `/fresha-vs-square` — both prices side by side, plus Kairo
-5. `/barber-booking-software-no-monthly-fee` — barbers leaving Fresha/Booksy
-6. `/phorest-alternative` — Phorest AU
-7. `/shortcuts-alternative` — Shortcuts (AU salon software)
-8. `/fresha-marketplace-fee` — the 20% new-client fee explained, with a calculator
-9. `/timely-price` — "how much is Timely a month in Australia"
-10. `/gloss-genius-alternative` only if GlossGenius is sold in Australia
+1. `/fresha-vs-square` — both prices side by side, plus Kairo (both verified in `rivals.ts`)
+2. `/barber-booking-software-no-monthly-fee` — barbers leaving Fresha (Fresha and Square prices)
+3. `/fresha-marketplace-fee` — the 20% new-client fee explained, with a calculator
+4. `/timely-price` — "how much is Timely a month in Australia"
+5. `/phorest-alternative` — only if Phorest publishes an Australian price
+6. `/shortcuts-alternative` — only if Shortcuts publishes an Australian price
+7. `/gloss-genius-alternative` — only if GlossGenius is sold in Australia
+
+Done: `/square-appointments-alternative` (20 Oct). Checked and dropped for now:
+Kitomba (no published price) and Booksy (no Australian price; its $29.99 is
+US). Re-check them every few weeks.

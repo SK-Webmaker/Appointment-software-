@@ -19,5 +19,8 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 - **Signups / sales by page:** source tracking live with platform 1.85.0. Checked end
   to end on the live site: /fresha-price → Start → the signup form sends
   `source: "fresha-price"` (request intercepted; nothing created).
+- **Added the same day:** /square-appointments-alternative (Square's AU plans as
+  listed: Free one location, Plus $40, Premium $90 per location). Kitomba and
+  Booksy skipped: no published Australian price.
 - **Needs the owner:** nothing. Optional: submit the sitemap in Google Search
   Console and request indexing for /fresha-alternative and /fresha-price.
