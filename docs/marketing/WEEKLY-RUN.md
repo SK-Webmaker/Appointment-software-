@@ -102,10 +102,15 @@ curl -X POST https://api.indexnow.org/indexnow -H "Content-Type: application/jso
 ```
 202 or 200 is success.
 
-### 6. Count what sold
-Render `list_logs` on `srv-damjobkri2ms73dl0dfg` for the last 7 days with text
-`signup:` — lines read `signup: started <slug> from <page>` and
-`signup: paid <slug> from <page>`. Count started and paid by page.
+### 6. Count visits and what sold
+- **Visits:** Lovable `get_project_analytics` (project above) for the last 7
+  days gives visitors, pages and sources (google.com, bing.com, instagram…).
+  Note visits to each switching page and how many came from search. Baseline
+  before launch: ~2 visitors a day, almost all direct or Instagram; Google 3
+  and Bing 1 in the month to 21 Oct.
+- **Sales:** Render `list_logs` on `srv-damjobkri2ms73dl0dfg` for the last 7
+  days with text `signup:` — lines read `signup: started <slug> from <page>`
+  and `signup: paid <slug> from <page>`. Count started and paid by page.
 
 ### 7. Write it down and say so
 Append one entry to `LOG.md` (newest at the top): date, prices (same/changed),

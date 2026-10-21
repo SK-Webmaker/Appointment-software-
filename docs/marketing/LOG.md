@@ -2,6 +2,16 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 21 October 2026 — day 1
+
+- **Signups / sales:** none yet (Render log, `signup:`).
+- **Visits (Lovable analytics, 20 Sep – 21 Oct):** 62 visitors, 68 page views.
+  Sources: direct 44, Instagram 11, Facebook 3, Google 3, Bing 1. No visits to
+  the switching pages yet — they are a day old and not yet in Google.
+- **Reading:** search sends almost nothing today; that is the gap this fills.
+  Instagram is the best source after direct, so links in reel captions to
+  /fresha-price help most while search builds.
+
 ## 20 October 2026 — launch
 
 - **Prices:** read from fresha.com/pricing and gettimely.com/pricing (AU).
