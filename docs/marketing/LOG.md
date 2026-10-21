@@ -2,6 +2,22 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 21 October 2026 — reels
+
+- **Made:** three presenter-free Instagram reels (no AI person), each with an
+  original beat and a `-nomusic` version for a trending sound: `group-chat`
+  (17.4 s, a text thread), `the-bill` (16.5 s, the money, loudly) and `loop`
+  (7.7 s). Captions, posting times and the DM reply are in `REELS.md`.
+- **Higgsfield:** 820 → 643.75 for the first five B-roll clips. Subscription
+  credits are wiped at the renewal on the 26th, so the next 8 clips (barber,
+  no-show chair, night notification, paper diary, late-night admin, blow-dry
+  reveal, closing up, buzzing phone) were made the same day as a library that
+  later reels use for 0 credits. Every spend is in `claude-upgrades-/reel/credits.md`.
+- **Tracking:** a DM reply link tagged `?from=ig-dm`. Checked: the start page
+  answers 200 with the tag.
+- **Needs the owner:** post the reels (Instagram has no posting connector
+  here) and save the DM reply as a Saved reply or ManyChat keyword.
+
 ## 21 October 2026 — day 1
 
 - **Signups / sales:** none yet (Render log, `signup:`).

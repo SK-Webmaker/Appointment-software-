@@ -53,8 +53,8 @@ want — to stop paying every month.
 | Channel | Free? | Automatable? | Allowed? | Verdict |
 |---|---|---|---|---|
 | Cold email to salons | Yes (Resend/Gmail) | Yes | **No** — Resend's policy bans "cold outreach, purchased lists, or scraped contact data"; Gmail bans unsolicited commercial mail. Kairo's own booking emails run on that Resend account. | Out |
-| Automated Instagram/TikTok DMs | Yes | Only by breaking the platforms' terms | **No** | Out |
-| Organic reels | Yes | Posting yes, results random | Yes | Keep doing by hand; not the engine |
+| Automated Instagram/TikTok DMs to people who never wrote | Yes | Only by breaking the platforms' terms | **No** | Out (an auto-*reply* to someone who DMs first is fine: see `REELS.md`) |
+| Organic reels | Yes | Making them yes; posting by hand | Yes | The second channel: three made on 21 Oct, plan in `REELS.md` |
 | Paid ads | **No** | — | — | Out (not free) |
 | **Search: switching pages + calculator + indexing** | **Yes** | **Yes, end to end** | **Yes** | **The strategy** |
 
@@ -117,8 +117,9 @@ Lovable, Render and Firecrawl access the run needs) follows
   queries above.
 - One sale pays for the whole thing many times: the strategy costs $0.
 - Nothing here stops you posting reels or talking to salon owners — those add
-  to it. A link to `/fresha-price` in a reel caption or a Facebook group answer
-  is the strongest thing a person can add.
+  to it. The reels, captions, posting times and the DM reply (with its
+  `?from=ig-dm` tag, so an Instagram sale shows in the log) are in
+  [`REELS.md`](REELS.md).
 
 ## Optional, two minutes each (makes it faster, not required)
 
