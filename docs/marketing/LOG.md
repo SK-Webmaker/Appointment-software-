@@ -2,6 +2,19 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 22 October 2026 — reels revised
+
+- **Owner's call:** no competitor named in any reel. The three reels now
+  compare against "your booking app" and an example $99 a month (fine print:
+  an example, not any particular app's price). Captions and the DM reply
+  changed to match; the DM now links `/no-monthly-fee-salon-software`.
+- **Restyled** to how Reels text looks now: lowercase, white with a soft
+  shadow (no white boxes), one highlighted word, one loud word in Anton.
+- **Music picked** for each reel from the week's trending list, only sounds a
+  business account can use (`REELS.md` → Music).
+- **Sales:** none yet (signup log empty at 23:33 UTC 21 Oct). Reels not posted
+  yet.
+
 ## 21 October 2026 — reels
 
 - **Made:** three presenter-free Instagram reels (no AI person), each with an
