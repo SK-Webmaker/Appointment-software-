@@ -10,7 +10,7 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
   the switching pages yet — they are a day old and not yet in Google.
 - **Added:** /fresha-marketplace-fee (Fresha's own rules for the 20% new-client
   fee, with a calculator), /fresha-vs-square, /timely-price — all three are
-  Australian autocomplete searches. Ten switching pages live in total.
+  Australian autocomplete searches. Nine switching pages live in total.
 - **Reading:** search sends almost nothing today; that is the gap this fills.
   Instagram is the best source after direct, so links in reel captions to
   /fresha-price help most while search builds.
