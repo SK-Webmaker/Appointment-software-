@@ -124,14 +124,14 @@ Finish with a short plain-English summary — that is what the owner reads.
 Verify each vendor's Australian price before writing; drop an item whose
 vendor has no published Australian price.
 
-1. `/fresha-vs-square` — both prices side by side, plus Kairo (both verified in `rivals.ts`)
-2. `/barber-booking-software-no-monthly-fee` — barbers leaving Fresha (Fresha and Square prices)
-3. `/fresha-marketplace-fee` — the 20% new-client fee explained, with a calculator
-4. `/timely-price` — "how much is Timely a month in Australia"
-5. `/phorest-alternative` — only if Phorest publishes an Australian price
-6. `/shortcuts-alternative` — only if Shortcuts publishes an Australian price
-7. `/gloss-genius-alternative` — only if GlossGenius is sold in Australia
+1. `/barber-booking-software-no-monthly-fee` — barbers leaving Fresha (Fresha and Square prices)
+2. `/square-appointments-price` — "how much is square appointments per month", "is square appointments free"
+3. `/fresha-vs-timely-vs-square` — only if search shows demand for the three-way comparison
+4. `/phorest-alternative` — only if Phorest publishes an Australian price
+5. `/shortcuts-alternative` — only if Shortcuts publishes an Australian price
+6. `/gloss-genius-alternative` — only if GlossGenius is sold in Australia
 
-Done: `/square-appointments-alternative` (20 Oct). Checked and dropped for now:
+Done: `/square-appointments-alternative` (20 Oct); `/fresha-marketplace-fee`,
+`/fresha-vs-square`, `/timely-price` (21 Oct). Checked and dropped for now:
 Kitomba (no published price) and Booksy (no Australian price; its $29.99 is
 US). Re-check them every few weeks.
