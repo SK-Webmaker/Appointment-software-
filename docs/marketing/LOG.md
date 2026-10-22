@@ -2,6 +2,25 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 22 October 2026 — website made anonymous
+
+- **Owner's call:** no other platform named on the website either. Removed
+  the nine comparison pages (and their price data and calculators). Their
+  addresses now 301 to `/no-monthly-fee-salon-software`,
+  `/commission-free-booking-software` or `/guide`. Checked live: all nine
+  answer 301, and all 26 live pages plus `llms.txt` contain no other
+  platform's name.
+- Footer, internal links, guide, sitemap and `llms.txt` now point only at the
+  anonymous pages; the Website Terms' comparisons clause says the site uses
+  labelled examples or the visitor's own figures (updated 22 October 2026).
+- IndexNow: the nine old URLs and six changed ones submitted (200).
+- `WEEKLY-RUN.md` rewritten: rule 1 is now "never name another platform",
+  step 1 checks the live site for names, and the backlog is pages about the
+  problem (switching, cost over time, kinds of business).
+- **Trade-off:** the brand-name searches ("X alternative") can't be targeted
+  any more; search will be slower, so reels matter more.
+- **Sales:** none yet.
+
 ## 22 October 2026 — reels revised
 
 - **Owner's call:** no competitor named in any reel. The three reels now

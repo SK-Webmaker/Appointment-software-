@@ -1,6 +1,6 @@
 # Kairo's marketing: one strategy, run automatically
 
-*Researched and launched 20 October 2026. Costs nothing to run.*
+*Researched and launched 20 October 2026; competitor names taken out 22 October 2026. Costs nothing to run.*
 
 ## The strategy in one line
 
@@ -14,39 +14,38 @@ they find it, and how a sale is counted.
 
 ## Why this one (the research)
 
-### 1. There is a reason to switch, right now
+**No other platform is named on the site or in the reels** (owner's decision,
+22 Oct 2026). Kairo compares itself with *paying monthly*, never with a
+company, and any figure for a monthly plan is a labelled example or one the
+visitor types in.
 
-- **Fresha ended its free plan.** Its Australian pricing page lists only paid
-  plans: Independent **A$44.95/month + GST** for one bookable person, Team
-  **A$29.95/month + GST per bookable team member**, billed on the 1st, plus a
-  20% fee (min A$8) on new marketplace clients. A three-person salon pays
-  about **A$1,186 a year** before any fee.
-  ([fresha.com/pricing](https://www.fresha.com/pricing), read 20 Oct 2026)
-- **Timely** is **A$42–79 + GST per staff member, per month**
-  ([gettimely.com/pricing](https://www.gettimely.com/pricing/)).
-- Kairo is **$410 once**. Against Fresha it is passed in 9 months for one
-  person, 5 months for three.
+### 1. The monthly bill is the reason to switch
 
-### 2. Owners are already searching for the way out
+Salon booking platforms in Australia are sold as a monthly subscription,
+usually per bookable team member, and some also take a commission on new
+clients from their marketplace. A small team pays that every month for as
+long as it is in business. Kairo is **$410 once, then $0 a month, forever,
+no commission**: against an example $99 a month it costs less from month 5.
 
-Google's own autocomplete in Australia (checked 20 Oct 2026) offers:
-*fresha alternatives*, *fresha alternatives free*, *how much is fresha a
-month*, *fresha fees australia*, *fresha monthly fee*, *fresha cancel
-subscription*, *cancel fresha account*, *fresha vs timely*, *apps like
-fresha*. Owners also ask in Facebook groups ("I am currently using Fresha, but
-the monthly cost will increase next month…") and on Reddit.
+### 2. Owners search for the problem, not just for a brand
 
-People who type those are **already shopping**. Pages that answer "X
-alternative" and "X vs Y" convert several times better than general content
-in every published SaaS comparison we found (directional, vendor-reported:
-3–10% vs 0.5–2%).
+Searches like *salon software no monthly fee*, *booking app without
+commission*, *salon booking software australia* and *hair / barber / beauty
+salon software australia* come from owners shopping for a way out of the
+bill. Kairo has a page for each, and the weekly run adds one at a time from
+what Google's autocomplete shows people typing.
 
-### 3. Kairo is the only "pay once" answer on that page
+*The trade-off, said plainly:* searches that name a competitor ("X
+alternative", "X price") were the highest-intent ones, and without naming
+anyone the site can't answer them. Those pages were removed on 22 Oct 2026;
+their addresses redirect to the pages below. Reels (`REELS.md`) carry more of
+the load as a result.
 
-The first page of Google for *fresha alternative australia* is ten competitors
-(Bella, OneBook, Azura, Wemu, ValetVault, Dusha…). **Every one of them charges
-monthly.** Kairo is the only one that answers what these searchers actually
-want — to stop paying every month.
+### 3. "Pay once" is the answer almost nobody else gives
+
+Of the ten salon platforms on Google's first page when this was researched
+(20 Oct 2026), every one charged monthly. Kairo's pages lead with the one
+thing these owners want: to stop paying every month.
 
 ### 4. It is the only free channel that can run without a person *and* without breaking a rule
 
@@ -56,7 +55,7 @@ want — to stop paying every month.
 | Automated Instagram/TikTok DMs to people who never wrote | Yes | Only by breaking the platforms' terms | **No** | Out (an auto-*reply* to someone who DMs first is fine: see `REELS.md`) |
 | Organic reels | Yes | Making them yes; posting by hand | Yes | The second channel: three made on 21 Oct, plan in `REELS.md` |
 | Paid ads | **No** | — | — | Out (not free) |
-| **Search: switching pages + calculator + indexing** | **Yes** | **Yes, end to end** | **Yes** | **The strategy** |
+| **Search: pages about the monthly bill + calculator + indexing** | **Yes** | **Yes, end to end** | **Yes** | **The strategy** |
 
 Australia's Spam Act would allow narrowly relevant B2B email to published
 addresses — but the sending services themselves don't, and losing the Resend
@@ -64,30 +63,29 @@ account would stop every salon's booking emails. Not worth one sale.
 
 ---
 
-## What was built (live 20 October 2026)
+## What was built
 
 **On kairobookings.com** (repo `SK-Webmaker/my-creative-space`):
 
 | Page | Answers |
 |---|---|
-| [/fresha-alternative](https://kairobookings.com/fresha-alternative) | fresha alternative(s), apps like fresha, fresha alternatives free |
-| [/fresha-price](https://kairobookings.com/fresha-price) | how much is fresha a month, fresha fees australia, is fresha free |
-| [/cancel-fresha](https://kairobookings.com/cancel-fresha) | fresha cancel subscription, cancel fresha account |
-| [/fresha-vs-timely](https://kairobookings.com/fresha-vs-timely) | fresha vs timely |
-| [/timely-alternative](https://kairobookings.com/timely-alternative) | timely alternative, timely price |
+| [/no-monthly-fee-salon-software](https://kairobookings.com/no-monthly-fee-salon-software) | salon software no monthly fee, one-off payment salon software, what a subscription costs over time |
+| [/commission-free-booking-software](https://kairobookings.com/commission-free-booking-software) | booking software without commission, no fee per booking |
+| [/salon-booking-software-australia](https://kairobookings.com/salon-booking-software-australia) | salon booking software australia |
+| [/hair-salon-software-australia](https://kairobookings.com/hair-salon-software-australia) | hair salon software australia |
+| [/guide](https://kairobookings.com/guide) | how to set up, how to bring your clients over |
 
-Each page: the vendor's **published price with GST, the date it was read and
-a link to the source**; a calculator for the reader's own team size; an honest
-"what they do better"; FAQ and HowTo structured data; and a **Start** button
-straight to the self-serve signup, tagged `?from=<page>`.
+The money pages carry a calculator where the visitor types **their own**
+monthly bill and commission, so the only price the site asserts is Kairo's.
 
-- All prices live in one file: `src/data/rivals.ts`.
-- Sitemap, footer, `llms.txt` (what AI assistants read) and the older SEO pages
-  link the new ones.
+- **Removed 22 Oct 2026:** nine pages that named and priced other platforms
+  (20–21 Oct). Their addresses 301 to the pages above (`src/server.ts`,
+  `MOVED`), and were sent to IndexNow so search engines drop them.
+- Sitemap, footer and `llms.txt` (what AI assistants read) list only the
+  pages above.
 - **IndexNow** key `44ad6cd6a26d410d8fcebbf5a5e65e07` is published at the site
-  root; every URL was submitted to IndexNow and Bing on launch day. Bing's
-  index feeds ChatGPT search and Copilot answers.
-- Website Terms now state how competitor prices are shown and re-checked.
+  root. Bing's index feeds ChatGPT search and Copilot answers.
+- The Website Terms say the site doesn't name or price other platforms.
 
 **On the signup** (this repo, `platform/`): the signup stores which page sent
 the buyer (`businesses.source`), shows it to the operator beside the salon,
@@ -101,9 +99,9 @@ A scheduled run every Monday at 7:48am Melbourne time (the scheduled task
 Lovable, Render and Firecrawl access the run needs) follows
 [`WEEKLY-RUN.md`](WEEKLY-RUN.md):
 
-1. Re-reads Fresha's and Timely's pricing pages; updates `rivals.ts` and the
-   date, or removes a figure it can no longer confirm.
-2. Checks which pages Google and Bing show for the target searches.
+1. Checks the site still names no other platform and still shows Kairo's
+   real price.
+2. Checks where Kairo shows on Google and Bing for the target searches.
 3. Publishes **one** new page from the backlog (or improves the weakest one).
 4. Republishes the site and pings IndexNow.
 5. Reads the platform log for signups and sales by page.
@@ -112,9 +110,9 @@ Lovable, Render and Firecrawl access the run needs) follows
 ## Honest expectations
 
 - Search takes weeks, not days. New pages on a young site are usually picked
-  up by Bing within days (IndexNow) and by Google within a few weeks. The first
-  sale is most likely **2–8 weeks** out, from a salon that searched one of the
-  queries above.
+  up by Bing within days (IndexNow) and by Google within a few weeks. Without
+  the brand-name searches it is slower than first planned; reels are the
+  faster route to a first sale.
 - One sale pays for the whole thing many times: the strategy costs $0.
 - Nothing here stops you posting reels or talking to salon owners — those add
   to it. The reels, captions, posting times and the DM reply (with its
@@ -125,5 +123,5 @@ Lovable, Render and Firecrawl access the run needs) follows
 
 - Google Search Console → Sitemaps → submit `https://kairobookings.com/sitemap.xml`
   (the site is already verified), then URL Inspection → *Request indexing* for
-  `/fresha-alternative` and `/fresha-price`.
+  `/no-monthly-fee-salon-software` and `/commission-free-booking-software`.
 - Bing Webmaster Tools → *Import from Google Search Console*.
