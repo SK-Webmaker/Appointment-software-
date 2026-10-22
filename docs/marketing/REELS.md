@@ -49,40 +49,46 @@ message in Kairo's own wording.
 ## Music (add it in Instagram)
 
 Upload the **`-nomusic`** file and add the sound in Instagram's audio picker.
-Every pick below is on the trending list for the week of 19 Oct 2026
-(Scott Social's weekly list) **and marked available for business accounts**.
-Many big songs (Taylor Swift, Gwen Stefani, Diana Ross…) are not, and a
-business account can't use them. Skip the "October"/autumn sounds: it's
-spring in Melbourne.
+Picks from the week of 19–21 Oct 2026 (Scott Social's list and CreatorDB's
+Heat chart), chosen for reach first, then for how the trend's format matches
+the reel. Skip the "October"/autumn and Halloween sounds: it's spring in
+Melbourne and they don't fit.
 
-| Reel | Use this sound | Why | Backup |
-|---|---|---|---|
-| `loop` | **"Money Can't Buy You Happiness" — original audio, @eresdigna** (125K reels) | It *is* this trend. Drag the sound's start so its switch lands on the cut at 3.4 s, where "but it can buy…" appears | "sweetly" — jkl |
-| `the-bill` | **"My Reaction to…" — original audio, @brundaepadua** | The trend is numbers going up on screen. Ours goes $99 → $1,188 | "Beauty and a Beat x Cola (Altégo mix)" — @altego_music (91K): loud, fast, for the "RENT." energy |
-| `group-chat` | **"sweetly" — jkl** (26K) | Soft and steady under a text thread; doesn't fight the message pops | "GEEKIN" — Nemzzz_ (the "I've been ghosting you 'cause I'm workin'" business-owner trend, 18K) |
-| `noshow` | **"9 to 5" — Dolly Parton** (77K) | A salon owner's working day, with attitude; lands under "AGAIN." | "Do Not Bother the Botherer" — @veronicaplingau |
-| `refill` | **"Beauty and a Beat x Cola (Altégo mix)" — @altego_music** (91K) | Fast and bright for CANCELLED → REBOOKED | "My Reaction to…" — @brundaepadua |
-| `booked` | **"Sometimes" — Fleetwood Mac** | Soft night into "sunshine in reel form" for the morning reveal | "sweetly" — jkl |
+Several of the biggest sounds (Taylor Swift, Diana Ross, ADÉLA) are **not
+available to Business accounts**. If they don't show in the audio picker,
+switch the account to Creator (Settings → Account type and tools → Switch to
+creator account; free, keeps Insights) or use the backup, which is marked
+for business use.
+
+| Reel | Sound | Why | Line it up | Backup (business-safe) |
+|---|---|---|---|---|
+| `noshow` | **"9 to 5" — Dolly Parton** (77K) | Salon owner's working day, with attitude | Song start on "AGAIN." (1.0 s) | "Do Not Bother the Botherer" — @veronicaplingau |
+| `refill` | **"Upside Down" — Diana Ross** (127K, peaking) | The disco before-and-after reveal; empty slot → full | The reveal beat on "REBOOKED." (8.2 s) | "Beauty and a Beat x Cola (Altégo mix)" — @altego_music |
+| `booked` | **"Patient Zero" — Taylor Swift** (#1, rising) | Victory-lap edits: night → a full day | The big closing line on the morning cut (11.1 s) | "Sometimes" — Fleetwood Mac |
+| `the-bill` | **"My Reaction to…" — original audio, @brundaepadua** | The trend *is* numbers climbing on screen: $99 → $1,188 | Start of the sound on "RENT." (1.0 s) | "Go Go Juice" — Sabrina Carpenter ("life is so good (I just bought something)") |
+| `loop` | **"Money Can't Buy You Happiness" — original audio, @eresdigna** (125K) | It *is* this trend | The switch on the cut at 3.4 s | "sweetly" — jkl |
+| `group-chat` | **"Nicole Kidman" — ADÉLA** (#2, #3 on Spotify US) | Main-character energy; salon brands are using it | The hook on the "$410. then $0 a month" message (6.3 s) | "GEEKIN" — Nemzzz_ |
 
 - Sound volume about 40–60%, original audio (the pops and dings) at 100%.
-- Trends last 7–10 days. If a pick has lost its ↗ arrow by the day you post,
-  take the backup or any ↗ sound marked for business use.
-- No sound fits on the day? Upload the normal file: its beat is original and
-  can't be muted.
+- Trends last 7–10 days. If a pick has lost its ↗ arrow on the day, use the
+  backup or any ↗ sound that fits.
+- No sound fits on the day? Upload the normal file: its beat is original.
 
 ## Posting plan (Melbourne time)
 
-Owners scroll after close and on their day off, so:
+Owners scroll after close and on their day off. Sounds that are peaking go
+first, before they fade:
 
-1. **`group-chat`**: Wednesday 22 Oct, about 8 pm.
-2. **`noshow`**: Friday 24 Oct, about 8 pm (the biggest pain, early).
-3. **`the-bill`**: Sunday 26 Oct, about 7:30 pm.
-4. **`loop`**: Monday 27 Oct, about 12:30 pm (many salons are closed Mondays).
-5. **`refill`**: Tuesday 28 Oct, about 8 pm.
-6. **`booked`**: Thursday 30 Oct, about 8 pm.
+1. **`noshow`**: Wednesday 22 Oct, 8 pm (the biggest pain, the strongest hook).
+2. **`refill`**: Thursday 23 Oct, 8 pm ("Upside Down" is peaking).
+3. **`booked`**: Friday 24 Oct, 8 pm ("Patient Zero" is rising).
+4. **`the-bill`**: Sunday 26 Oct, 7:30 pm (Sunday night is when owners think about money).
+5. **`loop`**: Monday 27 Oct, 12:30 pm (many salons are closed Mondays).
+6. **`group-chat`**: Wednesday 29 Oct, 8 pm.
 
-After that, the weekly run checks Insights and decides whether to repost the
-best one or make another from the same B-roll (0 credits).
+Pin `noshow`, `refill` and `booked` to the top of the grid. After that, the
+weekly run checks Insights and decides whether to repost the best one or make
+another from the same B-roll (0 credits).
 
 ### Every time
 
@@ -90,7 +96,7 @@ best one or make another from the same B-roll (0 credits).
 2. Cover: the first frame (the hook is on it).
 3. Paste the caption below. Tick **Also share to Facebook**.
 4. After posting: share it to your story with a poll ("still paying monthly
-   for your booking app?" yes / no). Pin `group-chat` to the top of the grid.
+   for your booking app?" yes / no).
 5. Answer every comment in the first hour. Comments are a ranking signal, and
    a reply is a second chance to say "DM the word KAIRO".
 
