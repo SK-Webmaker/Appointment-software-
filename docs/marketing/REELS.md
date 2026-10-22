@@ -26,7 +26,7 @@ who are not searching yet; the switching pages catch the ones who are.
   special offer would mislead), and not "yours to keep forever" (the terms
   don't promise that).
 
-## The three reels
+## The reels
 
 The pages, B-roll and render tools are in `SK-Webmaker/claude-upgrades-`, branch
 `claude/gloss-kairo-setup-0ds0mp`, under `reel/` (render: `node tools/render-page.mjs <name>`).
@@ -38,6 +38,13 @@ Each comes as `<name>.mp4` (original beat, never muted for copyright) and
 | `group-chat` | 17.4 s | A text thread: "wait. you still pay for your booking app EVERY month?? 😭" … "Kairo. DM them the word KAIRO" |
 | `the-bill` | 16.5 s | "your booking app is charging you RENT." → −$99 every month → $1,188 a year → + FEES → OR. → $410 once |
 | `loop` | 7.7 s | "money can't buy happiness" → "but it can buy booking software you only pay for ONCE 🫶" |
+| `noshow` | 16.5 s | "she didn't show. AGAIN." → Kairo keeps count on her real record → "2 no-shows? deposit next time." → the polite note she sees → "3 NO-SHOWS?" phone only → regulars never asked → HANDLED. |
+| `refill` | 16.5 s | scissors macro, "saturday, 10am. CANCELLED." → the slot empties on the real calendar → the waitlist texts land, word for word → "REBOOKED." with Chloe in the slot → "you were mid-colour the whole time." |
+| `booked` | 16.5 s | "11:48PM. you're asleep." → Kairo booking alerts stack on the lock screen → a client books on the real booking page in a floating phone → "you wake up to a full day ☀️" → 24/7 |
+
+The last three show one real Kairo feature each, on screens captured from
+Kairo itself (`tools/capture-feature-screens.mjs`, sample data), with every
+message in Kairo's own wording.
 
 ## Music (add it in Instagram)
 
@@ -53,6 +60,9 @@ spring in Melbourne.
 | `loop` | **"Money Can't Buy You Happiness" — original audio, @eresdigna** (125K reels) | It *is* this trend. Drag the sound's start so its switch lands on the cut at 3.4 s, where "but it can buy…" appears | "sweetly" — jkl |
 | `the-bill` | **"My Reaction to…" — original audio, @brundaepadua** | The trend is numbers going up on screen. Ours goes $99 → $1,188 | "Beauty and a Beat x Cola (Altégo mix)" — @altego_music (91K): loud, fast, for the "RENT." energy |
 | `group-chat` | **"sweetly" — jkl** (26K) | Soft and steady under a text thread; doesn't fight the message pops | "GEEKIN" — Nemzzz_ (the "I've been ghosting you 'cause I'm workin'" business-owner trend, 18K) |
+| `noshow` | **"9 to 5" — Dolly Parton** (77K) | A salon owner's working day, with attitude; lands under "AGAIN." | "Do Not Bother the Botherer" — @veronicaplingau |
+| `refill` | **"Beauty and a Beat x Cola (Altégo mix)" — @altego_music** (91K) | Fast and bright for CANCELLED → REBOOKED | "My Reaction to…" — @brundaepadua |
+| `booked` | **"Sometimes" — Fleetwood Mac** | Soft night into "sunshine in reel form" for the morning reveal | "sweetly" — jkl |
 
 - Sound volume about 40–60%, original audio (the pops and dings) at 100%.
 - Trends last 7–10 days. If a pick has lost its ↗ arrow by the day you post,
@@ -65,8 +75,11 @@ spring in Melbourne.
 Owners scroll after close and on their day off, so:
 
 1. **`group-chat`**: Wednesday 22 Oct, about 8 pm.
-2. **`the-bill`**: Sunday 26 Oct, about 7:30 pm.
-3. **`loop`**: Monday 27 Oct, about 12:30 pm (many salons are closed Mondays).
+2. **`noshow`**: Friday 24 Oct, about 8 pm (the biggest pain, early).
+3. **`the-bill`**: Sunday 26 Oct, about 7:30 pm.
+4. **`loop`**: Monday 27 Oct, about 12:30 pm (many salons are closed Mondays).
+5. **`refill`**: Tuesday 28 Oct, about 8 pm.
+6. **`booked`**: Thursday 30 Oct, about 8 pm.
 
 After that, the weekly run checks Insights and decides whether to repost the
 best one or make another from the same B-roll (0 credits).
@@ -129,6 +142,55 @@ $0 a month, forever. no commission.
 comment or DM KAIRO 📩
 
 #salonowner #hairsalon #salonlife #australiansalon
+```
+
+**noshow**
+```
+she didn't show. again. 🙃
+
+set it once: 2 no-shows and kairo asks for a deposit next time. 3 and they book by phone. your regulars? never asked.
+she's told politely — never a number.
+
+kairo: $410 once. then $0 a month, forever. no commission.
+
+what's your no-show policy right now? 👇
+comment or DM the word KAIRO 📩
+
+deposits need your own stripe account (stripe's fees apply). sample data; real kairo screens.
+
+#salonowner #hairsalon #salonbusiness #noshows #australiansalon
+```
+
+**refill**
+```
+a cancellation shouldn't cost you the slot 💸
+
+switch on the waitlist and kairo texts the people waiting the moment a time frees up. first to book gets it, while you're still mid-colour.
+
+kairo: $410 once. then $0 a month, forever. no commission.
+
+how many cancellations did you eat this month? 👇
+comment or DM the word KAIRO 📩
+
+waitlist offers are off until you switch them on; texts use your own clicksend account. sample data; real kairo screens.
+
+#salonowner #hairsalon #salonbusiness #barbershop #australiansalon
+```
+
+**booked**
+```
+your booking page doesn't sleep. you should 😴
+
+clients pick a time and book themselves, and your phone tells you the second it happens. no app for them to download, no login.
+
+kairo: $410 once. then $0 a month, forever. no commission.
+
+what time did your last client try to book? 👀
+comment or DM the word KAIRO 📩
+
+sample data; real kairo screens. booking alerts come through the free kairo iphone app.
+
+#salonowner #hairsalon #salonbusiness #australiansalon #melbournehair
 ```
 
 "Comment KAIRO" works once ManyChat's comment trigger is on (below).
