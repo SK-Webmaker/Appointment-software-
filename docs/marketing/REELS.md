@@ -46,6 +46,27 @@ The last three show one real Kairo feature each, on screens captured from
 Kairo itself (`tools/capture-feature-screens.mjs`, sample data), with every
 message in Kairo's own wording.
 
+**Voice-over cuts.** `noshow`, `refill` and `booked` also come as
+`<name>-voiceover.mp4`: the same reel played a little slower (22.5 s) with a
+narrator over it, voice and sound effects, no music. These are the ones to post.
+The narrator is a synthetic Australian woman's voice (designed with ElevenLabs
+Voice Design, not a real person's), checked by an accent classifier and by
+transcribing every line. "Kairo" is said like "Cairo". The lines follow the
+words on screen:
+
+- `noshow`: "She didn't show. … Again. Kairo keeps count. Two no-shows? Deposit
+  next time. She's told politely. Never a number. Three? Phone bookings only.
+  Your regulars? Never asked. Four-ten, once. Zero a month. DM us 'Kairo'."
+- `refill`: "Saturday, ten a.m. … Cancelled. Normally? That's a dead slot. Kairo
+  texts your waitlist. Instantly. The first one to book gets it. Booked again.
+  And you were mid-colour the whole time. Four-ten, once. Zero a month. DM us 'Kairo'."
+- `booked`: "Eleven forty-eight p.m. You're asleep. Your booking page doesn't
+  sleep. Clients book themselves. No app. No login. Just booked. You wake up to
+  a full day. Four-ten, once. Zero a month. DM us 'Kairo'."
+
+The other three (`group-chat`, `the-bill`, `loop`) have no voice: the joke is
+the text and the trending sound.
+
 ## Music (add it in Instagram)
 
 Upload the **`-nomusic`** file and add the sound in Instagram's audio picker.
@@ -69,7 +90,12 @@ for business use.
 | `loop` | **"Money Can't Buy You Happiness" — original audio, @eresdigna** (125K) | It *is* this trend | The switch on the cut at 3.4 s | "sweetly" — jkl |
 | `group-chat` | **"Nicole Kidman" — ADÉLA** (#2, #3 on Spotify US) | Main-character energy; salon brands are using it | The hook on the "$410. then $0 a month" message (6.3 s) | "GEEKIN" — Nemzzz_ |
 
-- Sound volume about 40–60%, original audio (the pops and dings) at 100%.
+- Reels **without** a voice: sound volume about 40–60%, original audio (the
+  pops and dings) at 100%.
+- Reels **with** a voice: original audio at 100%, the sound at **10–15%**, so
+  the voice stays clear. The reel still counts as using the trending sound.
+  The voice-over cuts run slower, so line the sound up on: "AGAIN." at 1.2 s
+  (`noshow`), "REBOOKED." at 10.2 s (`refill`), the morning cut at 13.8 s (`booked`).
 - Trends last 7–10 days. If a pick has lost its ↗ arrow on the day, use the
   backup or any ↗ sound that fits.
 - No sound fits on the day? Upload the normal file: its beat is original.
@@ -77,14 +103,20 @@ for business use.
 ## Posting plan (Melbourne time)
 
 Owners scroll after close and on their day off. Sounds that are peaking go
-first, before they fade:
+first, before they fade. One a day for the first five, then every other day:
 
-1. **`noshow`**: Wednesday 22 Oct, 8 pm (the biggest pain, the strongest hook).
-2. **`refill`**: Thursday 23 Oct, 8 pm ("Upside Down" is peaking).
-3. **`booked`**: Friday 24 Oct, 8 pm ("Patient Zero" is rising).
-4. **`the-bill`**: Sunday 26 Oct, 7:30 pm (Sunday night is when owners think about money).
-5. **`loop`**: Monday 27 Oct, 12:30 pm (many salons are closed Mondays).
-6. **`group-chat`**: Wednesday 29 Oct, 8 pm.
+| # | When | Reel (file to upload) | Voice? | Sound |
+|---|---|---|---|---|
+| 1 | Thu 23 Oct, 8 pm | `noshow-voiceover.mp4` | yes | "9 to 5" — Dolly Parton |
+| 2 | Fri 24 Oct, 8 pm | `refill-voiceover.mp4` | yes | "Upside Down" — Diana Ross |
+| 3 | Sat 25 Oct, 8:30 pm | `booked-voiceover.mp4` | yes | "Patient Zero" — Taylor Swift |
+| 4 | Sun 26 Oct, 7:30 pm | `the-bill-nomusic.mp4` | no | "My Reaction to…" — @brundaepadua |
+| 5 | Mon 27 Oct, 12:30 pm | `loop-nomusic.mp4` | no | "Money Can't Buy You Happiness" — @eresdigna |
+| 6 | Wed 29 Oct, 8 pm | `group-chat-nomusic.mp4` | no | "Nicole Kidman" — ADÉLA |
+
+Already posted `noshow` (no voice) on Wednesday? Skip #1 and keep the rest.
+`booked` goes up Saturday night on purpose: "your booking page doesn't sleep",
+seen in bed after the busiest day of the week.
 
 Pin `noshow`, `refill` and `booked` to the top of the grid. After that, the
 weekly run checks Insights and decides whether to repost the best one or make
@@ -92,7 +124,10 @@ another from the same B-roll (0 credits).
 
 ### Every time
 
-1. Upload the **`-nomusic`** file and add the sound from the table above.
+1. Upload the file from the plan and add the sound from the table above.
+   For a reel with a voice, also turn on **Advanced settings → Add AI label**:
+   Meta requires it for a realistic AI-generated voice, and a hidden one that
+   gets flagged later costs more trust than the label does.
 2. Cover: the first frame (the hook is on it).
 3. Paste the caption below. Tick **Also share to Facebook**.
 4. After posting: share it to your story with a poll ("still paying monthly
