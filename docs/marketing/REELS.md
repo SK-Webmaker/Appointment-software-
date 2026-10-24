@@ -237,21 +237,47 @@ sample data; real kairo screens. booking alerts come through the free kairo ipho
 "Comment KAIRO" works once ManyChat's comment trigger is on (below).
 Without it, reply to each comment by hand with the DM below.
 
-## The DM reply
+## Replying to "KAIRO"
 
-Everyone who sends KAIRO gets this. It is a reply to someone who wrote first,
-so it is not outreach.
+Two parts: a short public reply under the comment, then the DM. Links in
+Instagram comments aren't clickable, so the comment points to the DM (and the
+bio link); the DM carries the links.
+
+**Comment reply.** Rotate these; posting the same line over and over can get
+replies hidden as spam:
 
 ```
-hey! 👋 kairo is booking, clients and payments for a salon: $410 once, then $0 a month, forever. no commission.
-
-you get online booking, deposits, reminders, a client list (import yours from a spreadsheet) and an iPhone app.
-
-what you'd save vs paying monthly: https://kairobookings.com/no-monthly-fee-salon-software
-start here: https://start.kairobookings.com/start?from=ig-dm
-
-any questions, just reply here 🙂
+hey! 👋 just sent you a DM with everything 📩
 ```
+```
+done! check your DMs 💌 (link's in our bio too)
+```
+```
+sent 🙌 it's all in your inbox, any questions just ask!
+```
+```
+on its way to your DMs now 📩 thanks for asking!
+```
+
+**The DM.** Everyone who comments or sends KAIRO gets this. It replies to
+someone who wrote first, so it is not outreach.
+
+```
+hey! 👋 thanks for asking about kairo
+
+it's booking software made for salons: online booking, deposits, reminders, no-show rules, a waitlist that fills cancellations, and an iPhone app.
+
+$410 once, then $0 a month, forever. no commission.
+
+have a look here 👉 https://kairobookings.com/no-monthly-fee-salon-software
+
+when you're ready to set up: https://start.kairobookings.com/start?from=ig-dm
+
+any questions, just reply here, happy to help 🙂
+```
+
+**Bio link:** set it to https://kairobookings.com/no-monthly-fee-salon-software
+so "link in bio" lands on the same page.
 
 The `?from=ig-dm` tag makes a signup from Instagram show in the Render log as
 `signup: started <slug> from ig-dm` / `signup: paid <slug> from ig-dm`. The
