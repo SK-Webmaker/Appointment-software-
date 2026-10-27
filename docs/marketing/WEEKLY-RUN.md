@@ -133,16 +133,14 @@ platform.
 
 1. `/switch-salon-software` — moving your clients and bookings to a new system
    without losing anyone (export a CSV from any system, import, tell clients)
-2. `/salon-software-cost` — what salon software costs over 1, 3 and 5 years:
-   per-person subscriptions, commission on new clients, text fees, against a
-   one-off fee; the calculator with the visitor's own figures
-3. Finish `/barber-software-australia` and `/beauty-salon-software-australia`:
+2. Finish `/barber-software-australia` and `/beauty-salon-software-australia`:
    both exist but carry `noindex: true` and are left out of the sitemap. Read
    them, make them complete and true, then drop `noindex` and add them to the
    sitemap
-4. `/nail-salon-software-australia`
-5. `/lash-and-brow-booking-software-australia`
-6. `/booking-app-for-hairdressers` — the iPhone app angle
+3. `/nail-salon-software-australia`
+4. `/lash-and-brow-booking-software-australia`
+5. `/booking-app-for-hairdressers` — the iPhone app angle
 
-Done: the four pages listed under "Pages about the monthly bill", and `/guide`.
+Done: the four pages listed under "Pages about the monthly bill", `/guide`,
+and `/salon-software-cost` (27 Oct 2026).
 Removed 22 Oct 2026: nine pages that named other platforms (they redirect).

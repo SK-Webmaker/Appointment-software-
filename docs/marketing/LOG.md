@@ -2,6 +2,40 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 27 October 2026 — weekly run (due 26 Oct; delayed by a restart)
+
+- **Sales:** none. Signup log for 20–27 Oct: 0 started, 0 paid, from any
+  source.
+- **Site check:** clean. All 20 sitemap pages and `llms.txt` answer 200 and
+  name no other platform; the price is $410 once everywhere
+  (`PRICE_CENTS` default 41000); the nine old addresses still answer 301.
+- **Search:** `kairobookings.com` is not in the top 20 for
+  `salon software no monthly fee`, `salon booking software australia` or
+  `booking software no commission`. A `site:` search shows 14 pages indexed:
+  home, support and the legal pages, but none of the pages about the
+  monthly bill yet. The other target searches were skipped: with those pages
+  not indexed they can't rank, and each search costs credits.
+- **Autocomplete (AU):** `salon software cost`, `cheapest salon software`,
+  `salon software comparison`, `best salon software australia`,
+  `booking app for hairdressers`. Nothing for `switch salon software`.
+- **Page added:** `/salon-software-cost` (backlog #2, picked over #1 because
+  people search for it). It covers the ways salon software charges, the
+  software bill over 1, 3 and 5 years for labelled example plans against
+  $410 once, the calculator, the costs every system has, and where a monthly
+  plan is worth it. It is in the sitemap and `llms.txt`, and linked from the
+  no-monthly-fee and commission-free pages. Published (commit d9708a2) and
+  live with the right title; IndexNow 200.
+- **Visits 20–27 Oct:** 15 visitors (about 2 a day). Direct 12, Instagram 2,
+  Facebook 1, search 0. Pages: home 10, guide 2, no-monthly-fee 2 (both from
+  Instagram/Facebook), legal 1. The Instagram visits started after the
+  no-show reel went up on 23 Oct.
+- **Needs the owner:**
+  1. The home page ticker says "Limited time only offer". `WEEKLY-RUN.md`
+     rule 2 says never "limited time" unless it is true. If the $410 price
+     isn't ending, it should read "Pay once. $0 a month."
+  2. Set the Instagram bio link to `/no-monthly-fee-salon-software` if it
+     isn't already.
+
 ## 22 October 2026 — website made anonymous
 
 - **Owner's call:** no other platform named on the website either. Removed
