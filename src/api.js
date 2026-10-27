@@ -18,7 +18,7 @@ import { checkPassword, checkBreached, MIN_LENGTH as PASSWORD_MIN } from './pass
 import {
   queueAppointmentMessages, cancelQueuedMessages, requeueAppointmentMessages, queueRescheduleMessage,
   queueReceiptMessage, queueDepositReceipt, queueReviewRequest, queueOwnerNotification,
-  queueCancellationMessages, queueOwnerCancellation, cancelUrlFor,
+  queueCancellationMessages, queueOwnerCancellation, cancelUrlFor, queueReminderNow,
   deliverMessage, processQueue, smsBalance, looksLikeEmail,
   requestOwnNumberCode, verifyOwnNumberCode, auNumber,
 } from './notify.js';
@@ -2413,12 +2413,17 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
   const before = db.prepare('SELECT * FROM appointments WHERE id = ?').get(params.id);
   if (!before) throw httpError(404, 'Appointment not found');
   const a = await apptBody(req);
+  // Same team member, same day, same start: the booking hasn't moved, it has
+  // only got longer — usually a service added on top. That is one client's
+  // visit growing, not a second booking, so it saves without the double-booking
+  // question. What it now runs into is reported back for the owner to see.
+  const sameSlot = before.staff_id === a.staffId && before.date === a.date && before.start_min === a.start;
   const conflict = findConflict(a.staffId, a.date, a.start, a.end, params.id);
-  if (conflict && !a.b.force) {
+  if (conflict && !a.b.force && !sameSlot) {
     throw Object.assign(httpError(409, 'This time overlaps another appointment'), { data: { conflict } });
   }
   const block = findBlockConflict(a.staffId, a.date, a.start, a.end);
-  if (block && !a.b.force) {
+  if (block && !a.b.force && !sameSlot) {
     throw Object.assign(httpError(409, 'This time is blocked out'), { data: { block } });
   }
   // Only overwrite the service list when the caller sent one. A drag/resize
@@ -2446,7 +2451,10 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
      WHERE id = ?`
   ).run(clientId, a.staffId, serviceId, a.date, a.start, a.end,
     cancelling ? before.status : a.status, a.notes, params.id);
-  if (Array.isArray(a.b.service_ids)) setApptServices(params.id, a.serviceIds);
+  if (Array.isArray(a.b.service_ids)) {
+    setApptServices(params.id, a.serviceIds);
+    billNewServices(params.id);
+  }
   carryNoteToClient(clientId, a.notes, a.date);
   if (cancelling) {
     return cancelAppointment(params.id, { by: 'owner', notifyClient: a.b.notify_client !== false });
@@ -2476,6 +2484,7 @@ route('PUT', '/api/appointments/:id', async ({ req, params }) => {
     ...db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(params.id),
     moved,
     client_notified: rescheduleSent > 0,
+    runs_into: sameSlot && conflict ? { client_name: conflict.client_name, start_min: conflict.start_min } : null,
   };
 });
 
@@ -2664,6 +2673,21 @@ route('POST', '/api/appointments/:id/cancel', async ({ req, params }) => {
   });
   if (!out) throw httpError(404, 'Appointment not found');
   return out;
+});
+
+// The owner reminding a client of their booking by hand, from the calendar:
+// "Bobby, you're in at 11". Any upcoming booking that isn't cancelled.
+route('POST', '/api/appointments/:id/remind', async ({ req, params }) => {
+  const b = checkBody(await readJson(req), { channel: s.oneOf(['email', 'sms', 'both']) });
+  const appt = db.prepare('SELECT id, client_id, date, status FROM appointments WHERE id = ?').get(params.id);
+  if (!appt) throw httpError(404, 'Appointment not found');
+  if (!appt.client_id) throw httpError(400, 'This booking has no client to remind');
+  if (!['booked', 'confirmed'].includes(appt.status)) throw httpError(400, 'Only upcoming bookings can be reminded');
+  if (appt.date < bizToday()) throw httpError(400, 'This appointment has already been');
+  const sent = queueReminderNow(appt.id, { channels: b.channel || '' });
+  if (!sent) throw httpError(400, 'There is no email or mobile on file for this client');
+  processQueue().catch(() => {});
+  return { ok: true, sent };
 });
 
 // ---------------------------------------------------------------------------
@@ -4327,11 +4351,35 @@ route('POST', '/api/invoices', async ({ req }) => {
   return getInvoice(Number(info.lastInsertRowid));
 });
 
+/**
+ * A service added to an appointment after its bill was started goes on that
+ * bill too, so checkout always shows the whole visit. Only adds: a line the
+ * owner already has (or has edited) is left alone. A bill that is paid or
+ * void is a closed record and isn't touched.
+ */
+function billNewServices(apptId) {
+  const inv = db.prepare(
+    "SELECT id FROM invoices WHERE appointment_id = ? AND status IN ('draft', 'sent') LIMIT 1"
+  ).get(apptId);
+  if (!inv) return;
+  const onBill = db.prepare('SELECT description FROM invoice_items WHERE invoice_id = ?').all(inv.id)
+    .map((r) => r.description);
+  const add = db.prepare('INSERT INTO invoice_items (invoice_id, description, qty, unit_cents) VALUES (?, ?, 1, ?)');
+  for (const svc of apptServiceRows(apptId)) {
+    const i = onBill.indexOf(svc.name);
+    if (i >= 0) onBill.splice(i, 1); // each line on the bill covers one service
+    else add.run(inv.id, svc.name, svc.price_cents || 0);
+  }
+}
+
 route('POST', '/api/invoices/from-appointment', async ({ req }) => {
   const { appointment_id } = checkBody(await readJson(req), { appointment_id: s.num({ required: true }) });
   const appt = db.prepare(`${APPT_SELECT} WHERE a.id = ?`).get(Number(appointment_id));
   if (!appt) throw httpError(404, 'Appointment not found');
-  if (appt.invoice_id) return getInvoice(appt.invoice_id);
+  if (appt.invoice_id) {
+    billNewServices(appt.id);
+    return getInvoice(appt.invoice_id);
+  }
   const issue = bizToday();
   const dueDays = clampInt(getSetting('invoice_due_days', '7'), 0, 365, 7);
   const info = db.prepare(

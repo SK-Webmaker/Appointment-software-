@@ -1535,6 +1535,22 @@ const MUTATIONS = {
     find: "      ...(t.tax_cents ? [[`Includes ${taxLabel(t.tax_rate)}`, money(t.tax_cents)]] : []),\n",
     replace: '',
   },
+  // ── Editing a booking on the calendar ─────────────────────────────────────
+  'added-service-asks-double-booking': {
+    file: 'src/api.js', suites: ['appointment-edit'],
+    find: '  if (conflict && !a.b.force && !sameSlot) {',
+    replace: '  if (conflict && !a.b.force) {',
+  },
+  'added-service-left-off-the-bill': {
+    file: 'src/api.js', suites: ['appointment-edit'],
+    find: '    else add.run(inv.id, svc.name, svc.price_cents || 0);',
+    replace: '    else {}',
+  },
+  'send-reminder-sends-nothing': {
+    file: 'src/notify.js', suites: ['appointment-edit'],
+    find: "    ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);\n    sent++;",
+    replace: '    sent++;',
+  },
 };
 
 const only = process.argv.slice(2);

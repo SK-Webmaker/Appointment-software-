@@ -390,7 +390,7 @@ function reachWays(c) {
  * Returns null if the owner backed out of the save entirely, otherwise
  * { notify, channel, reach }.
  */
-async function askNotify(contact, { title, message, okText }) {
+async function askNotify(contact, { title, message, okText, allowNone = true, kind = 'confirmation' }) {
   const ways = reachWays(contact);
   // Nobody to tell: no email, and either no mobile or texting is switched off.
   // Asking anyway would be a dialog whose only honest answer is "can't".
@@ -400,11 +400,11 @@ async function askNotify(contact, { title, message, okText }) {
   if (ways.email) options.push({ value: 'email', label: 'Email them', hint: contact.client_email });
   if (ways.sms) options.push({ value: 'sms', label: 'Text them', hint: contact.client_phone });
   if (ways.email && ways.sms) options.push({ value: 'both', label: 'Email and text them' });
-  options.push({ value: 'none', label: 'Don\'t send anything', hint: 'You\'ll tell them yourself.' });
+  if (allowNone) options.push({ value: 'none', label: 'Don\'t send anything', hint: 'You\'ll tell them yourself.' });
 
   // Starts on whatever Settings → Notifications says, narrowed to what this
   // client can receive, so the usual answer is one tap on Save.
-  const pref = state.settings.chan_confirmation;
+  const pref = state.settings[`chan_${kind}`];
   const dflt = options.find((o) => o.value === pref)?.value || options[0].value;
 
   const ok = await confirmDialog(title, message, {
@@ -732,6 +732,8 @@ export async function openAppointmentModal({
     footer: `
       ${a && a.status !== 'cancelled' ? `<button class="btn danger" id="appt-cancel">${icon('x')} Cancel appointment</button>` : ''}
       <div class="spacer"></div>
+      ${a && a.client_id && ['booked', 'confirmed'].includes(a.status) && a.date >= todayStr()
+        ? `<button class="btn" id="appt-remind">${icon('send')} Send reminder</button>` : ''}
       ${a && a.client_id ? `<button class="btn" id="appt-rebook">${icon('reply')} Rebook</button>` : ''}
       ${a ? `<button class="btn" id="appt-invoice">${icon('invoice')} ${a.invoice_id ? 'View invoice' : 'Checkout / bill'}</button>` : ''}
       <button class="btn primary" id="appt-save">${icon('check')} ${a ? 'Save changes' : 'Book appointment'}</button>`,
@@ -961,13 +963,13 @@ export async function openAppointmentModal({
     };
     if (payload.new_client && !String(payload.new_client.first_name || '').trim()) {
       toast('Enter the new client\'s first name', 'err');
-      return;
+      return false;
     }
     // Switching Status to Cancelled and hitting Save is a cancellation, so it
     // asks the same question rather than quietly emailing the client.
     if (a && payload.status === 'cancelled' && a.status !== 'cancelled') {
       cancelChoice = cancelChoice || await askCancel();
-      if (!cancelChoice) return;
+      if (!cancelChoice) return false;
       payload.notify_client = cancelChoice.notify;
     }
 
@@ -993,7 +995,7 @@ export async function openAppointmentModal({
             + `<b>${esc(fmtDate(payload.date))} at ${esc(fmtTime(payload.start_min))}</b>.`,
           okText: 'Book it',
         });
-      if (!notifyChoice) return;
+      if (!notifyChoice) return false;
       applyNotify(payload, notifyChoice);
     }
 
@@ -1007,7 +1009,10 @@ export async function openAppointmentModal({
       if (cancelChoice) cancelledToast(out);
       else if (movedTime) toast(out?.client_notified ? `Moved — ${who} has been told` : 'Moved — no message sent');
       else if (isNew) toast(out?.client_notified ? `Booked — ${who} has been sent a confirmation` : 'Booked — no message sent');
-      else toast('Appointment updated');
+      else if (out?.runs_into) {
+        toast(`Appointment updated — it now runs into ${out.runs_into.client_name || 'another booking'} at ${fmtTime(out.runs_into.start_min)}`, 'ok', { ms: 6000 });
+      } else toast('Appointment updated');
+      return true;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         const blk = err.data?.block;
@@ -1018,11 +1023,15 @@ export async function openAppointmentModal({
           : await confirmDialog('Double booking',
               `That slot overlaps <b>${esc(err.data?.conflict?.client_name || 'another appointment')}</b> (${fmtTime(err.data?.conflict?.start_min || 0)}). Book anyway?`,
               { okText: 'Double-book' });
-        if (ok) save(true, cancelChoice, notifyChoice);   // don't ask about the client twice
+        if (ok) return save(true, cancelChoice, notifyChoice);   // don't ask about the client twice
       } else toast(err.message, 'err');
+      return false;
     }
   };
   m.querySelector('#appt-save').onclick = () => save();
+  // What the form held when it opened, to tell whether Checkout must save first.
+  const formState = () => JSON.stringify([...new FormData(form).entries(), chosenServiceIds()]);
+  const savedState = formState();
 
   if (a) {
     // Cancelling is the only way an appointment comes off the day — it frees
@@ -1040,11 +1049,35 @@ export async function openAppointmentModal({
       } catch (err) { toast(err.message, 'err'); }
     };
     m.querySelector('#appt-invoice').onclick = async () => {
+      // A service added in this window but not saved yet belongs on the bill,
+      // so unsaved changes are saved first.
+      if (formState() !== savedState && !(await save())) return;
       try {
         const inv = await api.post('/api/invoices/from-appointment', { appointment_id: a.id });
         m.close();
         location.hash = `#/invoices?open=${inv.id}`;
       } catch (err) { toast(err.message, 'err'); }
+    };
+    const remindBtn = m.querySelector('#appt-remind');
+    if (remindBtn) remindBtn.onclick = async () => {
+      const choice = await askNotify(a, {
+        title: 'Send a reminder',
+        message: `Remind <b>${esc(a.client_name || 'this client')}</b> about `
+          + `<b>${esc(a.services_summary || a.service_name || 'their appointment')}</b> on `
+          + `<b>${esc(fmtDate(a.date))} at ${esc(fmtTime(a.start_min))}</b>.`,
+        okText: 'Send reminder',
+        allowNone: false,
+        kind: 'reminder',
+      });
+      if (!choice) return;
+      if (!choice.reach) { toast(`There's no email or mobile on file for ${a.client_name || 'this client'}`, 'err'); return; }
+      remindBtn.disabled = true;
+      try {
+        await api.post(`/api/appointments/${a.id}/remind`, { channel: choice.channel });
+        const by = { email: 'email', sms: 'text', both: 'email and text' }[choice.channel] || 'message';
+        toast(`Reminder sent to ${a.client_name || 'the client'} by ${by}`);
+      } catch (err) { toast(err.message, 'err'); }
+      remindBtn.disabled = false;
     };
     const rebookBtn = m.querySelector('#appt-rebook');
     if (rebookBtn) rebookBtn.onclick = () => { m.close(); openRebookModal({ appointment: a, onSaved }); };

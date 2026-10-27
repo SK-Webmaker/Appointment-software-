@@ -543,6 +543,29 @@ export function queueAppointmentMessages(apptId, { confirmation = true, reminder
 }
 
 /**
+ * The owner pressing "Send reminder" on a booking: the same reminder the
+ * schedule sends, going out now on the channel they picked. It doesn't
+ * replace the scheduled one. Returns how many messages were queued.
+ */
+export function queueReminderNow(apptId, { channels = '' } = {}) {
+  const a = apptContext(apptId);
+  if (!a || !a.client_id) return 0;
+  const cancelUrl = cancelUrlFor(a.id, a.cancel_token);
+  const copy = buildCopy('reminder', a, {
+    cancelUrl,
+    confirmRequested: getSetting('confirm_requests_enabled', '0') === '1',
+  });
+  const ins = insMessage();
+  const now = localStamp();
+  let sent = 0;
+  for (const [channel, to] of channelsFor('reminder', a.client_email, a.client_phone, channels)) {
+    ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);
+    sent++;
+  }
+  return sent;
+}
+
+/**
  * Alert the business owner by email the moment a customer books online.
  * Goes to the business's own email address (Settings → business email),
  * always by email (never SMS — no per-text cost for an internal alert).
