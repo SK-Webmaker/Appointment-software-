@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Create a payment link (all prices in AUD).
-# Usage: stripe-link.sh "Business Name" client@email.com <setup|managed|monthly-<dollars>> [reusable]
+# Usage: stripe-link.sh "Business Name" client@email.com <setup|managed|monthly-<dollars>|once-<dollars>> [reusable]
 #   setup:    A$350 today (website + first year of hosting and domain), then A$20/year
 #             "Annual Domain and Infrastructure", first charged 365 days after checkout (Stripe trial).
 #   managed:  A$550 setup + A$24.99 first month today (A$574.99), then A$24.99 every month.
 #   monthly-<dollars>: that amount every month, nothing up front (e.g. monthly-35). Cancel any time.
+#   once-<dollars>: a single one-off payment of that amount, nothing recurring (e.g. once-160).
 #   reusable: no one-payment limit. Every link asks the customer for their business name.
 # Auth: the environment's Stripe credential is added to api.stripe.com automatically.
 set -euo pipefail
@@ -41,7 +42,14 @@ case "$PLAN" in
     ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
     SUBMIT="A\$$AMT a month, charged automatically. No lock-in: cancel any time by messaging us."
     DONE="Thank you! You're all set. To cancel at any time, just message us." ;;
-  *) echo "plan must be setup, managed or monthly-<dollars>"; exit 1 ;;
+  once-*)
+    AMT="${PLAN#once-}"; [[ "$AMT" =~ ^[0-9]+$ ]] || { echo "use once-<whole dollars>"; exit 1; }
+    P=$(product "Website$FOR" "A website for your business, one payment.")
+    PRICE=$(curl -sS $S/prices -d product="$P" -d unit_amount=$((AMT*100)) -d currency=$CURRENCY | json '["id"]')
+    ITEMS=(-d "line_items[0][price]=$PRICE" -d "line_items[0][quantity]=1")
+    SUBMIT="A\$$AMT, one payment. Nothing else is charged."
+    DONE="Thank you! We'll be in touch shortly about your website." ;;
+  *) echo "plan must be setup, managed, monthly-<dollars> or once-<dollars>"; exit 1 ;;
 esac
 
 if [ "$MODE" = reusable ]; then EXTRA+=(-d "metadata[reusable]=true")

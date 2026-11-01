@@ -41,7 +41,7 @@ real contact details, and no placeholder text.
 ## 3. Payment
 Usually the owner sends a reusable link above. For a link with the client's name on it (one sign-up only):
 ```bash
-.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email> setup     # or: managed, monthly-<dollars>
+.claude/skills/website-sale/stripe-link.sh "<Business Name>" <client@email> setup     # or: managed, monthly-<dollars>, once-<dollars>
 ```
 Switch off a mistaken or old link at once: `stripe-mark-delivered.sh <plink_id> retired`.
 
