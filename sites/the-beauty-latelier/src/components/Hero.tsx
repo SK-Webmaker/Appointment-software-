@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useIsomorphicLayoutEffect, useReducedMotionSafe } from "@/lib/motion";
+import { useIsomorphicLayoutEffect } from "@/lib/motion";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { useReducer, useRef } from "react";
 import { Img } from "./Img";
@@ -26,11 +26,13 @@ export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const box = useRef<Box | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const reduce = useReducedMotionSafe();
-  // Read inside the scroll transform below, which would otherwise keep the
-  // value from its first render (before the preference is known).
+  // The arch opening is driven by the visitor's own scrolling, so it plays for
+  // everyone — including devices with "Reduce motion" on (an iPhone setting,
+  // or Windows' "Animation effects" off), where it is the site's signature
+  // and nothing moves unless the visitor scrolls. Only self-playing touches
+  // (the scroll cue, button sheen) are left out there.
+  const reduce = false;
   const reduceRef = useRef(reduce);
-  reduceRef.current = reduce;
   const { openSheet } = useBooking();
 
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });
@@ -177,9 +179,10 @@ export function Hero() {
           </div>
         </motion.div>
 
-        {/* After the arch opens — a second scene that only exists with motion on */}
+        {/* After the arch opens — a second scene, revealed by scrolling (data-qa marks it as scroll-revealed for the QA) */}
         {!reduce && (
         <motion.div
+          data-qa="scroll-scene"
           className="absolute inset-x-0 bottom-0 z-20 mx-auto max-w-[1440px] px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] text-cream md:px-10 lg:pb-16"
           style={{ opacity: outroOpacity, y: outroY, pointerEvents: outroEvents }}
         >

@@ -4,18 +4,16 @@ import { lockScroll } from "@/lib/smooth";
 
 /**
  * A short brand reveal. It is rendered on the server, so it is the very first
- * thing painted, and lifts ~1.4s after the page comes alive. Reduced motion
- * skips it; a CSS fail-safe (.curtain in styles.css) lifts it even if
- * JavaScript never runs.
+ * thing painted, and lifts ~1.4s after the page comes alive. With "Reduce
+ * motion" on it fades instead of wiping. A CSS fail-safe (.curtain in
+ * styles.css) lifts it even if JavaScript never runs.
  */
 export function Curtain() {
   const [show, setShow] = useState(true);
+  const [fade, setFade] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShow(false);
-      return undefined;
-    }
+    setFade(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     // Hold the page still while the curtain is up — and let go the moment it
     // lifts (the component stays mounted, so this can't wait for cleanup).
     const release = lockScroll();
@@ -35,9 +33,9 @@ export function Curtain() {
         <motion.div
           key="curtain"
           className="curtain fixed inset-0 z-[100] flex items-center justify-center bg-espresso"
-          initial={{ clipPath: "inset(0% 0% 0% 0%)" }}
-          exit={{ clipPath: "inset(0% 0% 100% 0%)" }}
-          transition={{ duration: 1.05, ease: [0.76, 0, 0.24, 1] }}
+          initial={fade ? { opacity: 1 } : { clipPath: "inset(0% 0% 0% 0%)" }}
+          exit={fade ? { opacity: 0 } : { clipPath: "inset(0% 0% 100% 0%)" }}
+          transition={fade ? { duration: 0.6, ease: "easeOut" } : { duration: 1.05, ease: [0.76, 0, 0.24, 1] }}
           aria-hidden="true"
         >
           <motion.div

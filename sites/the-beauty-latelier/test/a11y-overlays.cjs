@@ -15,7 +15,7 @@ const fs = require("fs");
     console.log(`${label}: ${v.length ? "\n  " + v.join("\n  ") : "no violations"}`);
   };
   await page.getByRole("button", { name: /^Gel-X set\b/ }).click();
-  await page.getByRole("button", { name: "Book now" }).first().click();
+  await page.locator("header").getByRole("button", { name: /^Book/ }).first().click();
   await page.getByRole("dialog", { name: /Request your appointment/ }).waitFor();
   await page.waitForTimeout(500);
   await run("booking sheet open");

@@ -268,8 +268,12 @@ html.lenis body {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  .sheen::after,
-  .curtain {
+  .sheen::after {
     display: none !important;
+  }
+  /* The curtain still shows (it fades instead of wiping), so its fail-safe
+     keeps a real delay here. */
+  .curtain {
+    animation: curtain-failsafe 0.6s ease 3.4s forwards !important;
   }
 }

@@ -173,18 +173,19 @@ async function swipe(cdp, p, dy = 450) {
     await ctx.close();
   }
 
-  // 9. reduced motion: nothing pinned, everything reachable, page scrolls
+  // 9. reduced motion: the curtain lets go, the page scrolls, and the opening
+  //    scene still plays (it is scroll-driven, the site's signature)
   {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
     const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p);
     await p.addInitScript(() => { window.__to = (y) => window.scrollTo({ top: y, behavior: "instant" }); });
-    await p.goto(TARGET, { waitUntil: "networkidle" }); await p.waitForTimeout(1200);
+    await p.goto(TARGET, { waitUntil: "networkidle" }); await p.waitForTimeout(2600);
     console.log(`\n${SITE} — reduced motion`);
-    check(await p.evaluate(() => document.documentElement.style.overflow === ""), "no curtain lock with reduced motion");
+    check(await p.evaluate(() => document.documentElement.style.overflow === ""), "the curtain lets go of the page with reduced motion");
     const y0 = await p.evaluate(() => scrollY); await swipe(cdp, p, 500);
     check((await p.evaluate(() => scrollY)) > y0 + 150, "page scrolls with reduced motion");
-    const tall = await p.evaluate(() => document.getElementById("top").offsetHeight <= innerHeight * 1.3);
-    check(tall, "opening scene isn't a long pinned stretch with reduced motion");
+    const tall = await p.evaluate(() => document.getElementById("top").offsetHeight > innerHeight * 1.8);
+    check(tall, "the opening scene still plays with reduced motion");
     await ctx.close();
   }
   await b.close();

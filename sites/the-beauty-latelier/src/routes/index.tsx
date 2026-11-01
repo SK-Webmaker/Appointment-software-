@@ -2,16 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Site } from "@/components/Site";
 import { CATEGORIES, NAIL_ART_TIERS, SITE, formatPrice } from "@/site.config";
 
-const TITLE = `${SITE.name} — Nails, Lashes, Brows, Skin & Hair · ${SITE.suburb}, ${SITE.city}`;
-const DESCRIPTION = `${SITE.studio} — a private beauty studio in ${SITE.suburb}, ${SITE.city}. Gel-X, acrylic, SNS and BIAB nails, nail art, lash lifts, brows, facials and hair. Re-opening ${SITE.reopening}. DM to book.`;
+const TITLE = `${SITE.name} | Nail Salon & Beautician in ${SITE.suburb}, Western ${SITE.city}`;
+const DESCRIPTION = `Private beauty studio in ${SITE.suburb}, Western ${SITE.city}. Gel-X, acrylic, SNS & BIAB nails, nail art, lash lifts, brows, facials and hair by ${SITE.founder}, ${SITE.credential.toLowerCase()}. Re-opening ${SITE.reopening}.`;
 const OG_IMAGE = `${SITE.url}/og-image.jpg`;
 
 export const Route = createFileRoute("/")({
+  staticData: { sitemap: true },
   component: Index,
   head: () => ({
     meta: [
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
+      { name: "robots", content: "index, follow, max-image-preview:large" },
+      { name: "geo.region", content: "AU-NSW" },
+      { name: "geo.placename", content: `${SITE.suburb}, ${SITE.city}` },
       { property: "og:title", content: `${SITE.name} — where beauty becomes confidence` },
       { property: "og:description", content: `Nails, lashes, brows, skin and hair by ${SITE.founder}, in a private studio in ${SITE.suburb}, ${SITE.city}. Re-opening ${SITE.reopening}.` },
       { property: "og:url", content: `${SITE.url}/` },

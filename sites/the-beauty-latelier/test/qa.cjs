@@ -107,7 +107,7 @@ const geometry = () => {
     out.invisible = [...document.querySelectorAll("h1,h2,h3,p,a,li,span,button,img")]
       .filter((el) => {
         const r = el.getBoundingClientRect();
-        if (!r.width || !r.height || el.closest(".sr-only,[aria-hidden='true']") || getComputedStyle(el).visibility === "hidden") return false;
+        if (!r.width || !r.height || el.closest(".sr-only,[aria-hidden='true'],[data-qa='scroll-scene']") || getComputedStyle(el).visibility === "hidden") return false;
         let o = 1;
         for (let n = el; n; n = n.parentElement) o *= parseFloat(getComputedStyle(n).opacity);
         return o < 0.15;
