@@ -2,6 +2,42 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 2 November 2026 — weekly run (published 4 Nov; delayed by restarts)
+
+- **Sales:** none. Signup log 26 Oct – 4 Nov: 0 started, 0 paid, from any
+  source.
+- **Site check:** clean. All 21 sitemap pages and `llms.txt` answer 200 and
+  name no other platform; the price is $410 everywhere and the live checkout
+  charges A$410 (`/api/price` → 41000); the nine old addresses still answer
+  301. Fixed one untrue line: the no-monthly-fee page said each team member
+  has settings for "what they are allowed to see". There is no such setting
+  (one salon login, no per-person permissions), so it now says each person
+  has their own hours and colour in the diary.
+- **Search:** `site:kairobookings.com` still shows 14 pages (home, support,
+  legal), none of the pages about the bill. Not in the top 20 for
+  `salon software no monthly fee` or `salon software cost australia`. The
+  rest were skipped again: unindexed pages can't rank, and each search costs
+  credits.
+- **Autocomplete (AU):** `booking app for hairdressers`, `booking system for
+  hairdressers`, `appointment app for hairdressers`, `booking software for
+  hairdressers`, `best salon software australia`, `beauty salon software
+  australia`, `salon software comparison`.
+- **Page added:** `/booking-app-for-hairdressers` (backlog #5, picked first
+  because autocomplete shows the most demand for it). It covers what the
+  free iPhone app does (alerts when clients book or cancel, Face ID, the whole
+  workspace), what clients get (no app, no account), what's at the chair,
+  what it costs, and where a monthly app can do more (marketplace, gift
+  cards, memberships, accounting, an Android app). It's in the sitemap and
+  `llms.txt`, linked from the hair salon and cost pages. Published (commit
+  6cff543) and live with the right title; IndexNow 200.
+- **Visits 26 Oct – 1 Nov:** 5 visitors (down from 15). Direct 2, Google 1,
+  Bing 1, Instagram 1. The first visits from search. Pages: home 4,
+  support 1.
+- **Needs the owner:**
+  1. Post the reels: Instagram is still the only channel that brings people,
+     and visits fell when posting stopped.
+  2. The ticker's "Limited time only offer" (still unanswered).
+
 ## 27 October 2026 — weekly run (due 26 Oct; delayed by a restart)
 
 - **Sales:** none. Signup log for 20–27 Oct: 0 started, 0 paid, from any

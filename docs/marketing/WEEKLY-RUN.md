@@ -139,8 +139,8 @@ platform.
    sitemap
 3. `/nail-salon-software-australia`
 4. `/lash-and-brow-booking-software-australia`
-5. `/booking-app-for-hairdressers` — the iPhone app angle
 
 Done: the four pages listed under "Pages about the monthly bill", `/guide`,
-and `/salon-software-cost` (27 Oct 2026).
+`/salon-software-cost` (27 Oct 2026), and `/booking-app-for-hairdressers`
+(2 Nov 2026).
 Removed 22 Oct 2026: nine pages that named other platforms (they redirect).
