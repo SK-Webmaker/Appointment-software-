@@ -21,6 +21,10 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
   - **Wiring:** noindex dropped; added to the sitemap, `llms.txt` and the
     footer. The beauty page links to the hair page instead of the hidden
     `/features/client-management`.
+  - **Live:** published (commit 5aa714a) and checked on the live site. Both
+    pages return 200 with the right titles, no noindex, and FAQ schema. Both
+    are listed in the live sitemap and `llms.txt`, and footer links reach
+    them from every page. IndexNow and Bing both returned 200.
 
 ## 2 November 2026 — weekly run (published 4 Nov; delayed by restarts)
 
