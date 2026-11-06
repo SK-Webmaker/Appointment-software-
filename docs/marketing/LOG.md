@@ -2,6 +2,26 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 6 November 2026 — between runs
+
+- **Sales:** none.
+- **Pages finished:** `/barber-software-australia` and
+  `/beauty-salon-software-australia` (backlog #2). Both were placeholders
+  hidden from Google. Every claim was checked against the app first.
+  - **Barbers:** short services back to back, a column per barber, walk-ins
+    at the till, Rebook in 2/3/4 weeks, card through the shop's own Stripe or
+    Square, cash, pay links and no-show rules.
+  - **Beauty:** patch tests the booking page asks for (a failed test asks
+    the client to call, never re-offers a test), consent agreed by typed
+    name with the wording kept, a safety record, before/after photos, a list
+    of tests expiring in 60 days, and a printable record.
+  - **Both** say what a monthly app has that Kairo doesn't: a walk-in queue
+    screen, rooms as a resource, courses/packages, memberships, gift cards
+    and a marketplace.
+  - **Wiring:** noindex dropped; added to the sitemap, `llms.txt` and the
+    footer. The beauty page links to the hair page instead of the hidden
+    `/features/client-management`.
+
 ## 2 November 2026 — weekly run (published 4 Nov; delayed by restarts)
 
 - **Sales:** none. Signup log 26 Oct – 4 Nov: 0 started, 0 paid, from any

@@ -133,14 +133,12 @@ platform.
 
 1. `/switch-salon-software` — moving your clients and bookings to a new system
    without losing anyone (export a CSV from any system, import, tell clients)
-2. Finish `/barber-software-australia` and `/beauty-salon-software-australia`:
-   both exist but carry `noindex: true` and are left out of the sitemap. Read
-   them, make them complete and true, then drop `noindex` and add them to the
-   sitemap
-3. `/nail-salon-software-australia`
-4. `/lash-and-brow-booking-software-australia`
+2. `/nail-salon-software-australia`
+3. `/lash-and-brow-booking-software-australia`
 
 Done: the four pages listed under "Pages about the monthly bill", `/guide`,
-`/salon-software-cost` (27 Oct 2026), and `/booking-app-for-hairdressers`
-(2 Nov 2026).
+`/salon-software-cost` (27 Oct 2026), `/booking-app-for-hairdressers`
+(2 Nov 2026), and `/barber-software-australia` and
+`/beauty-salon-software-australia` (finished and opened to search 6 Nov 2026).
+Still hidden on purpose: the `/features/*` pages (placeholders with `noindex`).
 Removed 22 Oct 2026: nine pages that named other platforms (they redirect).
