@@ -2,6 +2,21 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 8 November 2026 — websites page, motion fixed, owner's instructions
+
+- **New page:** `/websites` sells the website service (A$350 once, or
+  A$550 + A$24.99 a month managed, free demo first). It opens from a
+  "Need a website?" tab on the home page. It is live and in the sitemap
+  and footer.
+- **Motion fixed:** the owner saw nothing move on their device. That
+  device has the Reduce motion accessibility setting on, and the site
+  switched every animation off for it (0 running animations against 28).
+  The site now plays its motion for every visitor (`src/lib/motion.ts`
+  in the website repo). Checked live with the setting on and off.
+- **Owner's instructions:** sales are checked once a day only, and
+  Instagram/TikTok posting is parked until the next outreach
+  brainstorm. Both are written into `WEEKLY-RUN.md` step 7.
+
 ## 6 November 2026 — between runs
 
 - **Sales:** none.

@@ -126,6 +126,15 @@ source, anything that needs the owner. Commit and push to
 `claude/markdown-file-analysis-a5ppnf`. Finish with a short plain-English
 summary — that is what the owner reads. **If there was a sale, say so first.**
 
+**Owner's standing instructions (8 Nov 2026):**
+- Check sales once a day and no more. The daily routine does that and
+  stays silent unless somebody signs up; the weekly summary reports the
+  week's count once. Don't re-check sales or repeat "no sale yet" anywhere
+  else.
+- Instagram and TikTok posting is parked. Don't ask the owner to connect an
+  account in weekly summaries. Raise it at the next outreach brainstorm
+  instead.
+
 ## Backlog (top first)
 
 Every page is about the problem or the kind of business, never about another
