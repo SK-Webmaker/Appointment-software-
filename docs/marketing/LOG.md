@@ -2,6 +2,41 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 9 November 2026 — weekly run (finished 10 Nov; a restart interrupted the publish)
+
+- **Sales:** none. Signup log 2–9 Nov: 0 started, 0 paid, from any source.
+- **Site check:** clean. All 25 sitemap pages and `llms.txt` answer 200 and
+  name no other platform. The price is $410 everywhere and the checkout
+  says 41000 cents. The 9 old addresses still answer 301. One thing for the
+  owner: the site-wide ticker still says "Limited time only offer", which
+  rule 2 doesn't allow unless it's true. It's still waiting on the owner's
+  answer, so it was left in place.
+- **Search:** `site:kairobookings.com` now shows 16 pages, including the
+  first page about the bill: `/salon-booking-software-australia`. Not in the
+  top 20 for `booking app for hairdressers australia`. Other position
+  searches were skipped (credits; most pages are still unindexed).
+- **Autocomplete (AU):** nail salon booking/scheduling/management software,
+  best nail salon software; lash booking app, eyelash booking app, lash
+  booking system; best/hair/beauty salon software australia; website for
+  hair salon / beauty salon. Nothing for "switch salon software".
+- **Page added:** `/nail-salon-software-australia`, moved ahead of the
+  switching page because people search for it. Every claim was checked
+  against the app:
+  - real set lengths, and add-ons in one booking;
+  - Rebook in two or three weeks, and a column per tech;
+  - before/after photos, and retail stock at the till;
+  - deposits through Stripe, reminders by email or ClickSend, cards through
+    Stripe or Square.
+
+  It says what monthly apps have that Kairo doesn't: a marketplace, gift
+  cards, memberships, loyalty points and packages. It's in the sitemap,
+  `llms.txt` and the footer, and linked from the beauty and salon booking
+  pages. Published (commit 7251c03), live with the right title, IndexNow 200.
+- **Visits 2–8 Nov:** 10 visitors, 13 page views. Direct 6, Facebook 3 (the
+  first visits from Facebook), Google 1. Pages: home 10, `/websites` 2.
+- **Needs the owner:** only the ticker question above. Posting is parked
+  until the next outreach brainstorm, as the owner asked.
+
 ## 8 November 2026 — websites page, motion fixed, owner's instructions
 
 - **New page:** `/websites` sells the website service (A$350 once, or

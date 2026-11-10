@@ -140,14 +140,18 @@ summary — that is what the owner reads. **If there was a sale, say so first.**
 Every page is about the problem or the kind of business, never about another
 platform.
 
-1. `/switch-salon-software` — moving your clients and bookings to a new system
-   without losing anyone (export a CSV from any system, import, tell clients)
-2. `/nail-salon-software-australia`
-3. `/lash-and-brow-booking-software-australia`
+1. `/lash-and-brow-booking-software-australia` (autocomplete 9 Nov: "lash
+   booking app", "eyelash booking app", "lash booking system")
+2. `/switch-salon-software`: moving your clients and bookings to a new system
+   without losing anyone (export a CSV from any system, import, tell
+   clients). Autocomplete showed nothing for "switch salon software" on
+   9 Nov, so it waits behind pages people do search for.
 
 Done: the four pages listed under "Pages about the monthly bill", `/guide`,
 `/salon-software-cost` (27 Oct 2026), `/booking-app-for-hairdressers`
 (2 Nov 2026), and `/barber-software-australia` and
-`/beauty-salon-software-australia` (finished and opened to search 6 Nov 2026).
+`/beauty-salon-software-australia` (finished and opened to search 6 Nov 2026),
+`/websites` (the website service, 8 Nov 2026) and
+`/nail-salon-software-australia` (9 Nov 2026).
 Still hidden on purpose: the `/features/*` pages (placeholders with `noindex`).
 Removed 22 Oct 2026: nine pages that named other platforms (they redirect).
