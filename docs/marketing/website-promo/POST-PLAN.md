@@ -8,7 +8,38 @@ Goal: get the reel, carousel and pricing post out fast, in the slots that get th
 - **Reels:** they do best in the evening. Instagram's biggest ranking signal in 2026 is "sends" (people DM-ing your post to a friend), so every caption asks people to send it on. *(Buffer, 9.6M posts)*
 - **Salon owners:** most salons close on Monday, so Sunday night and Monday are when they actually scroll.
 
-Files and captions: [CAPTIONS.md](CAPTIONS.md).
+Files and captions: [CAPTIONS.md](CAPTIONS.md). The full playbook, with research and sources, was emailed to the Kairo inbox on 12 Nov 2026.
+
+## Settings (one time, ~15 min)
+
+**Instagram**
+- Settings → Data usage and media quality → **Upload at highest quality: ON**.
+- Stay on a **Business** account, because it's needed for the free DM automations.
+- **Name field:** "Kairo | Website Design".
+- **Category:** Web Designer. **Link:** kairobookings.com/websites.
+- **On every post:** location *Melbourne, Victoria*, plus alt text. Instagram search reads keywords; hashtags are for search, not reach.
+
+**TikTok**
+- Switch to a **Business** account.
+- Turn on **Upload HD**.
+- Set the location to Melbourne (TikTok's Local Feed).
+- A day after posting, check **Manage keywords** on the video.
+
+**YouTube Shorts:** "Not made for kids", and keywords at the start of the title.
+
+## Audio
+
+| Post | What to use |
+|---|---|
+| **Reel** (every platform) | Keep the built-in original soundtrack at 100%. Every cut is timed to it, and we own it outright. Don't add a song on top. |
+| **Carousel and pricing post** (Instagram) | Add an upbeat instrumental track from the in-app library. Music makes photo posts eligible for the Reels tab, and Mosseri's advice is to "add audio, especially if you're posting photos or carousels". |
+| **TikTok photo mode** | Pick a sound from the Trending tab of the Commercial Music Library, which is what Business accounts get. |
+
+## Scheduling
+
+- Mosseri confirmed in Oct 2026 that scheduling doesn't hurt reach.
+- In the Instagram app, schedule the Sunday carousel and the Monday pricing post from the final screen: More options → Schedule. Add the music first.
+- TikTok posts can be scheduled in TikTok Studio, and YouTube Shorts in YouTube Studio.
 
 ---
 

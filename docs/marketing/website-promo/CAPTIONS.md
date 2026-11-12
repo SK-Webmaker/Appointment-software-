@@ -20,7 +20,7 @@ Instagram allows **5 hashtags max** (since Dec 2025), so each caption has exactl
 ```
 Your website should look this good. 🔥
 
-8 real sites we've built for small businesses. Every one designed to look premium on a phone and turn visitors into bookings.
+Website design for small businesses: 8 real sites we've built, every one designed to look premium on a phone and turn visitors into bookings.
 
 Want one? We offer free demos. Comment DEMO or DM us "DEMO" and we'll build a preview of your site first. No cost, no obligation.
 
@@ -32,16 +32,16 @@ Know a business owner whose site needs this? Send it to them 👀
 ## 1b. Reel: TikTok
 
 ```
-your website should look this good 🔥 free demo, comment DEMO #websitedesign #smallbusiness #webdesign #australia #salonowner
+website design for small businesses 🔥 your website should look this good. 8 sites, 8 different looks. free demo, comment DEMO 👇 #websitedesign #smallbusiness #melbourne #webdesign #salonowner
 ```
 
 ## 1c. Reel: YouTube Shorts
 
-Title: `Your website should look this good 🔥 #shorts`
+Title: `Website design for small businesses: your site should look this good 🔥 #shorts`
 
 Description:
 ```
-8 real websites we designed and built for small businesses. Want one? We'll build you a free demo first. Visit kairobookings.com/websites
+8 real websites we designed and built for small businesses. Want one? We'll build you a free demo first: kairobookings.com/websites #websitedesign #smallbusiness
 ```
 
 ---
@@ -63,7 +63,7 @@ Plans from A$350 · Hosting & domain sorted
 ## 2b. Carousel: TikTok photo mode
 
 ```
-8 websites, 8 completely different looks 👀 which one's your fave? free demo, comment DEMO #websitedesign #smallbusiness #webdesign #australia #beautybusiness
+website design for small businesses 👀 8 sites, 8 completely different looks. which one's your fave? free demo, comment DEMO #websitedesign #smallbusiness #melbourne #webdesign #beautybusiness
 ```
 
 ---
