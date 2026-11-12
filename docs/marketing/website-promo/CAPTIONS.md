@@ -8,7 +8,7 @@ Three posts that sell the website service. Every piece ends on the same offer: *
 | Reel (20s, original soundtrack) | `websites-reel.mp4` (cover: `websites-reel-cover.jpg`) | 1080×1920 |
 | Pricing post | `websites-pricing.jpg` | 1080×1350 |
 
-Every screenshot is a real site we built, captured from the live page.
+Every screenshot is a real site we built, captured from the live page. Client business names, people, handles, phone numbers and suburbs are swapped for neutral placeholders ("Your Brand", "Your Suburb"), so the posts show off the design, not who it was for. Each site is labelled by its design style (Soft Editorial, Quiet Luxury, Bold & Dark…) instead of a business name.
 
 ---
 
