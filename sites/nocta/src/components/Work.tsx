@@ -17,8 +17,7 @@ export function Work() {
   const track = useRef<HTMLDivElement>(null);
   const [dist, setDist] = useState(0);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const smooth = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.0005 });
-  const x = useTransform(smooth, [0, 1], [0, -dist]);
+  const x = useTransform(scrollYProgress, [0, 1], [0, -dist]);
   const bar = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
   useIsomorphicLayoutEffect(() => {
