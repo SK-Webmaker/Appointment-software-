@@ -118,7 +118,7 @@ export function Hero() {
 
         {/* the lamp */}
         <motion.div
-          className="absolute left-1/2 top-[13%] h-[40svh] w-[min(32svh,66vw)] -translate-x-1/2 [perspective:900px] md:top-[17%] md:h-[50svh] md:w-[min(40svh,70vw)]"
+          className="absolute left-1/2 top-[13%] h-[40svh] w-[min(32svh,66vw)] -translate-x-1/2 [perspective:900px] md:top-[17%] md:h-[50svh] md:w-[min(40svh,70vw)] will-change-transform"
           style={{ scale: lampScale, y: lampY, opacity: lampOpacity }}
           data-cursor="glow"
         >
@@ -128,7 +128,7 @@ export function Hero() {
                 <Lamp
                   key={s}
                   shape={s}
-                  className={`absolute inset-0 transition-opacity duration-700 will-change-[opacity] ${showing === s ? "opacity-100" : "opacity-0"}`}
+                  className={`absolute inset-0 transition-opacity duration-700 ${showing === s ? "opacity-100" : "opacity-0"}`}
                 />
               ))}
             </div>

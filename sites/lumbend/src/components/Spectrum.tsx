@@ -82,7 +82,7 @@ function Wash({ p, i, colour }: { p: MotionValue<number>; i: number; colour: str
   return (
     <motion.div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0"
+      className="pointer-events-none absolute inset-0 will-change-[opacity]"
       style={{ opacity: o, background: `radial-gradient(80% 50% at 50% 50%, ${colour}38, transparent 72%)` }}
     />
   );
@@ -93,7 +93,7 @@ function Tube({ p, i, colour }: { p: MotionValue<number>; i: number; colour: str
   return (
     <motion.span
       aria-hidden="true"
-      className="absolute inset-0 rounded-full"
+      className="absolute inset-0 rounded-full will-change-[opacity]"
       style={{
         opacity: o,
         background: `linear-gradient(to bottom, #fff 0%, ${colour} 55%, ${colour} 100%)`,

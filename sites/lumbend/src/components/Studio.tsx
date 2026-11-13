@@ -1,5 +1,5 @@
 import { animate, motion, useInView, useMotionValue, useScroll, useTransform, type MotionValue } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MANIFESTO, MANIFESTO_GLOW, STATS } from "@/site.config";
 import { useReducedMotionSafe } from "@/lib/motion";
 import { ChapterLabel } from "./ChapterLabel";
@@ -94,14 +94,21 @@ function Counter({ to, suffix }: { to: number; suffix: string }) {
   const inView = useInView(ref, { once: true, margin: "0px 0px -15% 0px" });
   const v = useMotionValue(to === 0 ? 99 : 0);
   const text = useTransform(v, (x) => `${String(Math.round(x)).padStart(2, "0")}${suffix}`);
+  const [done, setDone] = useState(false);
   useEffect(() => {
     if (!inView) return undefined;
-    const run = animate(v, to, { duration: 1.8, ease: [0.22, 1, 0.36, 1] });
+    const run = animate(v, to, { duration: 1.6, ease: [0.22, 1, 0.36, 1], onComplete: () => setDone(true) });
     return () => run.stop();
   }, [inView, to, v]);
+  const final = `${String(to).padStart(2, "0")}${suffix}`;
+  // Counts in plain text (cheap to repaint every frame), then the glow
+  // switches on once, around the final number.
   return (
-    <span ref={ref} className="neon block font-display text-[clamp(64px,9vw,120px)] font-extrabold leading-none [--tube:var(--glow)]">
-      <motion.span>{text}</motion.span>
+    <span ref={ref} className="relative block font-display text-[clamp(64px,9vw,120px)] font-extrabold leading-none">
+      <motion.span className={`block text-bone transition-opacity duration-500 ${done ? "opacity-0" : "opacity-100"}`}>{text}</motion.span>
+      <span aria-hidden={!done} className={`neon absolute inset-0 ${done ? "flicker-on" : "invisible"}`}>
+        {final}
+      </span>
     </span>
   );
 }
