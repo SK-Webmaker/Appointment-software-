@@ -6,13 +6,15 @@ import { ChapterLabel } from "./ChapterLabel";
 const N = GASES.length;
 
 /** Fully on while gas i owns the scroll, crossfading into its neighbours. */
-function useGas(p: MotionValue<number>, i: number) {
+function useGas(p: MotionValue<number>, i: number, handOver = false) {
   const a = (i + 0.5) / N;
   const w = 0.5 / N;
   const out = i === 0 ? [1, 1, 1, 0] : i === N - 1 ? [0, 1, 1, 1] : [0, 1, 1, 0];
+  // Light crossfades softly across each boundary; text hands over instead —
+  // the outgoing words are gone before the next arrive, so two never overlap.
+  const at = handOver ? [a - w + 0.002, a - w + 0.03, a + w - 0.03, a + w - 0.002] : [a - w - 0.015, a - w + 0.015, a + w - 0.015, a + w + 0.015];
   // Scroll-linked values run as browser animations, whose offsets must stay within 0…1.
-  const at = [a - w - 0.015, a - w + 0.015, a + w - 0.015, a + w + 0.015].map((v) => Math.min(1, Math.max(0, v)));
-  return useTransform(p, at, out);
+  return useTransform(p, at.map((v) => Math.min(1, Math.max(0, v))), out);
 }
 
 /**
@@ -101,7 +103,7 @@ function Tube({ p, i, colour }: { p: MotionValue<number>; i: number; colour: str
 }
 
 function Tile({ p, i, g }: { p: MotionValue<number>; i: number; g: (typeof GASES)[number] }) {
-  const o = useGas(p, i);
+  const o = useGas(p, i, true);
   const y = useTransform(o, [0, 1], [24, 0]);
   return (
     <motion.div
@@ -119,7 +121,7 @@ function Tile({ p, i, g }: { p: MotionValue<number>; i: number; g: (typeof GASES
 }
 
 function Note({ p, i, g }: { p: MotionValue<number>; i: number; g: (typeof GASES)[number] }) {
-  const o = useGas(p, i);
+  const o = useGas(p, i, true);
   const y = useTransform(o, [0, 1], [18, 0]);
   return (
     <motion.div className="self-end [grid-area:1/1]" style={{ opacity: o, y }}>
