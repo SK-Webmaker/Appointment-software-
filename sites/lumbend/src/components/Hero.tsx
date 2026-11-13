@@ -75,7 +75,7 @@ export function Hero() {
 
         {/* the floor */}
         <motion.div className="pointer-events-none absolute inset-x-0 bottom-0 h-[52%] [perspective:520px]" style={{ opacity: floorOpacity }} aria-hidden="true">
-          <motion.div className="absolute -inset-x-[60%] -top-[30%] bottom-[-60%] origin-top" style={{ rotateX: tilt }}>
+          <motion.div className="absolute -inset-x-[25%] top-0 bottom-[-15%] origin-top" style={{ rotateX: tilt }}>
             <div className="grid-floor absolute inset-0 will-change-transform" />
           </motion.div>
           <div className="absolute inset-0 bg-gradient-to-b from-void via-void/40 to-void/0" />
@@ -207,7 +207,7 @@ function Letter({ letter, i, p, mx, my }: { letter: string; i: number; p: Motion
   return (
     <motion.span className="relative inline-block opacity-[0.55] will-change-transform" style={{ x, y, rotate }}>
       <span className="tube-off">{letter}</span>
-      <span className="neon flicker-hum absolute inset-0" style={{ animationDelay: `${1.45 + i * 0.12}s, ${3 + i * 1.1}s` }}>
+      <span className="neon-soft flicker-on absolute inset-0" style={{ animationDelay: `${1.45 + i * 0.12}s` }}>
         {letter}
       </span>
     </motion.span>

@@ -73,15 +73,14 @@ function Manifesto() {
 }
 
 function Word({ children, p, range, glow, reduce }: { children: string; p: MotionValue<number>; range: [number, number]; glow: boolean; reduce: boolean }) {
-  const dim = useTransform(p, range, [1, 0]);
   const lit = useTransform(p, range, [0, 1]);
   return (
     <>
       <span className={`relative inline-block ${glow ? "font-serif font-normal italic" : ""}`}>
-        <motion.span aria-hidden="true" className="text-bone/15" style={{ opacity: reduce ? 0 : dim }}>
+        <span aria-hidden="true" className={`text-bone/15 ${reduce ? "invisible" : ""}`}>
           {children}
-        </motion.span>
-        <motion.span className={`absolute inset-0 ${glow ? "neon" : "text-bone"}`} style={{ opacity: reduce ? 1 : lit }}>
+        </span>
+        <motion.span className={`absolute inset-0 ${glow ? "neon will-change-[opacity]" : "text-bone"}`} style={{ opacity: reduce ? 1 : lit }}>
           {children}
         </motion.span>
       </span>{" "}

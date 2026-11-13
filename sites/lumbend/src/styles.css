@@ -234,6 +234,14 @@
     0 0 42px var(--tube, var(--glow)),
     0 0 90px color-mix(in oklab, var(--tube, var(--glow)) 60%, transparent);
 }
+/* A lighter glow for big background lettering: fewer, tighter shadows are
+   much cheaper to paint. */
+.neon-soft {
+  color: color-mix(in oklab, var(--glow) 30%, #ffffff);
+  text-shadow:
+    0 0 4px var(--glow),
+    0 0 22px color-mix(in oklab, var(--glow) 70%, transparent);
+}
 /* The same letters unlit: the bare glass tube. */
 .tube-off {
   color: transparent;
