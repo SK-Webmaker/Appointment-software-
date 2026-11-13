@@ -97,7 +97,11 @@ phone appears whatever the layout — it is not a reason to restructure.
 
 ## 5. Publishing to Lovable — no credits
 
-1. `remix_project` an earlier site (free) and set placeholder knowledge.
+1. Each client gets their own Lovable project and link (the owner's choice;
+   no shared demo project). `remix_project` an earlier site (free) as the
+   very first step of a new demo and send the owner the project link at
+   once: connecting GitHub is the one click only they can do, so it happens
+   while the site is being built and never holds up publishing.
 2. The owner connects GitHub in the new project; Lovable creates
    `SK-Webmaker/<slug>`.
 3. Clone it, then `sync-lovable.sh`: one normal commit on top of Lovable's
