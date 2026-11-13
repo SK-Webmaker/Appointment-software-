@@ -104,7 +104,7 @@ function Counter({ to, suffix }: { to: number; suffix: string }) {
   // switches on once, around the final number.
   return (
     <span ref={ref} className="relative block font-display text-[clamp(64px,9vw,120px)] font-extrabold leading-none">
-      <motion.span className={`block text-bone transition-opacity duration-500 ${done ? "opacity-0" : "opacity-100"}`}>{text}</motion.span>
+      <motion.span aria-hidden={done} className={`block text-bone transition-opacity duration-500 ${done ? "opacity-0" : "opacity-100"}`}>{text}</motion.span>
       <span aria-hidden={!done} className={`neon absolute inset-0 ${done ? "flicker-on" : "invisible"}`}>
         {final}
       </span>
