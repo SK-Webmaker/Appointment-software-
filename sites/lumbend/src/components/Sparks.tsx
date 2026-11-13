@@ -37,7 +37,7 @@ export function Sparks() {
         p.vx *= 0.98;
         p.x += p.vx;
         p.y += p.vy;
-        const a = 1 - p.life / p.max;
+        const a = Math.max(0, 1 - p.life / p.max);
         ctx.globalAlpha = a;
         ctx.fillStyle = colour;
         ctx.beginPath();
