@@ -1,0 +1,422 @@
+@import "tailwindcss" source(none);
+@source "../src";
+
+/* ------------------------------------------------------------------ fonts
+   Self-hosted (Latin subset) so the opening never waits on a third party.
+   Syne (wide, architectural grotesque) for display; Instrument Serif italic
+   for the "neon script" and human moments; JetBrains Mono for the stamped
+   technical labels. Two registers: monumental and annotation. */
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/syne.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono.woff2") format("woff2");
+}
+
+/* ----------------------------------------------------------------- tokens
+   One brand hue (a night violet, H≈290) runs through every neutral; one
+   accent (Sodium amber, its complement) is rationed to actions, the words
+   that "switch on" and one full-bleed band. Gas colours only appear as the
+   light of the pieces themselves. See .claude/skills/colour-palettes.
+   Contrast (WCAG): bone 17.0:1, haze 7.8:1, amber 11.3:1 on void; haze
+   6.7:1 on dusk; smoke 5.8:1, ember 5.2:1, void 17.0:1 on bone. */
+@theme {
+  --color-void: #0b0912;
+  --color-night: #14101e;
+  --color-dusk: #1e1830;
+  --color-bone: #f2ede4;
+  --color-paper: #e9e3d8;
+  --color-haze: #a59fb8;
+  --color-smoke: #5f586e;
+  /* The accent is the lamp's own light: it follows the gas the visitor
+     picks (--glow, set on <html>), sodium amber until they do. */
+  --color-amber: var(--glow);
+  --color-ember: #9a4f06;
+  --color-uv: #b394ff;
+
+  --font-display: "Syne", "Arial Black", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --animate-marquee: marquee 38s linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+}
+
+/* Registered so a change of gas fades across the whole page instead of
+   snapping. */
+@property --glow {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffb547;
+}
+
+:root {
+  --glow: #ffb547;
+  transition: --glow 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: dark;
+  --nav-h: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--nav-h) + 12px);
+    background: var(--color-void);
+  }
+
+  body {
+    @apply bg-void font-mono text-bone antialiased;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.65;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-amber);
+    color: var(--color-void);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 0.92;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-amber);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.lenis) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* --------------------------------------------------------------- utilities */
+
+/* A chapter that arrives as a sheet sliding up over the one before: a rounded
+   top and a soft violet shadow cast onto the page behind. Every chapter is its
+   own stacking context, painted in page order. */
+@utility sheet {
+  position: relative;
+  isolation: isolate;
+  margin-top: -36px;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  box-shadow: 0 -30px 60px -30px rgba(80, 40, 160, 0.45);
+  @media (min-width: 768px) {
+    margin-top: -48px;
+    border-top-left-radius: 48px;
+    border-top-right-radius: 48px;
+  }
+}
+
+/* Soft light inside a sheet, clipped below the rounded top. */
+@utility glow-clip {
+  position: absolute;
+  inset: 32px 0 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  @media (min-width: 768px) {
+    inset: 48px 0 0 0;
+  }
+}
+
+/* The stamped label: mono, uppercase, wide tracking. */
+@utility stamp {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+@utility btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The one filled action: amber, with an amber-tinted glow (never grey). */
+@utility btn-amber {
+  @apply btn bg-amber text-void hover:bg-bone;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--glow) 40%, transparent),
+    0 10px 40px -8px color-mix(in oklab, var(--glow) 65%, transparent);
+}
+
+@utility btn-ghost {
+  @apply btn border border-bone/30 text-bone hover:border-bone hover:bg-bone hover:text-void;
+}
+
+@utility btn-ghost-dark {
+  @apply btn border border-void/30 text-void hover:border-void hover:bg-void hover:text-bone;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Plain CSS outside any layer, so it is always emitted. */
+
+/* Glowing glass: the text is near-white, the light around it is the tube's
+   gas colour (--tube). Painted once; only opacity and transform ever move. */
+.neon {
+  color: color-mix(in oklab, var(--tube, var(--glow)) 22%, #ffffff);
+  text-shadow:
+    0 0 1px rgba(255, 255, 255, 0.9),
+    0 0 6px var(--tube, var(--glow)),
+    0 0 18px var(--tube, var(--glow)),
+    0 0 42px var(--tube, var(--glow)),
+    0 0 90px color-mix(in oklab, var(--tube, var(--glow)) 60%, transparent);
+}
+/* The same letters unlit: the bare glass tube. */
+.tube-off {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(242, 237, 228, 0.18);
+}
+.outline-bone {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(242, 237, 228, 0.35);
+}
+
+/* A tube catching: two stutters, then steady. */
+.flicker-on {
+  animation: flicker-on 1.6s steps(1, end) both;
+}
+@keyframes flicker-on {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0.1;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  24% {
+    opacity: 0.15;
+  }
+  34% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+/* An old tube that hums: an occasional dip, forever. */
+.hum {
+  animation: hum 7s steps(1, end) infinite;
+}
+@keyframes hum {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  61% {
+    opacity: 0.55;
+  }
+  62% {
+    opacity: 1;
+  }
+  64% {
+    opacity: 0.7;
+  }
+  65% {
+    opacity: 1;
+  }
+}
+
+/* Catches, then hums forever (two animations, two delays). */
+.flicker-hum {
+  animation:
+    flicker-on 1.6s steps(1, end) both,
+    hum 7s steps(1, end) infinite;
+}
+
+/* The perspective floor under the hero: a grid sliding towards you. */
+.grid-floor {
+  background-image:
+    linear-gradient(to right, rgba(179, 148, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(179, 148, 255, 0.22) 1px, transparent 1px);
+  background-size: 80px 80px;
+  animation: floor 2.4s linear infinite;
+}
+@keyframes floor {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 80px, 0);
+  }
+}
+
+/* The lamp floating above its own name. */
+.float {
+  animation: float 5s ease-in-out infinite;
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0);
+  }
+}
+
+.spin-slow {
+  animation: spin 22s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A blinking caret / status light. */
+.blink {
+  animation: blink 1.4s steps(1, end) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The custom cursor exists only for a real mouse. */
+@media (hover: hover) and (pointer: fine) {
+  html.has-cursor,
+  html.has-cursor * {
+    cursor: none !important;
+  }
+}
+
+/* The opening curtain is server-rendered so it covers the first paint. If
+   JavaScript never runs, this lifts it anyway — it can never trap anyone. */
+.curtain {
+  animation: curtain-failsafe 0.8s ease 3.4s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Lenis (from lenis/dist/lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .grid-floor,
+  .float,
+  .hum,
+  .spin-slow,
+  .blink {
+    animation: none !important;
+  }
+  /* The curtain still shows (it fades instead of wiping), so its fail-safe
+     keeps a real delay here. */
+  .curtain {
+    animation: curtain-failsafe 0.6s ease 3.4s forwards !important;
+  }
+}
