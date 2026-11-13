@@ -24,7 +24,7 @@ export function Studio() {
       <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-16">
         <ChapterLabel id="why" />
 
-        <h2 className="relative mt-10 flex items-end justify-between gap-4 text-[clamp(52px,11vw,190px)] font-extrabold uppercase">
+        <h2 className="relative mt-10 flex items-end justify-between gap-4 text-[clamp(40px,11vw,190px)] font-extrabold uppercase">
           <motion.span style={{ x: leftX }}>Real</motion.span>
           <span className="mb-[0.18em] hidden h-[0.6em] w-px bg-bone/20 md:block" aria-hidden="true" />
           <motion.span style={{ x: rightX }} className="font-serif text-[0.8em] font-normal normal-case italic tracking-[-0.02em] text-amber">
