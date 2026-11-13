@@ -13,7 +13,7 @@ export function Studio() {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const leftX = useTransform(scrollYProgress, [0, 0.5], ["-6vw", "0vw"]);
-  const rightX = useTransform(scrollYProgress, [0, 0.5], ["6vw", "0vw"]);
+  const rightX = useTransform(scrollYProgress, [0, 0.5], ["0vw", "-4vw"]);
   const stripX = useTransform(scrollYProgress, [0, 1], ["0%", "-35%"]);
 
   return (

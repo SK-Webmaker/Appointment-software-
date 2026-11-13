@@ -78,9 +78,11 @@ function Card({ i, title, text }: { i: number; title: string; text: string }) {
         }`}
       >
         <div className="flex items-start justify-between gap-6">
-          <span aria-hidden="true" className={`font-display text-[clamp(64px,8vw,112px)] font-extrabold leading-none ${last ? "neon [--tube:#ffb547]" : "text-void/15"}`}>
-            {String(i + 1).padStart(2, "0")}
-          </span>
+          <span
+            aria-hidden="true"
+            data-n={String(i + 1).padStart(2, "0")}
+            className={`font-display text-[clamp(64px,8vw,112px)] font-extrabold leading-none before:content-[attr(data-n)] ${last ? "neon [--tube:#ffb547]" : "text-void/15"}`}
+          />
           <span className={`stamp mt-3 ${last ? "text-amber" : "text-ember"}`}>Step {i + 1} of {STEPS.length}</span>
         </div>
         <div className="mt-6 grid gap-6 md:grid-cols-[1fr_minmax(0,300px)] md:items-end">

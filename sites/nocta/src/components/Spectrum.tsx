@@ -34,7 +34,7 @@ export function Spectrum() {
 
         <div className="relative mx-auto flex h-full max-w-[1440px] flex-col px-5 pb-8 pt-[calc(var(--nav-h)+28px)] md:px-10 md:pb-12 xl:px-16">
           <ChapterLabel id="spectrum" />
-          <h2 className="mt-6 max-w-[14ch] text-[clamp(36px,5.6vw,88px)] font-extrabold uppercase">
+          <h2 className="mt-6 max-w-[14ch] text-[clamp(32px,5.6vw,88px)] font-extrabold uppercase">
             Every gas glows <span className="font-serif font-normal normal-case italic">its own colour.</span>
           </h2>
 
@@ -50,13 +50,13 @@ export function Spectrum() {
             </motion.div>
           </div>
 
-          <div data-qa="scroll-scene" className="relative grid min-h-[200px] gap-6 md:min-h-[230px] md:grid-cols-[auto_1fr] md:items-end md:gap-14">
-            <div className="relative h-[150px] w-[140px] md:h-[200px] md:w-[190px]">
+          <div data-qa="scroll-scene" className="relative grid gap-6 md:grid-cols-[auto_1fr] md:items-end md:gap-14">
+            <div className="relative h-[150px] w-[140px] md:h-[200px] md:w-[190px] [@media(max-height:740px)]:hidden">
               {GASES.map((g, i) => (
                 <Tile key={g.symbol} p={p} i={i} g={g} />
               ))}
             </div>
-            <div className="relative min-h-[130px]">
+            <div className="grid">
               {GASES.map((g, i) => (
                 <Note key={g.symbol} p={p} i={i} g={g} />
               ))}
@@ -122,7 +122,7 @@ function Note({ p, i, g }: { p: MotionValue<number>; i: number; g: (typeof GASES
   const o = useGas(p, i);
   const y = useTransform(o, [0, 1], [18, 0]);
   return (
-    <motion.div className="absolute inset-x-0 bottom-0" style={{ opacity: o, y }}>
+    <motion.div className="self-end [grid-area:1/1]" style={{ opacity: o, y }}>
       <p className="stamp" style={{ color: g.colour }}>
         {g.name} — glows {g.glow}
       </p>
