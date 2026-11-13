@@ -31,8 +31,8 @@ The page is one continuous journey. No hard cuts, no jumps, nothing that
 stutters.
 
 1. **Opening.** A brand curtain (≤ 1.6 s), server-rendered with a CSS
-   fail-safe, skipped under reduced motion. It locks scroll and always
-   releases it.
+   fail-safe; under reduced motion it fades instead of wiping. It locks
+   scroll and always releases it.
 2. **Hero.** A pinned scene driven by the scroll: the signature photo starts
    in a measured layout slot (so it never collides with text), glides to the
    centre, supporting photos are dealt out around it, and a closing line
@@ -54,8 +54,12 @@ stutters.
 6. **One motion language.** Easing `cubic-bezier(0.22, 1, 0.36, 1)` for
    everything that arrives, `(0.76, 0, 0.24, 1)` for curtains and menus;
    0.6–1.2 s; nothing bounces or overshoots.
-7. **Reduced motion.** Everything static and fully visible from the first
-   paint; no pinned scenes; no curtain. Read the preference with
+7. **Reduced motion.** The opening scene still plays: it is driven by the
+   visitor's own scrolling, and with it switched off the site's signature
+   simply looks broken (a client saw exactly that on a device with
+   "Reduce motion" on). What reduced motion turns off is everything that
+   moves by itself: the curtain's wipe (it fades instead), entrance slides,
+   the scroll cue, button sheen, pings. Read the preference with
    `useReducedMotionSafe()` (framer's hook breaks hydration).
 8. **Performance rules.** Animate only `transform` and `opacity`. No `blur()`
    or blend modes on scrolling sections (soft light is a `radial-gradient`).

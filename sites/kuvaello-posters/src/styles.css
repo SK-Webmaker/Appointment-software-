@@ -1,0 +1,319 @@
+@import "tailwindcss" source(none);
+@source "../src";
+
+/* ------------------------------------------------------------------ fonts
+   Self-hosted (Latin subset) so the opening never waits on a third party.
+   Their posters set names in tall, heavy condensed capitals: Anton. Text is
+   Montserrat, as on their posters' small print. */
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/anton-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/montserrat-normal.woff2") format("woff2");
+}
+
+/* ----------------------------------------------------------------- tokens
+   Their colours: the black and white of the Kuvaello mark, paper white, and
+   the amber of stadium floodlights on their posters. (`candy` is the amber
+   ground, `mint` warm paper grey; names are shared with the other sites.)
+   Contrast (WCAG): ink 17.5:1, ash 7.6:1, rose 5.4:1 on ivory; ink 9.5:1,
+   plum 5.7:1 on candy; ivory 17.6:1, pearl 10.9:1 on noir.
+   Timing is NOT tokenised on purpose: components use arbitrary values
+   (duration-[…], ease-[cubic-bezier(0.22,1,0.36,1)]). */
+@theme {
+  --color-ivory: #f4f2ed;
+  --color-stone: #e8e4dc;
+  --color-card: #fbfaf7;
+  --color-mint: #ece8e0;
+  --color-candy: #f2a541;
+  --color-ink: #0c0c0d;
+  --color-ash: #4f4c47;
+  --color-onyx: #141416;
+  --color-onyx-deep: #000000;
+  --color-rose: #a14a0b;
+  --color-plum: #5c2a06;
+  --color-noir: #0b0b0c;
+  --color-coal: #1a1a1c;
+  --color-pearl: #f6b45d;
+  --color-silk: #f2a541;
+  --color-mist: #8a8780;
+
+  --font-display: "Anton", "Impact", "Arial Narrow", sans-serif;
+  --font-sans: "Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: "Anton", "Impact", sans-serif;
+
+  --tracking-label: 0.26em;
+
+  --animate-marquee: marquee 40s linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+  --nav-h: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--nav-h) + 12px);
+    background: var(--color-ivory);
+  }
+
+  body {
+    @apply bg-ivory font-sans text-ink antialiased;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-pearl);
+    color: var(--color-noir);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rose);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.lenis) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Poster headlines: tall condensed capitals. Anton has no italic, so an
+   emphasised word turns amber instead of slanting. */
+.font-display,
+h1,
+h2,
+h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+}
+.font-display em,
+h1 em,
+h2 em,
+h3 em {
+  font-style: normal;
+}
+
+
+/* --------------------------------------------------------------- utilities */
+
+/* The capsule: kept for shared components. */
+@utility capsule {
+  border-radius: 10px;
+}
+
+/* The arch: kept for shared components. */
+@utility arch {
+  border-radius: 9999px 9999px 28px 28px;
+}
+
+/* A chapter that arrives as a sheet sliding up over the one before: an arched
+   top and a soft shadow cast onto the page
+   behind. The overlap matches the bottom padding of the hero's last scene,
+   so the sheet meets its button exactly as the hero lets go. Every chapter
+   is its own stacking context, painted in page order. */
+@utility sheet {
+  position: relative;
+  isolation: isolate;
+  margin-top: -36px;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  box-shadow: 0 -26px 48px -34px rgba(46, 29, 20, 0.4);
+  @media (min-width: 768px) {
+    margin-top: -48px;
+    border-top-left-radius: 48px;
+    border-top-right-radius: 48px;
+  }
+}
+
+/* Soft light inside a sheet: a plain rectangular clip that starts below the
+   arched top. Sheets themselves never clip — a rounded clip around anything
+   that animates (a reveal, a drifting glow) costs a mask on every frame. */
+@utility glow-clip {
+  position: absolute;
+  inset: 32px 0 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  @media (min-width: 768px) {
+    inset: 48px 0 0 0;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-rose);
+}
+
+@utility btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-primary {
+  @apply btn bg-onyx text-ivory shadow-[0_12px_30px_-12px_rgba(46,29,20,0.55)] hover:bg-onyx-deep;
+}
+
+@utility btn-honey {
+  @apply btn bg-silk text-noir hover:bg-ivory;
+}
+
+@utility btn-ghost {
+  @apply btn border border-ink/25 text-ink hover:border-onyx hover:bg-onyx hover:text-ivory;
+}
+
+@utility btn-ghost-light {
+  @apply btn border border-ivory/35 text-ivory hover:border-ivory hover:bg-ivory hover:text-noir;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Plain CSS outside any layer, so it is always emitted. */
+
+/* Light travelling across a button, like a floodlight. */
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 248, 0.26), transparent);
+  animation: sheen 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The opening curtain is server-rendered so it covers the first paint. If
+   JavaScript never runs, this lifts it anyway — it can never trap anyone. */
+.curtain {
+  animation: curtain-failsafe 0.8s ease 3.4s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Lenis (from lenis/dist/lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .sheen::after {
+    display: none !important;
+  }
+  /* The curtain still shows (it fades instead of wiping), so its fail-safe
+     keeps a real delay here. */
+  .curtain {
+    animation: curtain-failsafe 0.6s ease 3.4s forwards !important;
+  }
+}
