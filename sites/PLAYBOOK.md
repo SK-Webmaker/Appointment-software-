@@ -24,8 +24,10 @@ forward. Nothing ships until every gate below passes.
   `BRAND-BRIEF.md`.
 - For type, layout and editorial devices, start from the owner's favourite
   aesthetics in the `style-references` skill. Take what fits the brand.
-- `sites/nocta` is the reference for maximum motion (cursor light, magnetic
-  buttons, pinned sideways gallery, pinned colour lesson, velocity skew).
+- `sites/lumbend` is the reference for maximum motion (cursor light, magnetic
+  buttons, pinned sideways gallery, pinned exploded view, pinned colour
+  lesson, a page that recolours to the visitor's choice, click sparks,
+  flashlight mode, velocity skew).
 
 ## 2. Photos — sharp, theirs, honest
 

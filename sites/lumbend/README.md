@@ -1,18 +1,20 @@
-# NOCTA Light Studio — "insane website"
+# LUMBEND One — "insane website"
 
-A concept one-page site for a made-up neon and light studio, built to show
-the ceiling of scroll-driven motion: an ignition curtain, a pinned hero
-where neon letters lean with the mouse and fly apart as a point of light
-fills the room, a manifesto that switches on word by word, a sideways
-gallery of neon signs that catch as they reach you, a pinned spectrum lesson
-where one tube changes gas, stacking process cards that draw themselves, a
-velocity-skewed amber band, a magnetic light switch and a footer wordmark
-that fills with light. A custom cursor, magnetic buttons and a live clock
-throughout.
+A concept one-page site for a made-up product, LUMBEND One, the real-glass
+neon desk lamp, built to show the ceiling of scroll-driven motion: an
+ignition curtain; a pinned hero where the lamp floats over its own name,
+tries on its shapes, tilts with the mouse, then swells until its light fills
+the room; a manifesto that switches on word by word; a pinned exploded view
+where the lamp comes apart into its five parts and snaps back lit; a
+sideways gallery of the five shapes, each catching in a different gas; a
+pinned colour lesson where choosing a gas recolours the whole page; stacking
+process cards that draw themselves; specs; a velocity-skewed band; a live
+configurator with a magnetic glowing switch. Throughout: a custom cursor,
+click sparks, a lights-off flashlight mode, scrambling labels, magnetic
+buttons and a live clock.
 
 All content lives in `src/site.config.ts`. See `BRAND-BRIEF.md` for the
 palette and `sites/PLAYBOOK.md` for the gates.
-
 ## Run
 ```
 bun install
