@@ -15,6 +15,18 @@ forward. Nothing ships until every gate below passes.
   list. Never invent a review, price, hour, address or name.
 - Write in their voice ("I" for a solo owner, "we" if their posts say "we").
 
+## 1b. Colour and style
+
+- Build the palette with the `colour-palettes` skill
+  (`.claude/skills/colour-palettes/`): one brand hue tinting every neutral,
+  surface steps of that hue, one rationed accent, accent-tinted glows. Run
+  its `contrast.mjs --css src/styles.css` and record the palette in
+  `BRAND-BRIEF.md`.
+- For type, layout and editorial devices, start from the owner's favourite
+  aesthetics in the `style-references` skill. Take what fits the brand.
+- `sites/nocta` is the reference for maximum motion (cursor light, magnetic
+  buttons, pinned sideways gallery, pinned colour lesson, velocity skew).
+
 ## 2. Photos — sharp, theirs, honest
 
 - Only their own Instagram photos and reel frames (the sharpest frame of each
