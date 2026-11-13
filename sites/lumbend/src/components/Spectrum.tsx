@@ -43,7 +43,7 @@ export function Spectrum() {
 
           {/* the tube */}
           <div className="relative my-auto py-6">
-            <motion.div className="relative mx-auto h-5 w-full origin-center md:h-7" style={{ scaleX: tubeScale }}>
+            <motion.div className="relative mx-auto h-5 w-full origin-center will-change-transform md:h-7" style={{ scaleX: tubeScale }}>
               <span className="absolute -left-2 top-1/2 h-9 w-4 -translate-y-1/2 rounded-sm bg-dusk ring-1 ring-bone/20 md:h-11" aria-hidden="true" />
               <span className="absolute -right-2 top-1/2 h-9 w-4 -translate-y-1/2 rounded-sm bg-dusk ring-1 ring-bone/20 md:h-11" aria-hidden="true" />
               <span className="absolute inset-0 rounded-full border border-bone/15 bg-bone/5" aria-hidden="true" />
@@ -90,16 +90,19 @@ function Wash({ p, i, colour }: { p: MotionValue<number>; i: number; colour: str
 
 function Tube({ p, i, colour }: { p: MotionValue<number>; i: number; colour: string }) {
   const o = useGas(p, i);
+  // The glow is a soft gradient halo, not a blurred shadow: a 140px blur
+  // across a full-width tube is far too expensive to repaint.
   return (
-    <motion.span
-      aria-hidden="true"
-      className="absolute inset-0 rounded-full will-change-[opacity]"
-      style={{
-        opacity: o,
-        background: `linear-gradient(to bottom, #fff 0%, ${colour} 55%, ${colour} 100%)`,
-        boxShadow: `0 0 8px ${colour}, 0 0 28px ${colour}, 0 0 70px ${colour}, 0 0 140px ${colour}99`,
-      }}
-    />
+    <motion.span aria-hidden="true" className="absolute inset-0 will-change-[opacity]" style={{ opacity: o }}>
+      <span
+        className="absolute -inset-x-[6%] -inset-y-[400%] rounded-full"
+        style={{ background: `radial-gradient(50% 50% at 50% 50%, ${colour}66, ${colour}22 45%, transparent 72%)` }}
+      />
+      <span
+        className="absolute inset-0 rounded-full"
+        style={{ background: `linear-gradient(to bottom, #fff 0%, ${colour} 55%, ${colour} 100%)`, boxShadow: `0 0 6px ${colour}, 0 0 18px ${colour}` }}
+      />
+    </motion.span>
   );
 }
 
