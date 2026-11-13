@@ -34,7 +34,9 @@ function Scramble({ text, reduce }: { text: string; reduce: boolean }) {
   const inView = useInView(ref, VIEW);
   useEffect(() => {
     const el = ref.current;
-    if (!inView || reduce || !el) return undefined;
+    // Mouse devices only: rewriting text 30 times a second costs a phone
+    // layout work it needs for scrolling.
+    if (!inView || reduce || !el || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) return undefined;
     let frame = 0;
     const total = 22;
     const t = window.setInterval(() => {

@@ -33,9 +33,12 @@ export function Hero() {
   // The lamp tries on its shapes until the visitor picks one.
   useEffect(() => {
     if (reduce || shape) return undefined;
-    const t = window.setInterval(() => setIdx((i) => (i + 1) % CYCLE.length), 2600);
+    // Only while the scene is on screen: off-screen, a crossfade is wasted paint.
+    const t = window.setInterval(() => {
+      if (p.get() < 0.12) setIdx((i) => (i + 1) % CYCLE.length);
+    }, 2600);
     return () => window.clearInterval(t);
-  }, [reduce, shape]);
+  }, [reduce, shape, p]);
   const showing: Shape = shape || CYCLE[idx] || "Loop";
 
   // Mouse, softened.
@@ -125,7 +128,7 @@ export function Hero() {
                 <Lamp
                   key={s}
                   shape={s}
-                  className={`absolute inset-0 transition-opacity duration-700 ${showing === s ? "opacity-100" : "opacity-0"}`}
+                  className={`absolute inset-0 transition-opacity duration-700 will-change-[opacity] ${showing === s ? "opacity-100" : "opacity-0"}`}
                 />
               ))}
             </div>
