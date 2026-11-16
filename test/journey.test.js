@@ -125,7 +125,7 @@ before(async () => {
       STRIPE_WEBHOOK_SECRET: stripe.webhookSecret,
       ABR_API_BASE: abr.base,
       ABR_GUID: 'test-guid',
-      KAIRO_PRICE_CENTS: '41000',
+      KAIRO_ONCE_CENTS: '40000',
       RESEND_API_BASE: resend.base,
       // The platform's own sender, so its receipt and welcome email are real.
       RESEND_API_KEY: 're_full_platform',
@@ -156,7 +156,9 @@ test('act 1: the shop front tells the truth before anybody pays', async () => {
   // charging something its own Terms contradict.
   const price = await platform.api('GET', '/api/price');
   assert.equal(price.status, 200);
-  assert.equal(price.json.price_cents, 41000, 'A$410, the one price Kairo has');
+  assert.equal(price.json.price_cents, 40000, 'A$400, the one-payment price');
+  assert.deepEqual(price.json.plans.map((p) => [p.id, p.cents, p.payments]), [['once', 40000, 1], ['monthly', 15000, 3]],
+    'and the monthly plan: three payments of A$150');
   assert.equal(price.json.base_domain, DOMAIN);
 
   // Every policy a buyer is asked to agree to must exist before they can agree
@@ -176,7 +178,7 @@ test('act 1: a business buys Kairo and a real salon comes out', async () => {
   // Stripe took the money exactly once, for exactly the advertised amount.
   const paid = [...stripe.sessions.values()].filter((s) => s.payment_status === 'paid');
   assert.equal(paid.length, 1, 'one payment, not two');
-  assert.equal(paid[0].amount_total, 41000);
+  assert.equal(paid[0].amount_total, 40000);
 
   // The platform's copy of her password is destroyed once it has been used.
   // Kairo keeps no credential it does not need.
@@ -193,7 +195,7 @@ test('act 1: a business buys Kairo and a real salon comes out', async () => {
     return r.length ? r : null;
   }, 'the Kairo receipt was emailed');
   assert.equal(receipts.length, 1, 'one receipt, not one per webhook');
-  assert.ok(receipts[0].html.includes('A$410.00'));
+  assert.ok(receipts[0].html.includes('A$400.00'));
   assert.ok(receipts[0].html.includes('Paid in full'));
 });
 

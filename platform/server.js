@@ -244,7 +244,12 @@ async function api(req, res, url, ip) {
       url: signup.publicUrlFor(b.slug),
       owner_email: owner.email,
       state: b.state,
-      price_cents: b.price_cents,
+      // What a refund inside the window gives back: the whole price on the
+      // one-payment plan, the first payment on the monthly one (the second
+      // falls a month in, after the 14 days are up).
+      price_cents: signup.refundableCents(b),
+      plan: signup.planFor(b.plan).id,
+      total_cents: b.price_cents,
       paid_at: b.paid_at,
       refund_days_left: signup.refundDaysLeft(b),
       refunded: Boolean(b.refunded_at),

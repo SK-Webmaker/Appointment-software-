@@ -77,7 +77,7 @@ before(async () => {
     env: {
       KAIRO_BASE_DOMAIN: DOMAIN,
       STRIPE_SECRET_KEY: 'sk_test_platform', STRIPE_API_BASE: stripe.base, STRIPE_WEBHOOK_SECRET: stripe.webhookSecret,
-      ABR_API_BASE: abr.base, ABR_GUID: 'test-guid', KAIRO_PRICE_CENTS: '41000',
+      ABR_API_BASE: abr.base, ABR_GUID: 'test-guid', KAIRO_ONCE_CENTS: '40000',
       RESEND_API_BASE: resend.base,
       CLOUDFLARE_API_BASE: cflare.base, CLOUDFLARE_API_TOKEN: 'cf-test-token',
       RESEND_VERIFY_WAIT_MS: '50', RESEND_VERIFY_TRIES: '10',
@@ -405,7 +405,7 @@ test('the app can see the guarantee, and never invents one', async () => {
   assert.equal(g.json.days_left, 14, 'counted by the platform, not by the app');
   assert.equal(g.json.refunded, false);
   assert.equal(g.json.window_days, 14);
-  assert.equal(g.json.price_cents, 41000, 'what they actually paid');
+  assert.equal(g.json.price_cents, 40000, 'what they actually paid');
   assert.equal((await shard.api('GET', '/api/account/guarantee', { host: HOST })).status, 401,
     'and it needs a session');
 });

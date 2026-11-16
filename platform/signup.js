@@ -42,6 +42,8 @@ export const planFor = (id) => PLANS()[id === 'monthly' ? 'monthly' : 'once'];
 export const planTotal = (p) => p.cents * p.payments;
 /** The headline price: the whole of it, paid once. */
 export const PRICE_CENTS = () => PLANS().once.cents;
+/** Paid so far inside the refund window: all of it, or a monthly plan's first payment. */
+export const refundableCents = (b) => (planFor(b.plan).payments > 1 ? planFor(b.plan).cents : b.price_cents);
 /** What the signup page shows: both plans, each with its total. */
 export const publicPlans = () => Object.values(PLANS()).map((p) => ({ ...p, total_cents: planTotal(p) }));
 // The listing itself once Apple has one (src/app-store.js finds it), the

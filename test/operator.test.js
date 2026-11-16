@@ -80,8 +80,8 @@ test('the numbers are the platform’s own: money net of refunds, live salons, t
   assert.equal((await platform.api('POST', `/api/operator/business/${bravo}/refund`, { cookie, body: { reason: 'test' } })).status, 200);
 
   const o = (await platform.api('GET', '/api/operator/overview', { cookie })).json;
-  assert.equal(o.money.net, 41000, 'one sale kept');
-  assert.equal(o.money.refunded, 41000);
+  assert.equal(o.money.net, 40000, 'one sale kept');
+  assert.equal(o.money.refunded, 40000);
   assert.equal(o.money.refunded_n, 1);
   assert.equal(o.counts.live, 1);
   assert.equal(o.counts.unpaid, 1);
@@ -91,7 +91,7 @@ test('the numbers are the platform’s own: money net of refunds, live salons, t
   assert.equal(o.counts.in_window, 1, 'alpha could still ask for its money back');
   assert.equal(o.weeks.length, 12);
   assert.equal(o.weeks.at(-1).paid, 2, 'this week: two sold');
-  assert.equal(o.weeks.at(-1).cents, 41000, 'and one of them refunded');
+  assert.equal(o.weeks.at(-1).cents, 40000, 'and one of them refunded');
   assert.equal(o.salons.find((s) => s.slug === 'alpha').refund_days_left, 14);
   assert.equal(o.health.shard.ok, true);
   assert.equal(o.health.stripe, 'test');

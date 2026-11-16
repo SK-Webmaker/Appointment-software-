@@ -153,7 +153,7 @@ test('refund and delete: the copy is emailed first, the money goes back, and the
   assert.match(codeMail.subject, new RegExp(`^${code} `), 'the digits are in the subject, for the lock screen');
   assert.match(codeMail.html, new RegExp(code), 'and big in the email itself');
   assert.match(codeMail.text, /10 minutes/);
-  assert.match(codeMail.text, /refund \$410 and close leaving salon/, 'it says exactly what the code does');
+  assert.match(codeMail.text, /refund \$400 and close leaving salon/, 'it says exactly what the code does');
 
   // Pressing "send" again at once sends nothing more.
   const resend2 = await shard.api('POST', '/api/account/refund/code', { host, cookie, body: {} });
