@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { startKairo, startPlatform, openDateAhead, ROOT } from './helpers/kairo.js';
 import { mockStripe, mockAbr } from './helpers/mocks.js';
 import { SELLER, SELLER_COUNTRY, SELLER_NAMED_IN } from '../platform/seller.js';
+import { addMonthsUnix } from '../platform/stripe.js';
 
 const KEY = 'platform-key-for-tests-0123456789';
 const DOMAIN = 'kairobookings.test';
@@ -503,6 +504,96 @@ test('a refund inside the window returns the money and stops the address', async
   assert.ok(fs.existsSync(path.join(shardDir, 'tenants', 'noabn', 'kairo.db')), 'the file is kept');
   const st = await platform.api('GET', `/api/status?token=${biz.token}`);
   assert.equal(st.json.state, 'refunded');
+});
+
+// ── the two ways to pay (owner's pricing, 16 Nov 2026) ──────────────────────
+// A$400 in one payment, or A$150 a month for three months. Same Kairo, same
+// fourteen days to change your mind.
+
+test('both ways to pay are on offer: A$400 once, or three monthly payments of A$150', async () => {
+  const r = await platform.api('GET', '/api/price');
+  assert.equal(r.status, 200);
+  assert.equal(r.json.price_cents, 40000, 'the headline price is the one-payment price');
+  const plans = Object.fromEntries(r.json.plans.map((p) => [p.id, p]));
+  assert.deepEqual([plans.once.cents, plans.once.payments, plans.once.total_cents], [40000, 1, 40000]);
+  assert.deepEqual([plans.monthly.cents, plans.monthly.payments, plans.monthly.total_cents], [15000, 3, 45000]);
+});
+
+test('a monthly plan is cancelled the day before a fourth payment would fall, in every kind of month', () => {
+  const at = (s) => Math.floor(Date.parse(s) / 1000);
+  const iso = (u) => new Date(u * 1000).toISOString().slice(0, 10);
+  assert.equal(iso(addMonthsUnix(at('2026-11-16T09:00:00Z'), 3)), '2027-02-16');
+  assert.equal(iso(addMonthsUnix(at('2026-11-30T09:00:00Z'), 3)), '2027-02-28', 'the 30th clamps to February, like Stripe');
+  assert.equal(iso(addMonthsUnix(at('2027-12-31T09:00:00Z'), 2)), '2028-02-29', 'a leap year');
+  // Third payment at +2 months, cancellation before +3: always after the third.
+  for (const start of ['2026-11-30T09:00:00Z', '2026-12-31T09:00:00Z', '2027-01-31T09:00:00Z']) {
+    const a = at(start);
+    const cancel = addMonthsUnix(a, 3) - 86400;
+    assert.ok(cancel > addMonthsUnix(a, 2), `${start}: the third payment is taken before the plan ends`);
+  }
+});
+
+test('pay once: one A$400 payment, and the salon is built', async () => {
+  const { token, sessionId } = await fullSignup({ slug: 'payonce', business_name: 'Pay Once Salon', email: 'once@plans.example', abn: '', plan: 'once' });
+  const p = stripe.sessionParams.get(sessionId);
+  assert.equal(p.mode, 'payment');
+  assert.equal(p['line_items[0][price_data][unit_amount]'], '40000');
+  assert.equal(p['line_items[0][price_data][recurring][interval]'], undefined, 'nothing recurring');
+  const st = await waitFor(token, 'ready');
+  assert.equal(st.plan, 'once');
+  const d = platform.platformDb();
+  const b = d.prepare("SELECT plan, price_cents, stripe_payment_intent, stripe_subscription FROM businesses WHERE slug = 'payonce'").get();
+  d.close();
+  assert.deepEqual([b.plan, b.price_cents, b.stripe_subscription], ['once', 40000, '']);
+  assert.match(b.stripe_payment_intent, /^pi_/);
+});
+
+test('pay monthly: A$150 now, three payments in all, and the plan stops itself after the third', async () => {
+  const { token, sessionId } = await fullSignup({ slug: 'paymonthly', business_name: 'Pay Monthly Salon', email: 'monthly@plans.example', abn: '', plan: 'monthly' });
+  const p = stripe.sessionParams.get(sessionId);
+  assert.equal(p.mode, 'subscription');
+  assert.equal(p['line_items[0][price_data][unit_amount]'], '15000');
+  assert.equal(p['line_items[0][price_data][recurring][interval]'], 'month');
+  assert.match(p['custom_text[submit][message]'], /\$150 today.*\$450 in all/);
+  const st = await waitFor(token, 'ready');
+  assert.equal(st.plan, 'monthly');
+  const d = platform.platformDb();
+  const b = d.prepare("SELECT plan, price_cents, stripe_subscription, stripe_customer FROM businesses WHERE slug = 'paymonthly'").get();
+  d.close();
+  assert.deepEqual([b.plan, b.price_cents], ['monthly', 45000]);
+  assert.match(b.stripe_customer, /^cus_/);
+  const sub = stripe.subscriptions.get(b.stripe_subscription);
+  assert.ok(sub, 'the subscription is recorded against the salon');
+  assert.equal(sub.cancel_at, addMonthsUnix(sub.billing_cycle_anchor, 3) - 86400, 'ends the day before a fourth payment');
+  assert.equal(sub.proration_behavior, 'none', 'the last month is not credited back');
+});
+
+test('the plan can still be changed on the payment step', async () => {
+  const { token } = await fullSignup({ slug: 'changeplan', business_name: 'Change Plan Salon', email: 'change@plans.example', abn: '', plan: 'once' }, { pay: false });
+  const a = await platform.api('POST', '/api/checkout', { body: { token, plan: 'monthly' } });
+  assert.equal(a.status, 200, a.text);
+  assert.equal(stripe.sessionParams.get([...stripe.sessions.keys()].pop()).mode, 'subscription');
+  assert.equal((await platform.api('GET', `/api/status?token=${token}`)).json.plan, 'monthly');
+  const b = await platform.api('POST', '/api/checkout', { body: { token, plan: 'once' } });
+  assert.equal(b.status, 200, b.text);
+  assert.equal(stripe.sessionParams.get([...stripe.sessions.keys()].pop()).mode, 'payment', 'switching back gives a one-payment page, not a reused one');
+  assert.equal((await platform.api('GET', `/api/status?token=${token}`)).json.plan, 'once');
+});
+
+test('a monthly plan refunded inside the window stops the payments and gives every one back', async () => {
+  const op = await platform.api('POST', '/api/operator/login', { body: { password: 'operator-pass-2026!!' } });
+  const cookie = /kairo_operator=[^;]+/.exec(op.headers.get('set-cookie'))[0];
+  const d = platform.platformDb();
+  const biz = d.prepare("SELECT id, token, stripe_subscription, stripe_customer FROM businesses WHERE slug = 'paymonthly'").get();
+  d.close();
+  stripe.chargeAgain(biz.stripe_subscription, 15000); // the second month has gone through
+  const r = await platform.api('POST', `/api/operator/business/${biz.id}/refund`, { cookie, body: { reason: 'changed their mind' } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(stripe.subscriptions.get(biz.stripe_subscription).status, 'canceled', 'no further payments');
+  const theirs = stripe.charges.filter((c) => c.customer === biz.stripe_customer);
+  assert.equal(theirs.length, 2);
+  assert.ok(theirs.every((c) => c.refunded), 'both payments went back');
+  assert.equal((await platform.api('GET', `/api/status?token=${biz.token}`)).json.state, 'refunded');
 });
 
 test('a disputed payment suspends the salon and keeps everything', async () => {

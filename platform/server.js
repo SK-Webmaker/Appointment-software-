@@ -189,7 +189,7 @@ async function api(req, res, url, ip) {
 
   // ── the signup flow ──────────────────────────────────────────────────────
   if (p === '/api/price' && req.method === 'GET') {
-    return json(res, 200, { price_cents: signup.PRICE_CENTS(), currency: 'AUD', base_domain: signup.BASE_DOMAIN() });
+    return json(res, 200, { price_cents: signup.PRICE_CENTS(), plans: signup.publicPlans(), currency: 'AUD', base_domain: signup.BASE_DOMAIN() });
   }
 
   if (p === '/api/slug' && req.method === 'GET') {
@@ -222,7 +222,7 @@ async function api(req, res, url, ip) {
   if (p === '/api/checkout' && req.method === 'POST') {
     if (limited('checkout')) return undefined;
     const b = await readJson(req);
-    return json(res, 200, await signup.beginCheckout(b.token, ORIGIN()));
+    return json(res, 200, await signup.beginCheckout(b.token, ORIGIN(), b.plan));
   }
 
   if (p === '/api/status' && req.method === 'GET') {
@@ -292,11 +292,25 @@ async function api(req, res, url, ip) {
     if (event.type === 'checkout.session.completed') {
       const s = event.data?.object || {};
       if (s.payment_status === 'paid') {
-        try { await signup.onPaid({ sessionId: s.id, paymentIntent: s.payment_intent, amountTotal: s.amount_total }); }
+        try {
+          await signup.onPaid({
+            sessionId: s.id, paymentIntent: s.payment_intent, amountTotal: s.amount_total,
+            subscription: s.mode === 'subscription' ? s.subscription : '', customer: s.customer || '',
+          });
+        }
         catch (err) { console.error('provisioning after payment:', err.message); }
       }
     } else if (event.type === 'charge.dispute.created') {
-      const biz = db.prepare('SELECT id, slug FROM businesses WHERE stripe_payment_intent = ?').get(event.data?.object?.payment_intent || '');
+      const d = event.data?.object || {};
+      let biz = db.prepare("SELECT id, slug FROM businesses WHERE stripe_payment_intent = ? AND stripe_payment_intent != ''").get(d.payment_intent || '');
+      // A monthly plan's payments are not one payment intent: find the salon by
+      // the customer the disputed charge belongs to.
+      if (!biz && d.charge) {
+        try {
+          const cus = await stripe.chargeCustomer(typeof d.charge === 'string' ? d.charge : d.charge.id);
+          if (cus) biz = db.prepare('SELECT id, slug FROM businesses WHERE stripe_customer = ?').get(cus);
+        } catch { /* reported as unmatched below */ }
+      }
       if (biz) {
         // A dispute suspends, never deletes: a chargeback and a mistake look
         // the same from here and only one of them should be irreversible.
@@ -434,7 +448,8 @@ server.listen(PORT, HOST, () => {
   const price = (signup.PRICE_CENTS() / 100).toFixed(2);
   console.log('');
   console.log('  ◆ Kairo platform');
-  console.log(`    Signup        ${ORIGIN()}/start   (A$${price} once)`);
+  const m = signup.PLANS().monthly;
+  console.log(`    Signup        ${ORIGIN()}/start   (A$${price} once, or ${m.payments} × A$${(m.cents / 100).toFixed(2)} monthly)`);
   console.log(`    Operator      ${ORIGIN()}/operator`);
   console.log(`    Shard         ${shard.SHARD_URL()}`);
   // Can this platform actually talk to that shard, or does it only know the

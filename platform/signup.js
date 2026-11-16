@@ -24,7 +24,26 @@ import * as abr from './abr.js';
 import * as notify from './notify.js';
 
 export const BASE_DOMAIN = () => String(process.env.KAIRO_BASE_DOMAIN || 'kairobookings.com').trim().toLowerCase();
-export const PRICE_CENTS = () => Number(process.env.KAIRO_PRICE_CENTS || 41000);
+// Two ways to pay for the same Kairo (owner's pricing, 16 Nov 2026):
+//   once     A$400 in one payment — the lowest total
+//   monthly  A$150 a month for three months — A$450 in all, the first at signup
+// Either way there is nothing to pay after that, and the 14-day refund covers
+// both. The env names are new on purpose: the old KAIRO_PRICE_CENTS still set
+// on the server held the old single price and must not quietly win.
+export const PLANS = () => ({
+  once: { id: 'once', cents: Number(process.env.KAIRO_ONCE_CENTS || 40000), payments: 1 },
+  monthly: {
+    id: 'monthly',
+    cents: Number(process.env.KAIRO_MONTHLY_CENTS || 15000),
+    payments: Number(process.env.KAIRO_MONTHLY_PAYMENTS || 3),
+  },
+});
+export const planFor = (id) => PLANS()[id === 'monthly' ? 'monthly' : 'once'];
+export const planTotal = (p) => p.cents * p.payments;
+/** The headline price: the whole of it, paid once. */
+export const PRICE_CENTS = () => PLANS().once.cents;
+/** What the signup page shows: both plans, each with its total. */
+export const publicPlans = () => Object.values(PLANS()).map((p) => ({ ...p, total_cents: planTotal(p) }));
 // The listing itself once Apple has one (src/app-store.js finds it), the
 // store's front page until then. KAIRO_APP_URL still wins if set.
 export const APP_URL = () => String(process.env.KAIRO_APP_URL || appStoreUrl() || 'https://apps.apple.com/');
@@ -90,6 +109,7 @@ export async function startSignup(input, { ip = '' } = {}) {
   const password = String(input.password ?? '');
   // A page name from the website's signup links, or nothing.
   const source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';
+  const plan = planFor(input.plan);
 
   if (!name) throw err(400, 'Your name is required');
   if (businessName.length < 2) throw err(400, 'Your business name is required');
@@ -118,13 +138,13 @@ export async function startSignup(input, { ip = '' } = {}) {
   const { salt, hash } = hashPassword(password);
   const token = crypto.randomBytes(24).toString('base64url');
   const info = db.prepare(
-    `INSERT INTO businesses (owner_id, slug, name, abn, tz, phone, price_cents, pass_hash, salt, signup_ip, token, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, PRICE_CENTS(), hash, salt, clean(ip, 60), token, source);
+    `INSERT INTO businesses (owner_id, slug, name, abn, tz, phone, price_cents, plan, pass_hash, salt, signup_ip, token, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, planTotal(plan), plan.id, hash, salt, clean(ip, 60), token, source);
   const businessId = Number(info.lastInsertRowid);
-  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}${source ? ` (from ${source})` : ''}`);
+  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}${source ? ` (from ${source})` : ''} · ${plan.id}`);
   // In the server log too, without the person: the marketing run reads these.
-  console.log(`signup: started ${slug} from ${source || 'direct'}`);
+  console.log(`signup: started ${slug} from ${source || 'direct'} (${plan.id})`);
 
   await sendCodes(ownerId, email, businessId);
   return { token, slug, business_id: businessId };
@@ -186,14 +206,23 @@ export function verifyCode(token, kind, code) {
 }
 
 /** Step 3. The Checkout session. Verification first: no code, no payment page. */
-export async function beginCheckout(token, origin) {
-  const b = byToken(token);
+export async function beginCheckout(token, origin, planId = '') {
+  let b = byToken(token);
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
   if (!owner.email_verified) throw err(400, 'Confirm your email first');
   if (['paid', 'provisioning', 'ready'].includes(b.state)) throw err(409, 'That business is already paid for');
   if (!stripe.stripeConfigured()) throw err(503, 'Payments are not available right now — please try again shortly');
+  // The plan can still be changed on the payment step, right up to paying.
+  if (planId && planFor(planId).id !== b.plan) {
+    const p = planFor(planId);
+    db.prepare('UPDATE businesses SET plan = ?, price_cents = ? WHERE id = ?').run(p.id, planTotal(p), b.id);
+    record(b.id, 'plan:changed', p.id);
+    b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(b.id);
+  }
+  const plan = planFor(b.plan);
   const session = await stripe.createCheckout({
-    businessId: b.id, slug: b.slug, name: b.name, email: owner.email, priceCents: b.price_cents, origin,
+    businessId: b.id, slug: b.slug, name: b.name, email: owner.email, priceCents: plan.cents, origin,
+    plan: plan.id, payments: plan.payments,
   });
   db.prepare('UPDATE businesses SET stripe_session_id = ? WHERE id = ?').run(session.id, b.id);
   setState(b.id, 'payment_pending', session.id);
@@ -204,16 +233,30 @@ export async function beginCheckout(token, origin) {
  * Stripe says the money moved. Idempotent on the session id: a webhook Stripe
  * retries, or one replayed by hand, provisions exactly one salon.
  */
-export async function onPaid({ sessionId, paymentIntent, amountTotal }) {
+export async function onPaid({ sessionId, paymentIntent, amountTotal, subscription = '', customer = '' }) {
   const b = db.prepare('SELECT * FROM businesses WHERE stripe_session_id = ?').get(sessionId);
   if (!b) { record(null, 'webhook:unknown-session', sessionId); return { ignored: true }; }
   if (['paid', 'screening', 'flagged', 'provisioning', 'ready'].includes(b.state)) {
     record(b.id, 'webhook:duplicate', b.state);
     return { already: true, state: b.state };
   }
-  db.prepare("UPDATE businesses SET stripe_payment_intent = ?, paid_at = datetime('now') WHERE id = ?").run(String(paymentIntent || ''), b.id);
-  setState(b.id, 'paid', `${amountTotal || b.price_cents} cents`);
-  console.log(`signup: paid ${b.slug} from ${b.source || 'direct'}`);
+  db.prepare("UPDATE businesses SET stripe_payment_intent = ?, stripe_subscription = ?, stripe_customer = ?, paid_at = datetime('now') WHERE id = ?")
+    .run(String(paymentIntent || ''), String(subscription || ''), String(customer || ''), b.id);
+  setState(b.id, 'paid', `${amountTotal || b.price_cents} cents · ${b.plan}`);
+  console.log(`signup: paid ${b.slug} from ${b.source || 'direct'} (${b.plan})`);
+  // A monthly plan is told now, on its first payment, to stop after its last.
+  // If Stripe will not take that, a person has to set it by hand before the
+  // fourth month — so it becomes a task, never only a log line.
+  if (subscription) {
+    const plan = planFor(b.plan);
+    try {
+      const r = await stripe.limitInstallments(subscription, plan.payments);
+      record(b.id, 'plan:installments-set', `${plan.payments} payments, ends ${new Date(r.cancel_at * 1000).toISOString().slice(0, 10)}`);
+    } catch (e) {
+      record(b.id, 'plan:installments-failed', e.message);
+      openTask(b.id, 'installments', `Set subscription ${subscription} to cancel after ${plan.payments} payments in Stripe: ${e.message}`);
+    }
+  }
   // The receipt goes out once, here, on the first word that the money moved —
   // alongside building the salon, never in its way.
   const receipt = sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);
@@ -236,6 +279,7 @@ export async function sendReceipt(businessId, paymentIntent, amountCents) {
     const r = await notify.emailReceipt(owner.email, {
       receiptNo: receiptNumber(b.id), ownerName: owner.name, businessName: b.name,
       amountCents: Number(amountCents) || b.price_cents, card, receiptUrl: card.receipt_url || '',
+      payments: planFor(b.plan).payments,
     });
     record(b.id, r.ok ? 'receipt:sent' : 'receipt:failed', r.detail || '');
     return r;
@@ -425,7 +469,16 @@ export async function refundBusiness(businessId, { reason = '', by = 'owner' } =
     try { copy = await shard.emailPartingCopy(b.slug, owner.email); } catch (e) { copy = { ok: false, detail: e.message }; }
     record(b.id, copy.ok ? 'refund:copy-emailed' : 'refund:copy-failed', copy.detail);
   }
-  if (b.stripe_payment_intent && stripe.stripeConfigured()) {
+  if (b.stripe_subscription && stripe.stripeConfigured()) {
+    // A monthly plan: stop the payments still to come, then give back every
+    // one already made. Cancelling first means a refund can never race the
+    // next month's charge.
+    try {
+      await stripe.cancelSubscription(b.stripe_subscription).catch((e) => { if (e.status !== 404) throw e; });
+      const rs = b.stripe_customer ? await stripe.refundCustomer(b.stripe_customer) : [];
+      record(b.id, 'refund:stripe', `subscription cancelled · ${rs.length} payment(s) refunded`);
+    } catch (e) { record(b.id, 'refund:stripe-failed', e.message); throw err(502, `Refund failed: ${e.message}`); }
+  } else if (b.stripe_payment_intent && stripe.stripeConfigured()) {
     try { const r = await stripe.refund(b.stripe_payment_intent); record(b.id, 'refund:stripe', r.id || 'ok'); }
     catch (e) { record(b.id, 'refund:stripe-failed', e.message); throw err(502, `Refund failed: ${e.message}`); }
   }
@@ -669,6 +722,7 @@ export function statusFor(token) {
     slug: b.slug,
     business_name: b.name,
     price_cents: b.price_cents,
+    plan: planFor(b.plan).id,
     email: owner.email,
     phone_hint: String(owner.phone).replace(/.(?=.{3})/g, '•'),
     email_verified: owner.email_verified === 1,
@@ -676,7 +730,7 @@ export function statusFor(token) {
     app_url: APP_URL(),
     message: {
       created: 'Enter the code we just emailed you.',
-      verified: 'Verified. One payment and your Kairo is yours.',
+      verified: 'Verified. Choose how to pay and your Kairo is yours.',
       payment_pending: 'Waiting for your payment to go through.',
       paid: 'Payment received — setting your Kairo up now.',
       screening: 'Payment received — setting your Kairo up now.',

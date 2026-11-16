@@ -32,9 +32,11 @@ If a repo is not in the session, add it with the `add_repo` tool and clone it.
    2026). Compare Kairo with *paying monthly*. Any figure for a monthly plan
    is either a labelled example ("an example $99 a month, not any particular
    app's price") or one the visitor types into the calculator.
-2. **Only Kairo's own claims, and only true ones.** "$410 once", "$0 a month,
-   forever", "no commission". Never "special offer" or "limited time" ($410 is
-   the normal price). Check the Kairo repo before claiming a feature (e.g.
+2. **Only Kairo's own claims, and only true ones.** Kairo's price (owner's
+   decision, 16 Nov 2026) is **$400 once, or three monthly payments of $150
+   ($450 in all)**, then "$0 a month, forever", "no commission", and a 14-day
+   full refund on either. Never "special offer" or "limited time" (these are
+   the normal prices). Check the Kairo repo before claiming a feature (e.g.
    Kairo has no gift cards, memberships, Xero or marketplace), and say what
    monthly platforms commonly do better.
 3. **No outreach.** No cold email, no DMs to people who didn't write first, no
@@ -58,8 +60,8 @@ If a repo is not in the session, add it with the `add_repo` tool and clone it.
   and search each for the names of other booking platforms (at least: Fresha,
   Timely, Square Appointments, Booksy, Kitomba, Phorest, Shortcuts, Vagaro,
   GlossGenius, Mindbody, Setmore). Any hit: remove it this run.
-- The price on the site is still $410 once, matching `KAIRO_PRICE_CENTS` in
-  this repo's `platform/` (the live checkout).
+- The price on the site is still $400 once or 3 × $150, matching
+  `https://start.kairobookings.com/api/price` (the live checkout's `plans`).
 - The 9 old addresses in `src/server.ts` still answer 301.
 
 ### 2. See where Kairo stands

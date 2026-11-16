@@ -137,6 +137,13 @@ addColumn('businesses', 'deleted_at', "deleted_at TEXT NOT NULL DEFAULT ''");
 // so it is known which pages actually sell. Never personal: a page name or ''.
 addColumn('businesses', 'source', "source TEXT NOT NULL DEFAULT ''");
 addColumn('businesses', 'purge_after', "purge_after TEXT NOT NULL DEFAULT ''");
+// How the business chose to pay: 'once' (the whole price now) or 'monthly'
+// (the same Kairo in three monthly payments). The subscription and customer
+// are what a monthly plan needs to be stopped after its last payment, and
+// refunded in full inside the fourteen days.
+addColumn('businesses', 'plan', "plan TEXT NOT NULL DEFAULT 'once'");
+addColumn('businesses', 'stripe_subscription', "stripe_subscription TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'stripe_customer', "stripe_customer TEXT NOT NULL DEFAULT ''");
 // A refund's own deletion, done by the platform rather than by hand. Separate
 // from purge_after on purpose: only refunds from 1.76.0 on set it, so no record
 // from before — a test, the App Review demo — is ever reached by the job.

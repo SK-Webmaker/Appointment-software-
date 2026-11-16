@@ -1,4 +1,5 @@
-// Taking A$410 once, and giving it back within fourteen days.
+// Taking payment for Kairo, either all at once or in three monthly payments,
+// and giving it back within fourteen days.
 //
 // Stripe Checkout, the same plain-HTTPS-no-SDK approach Kairo already uses for
 // salon deposits. Two rules that matter more than the code:
@@ -35,9 +36,9 @@ export function stripeMode() {
   return 'unknown';
 }
 
-async function call(path, params, idempotencyKey = '', version = '') {
+async function call(path, params, idempotencyKey = '', version = '', method = '') {
   const res = await fetch(`${API_BASE()}/v1${path}`, {
-    method: params ? 'POST' : 'GET',
+    method: method || (params ? 'POST' : 'GET'),
     headers: {
       Authorization: `Bearer ${key()}`,
       ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
@@ -77,33 +78,114 @@ export function kairoBranding(origin = '') {
   return out;
 }
 
-export async function createCheckout({ businessId, slug, name, email, priceCents, currency = 'aud', origin }) {
-  const params = {
-    mode: 'payment',
+const dollars = (c) => `$${(c / 100).toFixed(2).replace(/\.00$/, '')}`;
+
+/**
+ * The payment page for one of the two plans.
+ *
+ *   once     the whole price as one payment (mode=payment)
+ *   monthly  the same Kairo as `payments` monthly payments of `priceCents`,
+ *            the first taken now (mode=subscription). The subscription is told
+ *            to stop after the last payment once Stripe confirms the first —
+ *            see limitInstallments — so nobody is ever billed a fourth time.
+ *
+ * The idempotency key carries the plan: somebody who opens the page for one
+ * plan, comes back and picks the other must get a new page, not Stripe's
+ * refusal to reuse a key with different parameters.
+ */
+export async function createCheckout({ businessId, slug, name, email, priceCents, currency = 'aud', origin, plan = 'once', payments = 1 }) {
+  const monthly = plan === 'monthly';
+  const total = priceCents * (monthly ? payments : 1);
+  const common = {
     customer_email: email,
-    'custom_text[submit][message]': `One payment for ${name}. No monthly fee, no commission — and a full refund within 14 days if Kairo isn't right for you.`,
-    'payment_intent_data[description]': `Kairo for ${name}`,
     'line_items[0][price_data][currency]': currency,
     'line_items[0][price_data][unit_amount]': String(priceCents),
-    'line_items[0][price_data][product_data][name]': 'Kairo — booking software for one salon',
-    'line_items[0][price_data][product_data][description]': `One payment for ${name}. No monthly fee, no commission.`,
     'line_items[0][quantity]': '1',
     success_url: `${origin}/done?b=${slug}`,
     cancel_url: `${origin}/start?cancelled=1&b=${slug}`,
     'metadata[business_id]': String(businessId),
     'metadata[slug]': slug,
+    'metadata[plan]': plan,
+  };
+  const params = monthly ? {
+    ...common,
+    mode: 'subscription',
+    'custom_text[submit][message]': `${dollars(priceCents)} today, then ${dollars(priceCents)} a month for ${payments - 1} more months — ${dollars(total)} in all, then nothing. No commission, and a full refund within 14 days if Kairo isn't right for you.`,
+    'line_items[0][price_data][recurring][interval]': 'month',
+    'line_items[0][price_data][product_data][name]': `Kairo — booking software for one salon (${payments} monthly payments)`,
+    'subscription_data[description]': `Kairo for ${name}: ${payments} monthly payments of ${dollars(priceCents)}, then nothing`,
+    'subscription_data[metadata][business_id]': String(businessId),
+    'subscription_data[metadata][installments]': String(payments),
+  } : {
+    ...common,
+    mode: 'payment',
+    'custom_text[submit][message]': `One payment for ${name}. No monthly fee, no commission — and a full refund within 14 days if Kairo isn't right for you.`,
+    'payment_intent_data[description]': `Kairo for ${name}`,
+    'line_items[0][price_data][product_data][name]': 'Kairo — booking software for one salon',
+    'line_items[0][price_data][product_data][description]': `One payment for ${name}. No monthly fee, no commission.`,
     'payment_intent_data[metadata][business_id]': String(businessId),
   };
+  const idem = `kairo-signup-${businessId}-${plan}`;
   let session;
   try {
-    session = await call('/checkout/sessions', { ...params, ...kairoBranding(origin) }, `kairo-signup-${businessId}`, BRANDING_VERSION);
+    session = await call('/checkout/sessions', { ...params, ...kairoBranding(origin) }, idem, BRANDING_VERSION);
   } catch (err) {
     if (err.status !== 400) throw err;
     console.warn('Stripe would not take the checkout branding; sending it plain:', err.message);
-    session = await call('/checkout/sessions', params, `kairo-signup-${businessId}-plain`);
+    session = await call('/checkout/sessions', params, `${idem}-plain`);
   }
   return { url: session.url, id: session.id };
 }
+
+// The calendar month `n` months after a unix time, clamped the way Stripe
+// clamps a billing date: the 31st becomes the 28th/29th/30th in a shorter
+// month rather than spilling into the next one.
+export function addMonthsUnix(unix, n) {
+  const d = new Date(unix * 1000);
+  const day = d.getUTCDate();
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1, d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()));
+  const last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate();
+  t.setUTCDate(Math.min(day, last));
+  return Math.floor(t.getTime() / 1000);
+}
+
+/**
+ * Stop a monthly plan after its last payment. Payments land at the anchor and
+ * then each month after it, so cancelling a day before the payment that would
+ * come next means exactly `payments` charges, never one more. No proration:
+ * the last month is paid for and runs to its end.
+ */
+export async function limitInstallments(subscriptionId, payments) {
+  const sub = await call(`/subscriptions/${encodeURIComponent(subscriptionId)}`);
+  const anchor = Number(sub.billing_cycle_anchor || sub.start_date || sub.created);
+  if (!anchor) throw new Error('Stripe did not say when the plan started');
+  const cancelAt = addMonthsUnix(anchor, payments) - 86400;
+  await call(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    cancel_at: String(cancelAt), proration_behavior: 'none', 'metadata[installments]': String(payments),
+  }, `kairo-installments-${subscriptionId}`);
+  return { cancel_at: cancelAt };
+}
+
+/** Stop a monthly plan now: no further payments. Used by a refund. */
+export const cancelSubscription = (id) => call(`/subscriptions/${encodeURIComponent(id)}`, null, '', '', 'DELETE');
+
+/**
+ * Give back every payment a customer has made: the whole of a monthly plan,
+ * however many of its payments have gone through. Charges already refunded
+ * are skipped, so running it twice gives nothing back twice.
+ */
+export async function refundCustomer(customerId, reason = 'requested_by_customer') {
+  const list = await call(`/charges?customer=${encodeURIComponent(customerId)}&limit=12`);
+  const out = [];
+  for (const ch of list.data || []) {
+    if (ch.status !== 'succeeded' || ch.refunded) continue;
+    out.push(await call('/refunds', { charge: ch.id, reason }, `kairo-refund-${ch.id}`));
+  }
+  return out;
+}
+
+/** Which customer a charge belongs to, for matching a dispute on a monthly payment. */
+export const chargeCustomer = async (chargeId) => String((await call(`/charges/${encodeURIComponent(chargeId)}`)).customer || '');
 
 /**
  * The card and Stripe's own receipt for a payment, for Kairo's receipt email.

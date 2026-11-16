@@ -5,7 +5,8 @@
 ## The strategy in one line
 
 **Be the answer when an Australian salon or barber owner goes looking for a
-way off a monthly booking bill** — and make the answer "$410 once".
+way off a monthly booking bill** — and make the answer "$400 once" (or three
+monthly payments of $150, then nothing — owner's pricing from 16 Nov 2026).
 
 Everything below serves that one line: who we talk to, what we say, where
 they find it, and how a sale is counted.
@@ -24,8 +25,9 @@ visitor types in.
 Salon booking platforms in Australia are sold as a monthly subscription,
 usually per bookable team member, and some also take a commission on new
 clients from their marketplace. A small team pays that every month for as
-long as it is in business. Kairo is **$410 once, then $0 a month, forever,
-no commission**: against an example $99 a month it costs less from month 5.
+long as it is in business. Kairo is **$400 once (or 3 × $150), then $0 a
+month, forever, no commission**: against an example $99 a month it costs less
+from month 5.
 
 ### 2. Owners search for the problem, not just for a brand
 

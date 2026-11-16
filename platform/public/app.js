@@ -7,7 +7,51 @@ const app = document.getElementById('app');
 const KEY = 'kairo_signup_token';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = (c) => `A$${(c / 100).toFixed(2).replace(/\.00$/, '')}`;
-let price = { price_cents: 41000, base_domain: 'kairobookings.com' };
+let price = {
+  price_cents: 40000,
+  base_domain: 'kairobookings.com',
+  plans: [
+    { id: 'once', cents: 40000, payments: 1, total_cents: 40000 },
+    { id: 'monthly', cents: 15000, payments: 3, total_cents: 45000 },
+  ],
+};
+// Which way they chose to pay. Kept through a reload like the page they came
+// from, and changeable again on the payment step.
+const PLAN_KEY = 'kairo_signup_plan';
+// A pricing card on the website can arrive with ?plan= already chosen.
+let chosenPlan = (() => {
+  const given = new URLSearchParams(location.search).get('plan');
+  try {
+    if (given === 'once' || given === 'monthly') sessionStorage.setItem(PLAN_KEY, given);
+    return sessionStorage.getItem(PLAN_KEY) === 'monthly' ? 'monthly' : 'once';
+  } catch { return given === 'monthly' ? 'monthly' : 'once'; }
+})();
+const choosePlan = (id) => { chosenPlan = id === 'monthly' ? 'monthly' : 'once'; try { sessionStorage.setItem(PLAN_KEY, chosenPlan); } catch { /* fine */ } };
+const planById = (id) => price.plans.find((p) => p.id === id) || price.plans[0];
+
+// The two plans as a choice. Same Kairo either way; the only difference is
+// whether it is paid in one go or spread over three months for $50 more.
+function planPicker(selected) {
+  const once = planById('once');
+  const monthly = planById('monthly');
+  const extra = monthly.total_cents - once.total_cents;
+  return `<div class="plans" role="radiogroup" aria-label="How would you like to pay?">
+    <label class="plan"><input type="radio" name="plan" value="once" ${selected === 'once' ? 'checked' : ''}>
+      <div class="p-top"><span class="p-name">Pay once<span class="p-tag">Lowest total</span></span>
+        <span class="p-price">${money(once.cents)}</span></div>
+      <div class="p-note">One payment, then $0 a month, ever.</div>
+    </label>
+    <label class="plan"><input type="radio" name="plan" value="monthly" ${selected === 'monthly' ? 'checked' : ''}>
+      <div class="p-top"><span class="p-name">Pay monthly</span>
+        <span class="p-price">${money(monthly.cents)}<small> /month × ${monthly.payments}</small></span></div>
+      <div class="p-note">${money(monthly.cents)} today, then the same for ${monthly.payments - 1} more months — ${money(monthly.total_cents)} in all${extra > 0 ? ` (${money(extra)} more)` : ''}, then $0 a month.</div>
+    </label>
+  </div>`;
+}
+const payLabel = (id) => {
+  const p = planById(id);
+  return p.payments > 1 ? `Pay ${money(p.cents)} today and set up my Kairo` : `Pay ${money(p.cents)} and set up my Kairo`;
+};
 let token = localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '';
 // The website page that sent them here (?from=fresha-price), kept through a
 // reload so the signup still says where it came from. A page name, nothing more.
@@ -34,7 +78,7 @@ async function call(method, path, body) {
   return data;
 }
 
-// Four named steps, not three anonymous dots. Someone spending A$410 on a
+// Four named steps, not three anonymous dots. Someone paying for Kairo on a
 // phone at the counter should be able to see how much is left before they
 // start, and what the thing they are in the middle of is called.
 const STEP_NAMES = ['Your details', 'Confirm it\'s you', 'Payment', 'Setting up'];
@@ -67,10 +111,12 @@ const foot = `<div class="foot">
 // ── step 1: the form ───────────────────────────────────────────────────────
 function renderForm(prefill = {}, error = '') {
   app.innerHTML = `${header(1)}
-    <h1>Your salon's booking system, for one payment.</h1>
+    <h1>Your salon's booking system. No ongoing fees.</h1>
     <p class="lede">Bookings, reminders, clients, payments and your own booking page — under your name, on your own address.</p>
     <div class="card">
-      <div class="price"><b>${money(price.price_cents)}</b><span>once. No monthly fee, no commission, ever.</span></div>
+      <h2 style="margin-bottom:10px">How would you like to pay?</h2>
+      ${planPicker(chosenPlan)}
+      <div class="hint">Same Kairo either way. No commission, and a full refund within 14 days on both.</div>
       <ul class="ticks">
         <li>Your own booking page customers book on</li>
         <li>Automatic confirmations and reminders</li>
@@ -138,6 +184,7 @@ function renderForm(prefill = {}, error = '') {
   bizEl.addEventListener('input', debounced);
   slugEl.addEventListener('input', () => { touched = true; debounced(); });
   if (prefill.business_name || prefill.slug) checkSlug();
+  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => choosePlan(r.value)));
 
   app.querySelector('#f').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -146,6 +193,7 @@ function renderForm(prefill = {}, error = '') {
     const data = Object.fromEntries(['business_name', 'slug', 'name', 'phone', 'email', 'abn', 'password'].map((k) => [k, app.querySelector(`#${k}`).value.trim()]));
     data.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne';
     data.source = from;
+    data.plan = chosenPlan;
     try {
       const out = await call('POST', '/api/signup', data);
       token = out.token;
@@ -195,21 +243,26 @@ async function renderPay(error = '') {
   const st = await call('GET', `/api/status?token=${encodeURIComponent(token)}`);
   if (st.state === 'ready') return renderStatus();
   const cancelled = new URLSearchParams(location.search).get('cancelled');
+  let selected = st.plan === 'monthly' ? 'monthly' : 'once';
   app.innerHTML = `${header(3)}
     <div class="card">
       <h2>${esc(st.business_name)} is ready to go live</h2>
       <p class="lede">Your address will be <span class="mono">${esc(st.slug)}.${esc(price.base_domain)}</span></p>
-      <div class="price"><b>${money(st.price_cents)}</b><span>once — that's everything</span></div>
-      <ul class="ticks"><li>No monthly fee, no commission</li><li>14 days to change your mind, no reason needed</li><li>Your data is yours, exportable any time</li></ul>
+      ${planPicker(selected)}
+      <ul class="ticks"><li>No commission, and nothing to pay after your plan</li><li>14 days to change your mind, no reason needed</li><li>Your data is yours, exportable any time</li></ul>
       ${cancelled ? '<div class="err">Payment cancelled — nothing was charged.</div>' : ''}
       ${error ? `<div class="err">${esc(error)}</div>` : ''}
-      <button class="primary" id="pay">Pay ${money(st.price_cents)} and set up my Kairo</button>
+      <button class="primary" id="pay">${esc(payLabel(selected))}</button>
       <p class="hint" style="text-align:center;margin-top:10px">Secure payment by Stripe. Card, Apple&nbsp;Pay or Google&nbsp;Pay.</p>
     </div>${foot}`;
-  app.querySelector('#pay').addEventListener('click', async (e) => {
+  const payBtn = app.querySelector('#pay');
+  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => {
+    choosePlan(r.value); selected = chosenPlan; payBtn.textContent = payLabel(selected);
+  }));
+  payBtn.addEventListener('click', async (e) => {
     e.target.disabled = true; e.target.textContent = 'Opening secure payment…';
     try {
-      const r = await call('POST', '/api/checkout', { token });
+      const r = await call('POST', '/api/checkout', { token, plan: selected });
       location.href = r.checkout_url;
     } catch (err) { renderPay(err.message); }
   });
@@ -251,7 +304,10 @@ async function renderStatus() {
 
 // ── boot ───────────────────────────────────────────────────────────────────
 (async () => {
-  try { price = await call('GET', '/api/price'); } catch { /* the defaults are fine */ }
+  try {
+    const got = await call('GET', '/api/price');
+    price = { ...price, ...got, plans: Array.isArray(got.plans) && got.plans.length ? got.plans : price.plans };
+  } catch { /* the defaults are fine */ }
   if (!token) return renderForm();
   try { await renderStatus(); } catch { localStorage.removeItem(KEY); token = ''; renderForm(); }
 })();

@@ -90,7 +90,7 @@ const shell = (heading, lines) => `<!doctype html><html><body style="margin:0;ba
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;padding:28px">
 <div style="font-weight:700;font-size:19px;color:#0f172a;margin-bottom:14px">${heading}</div>
 ${lines.map((l) => `<p style="color:#334155;line-height:1.65;margin:0 0 12px">${l}</p>`).join('')}
-<p style="color:#94a3b8;font-size:12px;margin-top:22px">Kairo — booking software for salons. One payment, no monthly fee.</p>
+<p style="color:#94a3b8;font-size:12px;margin-top:22px">Kairo — booking software for salons. No ongoing fees, no commission.</p>
 </div></body></html>`;
 
 export const emailCode = (to, code) => sendEmail(to, `${code} is your Kairo code`,
@@ -172,7 +172,7 @@ export const emailReady = (to, { businessName, url, appUrl, sending = 'kairo', o
     <div style="color:#b6c3dc;font-size:15px;line-height:1.6;margin-top:8px">${e(businessName)} is set up and ready.</div>
   </td></tr>
   <tr><td style="padding:28px 32px 6px">
-    <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.65">Thank you for choosing Kairo. You now have your own booking system, on your own address, paid for once — no monthly fee, no commission.</p>
+    <p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:1.65">Thank you for choosing Kairo. You now have your own booking system, on your own address — no ongoing fees, no commission.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px"><tr><td style="background:#2563eb;border-radius:10px">
       <a href="${e(url)}" style="display:inline-block;padding:13px 24px;color:#ffffff;font-weight:700;font-size:15px;text-decoration:none">Open ${e(businessName)}</a>
     </td></tr></table>
@@ -234,7 +234,7 @@ export function receiptFacts({ amountCents, card = {} }) {
   };
 }
 
-export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amountCents, paidAt = new Date(), card = {}, receiptUrl = '' }) => {
+export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amountCents, paidAt = new Date(), card = {}, receiptUrl = '', payments = 1 }) => {
   const e = escHtml;
   const f = receiptFacts({ amountCents, card });
   const aud = (c) => `A$${(c / 100).toFixed(2)}`;
@@ -242,9 +242,13 @@ export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amou
   const first = String(ownerName || '').trim().split(/\s+/)[0] || '';
   const support = SUPPORT_EMAIL();
   const item = `Kairo — booking software for ${businessName}`;
+  // What this payment is, said the same way in the text and the HTML.
+  const terms = payments > 1
+    ? `Payment 1 of ${payments} · then ${aud(amountCents)} a month for ${payments - 1} more months, then nothing`
+    : 'One payment · no monthly fee, no commission';
   const text = `${f.title} ${receiptNo}\n\n${first ? `Hi ${first}, thank you` : 'Thank you'} for buying Kairo.\n\n`
     + `Date: ${date}\nBilled to: ${ownerName ? `${ownerName}, ` : ''}${businessName} (${to})\nFrom: ${f.seller}\n\n`
-    + `${item} — one payment, no monthly fee: ${aud(amountCents)}\n`
+    + `${item} (${terms}): ${aud(amountCents)}\n`
     + `${f.gstCents ? `Includes GST: ${aud(f.gstCents)}\n` : ''}Total paid: ${aud(amountCents)} (${f.cardLabel})\n\n`
     + `Not what you needed? You have 14 days for a full refund: in Kairo, Account → Refund and delete my Kairo.\n`
     + `${receiptUrl ? `Stripe's copy of this payment: ${receiptUrl}\n` : ''}Questions: ${support}\n\n— The Kairo team\nkairobookings.com`;
@@ -273,7 +277,7 @@ export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amou
         ${meta('From', e(f.seller))}
       </table></td></tr>
       <tr><td style="padding:0 20px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:12px 0;border-top:1px solid #edf0f4;vertical-align:top"><div style="font-size:14px;color:#0f172a;font-weight:700">${e(item)}</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">One payment · no monthly fee, no commission</div></td>
+        <tr><td style="padding:12px 0;border-top:1px solid #edf0f4;vertical-align:top"><div style="font-size:14px;color:#0f172a;font-weight:700">${e(item)}</div><div style="font-size:12.5px;color:#64748b;margin-top:2px">${e(terms)}</div></td>
           <td style="padding:12px 0;border-top:1px solid #edf0f4;vertical-align:top;text-align:right;font-size:14px;color:#0f172a;white-space:nowrap">${e(aud(amountCents))}</td></tr>
       </table></td></tr>
       <tr><td style="padding:6px 20px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">

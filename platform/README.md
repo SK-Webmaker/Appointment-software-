@@ -33,7 +33,8 @@ npm run platform
 | `KAIRO_SHARD_URL` | the Kairo that serves the salons |
 | `KAIRO_PLATFORM_KEY` | shared with the shard; every control call is HMAC-signed with it |
 | `KAIRO_BASE_DOMAIN` | salons live at `<slug>.<domain>` |
-| `KAIRO_PRICE_CENTS` | the one price (default 41000 = A$410) |
+| `KAIRO_ONCE_CENTS` | the one-payment price (default 40000 = A$400). The old `KAIRO_PRICE_CENTS` is no longer read |
+| `KAIRO_MONTHLY_CENTS` / `KAIRO_MONTHLY_PAYMENTS` | the monthly plan (default 15000 × 3 = A$450, the first at signup; the subscription cancels itself after the last) |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | taking the money and believing it moved |
 | `ABR_GUID` | the free ABN Lookup key. Without it the ABN check is skipped, never failed |
 | `RESEND_API_KEY` / `PLATFORM_FROM_EMAIL` | the verification and welcome emails |

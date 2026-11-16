@@ -32,6 +32,9 @@ const readBody = (req) => new Promise((resolve) => {
 /** A Stripe that creates sessions, can be told one was paid, and refunds. */
 export async function mockStripe({ webhookSecret = 'whsec_test' } = {}) {
   const sessions = new Map();
+  const sessionParams = new Map();   // what the platform asked for, per session
+  const subscriptions = new Map();
+  const charges = [];                // { id, customer, status, refunded, amount }
   const refunds = [];
   let n = 0;
   const m = await listen(async (req, res) => {
@@ -42,9 +45,20 @@ export async function mockStripe({ webhookSecret = 'whsec_test' } = {}) {
     if (req.method === 'POST' && url.pathname === '/v1/checkout/sessions') {
       const params = new URLSearchParams(await readBody(req));
       const id = `cs_test_${++n}_${crypto.randomBytes(4).toString('hex')}`;
+      // Stripe refuses parameters that do not belong to the mode, and so does
+      // this: a monthly plan sent with payment_intent_data would 400 for real.
+      const mode = params.get('mode') || 'payment';
+      if (mode === 'subscription' && [...params.keys()].some((k) => k.startsWith('payment_intent_data'))) {
+        return send(400, { error: { message: 'You can not pass `payment_intent_data` in `subscription` mode.' } });
+      }
+      if (mode === 'subscription' && !params.get('line_items[0][price_data][recurring][interval]')) {
+        return send(400, { error: { message: 'You must provide at least one recurring price in `subscription` mode.' } });
+      }
+      sessionParams.set(id, Object.fromEntries(params));
       const session = {
         id,
         object: 'checkout.session',
+        mode,
         payment_status: 'unpaid',
         amount_total: Number(params.get('line_items[0][price_data][unit_amount]')) || 0,
         currency: params.get('line_items[0][price_data][currency]'),
@@ -64,9 +78,33 @@ export async function mockStripe({ webhookSecret = 'whsec_test' } = {}) {
     }
     if (req.method === 'POST' && url.pathname === '/v1/refunds') {
       const params = new URLSearchParams(await readBody(req));
-      const r = { id: `re_${crypto.randomBytes(6).toString('hex')}`, object: 'refund', payment_intent: params.get('payment_intent'), status: 'succeeded' };
+      const r = { id: `re_${crypto.randomBytes(6).toString('hex')}`, object: 'refund', payment_intent: params.get('payment_intent'), charge: params.get('charge'), status: 'succeeded' };
+      const ch = r.charge && charges.find((c) => c.id === r.charge);
+      if (ch) ch.refunded = true;
       refunds.push(r);
       return send(200, r);
+    }
+    const sub = /^\/v1\/subscriptions\/(.+)$/.exec(url.pathname);
+    if (sub) {
+      const s = subscriptions.get(decodeURIComponent(sub[1]));
+      if (!s) return send(404, { error: { message: 'No such subscription' } });
+      if (req.method === 'GET') return send(200, s);
+      if (req.method === 'DELETE') { s.status = 'canceled'; s.canceled_at = Math.floor(Date.now() / 1000); return send(200, s); }
+      if (req.method === 'POST') {
+        const params = new URLSearchParams(await readBody(req));
+        if (params.get('cancel_at')) s.cancel_at = Number(params.get('cancel_at'));
+        if (params.get('proration_behavior')) s.proration_behavior = params.get('proration_behavior');
+        return send(200, s);
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/v1/charges') {
+      const cus = url.searchParams.get('customer');
+      return send(200, { object: 'list', data: charges.filter((c) => c.customer === cus) });
+    }
+    const chg = /^\/v1\/charges\/(.+)$/.exec(url.pathname);
+    if (req.method === 'GET' && chg) {
+      const c = charges.find((x) => x.id === decodeURIComponent(chg[1]));
+      return c ? send(200, c) : send(404, { error: { message: 'No such charge' } });
     }
     return send(404, { error: { message: 'not mocked' } });
   });
@@ -74,14 +112,35 @@ export async function mockStripe({ webhookSecret = 'whsec_test' } = {}) {
   return {
     ...m,
     sessions,
+    sessionParams,
+    subscriptions,
+    charges,
     refunds,
-    /** Mark a session paid and return the event body Stripe would send. */
+    /**
+     * Mark a session paid and return the event body Stripe would send. A
+     * subscription-mode session has no payment intent of its own: it gets a
+     * customer, a subscription and the first month's charge, as Stripe does.
+     */
     pay(id) {
       const s = sessions.get(id);
       if (!s) throw new Error(`no such session ${id}`);
       s.payment_status = 'paid';
-      s.payment_intent = `pi_${crypto.randomBytes(6).toString('hex')}`;
+      if (s.mode === 'subscription') {
+        const now = Math.floor(Date.now() / 1000);
+        s.customer = `cus_${crypto.randomBytes(6).toString('hex')}`;
+        s.subscription = `sub_${crypto.randomBytes(6).toString('hex')}`;
+        s.payment_intent = null;
+        subscriptions.set(s.subscription, { id: s.subscription, object: 'subscription', status: 'active', customer: s.customer, billing_cycle_anchor: now, start_date: now, cancel_at: null });
+        charges.push({ id: `ch_${crypto.randomBytes(6).toString('hex')}`, object: 'charge', customer: s.customer, status: 'succeeded', refunded: false, amount: s.amount_total });
+      } else {
+        s.payment_intent = `pi_${crypto.randomBytes(6).toString('hex')}`;
+      }
       return { id: `evt_${crypto.randomBytes(6).toString('hex')}`, type: 'checkout.session.completed', data: { object: s } };
+    },
+    /** A later month of a plan going through: one more charge on the same customer. */
+    chargeAgain(subscriptionId, amount) {
+      const sub = subscriptions.get(subscriptionId);
+      charges.push({ id: `ch_${crypto.randomBytes(6).toString('hex')}`, object: 'charge', customer: sub.customer, status: 'succeeded', refunded: false, amount });
     },
     dispute(paymentIntent) {
       return { id: `evt_${crypto.randomBytes(6).toString('hex')}`, type: 'charge.dispute.created', data: { object: { payment_intent: paymentIntent } } };

@@ -2,6 +2,45 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 16 November 2026 — weekly run, plus the new pricing
+
+- **Sales:** none. Signup log 8–15 Nov: 0 started, 0 paid, from any source.
+- **Visits 8–15 Nov:** 16 visitors, 20 page views (14 on `/`, 5 on `/websites`).
+  Sources: direct 10, Instagram 3, Facebook 2. Still nothing from search.
+- **Site check:** clean. All 26 sitemap pages and `llms.txt` answer 200 and
+  name no other platform. The 9 old addresses still answer 301. The ticker
+  still says "Limited time only offer". It was added by the owner in Lovable
+  on 13 Sep, is still waiting on their answer, and was left in place.
+- **Positions (AU):** kairobookings.com isn't in the top 10 for any of the 8
+  target searches, or for "lash booking app australia". `site:` shows 13
+  kairobookings.com pages (plus start. and a salon subdomain).
+- **Autocomplete (AU):** lash booking app, eyelash booking app, lash
+  appointment app, lash booking system. Nothing for brow booking.
+- **Page added:** `/lash-and-brow-booking-software-australia`. Every claim was
+  checked against the app's code:
+  - patch tests the booking page asks for (valid 6 months, 48 hours ahead),
+    and a reaction stops online booking for that treatment;
+  - consent in the studio's own words, kept with the client's typed name and
+    the time;
+  - a separate safety record for allergies, medication, conditions and
+    pregnancy;
+  - Rebook in a tap, and "Due back soon" messages from each client's own
+    rhythm (off until switched on);
+  - up to 8 photos a visit.
+
+  It is linked from the beauty and nail pages, and listed in the sitemap and
+  `llms.txt`.
+- **New pricing (owner, 16 Nov):** $400 once, or three monthly payments of
+  $150 ($450 in all, the first at signup), then nothing, with the 14-day
+  refund on both. Built end to end:
+  - the signup's plan chooser;
+  - Stripe's one payment or 3-payment subscription, which cancels itself
+    after the third;
+  - refunds that stop the plan and return every payment;
+  - every price on the site, and the Terms.
+
+  Rule 2 above is updated to the new prices.
+
 ## 9 November 2026 — weekly run (finished 10 Nov; a restart interrupted the publish)
 
 - **Sales:** none. Signup log 2–9 Nov: 0 started, 0 paid, from any source.
