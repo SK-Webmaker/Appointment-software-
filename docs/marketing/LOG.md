@@ -40,6 +40,24 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
   - every price on the site, and the Terms.
 
   Rule 2 above is updated to the new prices.
+- **Checked live (16 Nov, 08:00 UTC):**
+  - 542 of 542 app tests pass.
+  - `start.kairobookings.com/api/price` offers both plans. The signup page
+    preselects the plan the site's buttons pass.
+  - One live signup per plan (`kairopricingcheck1` once, `kairopricingcheck2`
+    monthly, Kairo inbox, source `pricing-check`). Each code arrived and was
+    accepted, and Stripe's page opened. The once page reads "One payment… no
+    monthly fee". The monthly page is a subscription, "3 monthly payments,
+    billed monthly". Neither was paid.
+  - Stripe showed US$281.12 and US$105.42 to this non-Australian test
+    machine. That is A$400 and A$150 at the same rate.
+  - The two unpaid test signups expire by themselves in 7 days. Their
+    "signup: started … from pricing-check" lines are not real interest.
+- **Published:** website deployed with the new prices and the lash page. All 27
+  sitemap pages answer 200, and none still says $410. All 27 were sent to
+  IndexNow (200).
+- **Instagram image for the new pricing:** `kairo-pricing/kairo-pricing.jpg`,
+  caption in `kairo-pricing/CAPTION.md`, for the owner to post.
 
 ## 9 November 2026 — weekly run (finished 10 Nov; a restart interrupted the publish)
 
