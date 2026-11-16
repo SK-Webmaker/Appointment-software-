@@ -2,6 +2,29 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 16 November 2026 (evening) — owner-directed outreach
+
+The owner asked for this directly. Rule 3 ("No outreach") still applies to
+the automated weekly run.
+
+- **Ticker:** "Limited time only offer" removed, as the owner answered.
+  "No monthly fees" now leads. Website commit 8d20dfe, published, checked live.
+- **Email round 4:** sent 20 emails from the Kairo Gmail to Australian hair,
+  beauty and barber businesses whose site is on a free wixsite.com address.
+  Each email was checked against the business's own site, and uses the same
+  format and "reply no thanks" line as rounds 1–3. None of the 73 addresses
+  emailed since 29 Aug had replied or bounced.
+- **Instagram follow-ups:** matched 29 of those 73 businesses to their
+  Instagram (15 sure, 13 likely, 1 to check). 27 got a ready "did you get my
+  email?" DM. 2 were skipped because their bio asks for no DMs. The other 44
+  had no match worth trusting.
+- **Follow list:** 26 new accounts for the owner to follow tonight, each
+  with its first message. 12 of them also got a round 4 email today.
+- **Sent to the owner:** everything above went to the Kairo inbox as one
+  copy-and-paste pack, with a .txt copy attached.
+- **Friday nudge:** not scheduled automatically. The owner says "nudge round
+  4" on Fri 20 Nov, and the session checks replies and sends one nudge.
+
 ## 16 November 2026 — weekly run, plus the new pricing
 
 - **Sales:** none. Signup log 8–15 Nov: 0 started, 0 paid, from any source.
