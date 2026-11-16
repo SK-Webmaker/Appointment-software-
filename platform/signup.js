@@ -363,7 +363,11 @@ export async function provision(businessId) {
       name: b.name,
       public_url: url,
       price_cents: b.price_cents,
-      plan_name: 'Kairo',
+      // Shown on the salon's Account page beside the total. A monthly plan says
+      // how it is being paid, so "$450 one-off" is never read as one charge.
+      plan_name: planFor(b.plan).payments > 1
+        ? `Kairo · ${planFor(b.plan).payments} monthly payments of $${(planFor(b.plan).cents / 100).toFixed(0)}`
+        : 'Kairo',
       platform_url: PLATFORM_ORIGIN(),
       connect_token: connectToken,
       owner: { name: owner.name, email: owner.email, pass_hash: b.pass_hash, salt: b.salt },

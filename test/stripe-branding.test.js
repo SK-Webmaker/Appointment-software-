@@ -205,7 +205,7 @@ test('Kairo\'s own checkout is Kairo\'s, with the refund promise beside the butt
     asked.length = 0;
     const plain = await ps.createCheckout({ businessId: 8, slug: 'b', name: 'B', email: 'b@b.example', priceCents: 41000, origin: 'https://start.kairobookings.test' });
     assert.ok(plain.url, 'still a checkout');
-    assert.equal(sessionsAsked()[1].idem, 'kairo-signup-8-plain', 'under its own idempotency key');
+    assert.equal(sessionsAsked()[1].idem, 'kairo-signup-8-once-plain', 'under its own idempotency key, which carries the plan');
   } finally { refuseBranding = false; }
 
   const card = await ps.paymentDetails('pi_card');

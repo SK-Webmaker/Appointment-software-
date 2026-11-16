@@ -96,7 +96,7 @@ before(async () => {
       STRIPE_WEBHOOK_SECRET: stripe.webhookSecret,
       ABR_API_BASE: abr.base,
       ABR_GUID: 'test-guid',
-      KAIRO_PRICE_CENTS: '41000',
+      KAIRO_ONCE_CENTS: '40000',
     },
   });
 });
@@ -120,7 +120,7 @@ test('the signup page and its policies are served, with the strict headers', asy
     assert.equal(r.headers.get('x-frame-options'), 'DENY', p);
   }
   const price = await platform.api('GET', '/api/price');
-  assert.equal(price.json.price_cents, 41000);
+  assert.equal(price.json.price_cents, 40000);
   assert.equal(price.json.base_domain, DOMAIN);
 });
 
@@ -327,7 +327,7 @@ test('the whole thing, end to end: form → codes → payment → a salon taking
   // under it must not be handed invoices charging tax they cannot collect.
   // The setup wizard asks; provisioning does not decide.
   assert.equal(me.json.settings.tax_rate, '0');
-  assert.equal(me.json.settings.plan_price_cents, '41000');
+  assert.equal(me.json.settings.plan_price_cents, '40000');
   assert.equal(me.json.settings.sms_notifications_enabled, '0', 'nothing that costs money is on');
   assert.equal(me.json.settings.public_url_effective, `https://abchair.${DOMAIN}`);
 
