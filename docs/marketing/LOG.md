@@ -2,6 +2,38 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 16 November 2026 (night) — Google SEO push (owner asked)
+
+- **Research:** see [`SEO-PLAN.md`](SEO-PLAN.md). A young site wins first on
+  long, specific searches, then needs a few real links and reviews. City
+  clone pages risk Google's scaled-content policy.
+- **Keywords:** pulled Google AU autocomplete for 51 seed searches.
+- **New pages, live:**
+  - `/salon-no-show-policy`: a free template, wording for each kind of
+    business, and how deposits, reminders, the cancellation window and
+    repeat no-show rules make it stick.
+  - `/salon-client-record-app`: digital client cards.
+  - Every Kairo feature they describe was checked in the code first.
+- **Fixes, live:**
+  - The home title now names the niche, and its description fits.
+  - Titles on the nail, barber, hair, beauty, cost and contact pages match
+    how owners search.
+  - `/guide` and the legal pages now have canonical tags.
+  - Four links that went to hidden `/features/*` placeholders now go to
+    the new pages.
+  - The footer, sitemap (29 URLs), `llms.txt` and related pages link the
+    new pages.
+  - Screenshots went from 6.7 MB to 3.4 MB.
+  - Commits b7a6cd8 and 05bcdd2. Published, checked live, IndexNow 200.
+- **Speed (throttled phone):** home LCP went from 3.7 s to 2.9 s; the main
+  landing page from 3.1 s to 2.7 s and from 709 KB to 526 KB. CLS 0–0.06.
+- **Couldn't run:**
+  - Google's PageSpeed service was over its free daily limit.
+  - Firecrawl has 4 credits until 4 Dec, so no rank check today.
+- **Owner to-do:** Search Console sitemap and indexing requests, Bing
+  import, App Store marketing URL, free listings (copy is in `SEO-PLAN.md`),
+  and reviews from their two salons.
+
 ## 16 November 2026 (evening) — owner-directed outreach
 
 The owner asked for this directly. Rule 3 ("No outreach") still applies to

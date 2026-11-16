@@ -142,18 +142,28 @@ summary — that is what the owner reads. **If there was a sale, say so first.**
 Every page is about the problem or the kind of business, never about another
 platform.
 
-1. `/lash-and-brow-booking-software-australia` (autocomplete 9 Nov: "lash
-   booking app", "eyelash booking app", "lash booking system")
-2. `/switch-salon-software`: moving your clients and bookings to a new system
+1. `/how-to-start-a-lash-business` (autocomplete 16 Nov: "how to start a
+   lash business from home", "step by step", "with no money"). This is a real
+   checklist: ABN, insurance, patch tests, pricing, a booking link. See
+   [`SEO-PLAN.md`](SEO-PLAN.md).
+2. A cosmetic-tattoo booking page. Build it only after checking the app
+   covers consent, patch tests, deposits and healed-result photos.
+3. `/switch-salon-software`: moving your clients and bookings to a new system
    without losing anyone (export a CSV from any system, import, tell
    clients). Autocomplete showed nothing for "switch salon software" on
    9 Nov, so it waits behind pages people do search for.
+
+Never: city clone pages ("salon software Sydney/Melbourne…") or pages that
+need a competitor named. Google's scaled-content policy and our own rule
+both rule them out.
 
 Done: the four pages listed under "Pages about the monthly bill", `/guide`,
 `/salon-software-cost` (27 Oct 2026), `/booking-app-for-hairdressers`
 (2 Nov 2026), and `/barber-software-australia` and
 `/beauty-salon-software-australia` (finished and opened to search 6 Nov 2026),
-`/websites` (the website service, 8 Nov 2026) and
-`/nail-salon-software-australia` (9 Nov 2026).
+`/websites` (the website service, 8 Nov 2026),
+`/nail-salon-software-australia` (9 Nov 2026),
+`/lash-and-brow-booking-software-australia` (16 Nov 2026), and
+`/salon-no-show-policy` and `/salon-client-record-app` (16 Nov 2026, SEO push).
 Still hidden on purpose: the `/features/*` pages (placeholders with `noindex`).
 Removed 22 Oct 2026: nine pages that named other platforms (they redirect).
