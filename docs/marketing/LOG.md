@@ -2,6 +2,25 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 17 November 2026 — Search Console report from the owner
+
+The "Why pages aren't indexed" report shows three reasons. This is what
+each one was, and what was done:
+
+- **Not found (404), 1 page.** A crawl of every internal link (31 URLs)
+  found no broken links. Five old `/compare/*` pages, `/compare` and `/v2`
+  had been removed without the 301s the other old addresses got. They now
+  redirect (commit be30f37). The owner presses *Validate fix* once it's live.
+- **Crawled – currently not indexed, 1 page.** Most likely `/blog`, which
+  only said "Nothing here yet" (245 words). It now describes and links all
+  ten guides (560 words, commit 9b5bfcc).
+- **Discovered – currently not indexed, 7 pages.** Normal for a young site:
+  Google knows the address but hasn't spent the crawl yet. Done: links from
+  `/blog`, the footer and related pages, and an accurate `<lastmod>` in the
+  sitemap for pages changed on 16–17 Nov. For the owner: request indexing
+  for the 7 (about 10 a day is allowed), and add the free listings, since
+  links from other sites are what raise crawl priority.
+
 ## 16 November 2026 (night) — Google SEO push (owner asked)
 
 - **Research:** see [`SEO-PLAN.md`](SEO-PLAN.md). A young site wins first on
