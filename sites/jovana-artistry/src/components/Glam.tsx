@@ -43,7 +43,7 @@ export function Glam() {
                   <Img
                     name={w.image}
                     widths={[...w.widths]}
-                    sizes={i === 0 ? "(min-width:1440px) 420px, (min-width:768px) 31vw, 94vw" : "(min-width:1440px) 420px, (min-width:768px) 31vw, 47vw"}
+                    sizes={i === 0 ? "(min-width:1440px) 900px, (min-width:768px) 72vw, 94vw" : "(min-width:1440px) 420px, (min-width:768px) 31vw, 47vw"}
                     alt={w.alt}
                     className="h-full w-full object-cover transition-transform duration-[1.2s] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.04]"
                     style={{ objectPosition: "50% 25%" }}
