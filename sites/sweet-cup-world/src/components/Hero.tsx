@@ -256,9 +256,10 @@ export function Hero() {
           </div>
         </motion.div>
 
-        {/* Once the flavours are out — a scene that only exists with motion on */}
+        {/* Once the flavours are out — revealed by scrolling */}
         {!reduce && (
           <motion.div
+            data-qa="scroll-scene"
             className="absolute inset-x-0 bottom-0 z-30 mx-auto flex max-w-[1120px] flex-col items-center px-5 pb-[max(2.25rem,env(safe-area-inset-bottom))] text-center will-change-[transform,opacity] lg:pb-12"
             style={{ opacity: outroOpacity, y: outroY, pointerEvents: outroEvents }}
           >
