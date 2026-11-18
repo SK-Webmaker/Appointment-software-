@@ -2,7 +2,7 @@ import { ArrowRight, Instagram } from "lucide-react";
 import { ChapterLabel } from "./ChapterLabel";
 import { Img } from "./Img";
 import { MaskLines, Reveal } from "./Reveal";
-import { FLAVOURS, SITE } from "@/site.config";
+import { FLAVOURS, MORE_CUPS, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
 /** Chapter II — their six flavours, set like the arched frames of their flavour menu. */
@@ -56,6 +56,34 @@ export function Flavours() {
             );
           })}
         </ul>
+
+        {/* Their latest list: more cups on the menu */}
+        <div className="mt-20 grid items-center gap-10 border-t border-ivory/10 pt-14 md:mt-24 md:grid-cols-[0.8fr_1.2fr] md:gap-16">
+          <Reveal>
+            <div className="relative mx-auto aspect-[3/4] w-full max-w-[360px] overflow-hidden rounded-t-full bg-stone">
+              <Img name="bee-cup" widths={[480, 800, 1080]} sizes="(min-width:768px) 360px, 88vw" alt="A Biscoff cheesecake dessert cup with a little bee topper and a Biscoff biscuit on top" className="h-full w-full object-cover" style={{ objectPosition: "50% 40%" }} />
+            </div>
+          </Reveal>
+          <div>
+            <Reveal>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-pearl">Also on our menu</p>
+              <h3 className="mt-3 text-[clamp(32px,4.6vw,52px)] leading-[1.02]">
+                We make the following <em className="text-pearl">dessert cups</em>
+              </h3>
+            </Reveal>
+            <ul className="mt-8 space-y-3">
+              {MORE_CUPS.map((c, i) => (
+                <Reveal as="li" key={c} delay={i * 0.04} className="flex items-baseline gap-3 border-b border-ivory/10 pb-3 text-[17px] text-ivory md:text-[18px]">
+                  <span className="text-silk" aria-hidden="true">♡</span>
+                  {c}
+                </Reveal>
+              ))}
+            </ul>
+            <Reveal>
+              <p className="mt-6 text-[15px] italic text-ivory/80">Ps so much more — DM now! Affordable prices.</p>
+            </Reveal>
+          </div>
+        </div>
 
         <Reveal className="mt-14 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <button onClick={openSheet} className="btn-honey sheen">

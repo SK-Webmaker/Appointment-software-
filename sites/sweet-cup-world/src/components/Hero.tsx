@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform, type MotionValue } from "framer-motion";
-import { useIsomorphicLayoutEffect, useReducedMotionSafe } from "@/lib/motion";
+import { useIsomorphicLayoutEffect } from "@/lib/motion";
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { useReducer, useRef } from "react";
 import { Img } from "./Img";
@@ -53,11 +53,10 @@ export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const geo = useRef<Geo | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const reduce = useReducedMotionSafe();
-  // Read inside the scroll transforms below, which would otherwise keep the
-  // value from their first render (before the preference is known).
+  // The opening is scroll-driven, so it plays for everyone — including devices
+  // with "Reduce motion" on, where an opening that never moves looks broken.
+  const reduce = false;
   const reduceRef = useRef(reduce);
-  reduceRef.current = reduce;
   const { openSheet } = useBooking();
 
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end end"] });

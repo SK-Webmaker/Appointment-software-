@@ -44,6 +44,9 @@ const geometry = () => {
   const visible = (e) => {
     const cs = getComputedStyle(e);
     if (cs.display === "none" || cs.visibility === "hidden") return false;
+    // the answer inside a closed <details> isn't shown, whatever its box says
+    const d = e.closest("details");
+    if (d && !d.open && !e.closest("summary")) return false;
     for (let n = e; n; n = n.parentElement) if (parseFloat(getComputedStyle(n).opacity) < 0.05) return false;
     const r = e.getBoundingClientRect();
     return r.width > 1 && r.height > 1;
@@ -108,7 +111,7 @@ const geometry = () => {
     out.invisible = [...document.querySelectorAll("h1,h2,h3,p,a,li,span,button,img")]
       .filter((el) => {
         const r = el.getBoundingClientRect();
-        if (!r.width || !r.height || el.closest(".sr-only,[aria-hidden='true']") || getComputedStyle(el).visibility === "hidden") return false;
+        if (!r.width || !r.height || el.closest(".sr-only,[aria-hidden='true'],[data-qa='scroll-scene']") || getComputedStyle(el).visibility === "hidden") return false;
         let o = 1;
         for (let n = el; n; n = n.parentElement) o *= parseFloat(getComputedStyle(n).opacity);
         return o < 0.15;

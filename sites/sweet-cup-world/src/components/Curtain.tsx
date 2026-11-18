@@ -11,17 +11,15 @@ const EASE = [0.22, 1, 0.36, 1] as const;
  * themselves down a chocolate ground, then their "Sweet Cup WORLD" logo
  * arrives with their tagline. Rendered
  * on the server so it is the first paint, it lifts ~1.5s after the page comes
- * alive. Reduced motion skips it; a CSS fail-safe (.curtain) lifts it even if
+ * alive. Under reduced motion it fades instead of wiping; a CSS fail-safe (.curtain) lifts it even if
  * JavaScript never runs.
  */
 export function Curtain() {
   const [show, setShow] = useState(true);
+  const [fade, setFade] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShow(false);
-      return undefined;
-    }
+    setFade(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     // Hold the page still while the curtain is up — and let go the moment it
     // lifts (the component stays mounted, so this can't wait for cleanup).
     const release = lockScroll();
@@ -41,9 +39,9 @@ export function Curtain() {
         <motion.div
           key="curtain"
           className="curtain fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-noir"
-          initial={{ clipPath: "inset(0% 0% 0% 0%)" }}
-          exit={{ clipPath: "inset(0% 0% 100% 0%)" }}
-          transition={{ duration: 1.05, ease: [0.76, 0, 0.24, 1] }}
+          initial={fade ? { opacity: 1 } : { clipPath: "inset(0% 0% 0% 0%)" }}
+          exit={fade ? { opacity: 0 } : { clipPath: "inset(0% 0% 100% 0%)" }}
+          transition={fade ? { duration: 0.6, ease: "easeOut" } : { duration: 1.05, ease: [0.76, 0, 0.24, 1] }}
           aria-hidden="true"
         >
           <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" fill="none">

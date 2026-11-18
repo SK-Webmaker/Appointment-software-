@@ -3,7 +3,8 @@
  * here and the whole site follows — no component holds a fact of its own.
  *
  * Every fact and quote comes from their public Instagram, @sweetcupworld
- * (read 7 October 2026): their bio, their welcome post, their flavour menu,
+ * (read 7 October 2026, re-checked 18 November 2026): their bio, their welcome
+ * post, their flavour menus,
  * their business card and their party and honey-jar posts. Sources and open
  * questions: BRAND-BRIEF.md.
  *
@@ -53,6 +54,16 @@ export const FLAVOURS = [
 ] as const;
 export type Flavour = (typeof FLAVOURS)[number]["name"];
 export const FLAVOUR_NAMES = FLAVOURS.map((f) => f.name) as Flavour[];
+
+// Their latest list (post of 26 October 2026), in their words — "Ps so much more".
+export const MORE_CUPS = [
+  "Biscoff cheesecake",
+  "Muhallebi topped with crushed pistachios",
+  "Rice pudding topped with crushed pistachios",
+  "Layali lubnan topped with pistachios and honey",
+  "Khashkhash",
+  "Custard and chocolate trifle",
+] as const;
 
 // ------------------------------------------------------------ for any occasion
 // Three of their posts, one card each, in their words.

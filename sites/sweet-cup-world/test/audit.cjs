@@ -7,6 +7,8 @@ const { launch } = require("./pw.cjs");
 const TARGET = process.env.TARGET;
 const SITE = process.env.SITE || "sweet";
 const CFG = {
+  jovana: { first: "glam", book: "book", sticky: ["top", "bridal"], pinnedGallery: null, sheetName: /Your booking/ },
+  kuva: { first: "work", book: "order", sticky: ["top", "seen"], pinnedGallery: null, sheetName: /Your Kuvaello order/ },
   sweet: { first: "story", book: "order", sticky: ["top", "occasions"], pinnedGallery: null, sheetName: /Your order message/ },
   estelle: { first: "estelle", sticky: ["top", "myths"], pinnedGallery: null, sheetName: /Your try-on message/ },
   empress: { first: "goals", sticky: ["top", "goals"], pinnedGallery: null, sheetName: /Your booking message/ },
@@ -113,7 +115,7 @@ async function swipe(cdp, p, dy = 450) {
 
     // 6. floating booking bar: hidden on the opening scene, shown in the page, hidden on #book
     await p.evaluate(() => __to(0)); await settle(p, 900);
-    const bar = () => p.evaluate(() => [...document.querySelectorAll("button")].some((b) => /DM to book|Book by Instagram DM|Secure your appointment|Your request|Your appointment|Dress & suit hire|Dessert cups/.test(b.textContent || "") && b.closest(".fixed") && b.getBoundingClientRect().height > 0));
+    const bar = () => p.evaluate(() => [...document.querySelectorAll("button")].some((b) => /DM to book|Book by Instagram DM|Secure your appointment|Your request|Your appointment|Dress & suit hire|Dessert cups|Custom sports posters|Glam · Brows · Spray tans|Your booking/.test(b.textContent || "") && b.closest(".fixed") && b.getBoundingClientRect().height > 0));
     check(!(await bar()), "floating book bar is hidden on the opening scene");
     await p.evaluate((id) => __to(document.getElementById(id).getBoundingClientRect().top + scrollY + 200), CFG.first); await settle(p, 1100);
     check(await bar(), "floating book bar appears once you're into the page");
@@ -123,7 +125,7 @@ async function swipe(cdp, p, dy = 450) {
     // 7. booking sheet locks the page, unlocks on close, keeps your place
     await p.evaluate((id) => __to(document.getElementById(id).getBoundingClientRect().top + scrollY + 300), CFG.first); await settle(p, 1200);
     const before = await p.evaluate(() => scrollY);
-    await p.locator("header button:visible", { hasText: /^(Book|Order)/ }).first().click();
+    await p.locator("header button:visible", { hasText: /^(Book|Order|Create)/ }).first().click();
     const dialog = p.getByRole("dialog", { name: CFG.sheetName });
     await dialog.waitFor({ timeout: 4000 });
     check(await p.evaluate(() => document.documentElement.style.overflow === "hidden"), "booking sheet locks the page behind it");
@@ -182,13 +184,13 @@ async function swipe(cdp, p, dy = 450) {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
     const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p);
     await p.addInitScript(() => { window.__to = (y) => window.scrollTo({ top: y, behavior: "instant" }); });
-    await p.goto(TARGET, { waitUntil: "networkidle" }); await p.waitForTimeout(1200);
+    await p.goto(TARGET, { waitUntil: "networkidle" }); await p.waitForTimeout(2600);
     console.log(`\n${SITE} — reduced motion`);
-    check(await p.evaluate(() => document.documentElement.style.overflow === ""), "no curtain lock with reduced motion");
+    check(await p.evaluate(() => document.documentElement.style.overflow === ""), "the curtain lets go of the page with reduced motion");
     const y0 = await p.evaluate(() => scrollY); await swipe(cdp, p, 500);
     check((await p.evaluate(() => scrollY)) > y0 + 150, "page scrolls with reduced motion");
-    const tall = await p.evaluate(() => document.getElementById("top").offsetHeight <= innerHeight * 1.3);
-    check(tall, "opening scene isn't a long pinned stretch with reduced motion");
+    const tall = await p.evaluate(() => document.getElementById("top").offsetHeight > innerHeight * 1.8);
+    check(tall, "the opening scene still plays with reduced motion (it is scroll-driven)");
     await ctx.close();
   }
   await b.close();
