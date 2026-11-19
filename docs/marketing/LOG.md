@@ -32,7 +32,11 @@ a sale. The research, the reasoning and the daily playbook are in
   - 20 candidate sites checked, 3 passed. Most already book online, or
     have no website or email.
   - 3 previews sent (beauty, brows and lashes, hair).
-  - 0 replies yet. Follow-ups are due 22–24 Nov.
+  - A second pass, through the scheduled task fired by hand, checked 15
+    more sites and none passed. Almost all book online already, and the
+    near misses only have a contact form, not a published email.
+    Tonight's total: 35 checked, 3 sent.
+  - 0 replies and 0 bounces so far. Follow-ups are due 22–24 Nov.
   - Sign-ups from these carry `from=preview`.
 
 ## 17 November 2026 — Search Console report from the owner
