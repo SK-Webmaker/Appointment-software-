@@ -35,8 +35,14 @@ a sale. The research, the reasoning and the daily playbook are in
   - A second pass, through the scheduled task fired by hand, checked 15
     more sites and none passed. Almost all book online already, and the
     near misses only have a contact form, not a published email.
-    Tonight's total: 35 checked, 3 sent.
-  - 0 replies and 0 bounces so far. Follow-ups are due 22–24 Nov.
+  - **Second group added** (see `OUTREACH.md`): businesses that already
+    book online. 12 of the 35 failed only on that. They get the same
+    picture with a "the booking page, owned outright" email, which
+    mail-tester also scored 9.9/10. 4 sent (brows and lashes, threading
+    and lashes, beauty, hair). Their app is never named.
+  - **Tonight's total: 35 checked, 7 sent** (3 first group, 4 second),
+    plus 2 mail-tester checks. 0 replies and 0 bounces so far. Follow-ups
+    are due 22–24 Nov.
   - Sign-ups from these carry `from=preview`.
 
 ## 17 November 2026 — Search Console report from the owner
