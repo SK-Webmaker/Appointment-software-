@@ -113,8 +113,19 @@ Where to find them (free, rotate daily):
   Townsville.
 - Niches: nails, lashes, brows, hair, barber, beauty/skin.
 
-Use `curl` (or WebFetch) on their pages. Firecrawl is not needed and its
-credits are not ours to spend.
+Run `node docs/marketing/preview/check-site.mjs <url> [more urls]` on each
+candidate's own site. For each one it reports the emails on the site, any
+sign of online booking, how they say to book, how many prices it saw, and
+the latest year mentioned. Then read the price page yourself for the menu.
+Firecrawl is not needed, and its credits are not ours to spend.
+
+What to expect (first run, 19 Nov): about 1 in 7 candidates passes. Most
+salons with a website already book online, and most that don't have no
+website or email. Directories are useful for names only: a salon listed
+there with no site of its own can't be emailed. Searches that worked:
+`<niche> "price list" "phone to book"` or `"call or text to book"`, with
+directory and social sites excluded. **3 to 5 good businesses a day is a
+good day.**
 
 ---
 
@@ -137,7 +148,7 @@ For every first email sent 3–5 days ago that has no reply in its thread,
 send the **Follow-up** in the same thread. Send only one, ever.
 
 ### 3. Find today's businesses
-Find **10** that pass every check in "Who gets one". Fewer is fine. Never
+Find **up to 10** that pass every check in "Who gets one". Fewer is fine. Never
 lower the bar to reach 10. For each, note: business name, first name if the
 site gives one, suburb, email, how they take bookings (call / text / DM /
 email), a site colour if obvious, opening days and hours if shown, and up to
