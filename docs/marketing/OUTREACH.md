@@ -197,7 +197,13 @@ Send through the Composio workbench, in one cell:
 - Send with `GMAIL_SEND_EMAIL` from `gmail_basoid-tun`, plain text
   (`is_html: false`), attachment `{name: "<Business> booking page.jpg",
   mimetype: "image/jpeg", s3key}`.
-- Wait 60–120 seconds between emails.
+- **One email per tool call.** The workbench tool gives up after 60
+  seconds while the cell keeps running, so a cell that sleeps between
+  sends looks like a failure even though it isn't. Wait 60–120 seconds
+  between calls with a shell `until` loop on the clock.
+- **Before any retry, check Sent** (`in:sent subject:"booking page"
+  after:<yesterday>`). A timed-out call may still have sent its email.
+  Never send twice.
 
 **Cap:** count today's emails from the Kairo Gmail to anyone except the
 owner (`in:sent after:<today>`). The other daily funnel sends from the same

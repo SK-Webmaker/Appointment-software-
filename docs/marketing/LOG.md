@@ -2,6 +2,39 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 19 November 2026 — one strategy: "Your booking page, already built"
+
+The owner asked for one researched, free, automated strategy that brings
+a sale. The research, the reasoning and the daily playbook are in
+[`OUTREACH.md`](OUTREACH.md). In short:
+- **Who:** Australian beauty, nail, lash, brow, hair and barber
+  businesses that still book by phone, text or DM.
+- **What they get:** a picture of their own Kairo booking page, with
+  their name, colours and real menu.
+- **The ask:** one question, by email.
+
+- **Built:**
+  - `preview/make-preview.cjs` makes the picture from a throwaway local
+    Kairo.
+  - `preview/check-site.mjs` checks a candidate's own site against the
+    rules.
+  - Pictures are hosted at unguessable addresses under
+    `kairobookings.com/p/`. Every crawler is kept out in `robots.txt`.
+    Prospect data stays in the private website repo and the Kairo
+    Gmail, never in this public repo.
+- **Spam check:** mail-tester scored the exact email, picture attached,
+  **9.9/10** ("Perfect, you can send").
+- **Automated:** the "Kairo preview outreach" scheduled task runs the
+  playbook every weekday at 9:37am Melbourne time. It handles replies,
+  sends one follow-up and finds new businesses. The owner is notified only
+  for a yes, a question it can't answer, a complaint or a sale.
+- **First run (tonight, by hand):**
+  - 20 candidate sites checked, 3 passed. Most already book online, or
+    have no website or email.
+  - 3 previews sent (beauty, brows and lashes, hair).
+  - 0 replies yet. Follow-ups are due 22–24 Nov.
+  - Sign-ups from these carry `from=preview`.
+
 ## 17 November 2026 — Search Console report from the owner
 
 The "Why pages aren't indexed" report shows three reasons. This is what
