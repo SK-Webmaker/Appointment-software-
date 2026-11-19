@@ -80,6 +80,11 @@ Ordered as a journey — this is the spine a scrolling site should follow.
 5. **Block out time** — lunch, training, a delivery, a whole day off, with a
    **private reason only the owner sees**. Blocked time vanishes from online
    booking immediately.
+   **Linked to Google Calendar, if you want it** (Team → a member → Google
+   Calendar, two separate switches): your Kairo bookings show up in Google
+   next to your personal life, and anything marked busy in your Google
+   Calendar is checked every 10 minutes and kept off the booking page. Only
+   the times are copied, never what the event is. No Google sign-in needed.
 6. **Booked-online marker** — every appointment shows whether it came from the
    public page or was taken by the salon.
 7. **The booking editor** — searchable client picker, add a brand-new client

@@ -1551,6 +1551,32 @@ const MUTATIONS = {
     find: "    ins.run(a.id, a.client_id, channel, 'reminder', to, copy.subject, copy.body, channel === 'email' ? copy.html : '', now);\n    sent++;",
     replace: '    sent++;',
   },
+  // ── Google Calendar, both ways (src/gcal.js) ─────────────────────────────
+  'gcal-busy-not-stored': {
+    file: 'src/gcal.js', suites: ['gcal'],
+    find: '    for (const b of blocks) ins.run(staffId, b.date, b.start, b.end, BUSY_REASON);',
+    replace: '    void ins;',
+  },
+  'gcal-free-events-block': {
+    file: 'src/gcal.js', suites: ['gcal'],
+    find: "    if (val(ev, 'TRANSP').toUpperCase() === 'TRANSPARENT') continue; // marked \"Free\"",
+    replace: '',
+  },
+  'gcal-fetches-any-host': {
+    file: 'src/gcal.js', suites: ['gcal'],
+    find: '  if (!ALLOWED_HOST(host)) return bad;',
+    replace: '',
+  },
+  'gcal-feed-ignores-switch': {
+    file: 'src/gcal.js', suites: ['gcal'],
+    find: '     WHERE sc.feed_on = 1 AND sc.feed_token = ?`',
+    replace: '     WHERE sc.feed_token = ?`',
+  },
+  'gcal-imported-blocks-editable': {
+    file: 'src/api.js', suites: ['gcal'],
+    find: "  if (b?.source === 'gcal') {",
+    replace: '  if (false) {',
+  },
 };
 
 const only = process.argv.slice(2);

@@ -11,6 +11,7 @@ import { handleApi, maybeDailySummary } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
+import { syncDue as syncCalendars } from './src/gcal.js';
 import { checkOrigin } from './src/origin.js';
 import { handlePlatform, platformEnabled, platformKeyFingerprint } from './src/platform.js';
 import { turnstileEnabled } from './src/turnstile.js';
@@ -61,6 +62,13 @@ startScheduler({
       chaseReviews();
     } catch (err) {
       console.error('review chase:', err.message);
+    }
+    // Team members' own calendars (src/gcal.js): any switched-on import not
+    // read in the last 10 minutes is read now and its busy time replaced.
+    try {
+      await syncCalendars();
+    } catch (err) {
+      console.error('calendar sync:', err.message);
     }
     // "6 appointments today." Off unless the owner asked for it, guarded to
     // once a day by a stored date, and silent on an empty day.

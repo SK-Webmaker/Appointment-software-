@@ -637,6 +637,9 @@ function wireGrid(container, staffList) {
     const blockEl = e.target.closest('.cal-block');
     if (blockEl) {
       const block = cal.blocks.find((b) => b.id === Number(blockEl.dataset.block));
+      // Busy time from someone's Google Calendar is re-read every 10 minutes,
+      // so it is changed in Google, not here.
+      if (block?.source === 'gcal') { toast('Busy in Google Calendar. Change it there, or turn the link off in Team.'); return; }
       if (block) { openBlockModal({ block, onSaved: redraw }); return; }
     }
     const col = e.target.closest('.cal-col');

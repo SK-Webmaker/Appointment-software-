@@ -52,6 +52,7 @@ import { snapshot, emailBackup, backupStatus, FREQUENCIES } from './backup.js';
 import { hoursForDate, parseDayRules, openDatesFrom, weekdayOf } from '../public/js/hours.js';
 import { buildRoster, bookableWindow, rosteredShift, NO_ROSTER } from '../public/js/roster.js';
 import { checkBody, s } from './validate.js';
+import * as gcal from './gcal.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
 import { current as currentTenant, isReadOnly, MULTI } from './tenant.js';
 import { renderEmail } from './email-html.js';
@@ -149,6 +150,8 @@ const PARAM_PATTERN = {
   // precisely so it cannot widen `:id`, which is digits-only everywhere else
   // and is what stops /api/clients/../../ ever reaching a handler.
   step: '([a-z][a-z0-9-]{0,40})',
+  // A calendar feed's secret (src/gcal.js): 32 hex characters, nothing else.
+  token: '([a-f0-9]{32})',
 };
 function route(method, pattern, handler, { auth = true } = {}) {
   const names = [];
@@ -1078,6 +1081,40 @@ route('PUT', '/api/staff/:id', async ({ req, params }) => {
     params.id
   );
   return db.prepare(`${STAFF_SELECT} WHERE s.id = ?`).get(params.id);
+});
+
+// A member's own calendar, linked both ways (src/gcal.js). Owner-only: the
+// feed link shows their bookings and the import address reads their private
+// calendar, so neither is anything another login should see or change.
+function calendarMember(user, id) {
+  ownerOnly(user);
+  if (!db.prepare('SELECT id FROM staff WHERE id = ?').get(id)) throw httpError(404, 'Team member not found');
+}
+
+route('GET', '/api/staff/:id/calendar', async ({ req, params, user }) => {
+  calendarMember(user, params.id);
+  return gcal.calendarStatus(params.id, originFor(req));
+});
+
+route('PUT', '/api/staff/:id/calendar', async ({ req, params, user }) => {
+  calendarMember(user, params.id);
+  const b = checkBody(await readJson(req), { feed_on: s.bool(), new_link: s.bool(), import_on: s.bool(), import_url: s.str(2000) });
+  try {
+    gcal.saveCalendar(params.id, b);
+  } catch (err) {
+    if (err.status) throw httpError(err.status, err.message);
+    throw err;
+  }
+  // Read it straight away, so the owner sees at once whether the address works.
+  const row = gcal.calendarRow(params.id);
+  if (row?.import_on && row.import_url && !row.checked_at) await gcal.syncMember(params.id);
+  return gcal.calendarStatus(params.id, originFor(req));
+});
+
+route('POST', '/api/staff/:id/calendar/sync', async ({ req, params, user }) => {
+  calendarMember(user, params.id);
+  await gcal.syncMember(params.id);
+  return gcal.calendarStatus(params.id, originFor(req));
 });
 
 // ---------------------------------------------------------------------------
@@ -2277,8 +2314,18 @@ route('POST', '/api/time-blocks', async ({ req }) => {
   return db.prepare('SELECT * FROM time_blocks WHERE id = ?').get(info.lastInsertRowid);
 });
 
+// Busy time read from someone's own calendar is replaced on every read, so an
+// edit here would silently come undone. Say so instead.
+function refuseImported(id) {
+  const b = db.prepare('SELECT source FROM time_blocks WHERE id = ?').get(id);
+  if (b?.source === 'gcal') {
+    throw httpError(409, 'This busy time comes from Google Calendar. Change it there, or turn the link off on the Team page.');
+  }
+  return b;
+}
+
 route('PUT', '/api/time-blocks/:id', async ({ req, params }) => {
-  if (!db.prepare('SELECT id FROM time_blocks WHERE id = ?').get(params.id)) throw httpError(404, 'Block not found');
+  if (!refuseImported(params.id)) throw httpError(404, 'Block not found');
   db.prepare(
     'UPDATE time_blocks SET staff_id = ?, date = ?, start_min = ?, end_min = ?, reason = ? WHERE id = ?'
   ).run(...(await blockBody(req)), params.id);
@@ -2286,6 +2333,7 @@ route('PUT', '/api/time-blocks/:id', async ({ req, params }) => {
 });
 
 route('DELETE', '/api/time-blocks/:id', async ({ params }) => {
+  refuseImported(params.id);
   db.prepare('DELETE FROM time_blocks WHERE id = ?').run(params.id);
   return { ok: true };
 });
@@ -6253,6 +6301,15 @@ route('POST', '/api/public/confirm-deposit', async ({ req }) => {
     service: full.service_name, staff: full.staff_name,
     business_name: getSetting('business_name'),
   };
+}, { auth: false });
+
+// A team member's bookings as a calendar Google subscribes to. The random
+// token in the address is the only credential, as with a Google "secret
+// address"; switching the feed off or making a new link kills the old one.
+route('GET', '/api/public/calendar/:token\\.ics', async ({ res, params }) => {
+  const ics = gcal.feedFor(params.token);
+  if (!ics) throw httpError(404, 'Calendar not found');
+  sendText(res, 200, ics, 'text/calendar; charset=utf-8', { 'Cache-Control': 'no-store' });
 }, { auth: false });
 
 // "Add to calendar" file for a confirmed booking. Exposes only service/time/

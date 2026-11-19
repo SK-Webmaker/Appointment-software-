@@ -7,7 +7,7 @@
 // here. What matters is the roster: it is the difference between a booking page
 // that offers Tuesday and a stylist who does not work Tuesdays.
 import { api } from '../api.js';
-import { esc, icon, openModal, confirmDialog, toast, initials, timeOptions, fmtDate, todayStr, addDaysStr, parseDate, dateToStr } from '../ui.js';
+import { esc, icon, openModal, confirmDialog, toast, initials, timeOptions, fmtDate, todayStr, addDaysStr, parseDate, dateToStr, copyText } from '../ui.js';
 import { refreshLookups, state } from '../app.js';
 import { fmtDuration } from '../roster.js';
 
@@ -355,6 +355,7 @@ function openStaffModal({ staff = null, onSaved } = {}) {
     footer: `
       ${s ? `<button class="btn danger" id="st-delete">${icon('trash')} Remove</button>` : ''}
       <div class="spacer"></div>
+      ${s && isOwner() ? `<button class="btn" id="st-gcal">${icon('calendar')} Google Calendar</button>` : ''}
       ${s ? `<button class="btn" id="st-hours">${icon('clock')} Working hours</button>` : ''}
       <button class="btn primary" id="st-save">${icon('check')} ${s ? 'Save' : 'Add'}</button>`,
   });
@@ -381,6 +382,8 @@ function openStaffModal({ staff = null, onSaved } = {}) {
       m.close(); onSaved?.();
     } catch (err) { toast(err.message, 'err'); }
   };
+  const gcalBtn = m.querySelector('#st-gcal');
+  if (gcalBtn) gcalBtn.onclick = () => { m.close(); openCalendarLink(s); };
   const hoursBtn = m.querySelector('#st-hours');
   if (hoursBtn) hoursBtn.onclick = () => { m.close(); openWeeklyPattern(s, onSaved); };
   if (s) {
@@ -392,4 +395,118 @@ function openStaffModal({ staff = null, onSaved } = {}) {
       m.close(); onSaved?.();
     };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Google Calendar, both ways (src/gcal.js). Owner-only.
+// ---------------------------------------------------------------------------
+
+const isOwner = () => !state.user?.role || state.user.role === 'owner';
+
+function agoText(utc) {
+  if (!utc) return '';
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(`${utc.replace(' ', 'T')}Z`)) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  return h < 24 ? `${h} hour${h === 1 ? '' : 's'} ago` : `${Math.round(h / 24)} days ago`;
+}
+
+async function openCalendarLink(member) {
+  let st;
+  try { st = await api.get(`/api/staff/${member.id}/calendar`); } catch (err) { toast(err.message, 'err'); return; }
+  const m = openModal({
+    title: `Google Calendar · ${member.name}`,
+    body: '<div id="gc-body"></div>',
+    footer: '<div class="spacer"></div><button class="btn primary" data-close>Done</button>',
+  });
+  m.querySelector('.modal-foot [data-close]').onclick = () => m.close();
+  const body = m.querySelector('#gc-body');
+
+  const save = async (patch) => {
+    try {
+      st = await api.put(`/api/staff/${member.id}/calendar`, patch);
+      draw();
+      return true;
+    } catch (err) { toast(err.message, 'err'); draw(); return false; }
+  };
+
+  function statusLine() {
+    if (!st.import_on) return '';
+    if (st.error) return `<div class="gc-status is-err">${icon('alert', 14)} ${esc(st.error)}</div>`;
+    if (!st.checked_at) return '<div class="gc-status">Checking your calendar…</div>';
+    return `<div class="gc-status is-ok">${icon('check', 14)} Linked. Checked ${esc(agoText(st.checked_at))}: ${st.busy_count} busy time${st.busy_count === 1 ? '' : 's'} blocked on the booking page.</div>`;
+  }
+
+  function draw() {
+    body.innerHTML = `
+      <div class="gc-sec">
+        <label class="gc-switch"><input type="checkbox" class="chk" id="gc-feed" ${st.feed_on ? 'checked' : ''}>
+          <span><b>Show ${esc(member.name)}'s Kairo bookings in Google Calendar</b>
+          <span class="cell-sub">Bookings appear next to personal events. Google refreshes it every few hours.</span></span></label>
+        ${st.feed_on ? `
+          <div class="gc-copy"><input readonly id="gc-feed-url" value="${esc(st.feed_url)}" aria-label="Calendar link">
+            <button class="btn" id="gc-copy-btn">${icon('link')} Copy</button></div>
+          <ol class="gc-steps">
+            <li>Open Google Calendar on a computer.</li>
+            <li>Next to <b>Other calendars</b>, click <b>+</b>, then <b>From URL</b>.</li>
+            <li>Paste the link and click <b>Add calendar</b>.</li>
+          </ol>
+          <div class="gc-row"><button class="btn sm" id="gc-new-link">Make a new link</button>
+            <span class="cell-sub">Keep the link private. A new link stops the old one working.</span></div>` : ''}
+      </div>
+      <div class="gc-sec">
+        <label class="gc-switch"><input type="checkbox" class="chk" id="gc-import" ${st.import_on ? 'checked' : ''}>
+          <span><b>Block personal events so clients can't book over them</b>
+          <span class="cell-sub">Kairo checks Google Calendar every 10 minutes and hides any time marked busy from the booking page. Only the times are copied, never what the event is.</span></span></label>
+        <div id="gc-import-box" ${st.import_on || importOpen ? '' : 'hidden'}>
+          <ol class="gc-steps">
+            <li>In Google Calendar on a computer, click the gear icon, then <b>Settings</b>.</li>
+            <li>Under <b>Settings for my calendars</b> on the left, click your calendar, then <b>Integrate calendar</b>.</li>
+            <li>Copy the <b>Secret address in iCal format</b> and paste it below.</li>
+          </ol>
+          <div class="gc-copy">
+            <input id="gc-url" autocomplete="off" spellcheck="false"
+              placeholder="${esc(st.import_set ? `Saved (${st.import_hint}). Paste a new one to replace it` : 'https://calendar.google.com/calendar/ical/…/basic.ics')}">
+            <button class="btn primary" id="gc-connect">${st.import_set ? 'Save' : 'Connect'}</button>
+          </div>
+          ${statusLine()}
+          ${st.import_on ? `<div class="gc-row"><button class="btn sm" id="gc-check">${icon('clock')} Check now</button></div>` : ''}
+        </div>
+      </div>`;
+
+    body.querySelector('#gc-feed').onchange = (e) => save({ feed_on: e.target.checked });
+    const copyBtn = body.querySelector('#gc-copy-btn');
+    if (copyBtn) copyBtn.onclick = async () => {
+      if (await copyText(st.feed_url)) toast('Link copied');
+      else toast('Copy failed. Select the link and copy it by hand.', 'err');
+    };
+    const newLink = body.querySelector('#gc-new-link');
+    if (newLink) newLink.onclick = async () => {
+      const ok = await confirmDialog('Make a new link', 'The old link stops working, so Google stops showing these bookings until you add the new link there.', { okText: 'Make a new link' });
+      if (ok && await save({ new_link: true })) toast('New link made. Add it to Google Calendar again.');
+    };
+    body.querySelector('#gc-import').onchange = (e) => {
+      if (e.target.checked && !st.import_set) { importOpen = true; draw(); body.querySelector('#gc-url')?.focus(); return; }
+      importOpen = false;
+      save({ import_on: e.target.checked });
+    };
+    const connect = body.querySelector('#gc-connect');
+    if (connect) connect.onclick = async () => {
+      const url = body.querySelector('#gc-url').value.trim();
+      if (!url && !st.import_set) { toast('Paste the secret address first', 'err'); return; }
+      connect.disabled = true;
+      connect.textContent = 'Checking…';
+      if (await save(url ? { import_url: url, import_on: true } : { import_on: true })) {
+        toast(st.error ? 'Saved, but Kairo could not read that calendar yet' : 'Google Calendar linked');
+      }
+    };
+    const check = body.querySelector('#gc-check');
+    if (check) check.onclick = async () => {
+      check.disabled = true;
+      try { st = await api.post(`/api/staff/${member.id}/calendar/sync`, {}); draw(); } catch (err) { toast(err.message, 'err'); check.disabled = false; }
+    };
+  }
+  let importOpen = false;
+  draw();
 }

@@ -4166,3 +4166,23 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .push-this.bad > svg { flex: none; color: var(--amber); margin-top: 2px; }
 .push-this .btn { margin-left: 4px; }
 .push-this .pt-why { display: block; color: var(--text-2); font-size: 12px; margin-top: 4px; }
+
+/* Google Calendar link (Team → member → Google Calendar) */
+.gc-sec { padding: 14px 0; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+.gc-sec:last-child { border-bottom: 0; }
+.gc-switch { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.gc-switch > span { display: grid; gap: 3px; }
+.gc-copy { display: flex; gap: 8px; }
+.gc-copy input {
+  flex: 1; min-width: 0; background: var(--bg-raise); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 12px; font-size: 13.5px; outline: none; transition: border-color 0.12s;
+}
+.gc-copy input:focus { border-color: var(--accent); }
+.gc-copy input[readonly] { color: var(--text-2); }
+.gc-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.gc-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+.gc-status { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; align-items: flex-start; }
+.gc-status.is-ok { color: var(--green); }
+.gc-status.is-err { color: var(--red); }
+#gc-import-box { display: grid; gap: 10px; }
+#gc-import-box[hidden] { display: none; }

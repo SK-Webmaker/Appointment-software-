@@ -792,6 +792,25 @@ function migrate() {
   addColumn('booking_invites', 'pay_link', "pay_link TEXT NOT NULL DEFAULT ''");
   addColumn('booking_invites', 'link_opened_at', "link_opened_at TEXT NOT NULL DEFAULT ''");
 
+  // A team member's own calendar, linked both ways (src/gcal.js). Its own
+  // table rather than staff columns because two of these are secrets (the feed
+  // token and the Google address), and staff rows go to every signed-in user.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS staff_calendar (
+      staff_id   INTEGER PRIMARY KEY REFERENCES staff(id) ON DELETE CASCADE,
+      feed_on    INTEGER NOT NULL DEFAULT 0,
+      feed_token TEXT NOT NULL DEFAULT '',
+      import_on  INTEGER NOT NULL DEFAULT 0,
+      import_url TEXT NOT NULL DEFAULT '',
+      checked_at TEXT NOT NULL DEFAULT '',
+      error      TEXT NOT NULL DEFAULT '',
+      busy_count INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+  // '' = blocked by hand in Kairo; 'gcal' = busy time read from the member's
+  // own calendar, replaced on every read and not editable here.
+  addColumn('time_blocks', 'source', "source TEXT NOT NULL DEFAULT ''");
+
   // Backfill appointment_services from the legacy single service_id so every
   // existing appointment has at least its primary service listed. Runs once:
   // guarded by "no rows yet" and only touches appointments that have a service.
@@ -1681,6 +1700,7 @@ export function clearBusinessData() {
     -- medical note sitting in a file nobody thinks contains one.
     DELETE FROM treatment_photos; DELETE FROM consents; DELETE FROM patch_tests;
     DELETE FROM client_safety; DELETE FROM service_requirements;
+    DELETE FROM staff_calendar;
     DELETE FROM appointment_services; DELETE FROM appointments; DELETE FROM services; DELETE FROM products; DELETE FROM clients; DELETE FROM staff; DELETE FROM locations;
     DELETE FROM sqlite_sequence WHERE name IN ('messages','reviews','payments','invoice_items','invoices','time_blocks','appointment_services','appointments','services','products','clients','staff','locations','treatment_photos','consents','patch_tests','service_requirements');
   `);
