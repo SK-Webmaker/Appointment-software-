@@ -101,6 +101,14 @@ not on a directory:
 7. **Never emailed before** from the Kairo Gmail. Search the Sent folder for
    the address and for `@domain`. Any hit means skip it, whoever sent it.
 
+**Second group: businesses that already book online.** The first night
+showed that most salons with a website already book online through a booking
+app. Most such apps charge every month, and many take commission. These
+businesses pass checks 1 and 3–7 above, fail only check 2, and get the
+**second-group email** below: the same picture, framed as owning the booking
+page outright. Never name or guess which app they use. Fill each day with
+first-group businesses first, then second-group ones, up to 10 in all.
+
 Where to find them (free, rotate daily):
 - Web search for directory pages, by suburb or city and niche, that list
   venues as "Call to book". Then search `<venue name> <suburb>` for the
@@ -239,6 +247,28 @@ inbox. If the count reaches **25**, stop for the day.
 > no monthly fee, and a full refund within 14 days if it's not for you.
 >
 > Want me to send you the link to set it up? I'll help you put your menu in.
+>
+> Sachi
+> Kairo · kairobookings.com
+>
+> Not for you? Just reply "no thanks" and I won't email again.
+
+**Second-group email** (they already book online)
+
+> Hi <first name, or "there">,
+>
+> I put the <Business> menu into Kairo to show you what your booking page
+> could look like if you owned it outright. It's attached: <service 1>,
+> <service 2> and the rest, at your prices.
+>
+> Clients tap a service, pick a time you're actually free, and it goes
+> straight into your diary, with a reminder the day before so fewer no-shows.
+>
+> The difference is the price: Kairo is A$400 once (or 3 × A$150), then
+> nothing to pay, ever: no monthly fee and no commission on bookings. And
+> there's a full refund within 14 days if it's not for you.
+>
+> Want me to send you the link? I'll help you move your menu across.
 >
 > Sachi
 > Kairo · kairobookings.com
