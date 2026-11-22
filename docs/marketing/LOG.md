@@ -2,6 +2,41 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 23 November 2026 — weekly run
+
+- **Sales:** none. Sign-up log 16–22 Nov: 0 real started, 0 paid. The only
+  two lines are the 16 Nov pricing-check tests.
+- **Visits 15–22 Nov:** 11 visitors, 12 page views. Direct 8, **google.com
+  2** (the first visits from Google search), Instagram 1. Pages: home 9,
+  hair salon page 1, `/websites` 1, sub-processors 1. 7 of the 11 were in
+  Australia.
+- **Site check:** clean. All 29 sitemap pages and `llms.txt` answer 200
+  and name no other platform. Checkout offers $400 once or 3 × $150,
+  matching the site. All 16 old addresses still answer 301.
+- **Positions:** the free web search tool (not set to Australia) doesn't
+  show kairobookings.com for "salon software no monthly fee australia".
+  Free directories hold those results, which backs the free-listings
+  to-do in `SEO-PLAN.md`.
+- **Autocomplete (AU):** "how to start a lash business" with "no money",
+  "step by step", "from home" and "online"; "best salon software
+  australia"; "booking system for hairdressers".
+- **Page added:** `/how-to-start-a-lash-business` (top of the backlog).
+  - **The checklist:** training, a free ABN, an ASIC business name
+    ($47 a year from 1 July 2026), council rules (Victoria registers lash
+    premises; a home business may need approval), insurance, patch tests,
+    pricing a set from your own time, and bookings and deposits from
+    day one.
+  - **Also:** a section on starting with very little money.
+  - **Kairo claims:** they match the lash page, which was checked against
+    the app.
+  - **Where it's linked:** in the sitemap and `llms.txt`, and from the
+    lash page and the no-show policy page.
+  - **Checks:** build, type check and lint passed. Website commit a4cf801,
+    published and live with the right title, IndexNow 200.
+- **Preview outreach this week:** 12 first emails (7 on 19 Nov, 5 on
+  22 Nov), 0 follow-ups (the first are due 23 Nov), 0 replies, 0 bounces.
+  Both email versions scored 9.9/10 on mail-tester.
+
 ## 22 November 2026 — preview outreach, days 1–3
 
 - **Sent:** 3 more second-group previews (a facial salon, a threading and
