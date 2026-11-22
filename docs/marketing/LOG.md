@@ -2,6 +2,17 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 22 November 2026 — preview outreach, days 1–3
+
+- **Sent:** 3 more second-group previews (a facial salon, a threading and
+  waxing studio, a barber). These were built on 19 Nov but cut off by a
+  session restart. **Total: 10 businesses, each emailed once.**
+- **Replies:** 0. **Bounces:** 0. **Sign-ups** (kairo-platform log,
+  18–21 Nov): 0. First follow-ups are due from 23 Nov.
+- **Scheduled task:** it fired on Fri 20 Nov at 9:38am, but sent nothing.
+  It runs inside the long-lived session, which was restarting at that
+  time. Next run is Mon 23 Nov at 9:37am.
+
 ## 19 November 2026 — one strategy: "Your booking page, already built"
 
 The owner asked for one researched, free, automated strategy that brings
