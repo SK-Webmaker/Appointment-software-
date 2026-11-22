@@ -6,12 +6,16 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
 - **Sent:** 3 more second-group previews (a facial salon, a threading and
   waxing studio, a barber). These were built on 19 Nov but cut off by a
-  session restart. **Total: 10 businesses, each emailed once.**
+  session restart. Then a catch-up run checked 21 more sites; 2 passed
+  (a hair salon, a brow and lash studio), both second group.
+  **Total: 12 businesses, each emailed once.**
 - **Replies:** 0. **Bounces:** 0. **Sign-ups** (kairo-platform log,
   18–21 Nov): 0. First follow-ups are due from 23 Nov.
-- **Scheduled task:** it fired on Fri 20 Nov at 9:38am, but sent nothing.
-  It runs inside the long-lived session, which was restarting at that
-  time. Next run is Mon 23 Nov at 9:37am.
+- **Scheduled tasks:** the Friday outreach run and the 19–21 Nov sale
+  checks all arrived in the session 2–3 days late. A scheduled run waits
+  until the session finishes what it's doing, and this one was held busy
+  the whole time. The sale checks found no sign-ups. Next outreach run is
+  Mon 23 Nov at 9:37am.
 
 ## 19 November 2026 — one strategy: "Your booking page, already built"
 
