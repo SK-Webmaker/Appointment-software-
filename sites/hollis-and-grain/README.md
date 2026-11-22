@@ -6,13 +6,18 @@ flow that works like the real thing. The business, barbers, prices, hours and
 phone number are fictional (the phone is from the ACMA's fiction range).
 Photos are from Unsplash (`public/images/CREDITS.md`).
 
-The journey: the pole stripes sweep the dark and the sign lights; two shop
-doors carry HOLLIS and GRAIN with turning barber-pole stripes down their
-edges — scroll and they swing apart onto the lamp-lit shop, then "Sharp cuts.
-Hot towels. No rush." comes up from the floor. Six cuts (tap one to book it);
-three barbers with their live next-free time ("Take 2:30 pm"); the ritual as
-cards that stack; a brass band; the price list (tap to book); and today's
-board — open or closed right now, the next free times in every chair.
+The journey:
+- **The shop doors.** HOLLIS and GRAIN on two dark doors, turning
+  barber-pole stripes down their edges — scroll and they swing apart onto
+  the lamp-lit shop; "Sharp cuts. Hot towels. No rush." comes up from the floor.
+- **Sliced headlines.** Every chapter title arrives cut in two: a pole-red
+  slash sweeps across, then the halves slide in from opposite sides.
+- **The window.** The cuts slide past sideways as you scroll; on a mouse the
+  pointer becomes a pair of scissors that snip when you click to book.
+- **Three chairs** with each barber's live next-free time ("Take 2:30 pm").
+- **The ritual** as cards that stack; a brass band; the price list.
+- **The departures board.** Today's free chairs on split-flap tiles that
+  clatter into place; tap a time to take it.
 
 ## Run it
 

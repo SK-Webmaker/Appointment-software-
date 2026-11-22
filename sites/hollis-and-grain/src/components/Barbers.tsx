@@ -99,7 +99,14 @@ export function Barbers() {
                       {n && (
                         <button
                           type="button"
-                          onClick={() => openSheet({ barber: b.id, day: n.day, time: n.time, ...(service ? {} : { service: "Signature Cut" }) })}
+                          onClick={() =>
+                            openSheet({
+                              barber: b.id,
+                              day: n.day,
+                              time: n.time,
+                              ...(service ? {} : { service: "Signature Cut" }),
+                            })
+                          }
                           className="btn-honey flex-1 px-4 text-[11.5px]"
                         >
                           Take {pretty(n.time)}

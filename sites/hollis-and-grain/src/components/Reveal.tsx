@@ -33,7 +33,12 @@ export function Reveal({
   );
 }
 
-/** Each line rises out of a mask, staggered. Pass lines as an array. */
+/**
+ * Each line arrives cut in two: a pole-red slash sweeps across, then the top
+ * and bottom halves slide in from opposite sides and close the cut. The
+ * halves are clip-paths over two copies of the line (the second is hidden
+ * from screen readers); only transforms and opacity animate.
+ */
 export function MaskLines({
   lines,
   className,
@@ -48,8 +53,7 @@ export function MaskLines({
   animateOnMount?: boolean;
 }) {
   const reduce = useReducedMotionSafe();
-  // The trigger sits on the container: a line that wraps is hidden entirely by
-  // its own mask, so an observer on the line itself would never fire.
+  // The trigger sits on the container, so every line plays in order.
   const trigger = animateOnMount
     ? { animate: "show" }
     : { whileInView: "show", viewport: { once: true, margin: "0px 0px -10% 0px" } };
@@ -59,23 +63,52 @@ export function MaskLines({
       initial={reduce ? false : "hidden"}
       {...trigger}
     >
-      {lines.map((line, i) => (
-        // Padding + negative margin give descenders and italic overhang room inside the mask.
-        <span key={i} className="block overflow-hidden pb-[0.14em] -mb-[0.14em] pr-[0.08em]">
-          <motion.span
-            className={`block ${lineClassName}`}
-            variants={{
-              hidden: { y: "110%" },
-              show: {
-                y: "0%",
-                transition: { duration: 1.15, ease: EASE, delay: delay + i * 0.09 },
-              },
-            }}
-          >
-            {line}
-          </motion.span>
-        </span>
-      ))}
+      {lines.map((line, i) => {
+        const d = delay + i * 0.12;
+        return (
+          <span key={i} className="relative block pb-[0.06em]">
+            <motion.span
+              className={`block [clip-path:inset(-20%_-6%_50%_-6%)] ${lineClassName}`}
+              variants={{
+                hidden: { x: "-7%", opacity: 0 },
+                show: {
+                  x: "0%",
+                  opacity: 1,
+                  transition: { duration: 0.9, ease: EASE, delay: d + 0.28 },
+                },
+              }}
+            >
+              {line}
+            </motion.span>
+            <motion.span
+              aria-hidden="true"
+              className={`absolute inset-0 block [clip-path:inset(50%_-6%_-20%_-6%)] ${lineClassName}`}
+              variants={{
+                hidden: { x: "7%", opacity: 0 },
+                show: {
+                  x: "0%",
+                  opacity: 1,
+                  transition: { duration: 0.9, ease: EASE, delay: d + 0.28 },
+                },
+              }}
+            >
+              {line}
+            </motion.span>
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-[46%] block h-[3px] w-full origin-left bg-rose"
+              variants={{
+                hidden: { scaleX: 0, opacity: 0 },
+                show: {
+                  scaleX: [0, 1, 1],
+                  opacity: [1, 1, 0],
+                  transition: { duration: 0.95, ease: EASE, delay: d, times: [0, 0.45, 1] },
+                },
+              }}
+            />
+          </span>
+        );
+      })}
     </motion.span>
   );
 }

@@ -334,3 +334,10 @@ html.lenis body {
     animation: curtain-failsafe 0.6s ease 3.4s forwards !important;
   }
 }
+
+/* Over the cut cards a mouse pointer becomes scissors (drawn by Cuts.tsx). */
+@media (hover: hover) and (pointer: fine) {
+  [data-cursor="scissors"] {
+    cursor: none;
+  }
+}

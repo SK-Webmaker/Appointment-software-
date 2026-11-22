@@ -67,7 +67,10 @@ export function BookingSheet() {
 
   const svc = serviceOf(service);
   // The chosen time must still be free for the chosen service and barber.
-  const timeOk = useMemo(() => !!day && !!time && freeTimes(day, barber || "any", svc?.mins ?? 45).includes(time), [day, time, barber, svc]);
+  const timeOk = useMemo(
+    () => !!day && !!time && freeTimes(day, barber || "any", svc?.mins ?? 45).includes(time),
+    [day, time, barber, svc],
+  );
   useEffect(() => {
     if (time && day && !timeOk) setTime("");
   }, [time, day, timeOk, setTime]);

@@ -111,7 +111,10 @@ export function Hero() {
             </span>
             <span>
               {SITE.role} · {SITE.area}, {SITE.city}
-              <span className="max-sm:hidden" data-og-hide> · {live.status ?? `Est. ${SITE.est}`}</span>
+              <span className="max-sm:hidden" data-og-hide>
+                {" "}
+                · {live.status ?? `Est. ${SITE.est}`}
+              </span>
             </span>
           </p>
           <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center gap-6 text-center lg:flex-row lg:items-end lg:justify-between lg:text-left">

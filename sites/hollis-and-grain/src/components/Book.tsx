@@ -3,6 +3,7 @@ import { useReducedMotionSafe } from "@/lib/motion";
 import { ArrowRight, Clock, MapPin, Phone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ChapterLabel } from "./ChapterLabel";
+import { SplitFlap } from "./SplitFlap";
 import { MaskLines, Reveal } from "./Reveal";
 import { BARBERS, HOURS, QUICK, SITE, priceOf, serviceOf } from "@/site.config";
 import { useBooking } from "@/context/booking";
@@ -63,6 +64,9 @@ export function Book() {
         >
           <div className="overflow-hidden rounded-[14px] bg-noir text-ivory shadow-[0_40px_90px_-40px_rgba(20,14,10,0.8)]">
             {/* the board's header: open or closed, right now */}
+            <p className="border-b border-ivory/10 px-6 pt-5 font-display text-[13px] font-bold uppercase tracking-[0.4em] text-pearl md:px-10">
+              Next chairs · departures
+            </p>
             <div className="flex flex-col gap-2 border-b border-ivory/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between md:px-10">
               <p
                 className="flex items-center gap-2.5 text-[13px] font-semibold uppercase tracking-[0.18em]"
@@ -93,19 +97,19 @@ export function Book() {
                   key={r.id}
                   className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center md:px-10"
                 >
-                  <p className="flex w-[11rem] shrink-0 items-baseline gap-3">
-                    <span className="font-display text-[34px] font-extrabold uppercase leading-none">
-                      {r.name}
-                    </span>
+                  <p className="flex w-[13rem] shrink-0 items-center gap-3">
+                    <SplitFlap text={r.name.padEnd(4)} />
                     {board && (
-                      <span className="text-[12px] uppercase tracking-[0.14em] text-mist">
+                      <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-mist">
                         {r.today ? "Today" : dayLabel(r.day, { weekday: "short" })}
                       </span>
                     )}
                   </p>
                   <div className="flex flex-1 flex-wrap gap-2">
                     {!board ? (
-                      <span className="text-[14px] text-ivory/60">Checking the book…</span>
+                      <span className="font-mono text-[14px] text-ivory/60">
+                        Checking the book…
+                      </span>
                     ) : r.times.length ? (
                       r.times.map((t) => (
                         <button
@@ -119,10 +123,10 @@ export function Book() {
                               ...(service ? {} : { service: "Signature Cut" }),
                             })
                           }
-                          className="min-h-[44px] rounded-full border border-pearl/35 px-4 text-[14px] font-semibold text-ivory transition-colors duration-300 hover:border-pearl hover:bg-pearl hover:text-noir"
+                          className="group min-h-[44px] rounded-[6px] p-1 ring-1 ring-pearl/30 transition-[box-shadow,background-color] duration-300 hover:bg-pearl/15 hover:ring-pearl"
                           aria-label={`Book ${r.name} at ${pretty(t)}${r.today ? " today" : ` on ${dayLabel(r.day, { weekday: "long" })}`}`}
                         >
-                          {pretty(t)}
+                          <SplitFlap text={pretty(t).replace(" ", "").padStart(6)} size="sm" />
                         </button>
                       ))
                     ) : (
