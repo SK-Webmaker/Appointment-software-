@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HERO_SIZES } from "@/components/Hero";
 import { Site } from "@/components/Site";
 import { SITE } from "@/site.config";
 
@@ -33,9 +32,6 @@ export const Route = createFileRoute("/")({
         rel: "preload",
         as: "image",
         href: "/images/white-800.webp",
-        imageSrcSet:
-          "/images/white-480.webp 480w, /images/white-800.webp 800w, /images/white-1200.webp 1200w, /images/white-1600.webp 1600w",
-        imageSizes: HERO_SIZES,
         fetchPriority: "high",
       },
     ],

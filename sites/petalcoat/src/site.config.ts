@@ -278,38 +278,47 @@ export const SETS = [
 ] as const;
 
 // ------------------------------------------------------------ the care (chapter III)
+// A gel manicure, minute by minute — the clock in chapter III runs through these.
 export const CARE = [
   {
+    at: 0,
     title: "Clean, every time",
-    text: "Every metal tool goes through a hospital-grade autoclave between clients; files and buffers are single-use and go home with you.",
+    text: "Metal tools straight from the autoclave; files and buffers are single-use and go home with you.",
     image: "brush",
-    widths: [480, 800, 1200, 1600],
     position: "50% 40%",
     alt: "A nail artist in black gloves paints a client's nail with a fine brush",
   },
   {
+    at: 8,
+    title: "Shape and cuticles",
+    text: "Filed to the shape you chose, cuticles pushed back gently — we never cut living skin.",
+    image: "nude",
+    position: "50% 45%",
+    alt: "Two hands with glossy nude almond nails and gold rings",
+  },
+  {
+    at: 18,
     title: "Your shade, matched",
-    text: "Two hundred gel colours on swatch sticks. Bring a photo, hold them up to your skin in daylight — we'll find it.",
+    text: "Two hundred gel colours on swatch sticks, held to your skin in daylight until it's right.",
     image: "swatch",
-    widths: [480, 800, 1200, 1600],
     position: "50% 50%",
     alt: "A colour chart of painted nail swatches beside a wooden brush",
   },
   {
-    title: "Gel that lasts",
-    text: "Thin, even coats cured properly. Three weeks without a chip — and if one lifts in the first five days, we fix it free.",
+    at: 26,
+    title: "Thin coats, cured properly",
+    text: "Three whisper-thin coats, each cured under the lamp. Thin is what makes gel last three weeks.",
     image: "gel",
-    widths: [480, 800, 1200, 1600],
     position: "50% 40%",
     alt: "A gloved hand dips a brush into a pot of nude builder gel",
   },
   {
-    title: "Gentle off, too",
-    text: "Removal is a soak, never a drill to the nail plate. It's free with your next set, and your natural nails thank you.",
-    image: "nude",
-    widths: [480, 800, 1200, 1600],
-    position: "50% 45%",
-    alt: "Two hands with glossy nude almond nails and gold rings",
+    at: 54,
+    title: "Oil, and out the door",
+    text: "Cuticle oil, a hand massage, and a set that's dry the second you stand up.",
+    image: "pink",
+    position: "50% 40%",
+    alt: "Short pink nails holding a pink lollipop",
   },
 ] as const;
 

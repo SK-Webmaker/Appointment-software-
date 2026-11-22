@@ -7,7 +7,7 @@ const { launch } = require("./pw.cjs");
 const TARGET = process.env.TARGET;
 const SITE = process.env.SITE || "petal";
 const CFG = {
-  petal: { first: "shades", book: "book", sticky: ["top", "care"], pinnedGallery: null, sheetName: /Your booking/ },
+  petal: { first: "shades", book: "book", sticky: ["top", "care"], pinnedGallery: "sets", sheetName: /Your booking/ },
   hollis: { first: "cuts", book: "book", sticky: ["top", "ritual"], pinnedGallery: null, sheetName: /Your booking/ },
   jovana: { first: "glam", book: "book", sticky: ["top", "bridal"], pinnedGallery: null, sheetName: /Your booking/ },
   kuva: { first: "work", book: "order", sticky: ["top", "seen"], pinnedGallery: null, sheetName: /Your Kuvaello order/ },

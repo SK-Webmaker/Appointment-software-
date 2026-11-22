@@ -1,28 +1,22 @@
-# Project knowledge — Hollis & Grain Barbers (concept)
+# Project knowledge — Petalcoat Nail Studio (concept)
 
-Paste this into the Lovable project's **Knowledge** so any later edit keeps
-what was built on purpose.
+Paste this into the Lovable project's **Knowledge**.
 
 ## What this is
-A one-page site for a fictional barbershop, made to show what a barber
-website can do. It must keep saying it's a concept (footer + booking
-confirmation). No backend: availability is simulated in `src/lib/slots.ts`.
+A one-page site for a fictional nail studio, made to showcase what a nail
+website can do. It must keep saying it's a concept (footer + confirmation).
+No backend: availability is simulated in `src/lib/slots.ts`.
 
 ## Where things live
-- **All facts** (services, prices, barbers, hours, FAQ) in `src/site.config.ts`.
-- **The appointment book** in `src/lib/slots.ts` (free times, open now,
-  next free chair, .ics). Replace `isTaken()` to connect a real system.
-- One chapter per file in `src/components/`; `Site.tsx` composes them.
-- Colours and fonts are tokens in `src/styles.css` (`@theme`): bone,
-  tobacco black, pole red, brass. Big Shoulders Display, Instrument Serif
-  italic, Hanken Grotesk — self-hosted.
+- All facts in `src/site.config.ts`; the drawn hand in `NailHand.tsx`.
+- Tokens in `src/styles.css`: porcelain, cherry lacquer, cherry-black,
+  petal pink. Bodoni Moda + Figtree, self-hosted.
 
 ## Do not change without being asked
-- **The motion.** Pole-stripe curtain; the shop doors parting on scroll onto
-  the lamp-lit shop; chapters sliding up as sheets; headings rising line by
-  line; ritual cards stacking. Transforms and opacity only (smooth on phones).
-- **The booking flow:** service → barber → day/time → details → booked
-  (reference + Add to calendar). Steps validate; choices persist.
-- **Reduced motion:** `useReducedMotionSafe()`; the opening still plays.
-- **Lenis on desktop only**; modals call `lockScroll()`.
-- Photos are Unsplash (free licence) — `public/images/CREDITS.md`.
+- **The motion:** the hero nail wearing six shades with names sweeping
+  behind; the pinned sideways sets wall; the pinned sixty-minute clock.
+  Transforms and opacity only.
+- **The shade bar** and how a look travels into the booking.
+- **The booking flow:** service → look → artist/time → details → booked.
+- Reduced motion: `useReducedMotionSafe()`; scroll scenes still play.
+- Lenis on desktop only; modals call `lockScroll()`.
