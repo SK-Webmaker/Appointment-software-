@@ -1,0 +1,354 @@
+@import "tailwindcss" source(none);
+@source "../src";
+
+/* ------------------------------------------------------------------ fonts
+   Self-hosted (Latin subset). Archivo, one variable family with a width axis:
+   expanded black capitals for the headlines (signwriting on a van door),
+   normal width for reading. JetBrains Mono for job numbers, gauges and times. */
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  src: url("/fonts/archivo.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/mono.woff2") format("woff2");
+}
+
+/* ----------------------------------------------------------------- tokens
+   Blueprint and signal. One cool hue (a pipe-drawing blue-grey) tints every
+   neutral: concrete canvas, deep-navy ink and night chapters. One accent,
+   signal orange, for actions and the words that matter; water cyan for light
+   on the dark; hi-vis yellow for the band. See .claude/skills/colour-palettes.
+   Contrast (WCAG): ink 15.3:1, ash 6.2:1, rose 5.2:1 on ivory; ash 5.5:1,
+   rose 4.6:1 on stone; ivory 16:1, pearl 11.8:1, silk 7.7:1, mist 6.3:1 on
+   noir; ivory 5.2:1 on rose; noir 10.9:1, plum 5.8:1 on candy; noir 6.4:1
+   on flare. (Names are shared with the other sites: ivory = concrete,
+   rose = signal orange, pearl = water, candy = hi-vis.) */
+@theme {
+  --color-ivory: #eef1ec;
+  --color-stone: #e0e5df;
+  --color-card: #f7f9f5;
+  --color-mint: #e6ebe5;
+  --color-candy: #f2c230;
+  --color-ink: #0d1b2a;
+  --color-ash: #4c5a68;
+  --color-onyx: #12213a;
+  --color-onyx-deep: #0b1624;
+  --color-rose: #b23c0c;
+  --color-flare: #ff6a2b;
+  --color-plum: #7a2a08;
+  --color-noir: #0b1624;
+  --color-coal: #12213a;
+  --color-pearl: #8fdcec;
+  --color-silk: #4fb6cc;
+  --color-mist: #8d9aa6;
+
+  --font-display: "Archivo", "Arial Black", sans-serif;
+  --font-sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --tracking-label: 0.2em;
+
+  --animate-marquee: marquee 36s linear infinite;
+  @keyframes marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+  --animate-wave: wave 5s linear infinite;
+  @keyframes wave {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+  --animate-rise: rise 4s ease-in infinite;
+  @keyframes rise {
+    0% {
+      transform: translate3d(0, 0, 0) scale(0.6);
+      opacity: 0;
+    }
+    15% {
+      opacity: 0.8;
+    }
+    100% {
+      transform: translate3d(0, -60vh, 0) scale(1);
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  color-scheme: light;
+  --nav-h: 64px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--nav-h) + 12px);
+    background: var(--color-ivory);
+  }
+
+  body {
+    @apply bg-ivory font-sans text-ink antialiased;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: var(--color-pearl);
+    color: var(--color-noir);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    font-weight: 900;
+    font-stretch: 125%;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rose);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.lenis) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Expanded black capitals; an emphasised word drops to a lighter,
+   narrower italic-free weight in signal orange (or water on dark). */
+.font-display em,
+h1 em,
+h2 em,
+h3 em,
+.aside {
+  font-style: normal;
+  font-weight: 300;
+  font-stretch: 100%;
+}
+
+/* Outline type: the empty pipe the water fills. */
+.outline-text {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(238 241 236 / 0.8);
+}
+@media (min-width: 1024px) {
+  .outline-text {
+    -webkit-text-stroke-width: 2px;
+  }
+}
+
+/* --------------------------------------------------------------- utilities */
+
+/* The capsule: kept for shared components. */
+@utility capsule {
+  border-radius: 999px 999px 28px 28px;
+}
+
+/* The arch: kept for shared components. */
+@utility arch {
+  border-radius: 9999px 9999px 28px 28px;
+}
+
+/* A chapter that arrives as a sheet sliding up over the one before: an arched
+   top and a soft shadow cast onto the page
+   behind. The overlap matches the bottom padding of the hero's last scene,
+   so the sheet meets its button exactly as the hero lets go. Every chapter
+   is its own stacking context, painted in page order. */
+@utility sheet {
+  position: relative;
+  isolation: isolate;
+  margin-top: -36px;
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  box-shadow: 0 -26px 48px -34px rgba(5, 12, 24, 0.4);
+  @media (min-width: 768px) {
+    margin-top: -48px;
+    border-top-left-radius: 48px;
+    border-top-right-radius: 48px;
+  }
+}
+
+/* Soft light inside a sheet: a plain rectangular clip that starts below the
+   arched top. Sheets themselves never clip — a rounded clip around anything
+   that animates (a reveal, a drifting glow) costs a mask on every frame. */
+@utility glow-clip {
+  position: absolute;
+  inset: 32px 0 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  @media (min-width: 768px) {
+    inset: 48px 0 0 0;
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--color-rose);
+}
+
+@utility btn {
+  position: relative;
+  display: inline-flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  padding-inline: 1.75rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  transition-property: background-color, color, border-color, box-shadow, transform;
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility btn-primary {
+  @apply btn bg-rose text-ivory shadow-[0_12px_30px_-12px_rgba(178,60,12,0.45)] hover:bg-onyx;
+}
+
+@utility btn-honey {
+  @apply btn bg-flare text-noir hover:bg-ivory;
+}
+
+@utility btn-ghost {
+  @apply btn border border-ink/25 text-ink hover:border-onyx hover:bg-onyx hover:text-ivory;
+}
+
+@utility btn-ghost-light {
+  @apply btn border border-ivory/35 text-ivory hover:border-ivory hover:bg-ivory hover:text-noir;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Plain CSS outside any layer, so it is always emitted. */
+
+/* Light travelling across a button, like a floodlight. */
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  animation: sheen 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  pointer-events: none;
+}
+@keyframes sheen {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The opening curtain is server-rendered so it covers the first paint. If
+   JavaScript never runs, this lifts it anyway — it can never trap anyone. */
+.curtain {
+  animation: curtain-failsafe 0.8s ease 3.4s forwards;
+}
+@keyframes curtain-failsafe {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Lenis (from lenis/dist/lenis.css) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .sheen::after {
+    display: none !important;
+  }
+  /* The curtain still shows (it fades instead of wiping), so its fail-safe
+     keeps a real delay here. */
+  .curtain {
+    animation: curtain-failsafe 0.6s ease 3.4s forwards !important;
+  }
+}
