@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HERO_SIZES } from "@/components/Hero";
 import { Site } from "@/components/Site";
 import { SITE } from "@/site.config";
 
@@ -28,15 +27,6 @@ export const Route = createFileRoute("/")({
     ],
     links: [
       { rel: "canonical", href: `${SITE.url}/` },
-      // The hero photograph is the largest paint — start it with the CSS.
-      {
-        rel: "preload",
-        as: "image",
-        href: "/images/hero-1200.webp",
-        imageSrcSet: "/images/hero-800.webp 800w, /images/hero-1200.webp 1200w",
-        imageSizes: HERO_SIZES,
-        fetchPriority: "high",
-      },
     ],
     scripts: [
       {
