@@ -2,6 +2,22 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 24 November 2026 — preview outreach
+
+- **Replies:** 0. **New bounces:** 0. **Follow-ups:** none due yet (the
+  22 Nov batch is due from 25 Nov).
+- **Checked:** 29 sites in Geelong, Bendigo, Ballarat, Toowoomba,
+  Townsville, Cairns, Launceston, Wollongong and Adelaide. 4 passed, all
+  second group (they already book online). The rest had no published
+  email, no menu with prices, nothing dated 2025 or later, or were
+  walk-in only.
+- **Sent:** 4 first emails, each with its picture. Mail-tester: 9.9/10.
+- **Totals so far:** 16 businesses emailed, 1 hard bounce, 6 follow-ups,
+  0 replies, 0 sign-ups.
+- **Planned, not built:** a free 14-day trial was planned on 24 Nov and
+  is waiting for the owner's go-ahead. If it ships, the emails' ask
+  becomes "try it free for 14 days".
+
 ## 23 November 2026 — preview outreach, first follow-ups
 
 - **Follow-ups:** 6 sent, in their threads, to the 19 Nov first emails
