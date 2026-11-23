@@ -2,6 +2,21 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 23 November 2026 — preview outreach, first follow-ups
+
+- **Follow-ups:** 6 sent, in their threads, to the 19 Nov first emails
+  that had no reply. That's every one of them except the bounce below.
+- **Bounces (correcting "0 bounces" above):** 2 of the 12 first emails
+  never arrived.
+  - A Perth brow bar's server refused it after two days of retries. It's
+    their only published address, so there's nothing more to send.
+  - A Hobart salon's address doesn't exist. Their site lists a second
+    address, and the same preview went there once on 23 Nov.
+- **Delivered so far:** 11 businesses, 6 follow-ups.
+- **Replies:** 0. **Sign-ups** (sale check to 23 Nov): 0.
+- **New businesses today:** none. This run was cut off by a session
+  restart before step 3. The next weekday run picks it up.
+
 ## 23 November 2026 — weekly run
 
 - **Sales:** none. Sign-up log 16–22 Nov: 0 real started, 0 paid. The only
