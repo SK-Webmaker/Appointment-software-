@@ -57,6 +57,7 @@ const CONFIRM = [
   { method: 'POST', path: /^\/api\/invites(\/\d+\/confirm)?$/ },
   { method: 'POST', path: /^\/api\/pos\/sale$/ },
   { method: 'POST', path: /^\/api\/backup\/email$/ },
+  { method: 'POST', path: /^\/api\/stats\/email$/ },
   { method: 'PATCH', path: /^\/api\/appointments\/\d+\/status$/, when: (b) => ['cancelled', 'no_show'].includes(b?.status) },
 ];
 

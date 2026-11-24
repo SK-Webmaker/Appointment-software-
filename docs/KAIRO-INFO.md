@@ -65,6 +65,17 @@ Ordered as a journey — this is the spine a scrolling site should follow.
    clients with 2+ past visits, nothing in eight weeks, and nothing booked.
 7. **Booking rhythm & trends** — appointments by hour of day (so the owner knows
    which hours to protect), revenue per day, and the top-selling services.
+8. **Performance, for any dates** (Manage → Performance, owner only) — this
+   month, last month, the last 3, 6 or 12 months, the year so far, or any two
+   dates. Each month on its own and the total: appointment value at your
+   prices, appointments, average appointment, new and returning clients, how
+   many visits were **rebooked before the client left**, how many clients came
+   back, how full the diary was against the team's rostered hours, online
+   bookings, cancellations, no-shows and payments taken in Kairo. Every figure
+   is compared with the period before. Also: the **run rate** (the last 30 days
+   scaled to a month and a year), this month's pace, what's already booked for
+   the next 30 days, top services, each team member, and the busiest days.
+   **Email this report** sends it to the owner's own inbox, month by month.
 
 ### ACT II — The day book
 > *"The diary, but it can't be double-booked."*

@@ -77,6 +77,14 @@ export function renderEmail(p) {
       <div style="display:inline-block;padding:14px 22px 14px 30px;border-radius:12px;background:#f5f7fa;border:1px solid #e6eaf0;font-family:Menlo,Consolas,'Courier New',monospace;font-size:32px;font-weight:bold;letter-spacing:0.3em;color:#101828;">${esc(p.code)}</div>
     </div>` : '';
 
+  // Tables of figures: a header row, then label + values. Every cell is
+  // escaped, so a report table is as safe as a paragraph.
+  const tableBlocks = (p.tables || []).map((t) => `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border-collapse:collapse;font-size:13px;">
+      <tr>${(t.head || []).map((h, i) => `<td style="padding:8px 6px;border-bottom:2px solid #e6eaf0;font-weight:bold;color:#101828;${i ? 'text-align:right;white-space:nowrap;' : ''}">${esc(h)}</td>`).join('')}</tr>
+      ${(t.rows || []).map((row) => `<tr>${row.map((c, i) => `<td style="padding:7px 6px;border-bottom:1px solid #eef1f5;${i ? 'text-align:right;white-space:nowrap;color:#101828;font-weight:600;' : 'color:#3b4657;'}">${esc(c)}</td>`).join('')}</tr>`).join('')}
+    </table>`).join('');
+
   const paragraphs = (p.paragraphs || []).map((t) =>
     `<p style="margin:0 0 14px;font-size:14.5px;line-height:1.65;color:#3b4657;">${esc(t)}</p>`
   ).join('');
@@ -97,6 +105,7 @@ export function renderEmail(p) {
       ${codeBlock}
       ${receipt}
       ${detailCard}
+      ${tableBlocks}
       ${ctaBlock ? `<div style="text-align:center;">${ctaBlock}</div>` : ''}
       ${p.footNote ? `<p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:#6b7686;">${esc(p.footNote)}</p>` : ''}
     </td></tr>

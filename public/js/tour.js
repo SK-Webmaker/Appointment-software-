@@ -40,6 +40,8 @@ export const STEPS = [
     body: 'Confirmations, reminders, receipts and review requests already go out by email. Every one is listed here. Texts can be added any time — there is a one-minute video in Settings → Messages.' },
   { sel: nav('reviews'), group: 'Keeping in touch', title: 'Reviews — what clients say',
     body: 'After a visit, clients are asked how it went. Happy ones get a one-tap link to post it on Google.' },
+  { sel: nav('performance'), group: 'Keeping in touch', title: 'Performance — how the business is doing',
+    body: 'Pick any dates and see each month on its own: what your appointments were worth, new clients, rebooking, how full the diary was, and your pace for the year.' },
   { sel: nav('growth'), group: 'Keeping in touch', title: 'Growth — where new clients come from',
     body: 'Referrals, your Google profile and a short plan of what to do next, in numbers you can check.' },
   { sel: nav('staff'), group: 'Running it', title: 'Team — the people who work with you',

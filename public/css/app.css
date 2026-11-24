@@ -4186,3 +4186,37 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .gc-status.is-err { color: var(--red); }
 #gc-import-box { display: grid; gap: 10px; }
 #gc-import-box[hidden] { display: none; }
+
+/* ── Performance (public/js/pages/performance.js) ───────────────────────── */
+.pf-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.pf-seg { flex-wrap: wrap; }
+.pf-custom { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; color: var(--text-2); font-size: 13px; }
+.pf-custom[hidden] { display: none; }
+.pf-custom input[type="date"] { width: auto; min-width: 140px; }
+.pf-hero { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 22px; margin-bottom: 14px; align-items: start; }
+.pf-hero .st-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.pf-hero .st-foot { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.pf-big { font-size: 38px; font-weight: 700; letter-spacing: -0.03em; margin-top: 6px; line-height: 1.1; }
+.pf-run { border-left: 1px solid var(--border-soft); padding-left: 20px; }
+.pf-run-v { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-top: 6px; }
+.pf-run-v span { font-size: 12.5px; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.pf-d { font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.pf-d.up { color: var(--green); }
+.pf-d.down { color: var(--red); }
+.pf-sub { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.pf-swipe { display: none; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.pf-table th, .pf-table td { text-align: right; white-space: nowrap; }
+.pf-table th:first-child, .pf-table td:first-child { text-align: left; color: var(--text-2); position: sticky; left: 0; background: var(--panel); }
+.pf-table tbody tr, .pf-list tbody tr { cursor: default; }
+.pf-list td { padding: 10px 12px; }
+.pf-list td:not(:first-child) { text-align: right; white-space: nowrap; }
+.pf-how summary { cursor: pointer; font-weight: 600; }
+.pf-how ul { margin: 12px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13px; line-height: 1.65; }
+.pf-how li { margin-bottom: 6px; }
+@media (max-width: 720px) {
+  .pf-hero { grid-template-columns: 1fr; gap: 14px; }
+  .pf-run { border-left: 0; border-top: 1px solid var(--border-soft); padding: 14px 0 0; }
+  .pf-big { font-size: 32px; }
+  .pf-seg { width: 100%; }
+  .pf-swipe { display: block; }
+}

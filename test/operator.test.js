@@ -128,6 +128,22 @@ test('resend welcome reaches the owner, and only for a live salon', async () => 
   assert.equal(refunded.status, 409, 'nothing to welcome a refunded salon to');
 });
 
+test("a salon's numbers go to its own owner, from the shard, and nowhere else", async () => {
+  const list = await platform.api('GET', '/api/operator/salons', { cookie });
+  assert.equal(list.status, 200, list.text);
+  assert.ok(list.json.salons.some((x) => x.slug === 'alpha' && x.name === 'alpha studio'), 'every salon on the shard, by name');
+  const before = resend.sent.length;
+  const r = await platform.api('POST', '/api/operator/salon/alpha/report', { cookie, body: { preset: 'last_3_months' } });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.sent_to, 'a•••@salon.example');
+  const mail = resend.sent.slice(before).find((m) => /your numbers/.test(m.subject));
+  assert.ok(mail, 'sent');
+  assert.deepEqual(mail.to, ['alpha@salon.example']);
+  const elsewhere = await platform.api('POST', '/api/operator/salon/alpha/report', { cookie, body: { preset: 'this_month', email: 'me@operator.example' } });
+  assert.equal(elsewhere.status, 400, 'the operator cannot redirect it');
+  assert.equal((await platform.api('POST', '/api/operator/salon/alpha/report', { body: {} })).status, 401, 'and nobody signed out can ask');
+});
+
 test('the console installs to a home screen, and signing out signs out', async () => {
   const page = await platform.api('GET', '/operator');
   assert.match(page.text, /rel="manifest" href="\/operator\.webmanifest"/);

@@ -1577,6 +1577,27 @@ const MUTATIONS = {
     find: "  if (b?.source === 'gcal') {",
     replace: '  if (false) {',
   },
+  // ── Performance (src/stats.js) ───────────────────────────────────────────
+  'stats-rebooked-any-time': {
+    file: 'src/stats.js', suites: ['stats'],
+    find: "x.date > v.date && x.booked_on <= v.date)) rebooked++;",
+    replace: 'x.date > v.date)) rebooked++;',
+  },
+  'stats-blocks-ignored': {
+    file: 'src/stats.js', suites: ['stats'],
+    find: '          if (e > start) { open -= e - start; cur = e; }',
+    replace: '          void start;',
+  },
+  'stats-open-to-staff': {
+    file: 'src/api.js', suites: ['stats'],
+    find: "route('GET', '/api/stats', async ({ query, user }) => {\n  ownerOnly(user);",
+    replace: "route('GET', '/api/stats', async ({ query, user }) => {\n  void user;",
+  },
+  'stats-report-to-anyone': {
+    file: 'src/platform.js', suites: ['stats'],
+    find: "      if (asked && !allowed.has(asked)) throw httpError(400,",
+    replace: "      if (false) throw httpError(400,",
+  },
 };
 
 const only = process.argv.slice(2);

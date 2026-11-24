@@ -258,6 +258,25 @@ function salonRow(b) {
     <div class="right"><div class="amt">${b.paid_at ? money(b.price_cents) : ''}</div>${pill(b)}</div>
   </div>`;
 }
+// ── a salon's numbers ──────────────────────────────────────────────────────
+// Every salon on the shard, including the ones moved across by hand before the
+// platform existed. The report is worked out inside the salon and emailed to
+// its own owner; this page only learns where it went.
+const RANGES = [['this_month', 'This month'], ['last_month', 'Last month'], ['last_3_months', 'Last 3 months'],
+  ['last_6_months', 'Last 6 months'], ['last_12_months', 'Last 12 months'], ['this_year', 'This year']];
+const numbers = { salons: null, slug: '', preset: 'last_3_months', msg: '' };
+function numbersCard() {
+  const body = !numbers.salons
+    ? '<button class="btn" data-act="numbers-load">Choose a salon</button>'
+    : `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <select id="nb-slug" class="btn" aria-label="Salon">${numbers.salons.map((x) => `<option value="${esc(x.slug)}" ${x.slug === numbers.slug ? 'selected' : ''}>${esc(x.name)} (${esc(x.slug)})</option>`).join('')}</select>
+        <select id="nb-range" class="btn" aria-label="Dates">${RANGES.map(([id, l]) => `<option value="${id}" ${id === numbers.preset ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <button class="btn go" data-act="numbers-send">${icon('mail', 15)} Email their numbers</button>
+      </div>`;
+  return `<div class="card" style="margin-bottom:14px"><h2>Send a salon its numbers</h2>
+    <div class="cap">Each month on its own: appointment value, appointments, new clients, rebooking, how full the diary was and the run rate. It goes to the salon's own owner, from their Kairo.</div>
+    ${body}${numbers.msg ? `<div class="cap" style="margin:10px 0 0">${esc(numbers.msg)}</div>` : ''}</div>`;
+}
 const FILTERS = [['all', 'All'], ['live', 'Live'], ['window', 'In refund window'], ['unpaid', 'Not paid'], ['refunded', 'Refunded']];
 function salonsTab() {
   const q = query.trim().toLowerCase();
@@ -268,7 +287,7 @@ function salonsTab() {
     if (filter === 'refunded' && b.state !== 'refunded') return false;
     return !q || [b.name, b.slug, b.owner, b.email, b.phone].some((v) => String(v || '').toLowerCase().includes(q));
   });
-  return `
+  return `${numbersCard()}
     <div class="tools">
       <div class="search">${icon('search', 17)}<input id="q" type="search" placeholder="Search salons or owners" value="${esc(query)}" autocomplete="off"></div>
     </div>
@@ -356,6 +375,7 @@ async function act(e) {
   const a = btn.dataset.act;
   if (a === 'reload') { load(true); return; }
   if (a === 'logout') { await call('POST', '/api/operator/logout', {}).catch(() => {}); stop(); data = null; renderLogin(); return; }
+  if (a === 'numbers-load' || a === 'numbers-send') { numbersAct(a, btn); return; }
   if (CONFIRM[a] && !window.confirm(CONFIRM[a](btn))) return;
   btn.disabled = true;
   try {
@@ -370,6 +390,28 @@ async function act(e) {
     if (err.message !== 'signed out') window.alert(err.message);
   }
 }
+
+async function numbersAct(a, btn) {
+  btn.disabled = true;
+  try {
+    if (a === 'numbers-load') {
+      numbers.salons = (await call('GET', '/api/operator/salons')).salons;
+      numbers.slug = numbers.slug || numbers.salons[0]?.slug || '';
+      numbers.msg = numbers.salons.length ? '' : 'There are no salons on the server yet.';
+    } else {
+      const r = await call('POST', `/api/operator/salon/${encodeURIComponent(numbers.slug)}/report`, { preset: numbers.preset });
+      numbers.msg = `Sent to ${r.sent_to}: ${r.from} to ${r.to}.`;
+      toast('Their numbers are on the way');
+    }
+  } catch (err) {
+    if (err.message !== 'signed out') numbers.msg = err.message;
+  }
+  render();
+}
+app.addEventListener('change', (e) => {
+  if (e.target.id === 'nb-slug') numbers.slug = e.target.value;
+  if (e.target.id === 'nb-range') numbers.preset = e.target.value;
+});
 
 // One delegated listener for the life of the page, so a failed action never
 // leaves the console with dead buttons.

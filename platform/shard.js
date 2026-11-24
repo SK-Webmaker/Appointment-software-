@@ -73,6 +73,12 @@ export const deleteTenant = async (slug) => unwrap(await request('DELETE', `/api
 export const emailPartingCopy = async (slug, to) => unwrap(await request('POST', `/api/platform/tenants/${slug}/parting-copy`, { body: { to }, timeoutMs: 90000 }), 'parting-copy');
 /** Remove a deleted salon's files for good. The shard refuses one still on, or deleted too recently. */
 export const purgeTenant = async (slug) => unwrap(await request('POST', `/api/platform/tenants/${slug}/purge`), 'purge');
+/**
+ * Email a salon's owner their numbers for a range. The figures are worked out
+ * on the shard, inside the salon, and go only to that salon's own owner; what
+ * comes back here is where it went and for which dates. Resolves { ok, sent_to, from, to, subject }.
+ */
+export const emailReport = async (slug, body) => unwrap(await request('POST', `/api/platform/tenants/${slug}/report`, { body, timeoutMs: 60000 }), 'report');
 export const testMessage = async (slug, body) => unwrap(await request('POST', `/api/platform/tenants/${slug}/test-message`, { body }), 'test-message');
 /**
  * A salon arriving from elsewhere: its whole gzipped database, base64 inside

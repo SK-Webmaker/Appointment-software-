@@ -72,6 +72,7 @@ import {
   referralSummary, heardFromSummary, HEARD_OPTIONS,
 } from './referrals.js';
 import { growthPlan, setManualTick } from './growth-plan.js';
+import { businessStats, reportEmail } from './stats.js';
 import { contentIdeas, contentCalendar, businessFacts } from './growth-content.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
 import * as kaiAgent from './kai-agent.js';
@@ -5047,6 +5048,66 @@ route('GET', '/api/dashboard', async ({ query }) => {
  * message, changes an appointment or spends a cent, which is what makes it
  * safe to show a live salon before any of the automation exists.
  */
+// ---------------------------------------------------------------------------
+// Performance — how the business is doing, for any dates (src/stats.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * The roster and blocked-time helpers for a report, with each member's roster
+ * read once rather than once per day of the range.
+ */
+function statsHelpers() {
+  const hs = hourSettings();
+  const rosters = new Map();
+  return {
+    today: bizToday(),
+    windowFor: (staffId, date) => {
+      if (!rosters.has(staffId)) rosters.set(staffId, rosterFor(staffId));
+      return bookableWindow(date, rosters.get(staffId), hoursForDate(date, hs));
+    },
+    blocksFor,
+  };
+}
+
+/**
+ * Email the report for a range to one address, from the salon's own sender.
+ * Used by the owner's "Email this report" and by the operator's "Send them
+ * their numbers" (src/platform.js), which may only name the salon's own
+ * owner. Resolves { ok, detail }.
+ */
+export async function sendStatsReport(range, to, { greetingName = '' } = {}) {
+  const report = businessStats(range, statsHelpers());
+  const e = reportEmail(report, { greetingName });
+  const html = renderEmail({ heading: e.heading, greeting: e.greeting, paragraphs: e.paragraphs, tables: e.tables, footNote: e.footNote });
+  const r = await sendEmail(to, e.subject, e.text, html);
+  return { ok: Boolean(r?.ok), detail: r?.detail || '', from: report.from, to_date: report.to, subject: e.subject };
+}
+
+/**
+ * The business's numbers for a range: each month on its own, the totals, the
+ * same length of time just before, the run rate, top services and the team.
+ * ?preset=this_month|last_month|last_3_months|last_6_months|last_12_months|this_year,
+ * or ?from=&to= for any dates. Owner only: it is the business's money.
+ */
+route('GET', '/api/stats', async ({ query, user }) => {
+  ownerOnly(user);
+  return businessStats({ preset: query.get('preset') || '', from: query.get('from') || '', to: query.get('to') || '' }, statsHelpers());
+});
+
+/**
+ * Email the report on screen to the signed-in owner's own address.
+ */
+route('POST', '/api/stats/email', async ({ req, user }) => {
+  ownerOnly(user);
+  const b = checkBody(await readJson(req), { preset: s.str(30), from: s.str(10), to: s.str(10) });
+  const me = db.prepare('SELECT name, email FROM users WHERE id = ?').get(user.id);
+  if (!me?.email) throw httpError(400, 'Your account has no email address to send it to');
+  if (!canSendEmail()) throw httpError(409, 'Email is not set up for this business yet, so the report cannot be sent');
+  const r = await sendStatsReport({ preset: b.preset || '', from: b.from || '', to: b.to || '' }, me.email, { greetingName: String(me.name || '').split(' ')[0] });
+  if (!r.ok) throw httpError(502, `The report could not be sent: ${r.detail || 'the email service refused it'}`);
+  return { sent: true, to: me.email };
+});
+
 route('GET', '/api/opportunities', async ({ query }) => {
   const asked = query.get('date');
   const today = isDateStr(asked) ? asked : bizToday();

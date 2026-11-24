@@ -39,6 +39,7 @@ export const ACTIVITY = {
   'operator:approve': 'You approved them',
   'operator:refund': 'You refunded them',
   'operator:welcome': 'You resent the welcome email',
+  'operator:report': 'You sent them their numbers',
 };
 
 /** The same, plus the steps that belong in one salon's history but not the feed. */

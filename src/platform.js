@@ -27,7 +27,7 @@ import {
   purgeTenant, SLUG_RE, BASE_DOMAIN, TENANTS_DIR,
 } from './tenant.js';
 import { db, getSetting, setSetting, emailSender } from './db.js';
-import { EDITABLE_SETTINGS, applySettings, sendTestMessage } from './api.js';
+import { EDITABLE_SETTINGS, applySettings, sendTestMessage, sendStatsReport } from './api.js';
 import { snapshot, backupStatus } from './backup.js';
 import { emailPartingCopy } from './parting-copy.js';
 import { VERSION } from './version.js';
@@ -391,6 +391,35 @@ async function route(req, res, pathname, body) {
     const t = getTenant(slug, { includeDeleted: true });
     if (!t) throw httpError(404, 'No such salon');
     return withTenant(t, () => emailPartingCopy(String(body.to || '').trim()));
+  }
+
+  // POST /api/platform/tenants/:slug/report — email the salon's owner their
+  // numbers (src/stats.js) for { preset } or { from, to }. Only ever to the
+  // salon itself: `email` may choose between its owner accounts and its
+  // business email and can name nobody else, so this cannot carry one salon's
+  // figures anywhere but home. The figures are worked out here, inside the
+  // salon; the platform only ever sees where it went.
+  if (tail === 'report' && req.method === 'POST') {
+    const t = getTenant(slug);
+    if (!t) throw httpError(404, 'No such salon');
+    return withTenant(t, async () => {
+      const owners = db.prepare("SELECT name, email FROM users WHERE role = 'owner' AND email != '' ORDER BY id").all();
+      const allowed = new Map(owners.map((o) => [String(o.email).trim().toLowerCase(), o.name]));
+      const biz = String(getSetting('business_email', '') || '').trim().toLowerCase();
+      if (biz && !allowed.has(biz)) allowed.set(biz, owners[0]?.name || '');
+      const asked = String(body.email || '').trim().toLowerCase();
+      if (asked && !allowed.has(asked)) throw httpError(400, "That address isn't one of this salon's own. The report only goes to the salon's owner.");
+      const to = asked || [...allowed.keys()][0] || '';
+      if (!to) throw httpError(409, 'This salon has no owner email to send it to');
+      if (!emailSender()) throw httpError(409, 'This salon cannot send email yet');
+      const r = await sendStatsReport(
+        { preset: String(body.preset || ''), from: String(body.from || ''), to: String(body.to || '') },
+        to,
+        { greetingName: String(allowed.get(to) || '').trim().split(/\s+/)[0] || '' },
+      );
+      if (!r.ok) throw httpError(502, `The report could not be sent: ${r.detail || 'the email service refused it'}`);
+      return { ok: true, sent_to: to.replace(/^(.)[^@]*(@.*)$/, '$1•••$2'), from: r.from, to: r.to_date, subject: r.subject };
+    });
   }
 
   if (tail === 'export' && req.method === 'GET') {

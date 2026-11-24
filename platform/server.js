@@ -407,6 +407,34 @@ async function api(req, res, url, ip) {
       }
     }
 
+    // Every salon the shard serves, for "Send a salon its numbers". Salons
+    // from before the platform (moved across by hand) are on the shard but
+    // not in this database, so the shard is asked rather than the table.
+    if (p === '/api/operator/salons' && req.method === 'GET') {
+      const { tenants = [] } = await shard.listTenants();
+      const named = new Map(db.prepare("SELECT slug, name FROM businesses WHERE state != 'removed'").all().map((b) => [b.slug, b.name]));
+      const salons = await Promise.all(tenants.map(async (slug) => {
+        let name = named.get(slug) || '';
+        if (!name) { try { name = (await shard.getTenant(slug))?.business_name || ''; } catch { /* the slug still works */ } }
+        return { slug, name: name || slug };
+      }));
+      return json(res, 200, { salons: salons.sort((a, b) => a.name.localeCompare(b.name)) });
+    }
+
+    // Email one salon's owner their numbers. Worked out and sent by the shard,
+    // to that salon's own owner only; nothing about the salon's clients comes
+    // through here.
+    const rp = /^\/api\/operator\/salon\/([a-z0-9-]{1,40})\/report$/.exec(p);
+    if (rp && req.method === 'POST') {
+      const body = await readJson(req).catch(() => ({}));
+      const out = await shard.emailReport(rp[1], {
+        preset: String(body.preset || ''), from: String(body.from || ''), to: String(body.to || ''), email: String(body.email || ''),
+      });
+      const biz = db.prepare('SELECT id FROM businesses WHERE slug = ?').get(rp[1]);
+      record(biz?.id || null, 'operator:report', `${rp[1]} ${out.from}..${out.to} → ${out.sent_to}`);
+      return json(res, 200, out);
+    }
+
     const ce = /^\/api\/operator\/business\/(\d+)\/connect-email$/.exec(p);
     if (ce && req.method === 'POST') {
       const body = await readJson(req);

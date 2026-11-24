@@ -481,7 +481,7 @@ async function drawDashboard(container) {
       label: fmtDate(r.date).split(',')[0], sub: fmtDate(r.date), value: r.cents,
     })),
     color: '#199e70', height: 200,
-    format: (v, axis) => axis ? (v >= 100000 ? `${Math.round(v / 100000) / 10}k` : `${Math.round(v / 100)}`) : money(v),
+    format: (v, axis) => axis ? (v >= 100000 ? `${Math.round(v / 10000) / 10}k` : `${Math.round(v / 100)}`) : money(v),
   });
 
   // --- Top services --------------------------------------------------------
