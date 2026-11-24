@@ -300,3 +300,173 @@ export const emailReceipt = (to, { receiptNo, ownerName = '', businessName, amou
 </td></tr></table></body></html>`;
   return sendEmail(to, `${f.title} ${receiptNo} — Kairo for ${businessName}`, text, html);
 };
+
+// ── The free trial's emails ────────────────────────────────────────────────
+//
+// At most eight, and every one stops the moment they pay: a welcome, three
+// quick things to try, halfway, three days left, the last day, the pause,
+// a final notice and the deletion; or, instead of the last three, "full
+// access is on". Each says exactly what happens next and when, because a
+// deletion nobody was told about is the one thing this must never do.
+// No "special offer", no countdown tricks: the price is the normal price.
+
+const auDate = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Melbourne' });
+};
+const dollarsOf = (c) => `$${(c / 100).toFixed(0)}`;
+const priceLine = (plans = []) => {
+  const once = plans.find((p) => p.id === 'once');
+  const monthly = plans.find((p) => p.id === 'monthly');
+  if (!once || !monthly) return '$400 once, or 3 monthly payments of $150. Then nothing to pay, ever.';
+  return `${dollarsOf(once.cents)} once, or ${monthly.payments} monthly payments of ${dollarsOf(monthly.cents)}. Then nothing to pay, ever. No commission, and a full refund within 14 days of paying.`;
+};
+const LOCKED_LIST = 'Kai (your assistant), text reminders, deposits and card payments, automatic and bulk messages, and your own email address';
+
+/** The words of each trial email. Pure, so the tests can read every one. */
+export function trialEmailContent(kind, f) {
+  const first = String(f.ownerName || '').trim().split(/\s+/)[0] || '';
+  const hi = first ? `Hi ${first},` : 'Hi,';
+  const ends = auDate(f.endsAt);
+  const gone = auDate(f.deletesAt);
+  const keep = { label: 'Choose a plan', url: f.keepUrl };
+  const open = { label: `Open ${f.businessName}`, url: f.url };
+  const c = f.counts || null;
+  const built = c ? `So far you've added ${c.clients} client${c.clients === 1 ? '' : 's'} and ${c.appointments} appointment${c.appointments === 1 ? '' : 's'}.` : '';
+  const T = {
+    welcome: {
+      subject: `Your free Kairo trial is ready: ${f.businessName}`,
+      heading: 'Your free trial has started',
+      lines: [
+        hi,
+        `${f.businessName} is set up and yours to use for 14 days, free, with no card. Your trial runs until ${ends}.`,
+        `Sign in at ${f.url} with the email and password you chose, and Kairo walks you through your hours, services and team. Your booking page is ${f.url}/book.`,
+        `On your iPhone, get the Kairo app and sign in with the same details: ${f.appUrl}`,
+        `Everything is included except ${LOCKED_LIST}. Those come with a plan, and you can see each one inside Kairo.`,
+        'Put your real clients and services in. If you keep Kairo, everything you set up stays exactly as it is.',
+      ],
+      cta: open,
+    },
+    tips: {
+      subject: `Three things to try in ${f.businessName}`,
+      heading: 'Get your first online booking',
+      lines: [
+        hi,
+        '1. Add your services with their prices and times. That is exactly what clients see.',
+        `2. Book yourself in from your booking page, ${f.url}/book, to see what your clients will see.`,
+        '3. Put that link in your Instagram bio and on your Google profile. Clients book any hour, and it lands straight in your diary.',
+        `Your trial runs until ${ends}.`,
+      ],
+      cta: open,
+    },
+    halfway: {
+      subject: `Halfway through your Kairo trial`,
+      heading: "You're halfway through your free trial",
+      lines: [
+        hi,
+        [built, `Your trial runs until ${ends}.`].filter(Boolean).join(' '),
+        `Keep it and everything stays, and these unlock: ${LOCKED_LIST}.`,
+        priceLine(f.plans),
+      ],
+      cta: keep,
+    },
+    three_days: {
+      subject: `3 days left in your Kairo trial`,
+      heading: '3 days left in your free trial',
+      lines: [
+        hi,
+        `Your free trial of ${f.businessName} ends on ${ends}. Then your booking page stops taking bookings and your account is paused.`,
+        `Choose a plan and nothing changes: your clients, services and bookings stay exactly as they are, and ${LOCKED_LIST} unlock.`,
+        priceLine(f.plans),
+      ],
+      cta: keep,
+    },
+    last_day: {
+      subject: `Your Kairo trial ends tomorrow`,
+      heading: 'Your free trial ends tomorrow',
+      lines: [
+        hi,
+        `${f.businessName}'s free trial ends on ${ends}. After that your booking page stops taking bookings until you choose a plan.`,
+        priceLine(f.plans),
+      ],
+      cta: keep,
+    },
+    ended: {
+      subject: `Your Kairo trial has ended: ${f.businessName} is paused`,
+      heading: 'Your free trial has ended',
+      lines: [
+        hi,
+        `${f.businessName} is paused. You can still sign in and see everything, but your booking page isn't taking bookings and your clients aren't being messaged.${c && c.appointments ? ` Your diary has ${c.appointments} appointment${c.appointments === 1 ? '' : 's'} in it.` : ''}`,
+        `Everything is kept until ${gone}. Choose a plan before then and it all comes back at once, just as you left it.`,
+        `If you'd rather not, there's nothing to do: your account and its data are deleted on ${gone}.`,
+        priceLine(f.plans),
+      ],
+      cta: keep,
+    },
+    final: {
+      subject: `${f.businessName} will be deleted in 2 days`,
+      heading: 'Your account is deleted in 2 days',
+      lines: [
+        hi,
+        `This is the last reminder. On ${gone}, ${f.businessName} and everything in it (clients, services, bookings and notes) is deleted for good, and it can't be brought back.`,
+        "To keep it, choose a plan before then. If you'd like a copy of your data first, sign in and go to Account, then Download a backup.",
+      ],
+      cta: keep,
+    },
+    deleted: {
+      subject: `${f.businessName} has been deleted`,
+      heading: 'Your free trial account has been deleted',
+      lines: [
+        hi,
+        `As we said it would be, ${f.businessName} and everything in it has now been deleted.`,
+        'Thank you for trying Kairo. If you want it later, you can get it any time at kairobookings.com.',
+      ],
+      cta: null,
+    },
+    kept: {
+      subject: `Full access is on: ${f.businessName}`,
+      heading: 'Thank you. Kairo is yours',
+      lines: [
+        hi,
+        `${f.businessName} is yours, exactly as you set it up in your trial. ${LOCKED_LIST[0].toUpperCase()}${LOCKED_LIST.slice(1)} are now unlocked, ready to set up whenever you like.`,
+        `Your booking page: ${f.url}/book`,
+        'Not what you needed? You have 14 days for a full refund, no reason needed: Account, then Refund and delete my Kairo.',
+      ],
+      cta: open,
+    },
+  };
+  return T[kind] || null;
+}
+
+/** Send one of the trial's emails. Resolves { ok, detail } like every sender here. */
+export function emailTrial(to, kind, facts) {
+  const m = trialEmailContent(kind, facts);
+  if (!m) return Promise.resolve({ ok: false, detail: `no such trial email: ${kind}` });
+  const e = escHtml;
+  const support = SUPPORT_EMAIL();
+  const text = [...m.lines, ...(m.cta ? [`${m.cta.label}: ${m.cta.url}`] : []),
+    `Questions? Email ${support} and a person at Kairo will reply.`, '— The Kairo team'].join('\n\n');
+  const html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:0;background:#eef2f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f8;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
+  <tr><td style="background:linear-gradient(135deg,#0b1220,#15233f);background-color:#0f1a30;padding:26px 32px">
+    ${markRow()}
+    <div style="color:#ffffff;font-size:24px;font-weight:700;line-height:1.25;margin-top:22px">${e(m.heading)}</div>
+    <div style="color:#b6c3dc;font-size:15px;line-height:1.6;margin-top:8px">${e(facts.businessName)}</div>
+  </td></tr>
+  <tr><td style="padding:28px 32px 8px">
+    ${m.lines.map((l) => `<p style="margin:0 0 14px;color:#334155;font-size:15px;line-height:1.65">${e(l)}</p>`).join('')}
+    ${m.cta ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:10px 0 18px"><tr><td style="background:#2563eb;border-radius:10px">
+      <a href="${e(m.cta.url)}" style="display:inline-block;padding:13px 24px;color:#ffffff;font-weight:700;font-size:15px;text-decoration:none">${e(m.cta.label)}</a>
+    </td></tr></table>` : ''}
+  </td></tr>
+  <tr><td style="padding:0 32px 28px">
+    <p style="margin:0;color:#64748b;font-size:13px;line-height:1.6">Questions? Email <a href="mailto:${e(support)}" style="color:#2563eb;text-decoration:none;font-weight:600">${e(support)}</a> and a person at Kairo will reply, Monday to Friday.</p>
+    <p style="margin:16px 0 0;color:#0f172a;font-size:14px">— The Kairo team</p>
+  </td></tr>
+</table>
+<div style="color:#94a3b8;font-size:12px;line-height:1.6;margin-top:16px">Kairo · booking software for salons and studios · <a href="https://kairobookings.com" style="color:#94a3b8">kairobookings.com</a><br>You're receiving this because you started a free trial of Kairo for ${e(facts.businessName)}.</div>
+</td></tr></table></body></html>`;
+  return sendEmail(to, m.subject, text, html);
+}

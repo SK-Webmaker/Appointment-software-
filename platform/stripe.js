@@ -93,7 +93,7 @@ const dollars = (c) => `$${(c / 100).toFixed(2).replace(/\.00$/, '')}`;
  * plan, comes back and picks the other must get a new page, not Stripe's
  * refusal to reuse a key with different parameters.
  */
-export async function createCheckout({ businessId, slug, name, email, priceCents, currency = 'aud', origin, plan = 'once', payments = 1 }) {
+export async function createCheckout({ businessId, slug, name, email, priceCents, currency = 'aud', origin, plan = 'once', payments = 1, successUrl = '', cancelUrl = '', idemKey = '' }) {
   const monthly = plan === 'monthly';
   const total = priceCents * (monthly ? payments : 1);
   const common = {
@@ -101,8 +101,8 @@ export async function createCheckout({ businessId, slug, name, email, priceCents
     'line_items[0][price_data][currency]': currency,
     'line_items[0][price_data][unit_amount]': String(priceCents),
     'line_items[0][quantity]': '1',
-    success_url: `${origin}/done?b=${slug}`,
-    cancel_url: `${origin}/start?cancelled=1&b=${slug}`,
+    success_url: successUrl || `${origin}/done?b=${slug}`,
+    cancel_url: cancelUrl || `${origin}/start?cancelled=1&b=${slug}`,
     'metadata[business_id]': String(businessId),
     'metadata[slug]': slug,
     'metadata[plan]': plan,
@@ -125,7 +125,7 @@ export async function createCheckout({ businessId, slug, name, email, priceCents
     'line_items[0][price_data][product_data][description]': `One payment for ${name}. No monthly fee, no commission.`,
     'payment_intent_data[metadata][business_id]': String(businessId),
   };
-  const idem = `kairo-signup-${businessId}-${plan}`;
+  const idem = idemKey || `kairo-signup-${businessId}-${plan}`;
   let session;
   try {
     session = await call('/checkout/sessions', { ...params, ...kairoBranding(origin) }, idem, BRANDING_VERSION);

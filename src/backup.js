@@ -24,6 +24,7 @@ import zlib from 'node:zlib';
 import { db, getSetting, setSetting } from './db.js';
 import { current } from './tenant.js';
 import { sendEmail } from './notify.js';
+import { isTrial } from './trial.js';
 
 /** Past this, an emailed attachment stops being reasonable — offer a download. */
 const MAX_EMAIL_BYTES = 20 * 1024 * 1024;
@@ -167,6 +168,10 @@ export function backupDue(now = Date.now()) {
 
 /** Called by the scheduler. Never throws — a failed backup must not stop the app. */
 export async function runScheduledBackup() {
+  // A free trial is not backed up by email: the shared sender's allowance is
+  // for salons that have paid, and a trial that is not kept is deleted anyway.
+  // "Download a backup" still works for them at any time.
+  if (isTrial()) return null;
   if (!backupDue()) return null;
   try {
     return await emailBackup();

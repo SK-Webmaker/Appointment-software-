@@ -39,6 +39,16 @@ export const PLANS = () => ({
   },
 });
 export const planFor = (id) => PLANS()[id === 'monthly' ? 'monthly' : 'once'];
+/**
+ * The free trial (see "The free trial" below). Fourteen days with everything
+ * but five features, no card; then paused for a week; then deleted.
+ */
+export const TRIAL_DAYS = () => Number(process.env.KAIRO_TRIAL_DAYS || 14);
+export const TRIAL_DELETE_DAYS = () => Number(process.env.KAIRO_TRIAL_DELETE_DAYS || 7);
+/** Free trials running at once. A ceiling so a rush can never outgrow the server or the email allowance. */
+export const TRIAL_CAP = () => Number(process.env.KAIRO_TRIAL_CAP || 200);
+const TRIAL_STATES = ['trial', 'trial_ended'];
+const phoneDigits = (p) => String(p || '').replace(/[^0-9]/g, '').replace(/^61/, '0');
 export const planTotal = (p) => p.cents * p.payments;
 /** The headline price: the whole of it, paid once. */
 export const PRICE_CENTS = () => PLANS().once.cents;
@@ -84,7 +94,7 @@ export async function slugAvailable(slug) {
   if (!SLUG_RE.test(slug)) return { ok: false, reason: 'Use lowercase letters, numbers and hyphens.' };
   if (slug.length < 3) return { ok: false, reason: 'A little longer, please — at least 3 characters.' };
   if (RESERVED.has(slug)) return { ok: false, reason: 'That address is reserved. Try another.' };
-  if (db.prepare("SELECT id FROM businesses WHERE slug = ? AND state != 'expired'").get(slug)) return { ok: false, reason: 'That address is taken.' };
+  if (db.prepare("SELECT id FROM businesses WHERE slug = ? AND state NOT IN ('expired', 'trial_deleted')").get(slug)) return { ok: false, reason: 'That address is taken.' };
   try {
     if (await shard.getTenant(slug)) return { ok: false, reason: 'That address is taken.' };
   } catch { /* the shard being unreachable is not the visitor's problem; the unique index still protects us */ }
@@ -111,6 +121,7 @@ export async function startSignup(input, { ip = '' } = {}) {
   const password = String(input.password ?? '');
   // A page name from the website's signup links, or nothing.
   const source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';
+  const trial = input.plan === 'trial';
   const plan = planFor(input.plan);
 
   if (!name) throw err(400, 'Your name is required');
@@ -131,9 +142,10 @@ export async function startSignup(input, { ip = '' } = {}) {
 
   const existing = db.prepare('SELECT * FROM owners WHERE email = ?').get(email);
   if (existing) {
-    const live = db.prepare("SELECT slug FROM businesses WHERE owner_id = ? AND state NOT IN ('refunded','deleted','expired','removed')").get(existing.id);
+    const live = db.prepare("SELECT slug FROM businesses WHERE owner_id = ? AND state NOT IN ('refunded','deleted','expired','removed','trial_deleted')").get(existing.id);
     if (live) throw err(409, 'There is already a Kairo for that email address. Sign in instead, or use another address.');
   }
+  if (trial) checkTrialAllowed({ ownerId: existing?.id, phone, ip });
   const ownerId = existing ? existing.id : Number(db.prepare('INSERT INTO owners (name, email, phone) VALUES (?, ?, ?)').run(name, email, phone).lastInsertRowid);
   if (existing) db.prepare('UPDATE owners SET name = ?, phone = ?, email_verified = 0, phone_verified = 0 WHERE id = ?').run(name, phone, ownerId);
 
@@ -142,11 +154,12 @@ export async function startSignup(input, { ip = '' } = {}) {
   const info = db.prepare(
     `INSERT INTO businesses (owner_id, slug, name, abn, tz, phone, price_cents, plan, pass_hash, salt, signup_ip, token, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, planTotal(plan), plan.id, hash, salt, clean(ip, 60), token, source);
+  ).run(ownerId, slug, businessName, abnDigits, clean(input.tz, 60) || 'Australia/Melbourne', phone, trial ? 0 : planTotal(plan), trial ? 'trial' : plan.id, hash, salt, clean(ip, 60), token, source);
   const businessId = Number(info.lastInsertRowid);
-  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}${source ? ` (from ${source})` : ''} · ${plan.id}`);
+  const planId = trial ? 'trial' : plan.id;
+  record(businessId, 'signup:start', `${businessName} <${email}> → ${slug}${source ? ` (from ${source})` : ''} · ${planId}`);
   // In the server log too, without the person: the marketing run reads these.
-  console.log(`signup: started ${slug} from ${source || 'direct'} (${plan.id})`);
+  console.log(`signup: started ${slug} from ${source || 'direct'} (${planId})`);
 
   await sendCodes(ownerId, email, businessId);
   return { token, slug, business_id: businessId };
@@ -214,7 +227,10 @@ export async function beginCheckout(token, origin, planId = '') {
   if (!owner.email_verified) throw err(400, 'Confirm your email first');
   if (['paid', 'provisioning', 'ready'].includes(b.state)) throw err(409, 'That business is already paid for');
   if (!stripe.stripeConfigured()) throw err(503, 'Payments are not available right now — please try again shortly');
-  // The plan can still be changed on the payment step, right up to paying.
+  if (TRIAL_STATES.includes(b.state)) throw err(409, 'This Kairo is on a free trial. Choose a plan from inside it to keep it.');
+  // The plan can still be changed on the payment step, right up to paying,
+  // including from the free trial to paying now.
+  if (b.plan === 'trial' && !planId) planId = 'once';
   if (planId && planFor(planId).id !== b.plan) {
     const p = planFor(planId);
     db.prepare('UPDATE businesses SET plan = ?, price_cents = ? WHERE id = ?').run(p.id, planTotal(p), b.id);
@@ -235,9 +251,18 @@ export async function beginCheckout(token, origin, planId = '') {
  * Stripe says the money moved. Idempotent on the session id: a webhook Stripe
  * retries, or one replayed by hand, provisions exactly one salon.
  */
-export async function onPaid({ sessionId, paymentIntent, amountTotal, subscription = '', customer = '' }) {
-  const b = db.prepare('SELECT * FROM businesses WHERE stripe_session_id = ?').get(sessionId);
+export async function onPaid({ sessionId, paymentIntent, amountTotal, subscription = '', customer = '', businessId = '' }) {
+  let b = db.prepare('SELECT * FROM businesses WHERE stripe_session_id = ?').get(sessionId);
+  // A trial owner may open the plans more than once; only the last session is
+  // remembered, but money from any of them must still keep their Kairo.
+  if (!b && businessId) {
+    const byId = db.prepare('SELECT * FROM businesses WHERE id = ?').get(Number(businessId));
+    if (byId && TRIAL_STATES.includes(byId.state)) b = byId;
+  }
   if (!b) { record(null, 'webhook:unknown-session', sessionId); return { ignored: true }; }
+  if (TRIAL_STATES.includes(b.state)) {
+    return keepTrial(b, { sessionId, paymentIntent, amountTotal, subscription, customer });
+  }
   if (['paid', 'screening', 'flagged', 'provisioning', 'ready'].includes(b.state)) {
     record(b.id, 'webhook:duplicate', b.state);
     return { already: true, state: b.state };
@@ -339,10 +364,14 @@ export async function screen(b) {
 }
 
 /** The whole of provisioning: one call to the shard. Seconds, not minutes. */
-export async function provision(businessId) {
+export async function provision(businessId, { trial = false } = {}) {
   const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
   if (!b) throw err(404, 'No such business');
   if (b.state === 'ready') return { state: 'ready', url: publicUrlFor(b.slug) };
+  if (trial && b.state === 'trial') return { state: 'trial', url: publicUrlFor(b.slug) };
+  // Where a failed attempt leaves it. A paid signup waits as 'paid' for a retry;
+  // a trial goes back to 'verified', where "Start my free trial" tries again.
+  const failState = trial ? 'verified' : 'paid';
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
   setState(b.id, 'provisioning');
   const url = publicUrlFor(b.slug);
@@ -367,9 +396,11 @@ export async function provision(businessId) {
       price_cents: b.price_cents,
       // Shown on the salon's Account page beside the total. A monthly plan says
       // how it is being paid, so "$450 one-off" is never read as one charge.
-      plan_name: planFor(b.plan).payments > 1
-        ? `Kairo · ${planFor(b.plan).payments} monthly payments of $${(planFor(b.plan).cents / 100).toFixed(0)}`
-        : 'Kairo',
+      plan_name: trial ? 'Kairo free trial'
+        : planFor(b.plan).payments > 1
+          ? `Kairo · ${planFor(b.plan).payments} monthly payments of $${(planFor(b.plan).cents / 100).toFixed(0)}`
+          : 'Kairo',
+      ...(trial ? { trial_ends_at: b.trial_ends_at, trial_deletes_at: b.trial_deletes_at } : {}),
       platform_url: PLATFORM_ORIGIN(),
       connect_token: connectToken,
       owner: { name: owner.name, email: owner.email, pass_hash: b.pass_hash, salt: b.salt },
@@ -400,7 +431,7 @@ export async function provision(businessId) {
       // or their address. The state stays where a retry can pick it up, and the
       // owner is told rather than the buyer being shown a stack trace.
       db.prepare('UPDATE businesses SET last_error = ? WHERE id = ?').run(String(e.message).slice(0, 500), b.id);
-      setState(b.id, 'paid', `provisioning failed: ${e.message}`);
+      setState(b.id, failState, `provisioning failed: ${e.message}`);
       openTask(b.id, 'provision_failed', String(e.message).slice(0, 500));
       throw err(502, 'We could not finish setting up your Kairo. Nothing is lost and we have been alerted — you will have an email shortly.');
     }
@@ -420,7 +451,7 @@ export async function provision(businessId) {
   }
   if (!serving) {
     db.prepare('UPDATE businesses SET last_error = ? WHERE id = ?').run(`created but ${host} is not serving yet`, b.id);
-    setState(b.id, 'paid', `created but ${host} is not serving`);
+    setState(b.id, failState, `created but ${host} is not serving`);
     openTask(b.id, 'provision_failed', `${b.name} was created on the shard but ${host} is not answering. Retry from here once the shard is healthy.`);
     throw err(502, 'We could not finish setting up your Kairo. Nothing is lost and we have been alerted — you will have an email shortly.');
   }
@@ -428,7 +459,7 @@ export async function provision(businessId) {
   // Provisioned: the hash now lives in the salon's own file, so the copy here
   // has no reason to exist.
   db.prepare("UPDATE businesses SET pass_hash = '', salt = '', last_error = '', ready_at = datetime('now') WHERE id = ?").run(b.id);
-  setState(b.id, 'ready', url);
+  setState(b.id, trial ? 'trial' : 'ready', url);
   db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'provisioned' WHERE business_id = ? AND kind IN ('flagged','provision_failed') AND state = 'open'").run(b.id);
   // Only ask for help when the salon genuinely cannot send.
   //
@@ -448,6 +479,11 @@ export async function provision(businessId) {
     openTask(b.id, 'email_setup', `${b.name} — connect Resend for ${b.slug}.${BASE_DOMAIN()}`);
   } else {
     record(b.id, 'email:sending', sending === 'own' ? 'its own Resend account' : 'the platform account');
+  }
+  if (trial) {
+    const sent = await notify.emailTrial(owner.email, 'welcome', trialFacts(db.prepare('SELECT * FROM businesses WHERE id = ?').get(b.id), owner));
+    record(b.id, 'trial:email:welcome', sent.ok ? 'sent' : sent.detail);
+    return { state: 'trial', url };
   }
   const sent = await notify.emailReady(owner.email, { businessName: b.name, url, appUrl: APP_URL(), sending, ownerName: owner.name });
   record(b.id, 'email:ready', sent.ok ? 'sent' : sent.detail);
@@ -640,6 +676,18 @@ export const DELETE_GRACE_DAYS = Number(process.env.KAIRO_DELETE_GRACE_DAYS || 7
 export async function selfDelete(connectToken, reason = '') {
   const b = byConnectToken(connectToken);
   if (b.deleted_at) return { already: true, files_removed_after: b.purge_after };
+  // A free trial that was never paid for: nothing to refund and no person
+  // needed. It is paused now and the trial's own clock deletes it in a week,
+  // the same week every deleted salon gets in case it was a mistake.
+  if (TRIAL_STATES.includes(b.state) && !b.paid_at) {
+    const gone = iso(Date.now() + DELETE_GRACE_DAYS * DAY_MS);
+    try { await shard.patchTenant(b.slug, { read_only: true, muted: true }); } catch (e) { record(b.id, 'account:delete-patch-failed', e.message); }
+    db.prepare("UPDATE businesses SET trial_deletes_at = ?, purge_after = ?, trial_notices = trial_notices || ',ended,final' WHERE id = ?")
+      .run(gone, gone.slice(0, 19).replace('T', ' '), b.id);
+    record(b.id, 'account:deleted', `free trial, in the app: ${reason}`.slice(0, 300));
+    setState(b.id, 'trial_ended', 'the owner ended the free trial');
+    return { deleted: true, refunded: false, files_removed_after: gone, grace_days: DELETE_GRACE_DAYS };
+  }
   const purgeAfter = new Date(Date.now() + DELETE_GRACE_DAYS * 86400000).toISOString().slice(0, 19).replace('T', ' ');
   db.prepare('UPDATE businesses SET deleted_at = datetime(\'now\'), purge_after = ? WHERE id = ?').run(purgeAfter, b.id);
   record(b.id, 'account:deleted', reason.slice(0, 300));
@@ -732,7 +780,9 @@ export function statusFor(token) {
     email: owner.email,
     phone_hint: String(owner.phone).replace(/.(?=.{3})/g, '•'),
     email_verified: owner.email_verified === 1,
-    url: ['ready'].includes(b.state) ? publicUrlFor(b.slug) : '',
+    url: ['ready', 'trial'].includes(b.state) ? publicUrlFor(b.slug) : '',
+    trial_ends_at: b.trial_ends_at,
+    trial_days: TRIAL_DAYS(),
     app_url: APP_URL(),
     message: {
       created: 'Enter the code we just emailed you.',
@@ -745,6 +795,294 @@ export function statusFor(token) {
       ready: 'Your Kairo is ready.',
       refunded: 'This signup was refunded.',
       expired: 'This signup expired. Start again whenever you like.',
+      trial: 'Your free trial is ready.',
+      trial_ended: 'This free trial has ended. Choose a plan from inside your Kairo to keep it.',
+      trial_deleted: 'This free trial ended and was deleted. Start again whenever you like.',
     }[b.state] || '',
   };
+}
+
+// ── The free trial ──────────────────────────────────────────────────────────
+//
+//   verified ─► trial ──(day 14)──► trial_ended ──(day 21)──► trial_deleted
+//                 │                      │
+//                 └──── paid ────────────┴──► ready   (the same salon, kept)
+//
+// Fourteen days of the whole of Kairo except five features (src/trial.js on
+// the shard), with no card. Then the salon is paused: the owner can still sign
+// in and see everything, nothing can change, the booking page takes no
+// bookings and nobody is messaged. A week later it is deleted, files and all,
+// and its address is free again. Paying at any point before that keeps the
+// very same salon: nothing is rebuilt, the locks lift and the pause ends.
+//
+// What it costs Kairo: nothing. No card is taken, so no Stripe fee until
+// someone pays. The emails below are at most eight per trial, from the
+// platform's own sender. The locked features are the ones that cost money.
+
+const DAY_MS = 86400000;
+const iso = (ms) => new Date(ms).toISOString();
+
+/** Refuse a trial nobody should have. Called before anything is written. */
+export function checkTrialAllowed({ ownerId = null, phone = '', ip = '' } = {}) {
+  // One trial per email address, ever.
+  if (ownerId && db.prepare("SELECT 1 FROM businesses WHERE owner_id = ? AND trial_ends_at != ''").get(ownerId)) {
+    throw err(409, "You've already had a free trial with this email address. You can still get Kairo: choose Pay once or Pay monthly.");
+  }
+  // And per mobile number: not checked by text (that would cost money), so a
+  // determined person can type another, but the honest majority is stopped.
+  const digits = phoneDigits(phone);
+  if (digits.length >= 8) {
+    const used = db.prepare(
+      `SELECT o.phone FROM owners o JOIN businesses b ON b.owner_id = o.id WHERE b.trial_ends_at != ''`
+    ).all().some((r) => phoneDigits(r.phone) === digits);
+    if (used) throw err(409, "That mobile number has already had a free trial. You can still get Kairo: choose Pay once or Pay monthly.");
+  }
+  if (ip) {
+    const n = db.prepare("SELECT COUNT(*) AS n FROM businesses WHERE plan = 'trial' AND signup_ip = ? AND created_at > datetime('now', '-1 day')").get(ip).n;
+    if (n >= 2) throw err(429, 'Too many free trials from one connection today. Try again tomorrow, or choose a plan.');
+  }
+  const running = db.prepare("SELECT COUNT(*) AS n FROM businesses WHERE state IN ('trial', 'trial_ended')").get().n;
+  if (running >= TRIAL_CAP()) throw err(503, "Free trials are full for the moment. You can still get Kairo now, with a full refund within 14 days if it isn't right for you.");
+}
+
+/** Where the owner of a trial goes to choose a plan. Only ever shown to them. */
+export const keepUrlFor = (b) => (b.connect_token ? `${PLATFORM_ORIGIN()}/keep?t=${encodeURIComponent(b.connect_token)}` : `${PLATFORM_ORIGIN()}/start`);
+
+/** Everything an email about a trial needs, in one object. */
+export function trialFacts(b, owner = null) {
+  const o = owner || db.prepare('SELECT name, email FROM owners WHERE id = ?').get(b.owner_id) || {};
+  return {
+    businessName: b.name,
+    ownerName: o.name || '',
+    url: publicUrlFor(b.slug),
+    appUrl: APP_URL(),
+    keepUrl: keepUrlFor(b),
+    endsAt: b.trial_ends_at,
+    deletesAt: b.trial_deletes_at,
+    plans: publicPlans(),
+  };
+}
+
+/**
+ * "Start my free trial": the email is confirmed and no money is involved, so
+ * there is nothing to screen. The salon is built exactly as a paid one is,
+ * with the trial's two dates.
+ */
+export async function startTrial(token) {
+  const b = byToken(token);
+  if (b.state === 'trial') return { state: 'trial', url: publicUrlFor(b.slug) };
+  if (b.plan !== 'trial') throw err(409, 'This signup is not for a free trial.');
+  const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
+  if (!owner.email_verified) throw err(400, 'Confirm your email first');
+  if (!['created', 'verified'].includes(b.state)) throw err(409, `That signup is ${b.state}.`);
+  const now = Date.now();
+  const ends = now + TRIAL_DAYS() * DAY_MS;
+  db.prepare('UPDATE businesses SET trial_ends_at = ?, trial_deletes_at = ? WHERE id = ?')
+    .run(iso(ends), iso(ends + TRIAL_DELETE_DAYS() * DAY_MS), b.id);
+  const out = await provision(b.id, { trial: true });
+  console.log(`signup: trial ${b.slug} from ${b.source || 'direct'}`);
+  return out;
+}
+
+/** What the "keep your Kairo" page shows. Nothing a stranger could use. */
+export function keepStatus(connectToken) {
+  const b = byConnectToken(connectToken);
+  const ends = Date.parse(b.trial_ends_at) || 0;
+  return {
+    business_name: b.name,
+    slug: b.slug,
+    url: publicUrlFor(b.slug),
+    state: b.state,
+    trial: TRIAL_STATES.includes(b.state),
+    kept: b.state === 'ready',
+    ends_at: b.trial_ends_at,
+    deletes_at: b.trial_deletes_at,
+    days_left: ends ? Math.max(0, Math.ceil((ends - Date.now()) / DAY_MS)) : null,
+    plans: publicPlans(),
+  };
+}
+
+/** Stripe Checkout for a trial being kept. The webhook does the keeping. */
+export async function keepCheckout(connectToken, origin, planId = 'once') {
+  const b = byConnectToken(connectToken);
+  if (b.state === 'ready') throw err(409, 'This Kairo is already yours.');
+  if (!TRIAL_STATES.includes(b.state)) throw err(409, 'This free trial has ended and the account has been deleted. You can start again at kairobookings.com.');
+  if (!stripe.stripeConfigured()) throw err(503, 'Payments are not available right now. Please try again shortly.');
+  const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
+  const plan = planFor(planId);
+  const back = `${origin}/keep?t=${encodeURIComponent(b.connect_token)}`;
+  const session = await stripe.createCheckout({
+    businessId: b.id, slug: b.slug, name: b.name, email: owner.email, priceCents: plan.cents, origin,
+    plan: plan.id, payments: plan.payments,
+    successUrl: `${back}&paid=1`, cancelUrl: back, idemKey: `kairo-keep-${b.id}-${plan.id}`,
+  });
+  // The plan chosen is remembered with the session; the state stays a trial
+  // until Stripe's signed word arrives.
+  db.prepare('UPDATE businesses SET stripe_session_id = ?, plan = ?, price_cents = ? WHERE id = ?')
+    .run(session.id, plan.id, planTotal(plan), b.id);
+  record(b.id, 'trial:checkout', plan.id);
+  return { checkout_url: session.url };
+}
+
+/**
+ * The money moved for a trial: make the same salon a paid one. If the shard
+ * cannot be reached the payment is still recorded, and the hourly job keeps
+ * trying (a paid trial is never paused or deleted).
+ */
+export async function keepTrial(b, { sessionId = '', paymentIntent = '', amountTotal = 0, subscription = '', customer = '' } = {}) {
+  if (!b.paid_at) {
+    db.prepare("UPDATE businesses SET stripe_session_id = ?, stripe_payment_intent = ?, stripe_subscription = ?, stripe_customer = ?, paid_at = datetime('now') WHERE id = ?")
+      .run(String(sessionId || b.stripe_session_id || ''), String(paymentIntent || ''), String(subscription || ''), String(customer || ''), b.id);
+    record(b.id, 'trial:paid', `${amountTotal || b.price_cents} cents · ${b.plan}`);
+    console.log(`signup: paid ${b.slug} from ${b.source || 'direct'} (${b.plan}, kept from a trial)`);
+    if (subscription) {
+      const plan = planFor(b.plan);
+      try {
+        const r = await stripe.limitInstallments(subscription, plan.payments);
+        record(b.id, 'plan:installments-set', `${plan.payments} payments, ends ${new Date(r.cancel_at * 1000).toISOString().slice(0, 10)}`);
+      } catch (e) {
+        record(b.id, 'plan:installments-failed', e.message);
+        openTask(b.id, 'installments', `Set subscription ${subscription} to cancel after ${plan.payments} payments in Stripe: ${e.message}`);
+      }
+    }
+    await sendReceipt(b.id, paymentIntent, amountTotal || b.price_cents);
+  }
+  return unlockTrial(b.id);
+}
+
+/** Lift the locks and the pause on a paid trial. Idempotent; retried hourly until it works. */
+export async function unlockTrial(businessId) {
+  const b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(businessId);
+  if (b.state === 'ready') return { state: 'ready', url: publicUrlFor(b.slug) };
+  const plan = planFor(b.plan);
+  try {
+    await shard.putSettings(b.slug, {
+      plan_status: 'active',
+      plan_name: plan.payments > 1 ? `Kairo · ${plan.payments} monthly payments of $${(plan.cents / 100).toFixed(0)}` : 'Kairo',
+      plan_interval: 'once',
+      plan_price_cents: String(b.price_cents),
+      plan_started_at: new Date().toISOString().slice(0, 10),
+      trial_ends_at: '',
+      trial_deletes_at: '',
+    });
+    await shard.patchTenant(b.slug, { read_only: false, muted: false });
+  } catch (e) {
+    record(b.id, 'trial:unlock-failed', e.message);
+    openTask(b.id, 'trial_unlock', `${b.name} paid to keep their trial, but the server could not be told yet (${e.message}). It retries every hour.`);
+    return { state: b.state, paid: true, pending: true };
+  }
+  db.prepare("UPDATE businesses SET converted_at = datetime('now') WHERE id = ?").run(b.id);
+  setState(b.id, 'ready', 'kept from a free trial');
+  db.prepare("UPDATE tasks SET state = 'done', done_at = datetime('now'), done_note = 'unlocked' WHERE business_id = ? AND kind = 'trial_unlock' AND state = 'open'").run(b.id);
+  const owner = db.prepare('SELECT name, email FROM owners WHERE id = ?').get(b.owner_id);
+  const sent = await notify.emailTrial(owner.email, 'kept', trialFacts(b, owner));
+  record(b.id, 'trial:email:kept', sent.ok ? 'sent' : sent.detail);
+  return { state: 'ready', url: publicUrlFor(b.slug) };
+}
+
+/**
+ * The emails, in order, and when each is due, counted from the trial's end.
+ * Only the latest one due is sent: a server that was down for two days sends
+ * "3 days left", not the halfway email as well.
+ */
+const NOTICES = [
+  { kind: 'tips', at: (end) => end - (TRIAL_DAYS() - 3) * DAY_MS, during: true },
+  { kind: 'halfway', at: (end) => end - Math.ceil(TRIAL_DAYS() / 2) * DAY_MS, during: true },
+  { kind: 'three_days', at: (end) => end - 3 * DAY_MS, during: true },
+  { kind: 'last_day', at: (end) => end - 1 * DAY_MS, during: true },
+];
+
+let ticking = false;
+
+/**
+ * The trial's clock, run every hour: the emails, the pause on day 14, the
+ * final notice and the deletion. Every step is recorded, and none happens to a
+ * trial that has paid.
+ */
+export async function trialTick(now = Date.now()) {
+  if (ticking) return { busy: true };
+  ticking = true;
+  const done = [];
+  try {
+    // Paid but not yet unlocked (the shard was down when the money came).
+    for (const b of db.prepare("SELECT id FROM businesses WHERE state IN ('trial', 'trial_ended') AND paid_at != ''").all()) {
+      try { await unlockTrial(b.id); done.push(['unlock', b.id]); } catch (e) { record(b.id, 'trial:unlock-failed', e.message); }
+    }
+
+    for (const b of db.prepare("SELECT * FROM businesses WHERE state = 'trial' AND paid_at = ''").all()) {
+      const end = Date.parse(b.trial_ends_at) || 0;
+      if (!end) continue;
+      const sent = new Set(String(b.trial_notices || '').split(',').filter(Boolean));
+      if (now >= end) {
+        // Day 14: pause. Read-only (sign in and look, change nothing, no
+        // bookings) and muted (no messages to anyone's clients).
+        try {
+          await shard.patchTenant(b.slug, { read_only: true, muted: true });
+        } catch (e) { record(b.id, 'trial:pause-failed', e.message); continue; }
+        setState(b.id, 'trial_ended', 'the free trial ran out');
+        await trialEmail(b, 'ended', sent);
+        done.push(['ended', b.id]);
+        continue;
+      }
+      const due = NOTICES.filter((n) => now >= n.at(end) && !sent.has(n.kind));
+      if (!due.length) continue;
+      // Older ones that were missed are marked, not sent.
+      for (const n of due.slice(0, -1)) sent.add(n.kind);
+      await trialEmail(b, due.at(-1).kind, sent);
+      done.push([due.at(-1).kind, b.id]);
+    }
+
+    for (const b of db.prepare("SELECT * FROM businesses WHERE state = 'trial_ended' AND paid_at = ''").all()) {
+      const gone = Date.parse(b.trial_deletes_at) || 0;
+      if (!gone) continue;
+      const sent = new Set(String(b.trial_notices || '').split(',').filter(Boolean));
+      if (now >= gone) {
+        await deleteTrial(b, sent);
+        done.push(['deleted', b.id]);
+        continue;
+      }
+      if (now >= gone - 2 * DAY_MS && !sent.has('final')) {
+        await trialEmail(b, 'final', sent);
+        done.push(['final', b.id]);
+      }
+    }
+  } finally {
+    ticking = false;
+  }
+  return { done };
+}
+
+/** Send one trial email and remember it went, so it never goes twice. */
+async function trialEmail(b, kind, sent) {
+  sent.add(kind);
+  db.prepare('UPDATE businesses SET trial_notices = ? WHERE id = ?').run([...sent].join(','), b.id);
+  const owner = db.prepare('SELECT name, email FROM owners WHERE id = ?').get(b.owner_id);
+  const facts = trialFacts(b, owner);
+  // The halfway email says what they have built; counts only, read from the shard.
+  if (kind === 'halfway' || kind === 'ended') {
+    try { facts.counts = (await shard.getTenant(b.slug))?.counts || null; } catch { facts.counts = null; }
+  }
+  const r = await notify.emailTrial(owner.email, kind, facts);
+  record(b.id, `trial:email:${kind}`, r.ok ? 'sent' : r.detail);
+  return r;
+}
+
+/**
+ * Day 21, or a week after the owner asked to end it: switch the salon off,
+ * delete its files, free its address and say so. Only an unpaid trial: the
+ * shard checks that again from the salon's own file before deleting.
+ */
+async function deleteTrial(b, sent) {
+  try {
+    await shard.deleteTenant(b.slug).catch((e) => { if (e.status !== 404) throw e; });
+    await shard.purgeTrial(b.slug).catch((e) => { if (e.status !== 404) throw e; });
+  } catch (e) {
+    record(b.id, 'trial:delete-failed', e.message);
+    openTask(b.id, 'purge_failed', `${b.name}'s free trial ended unpaid but its files could not be deleted: ${e.message}`);
+    return;
+  }
+  db.prepare("UPDATE businesses SET deleted_at = datetime('now'), files_purged_at = datetime('now'), pass_hash = '', salt = '' WHERE id = ?").run(b.id);
+  setState(b.id, 'trial_deleted', 'unpaid free trial deleted');
+  console.log(`signup: trial deleted ${b.slug}`);
+  if (!sent.has('deleted')) await trialEmail(b, 'deleted', sent);
 }

@@ -27,6 +27,7 @@
 import { db, getSetting } from './db.js';
 import { current } from './tenant.js';
 import { clientRhythms } from './opportunities.js';
+import { isTrial } from './trial.js';
 import { mintToken, fillTokens, recentlyMessagedSet } from './campaigns.js';
 import { expiringPatchTests } from './safety.js';
 
@@ -499,6 +500,9 @@ export function runDailyPass({ now = new Date(), force = false } = {}) {
   } catch { /* never let housekeeping stop the pass */ }
 
   const results = [];
+  // Automatic messages are one of the things a free trial is shown but not
+  // given (src/trial.js), so none go out, even if one was switched on.
+  if (isTrial()) return { day: today, ran: results, trial: true };
   for (const a of listAutomations()) {
     if (!a.enabled) continue;
     try {

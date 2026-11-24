@@ -34,6 +34,7 @@
 import { esc, icon, copyText, toast, kairoOrb } from './ui.js';
 import { api } from './api.js';
 import { mountKaiChat, openKaiChat, closeKaiChat, isKaiChatOpen, agentReady } from './kai-chat.js';
+import { guardLocked } from './trial.js';
 import { canListen, listen as hear } from './voice.js';
 
 let el = null;
@@ -518,6 +519,8 @@ export function close() {
 }
 
 export function open(prefill = '') {
+  // During the free trial Kai is shown, not given (public/js/trial.js).
+  if (guardLocked('kai')) return;
   // With an agent on the server, Kai is the full-screen conversation in
   // kai-chat.js; this console is the no-network Kai for servers without one.
   if (agentReady()) { openKaiChat(prefill); return; }

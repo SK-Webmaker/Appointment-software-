@@ -30,6 +30,11 @@ async function request(method, path, body) {
     try { data = JSON.parse(text); } catch { unreadable = true; }
   }
 
+  // A feature held back during the free trial (src/trial.js): say so in one
+  // place, public/js/trial.js, whichever screen asked.
+  if (res.status === 402 && data?.locked && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('kairo:locked', { detail: data.locked }));
+  }
   if (!res.ok) throw new ApiError(res.status, data?.error || `Request failed (${res.status})`, data);
   // Every reply this API sends carries a JSON body — sendJson() writes one on
   // every path — so nothing arriving is the same failure as something arriving

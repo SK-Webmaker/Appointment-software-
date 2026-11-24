@@ -5,6 +5,7 @@
 // and what am I getting for it. It is also where billing will live once there
 // is a bill: the plan card reads from settings the reseller sets per
 // deployment, so a business always sees the terms it was actually sold.
+import { trialState } from '../trial.js';
 import { api } from '../api.js';
 import { esc, icon, toast, fmtDate, initials, confirmDialog, openModal } from '../ui.js';
 import { state } from '../app.js';
@@ -93,6 +94,27 @@ function guaranteeCard(g) {
 }
 
 const dollars = (cents) => `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+
+/**
+ * The free trial, on the Account page: how long is left, where the plans are
+ * (on the web only: the iPhone app links to nothing that sells), and how to end
+ * it early, which is the "Close this account" button below.
+ */
+function trialCard() {
+  const t = trialState();
+  if (!t.trial) return '';
+  const inApp = Boolean(window.kairoNative);
+  const when = (iso) => (iso ? new Date(iso).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }) : '');
+  return `
+    <div class="card">
+      <div class="card-title">Your free trial</div>
+      <div class="card-sub">${t.ended
+    ? `Your free trial has ended and this account is paused.${t.deletes_at ? ` It is deleted on ${esc(when(t.deletes_at))} unless you choose a plan.` : ''}`
+    : `${t.days_left <= 1 ? 'Today is the last day' : `${t.days_left} days left`}, until ${esc(when(t.ends_at))}. Choose a plan and everything you have set up stays exactly as it is.`}</div>
+      ${!inApp && t.keep_url ? `<a class="btn primary" href="${esc(t.keep_url)}" style="margin-top:12px;display:inline-flex">Choose a plan</a>` : ''}
+      <div class="acct-meta" style="margin-top:10px">To end your trial early and delete your account, use Close this account below.</div>
+    </div>`;
+}
 
 /** One line of the refund warning: what happens, then the detail. */
 const warnRow = (ic, head, detail, tone = '', i = 0) => `
@@ -598,6 +620,7 @@ export async function renderAccount(container) {
         </div>
       </div>
 
+      ${trialCard()}
       ${guaranteeCard(guarantee)}
 
       <div class="card">

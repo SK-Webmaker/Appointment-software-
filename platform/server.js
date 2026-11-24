@@ -162,6 +162,7 @@ const server = http.createServer(async (req, res) => {
     if (p === '/done') return serveStatic(res, 'start.html');
     if (p === '/operator') return serveStatic(res, 'operator.html');
     if (p === '/connect') return serveStatic(res, 'connect.html');
+    if (p === '/keep') return serveStatic(res, 'keep.html');
     if (p === '/health') return json(res, 200, { ok: true });
     // The policies answer without the .html, because that is how they are
     // written down in places that cannot be edited later: the App Store
@@ -189,7 +190,7 @@ async function api(req, res, url, ip) {
 
   // ── the signup flow ──────────────────────────────────────────────────────
   if (p === '/api/price' && req.method === 'GET') {
-    return json(res, 200, { price_cents: signup.PRICE_CENTS(), plans: signup.publicPlans(), currency: 'AUD', base_domain: signup.BASE_DOMAIN() });
+    return json(res, 200, { price_cents: signup.PRICE_CENTS(), plans: signup.publicPlans(), currency: 'AUD', base_domain: signup.BASE_DOMAIN(), trial_days: signup.TRIAL_DAYS() });
   }
 
   if (p === '/api/slug' && req.method === 'GET') {
@@ -223,6 +224,25 @@ async function api(req, res, url, ip) {
     if (limited('checkout')) return undefined;
     const b = await readJson(req);
     return json(res, 200, await signup.beginCheckout(b.token, ORIGIN(), b.plan));
+  }
+
+  // "Start my free trial": after the email code, instead of paying.
+  if (p === '/api/trial/start' && req.method === 'POST') {
+    if (limited('checkout')) return undefined;
+    const b = await readJson(req);
+    return json(res, 200, await signup.startTrial(b.token));
+  }
+
+  // Keeping a free trial: the page an owner reaches from inside their own
+  // Kairo (or from a trial email), by the handle only they were given.
+  if (p === '/api/keep/status' && req.method === 'GET') {
+    if (limited('status')) return undefined;
+    return json(res, 200, signup.keepStatus(url.searchParams.get('t')));
+  }
+  if (p === '/api/keep/checkout' && req.method === 'POST') {
+    if (limited('checkout')) return undefined;
+    const b = await readJson(req);
+    return json(res, 200, await signup.keepCheckout(b.t, ORIGIN(), b.plan));
   }
 
   if (p === '/api/status' && req.method === 'GET') {
@@ -263,6 +283,9 @@ async function api(req, res, url, ip) {
     if (limited('checkout')) return undefined;
     const body = await readJson(req);
     const b = signup.byConnectToken(body.t);
+    // Their own email address is one of the five things a free trial is shown
+    // but not given (src/trial.js).
+    if (['trial', 'trial_ended'].includes(b.state)) return json(res, 402, { error: 'Your own email address comes with Kairo once you choose a plan.', locked: 'email' });
     const out = await connect.connectEmail(b.id, String(body.resend_key || '').trim(), { domain: String(body.domain || '').trim() });
     return json(res, 200, out);
   }
@@ -270,6 +293,8 @@ async function api(req, res, url, ip) {
   if (p === '/api/connect/refund' && req.method === 'POST') {
     if (limited('checkout')) return undefined;
     const body = await readJson(req);
+    const tb = signup.byConnectToken(body.t);
+    if (['trial', 'trial_ended'].includes(tb.state) && !tb.paid_at) return json(res, 409, { error: 'A free trial has nothing to refund. To end it, close the account.' });
     return json(res, 200, await signup.selfRefund(body.t, String(body.reason || '').slice(0, 300)));
   }
 
@@ -301,6 +326,7 @@ async function api(req, res, url, ip) {
           await signup.onPaid({
             sessionId: s.id, paymentIntent: s.payment_intent, amountTotal: s.amount_total,
             subscription: s.mode === 'subscription' ? s.subscription : '', customer: s.customer || '',
+            businessId: s.metadata?.business_id || '',
           });
         }
         catch (err) { console.error('provisioning after payment:', err.message); }
@@ -475,6 +501,10 @@ setInterval(() => { try { signup.expireStale(); } catch (err) { console.error('e
 // plenty; the interval is shortened only by tests.
 const PURGE_EVERY_MS = Number(process.env.PLATFORM_PURGE_EVERY_MS) || 60 * 60 * 1000;
 setInterval(() => { signup.purgeDue().catch((err) => console.error('purge:', err.message)); }, PURGE_EVERY_MS).unref?.();
+// The free trials' clock: their emails, the pause on day 14 and the deletion
+// on day 21. Hourly; shortened only by tests.
+const TRIAL_EVERY_MS = Number(process.env.PLATFORM_TRIAL_EVERY_MS) || 60 * 60 * 1000;
+setInterval(() => { signup.trialTick().catch((err) => console.error('trials:', err.message)); }, TRIAL_EVERY_MS).unref?.();
 
 server.listen(PORT, HOST, () => {
   appStoreId(); // start finding the App Store listing now, so the first welcome email links to it

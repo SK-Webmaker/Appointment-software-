@@ -3,6 +3,7 @@
 // It is not a tour and not a nag: every line is something that is actually not
 // done yet, checked against the system rather than against a tick somebody
 // clicked. When the last one is done the whole card goes, for good.
+import { trialState, showLock } from './trial.js';
 import { api } from './api.js';
 import { esc, icon, toast } from './ui.js';
 import { inApp } from './native.js';
@@ -61,6 +62,8 @@ async function refresh() {
   });
 
   mounted.addEventListener('click', async (e) => {
+    const locked = e.target.closest('[data-lock]');
+    if (locked) { showLock(locked.dataset.lock); return; }
     const copy = e.target.closest('[data-copy]');
     if (copy) {
       try { await navigator.clipboard.writeText(copy.dataset.copy); toast('Link copied'); }
@@ -77,7 +80,14 @@ async function refresh() {
   });
 }
 
+// Held back during the free trial (src/trial.js): shown with a lock, and the
+// button opens the card that says what it does, rather than a set-up screen
+// that would refuse at the end.
+const TRIAL_LOCKED = { texts: 'sms', acma: 'sms', payments: 'payments' };
+
 function actionButton(i) {
+  const lock = trialState().trial && TRIAL_LOCKED[i.id];
+  if (lock) return `<button class="btn small" data-lock="${esc(lock)}">${icon('lock', 13)} With a plan</button>`;
   const a = i.action;
   if (a.copy) return `<button class="btn small" data-copy="${esc(a.copy)}">${esc(a.label)}</button>`;
   if (a.url) return `<a class="btn small" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.label)}</a>`;

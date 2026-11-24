@@ -22,6 +22,7 @@ import { mountIntro, adoptBootSplash } from './intro.js';
 import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
 import { mountKai, open as openKai } from './kai.js';
+import { loadTrial, trialBannerHtml } from './trial.js';
 import { mountChecklist } from './checklist.js';
 import { signedIn as nativeSignedIn, signedOut as nativeSignedOut, inApp, updateAvailable } from './native.js';
 
@@ -229,6 +230,7 @@ function renderShell() {
             it's in an email, so it isn't private to you yet. Set your own in
             <a href="#/account">Account → Security</a>. Takes ten seconds.</span>
         </div>` : ''}
+        <div id="trial-banner"></div>
         <div id="app-update"></div>
         <main class="content"><div id="setup-checklist"></div><div class="page" id="page"></div></main>
       </div>
@@ -259,9 +261,15 @@ function renderShell() {
   // and that was all it ever did. Kai is what was supposed to be behind it.
   root.querySelector('#kai-btn').addEventListener('click', () => openKai());
   mountKai(root);
+  // The free trial's countdown, and a lock on the Kai button while it runs.
   // What is left before this salon is really running. Hides itself for good
-  // once every line is done, and never blocks the page while it loads.
-  mountChecklist(root.querySelector('#setup-checklist')).catch(() => {});
+  // once every line is done, and never blocks the page while it loads. After
+  // the trial is known, so a held-back step shows its lock from the start.
+  loadTrial().then((t) => {
+    const slot = root.querySelector('#trial-banner');
+    if (slot) slot.innerHTML = trialBannerHtml();
+    if (t.trial) root.querySelector('#kai-btn')?.classList.add('locked');
+  }).finally(() => { mountChecklist(root.querySelector('#setup-checklist')).catch(() => {}); });
   // Inside the iPhone app, an app older than the App Store's says so.
   mountAppUpdate(root.querySelector('#app-update')).catch(() => {});
 

@@ -1593,6 +1593,32 @@ const MUTATIONS = {
     find: "route('GET', '/api/stats', async ({ query, user }) => {\n  ownerOnly(user);",
     replace: "route('GET', '/api/stats', async ({ query, user }) => {\n  void user;",
   },
+  // ── The free trial (src/trial.js, platform/signup.js) ────────────────────
+  'trial-locks-nothing': {
+    file: 'src/trial.js', suites: ['trial'],
+    find: '  if (!isTrial()) return;\n  const lock = LOCKS[feature]',
+    replace: '  if (true) return;\n  const lock = LOCKS[feature]',
+  },
+  'trial-owner-sets-plan': {
+    file: 'src/api.js', suites: ['trial'],
+    find: "  for (const k of ['plan_status', 'trial_ends_at', 'trial_deletes_at']) {\n    if (k in body) throw httpError(400, `Unexpected field: ${k}`);\n  }",
+    replace: '',
+  },
+  'trial-purges-paid-salon': {
+    file: 'src/platform.js', suites: ['trial'],
+    find: "      if (t && withTenant(t, () => getSetting('plan_status', '')) !== 'trial') {",
+    replace: '      if (false) {',
+  },
+  'trial-pauses-paid': {
+    file: 'platform/signup.js', suites: ['trial'],
+    find: `    for (const b of db.prepare("SELECT * FROM businesses WHERE state = 'trial_ended' AND paid_at = ''").all()) {`,
+    replace: `    for (const b of db.prepare("SELECT * FROM businesses WHERE state IN ('trial_ended', 'ready') AND trial_deletes_at != ''").all()) {`,
+  },
+  'trial-second-per-email': {
+    file: 'platform/signup.js', suites: ['trial'],
+    find: `  if (ownerId && db.prepare("SELECT 1 FROM businesses WHERE owner_id = ? AND trial_ends_at != ''").get(ownerId)) {`,
+    replace: '  if (false) {',
+  },
   'stats-report-to-anyone': {
     file: 'src/platform.js', suites: ['stats'],
     find: "      if (asked && !allowed.has(asked)) throw httpError(400,",

@@ -75,7 +75,9 @@ db.exec(`
   -- else may have it; a salon that paid and later refunded keeps it reserved,
   -- because its data is still on the shard and its old links are still in
   -- people's phones.
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_slug_live ON businesses(slug) WHERE state != 'expired';
+  -- A free trial that was deleted unpaid gives its address back too: its files
+  -- are gone from the shard, so nothing is left for old links to reach.
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_slug_held ON businesses(slug) WHERE state NOT IN ('expired', 'trial_deleted');
   CREATE UNIQUE INDEX IF NOT EXISTS idx_biz_token ON businesses(token) WHERE token != '';
 
   -- Six digits to an inbox or a handset. Attempts are counted so a code cannot
@@ -149,6 +151,17 @@ addColumn('businesses', 'stripe_customer', "stripe_customer TEXT NOT NULL DEFAUL
 // from before — a test, the App Review demo — is ever reached by the job.
 addColumn('businesses', 'files_purge_at', "files_purge_at TEXT NOT NULL DEFAULT ''");
 addColumn('businesses', 'files_purged_at', "files_purged_at TEXT NOT NULL DEFAULT ''");
+
+// The free 14-day trial (platform/signup.js, "The free trial"). When it ends,
+// when it is deleted if nobody pays, which of its emails have gone (a comma
+// list, so each goes once), and when it became a paid salon.
+addColumn('businesses', 'trial_ends_at', "trial_ends_at TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'trial_deletes_at', "trial_deletes_at TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'trial_notices', "trial_notices TEXT NOT NULL DEFAULT ''");
+addColumn('businesses', 'converted_at', "converted_at TEXT NOT NULL DEFAULT ''");
+// The old address index held a deleted trial's address forever; the one above
+// replaces it. Dropping an index removes no data.
+db.exec('DROP INDEX IF EXISTS idx_biz_slug_live');
 
 export function getSetting(key, fallback = '') {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

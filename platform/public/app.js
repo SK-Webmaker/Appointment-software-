@@ -19,14 +19,18 @@ let price = {
 // from, and changeable again on the payment step.
 const PLAN_KEY = 'kairo_signup_plan';
 // A pricing card on the website can arrive with ?plan= already chosen.
+// ?plan=trial (or ?trial=1) arrives from the website's "Start your free trial".
+const PLAN_IDS = ['trial', 'once', 'monthly'];
+const planId = (id) => (PLAN_IDS.includes(id) ? id : 'once');
 let chosenPlan = (() => {
-  const given = new URLSearchParams(location.search).get('plan');
+  const q = new URLSearchParams(location.search);
+  const given = q.get('trial') === '1' ? 'trial' : q.get('plan');
   try {
-    if (given === 'once' || given === 'monthly') sessionStorage.setItem(PLAN_KEY, given);
-    return sessionStorage.getItem(PLAN_KEY) === 'monthly' ? 'monthly' : 'once';
-  } catch { return given === 'monthly' ? 'monthly' : 'once'; }
+    if (PLAN_IDS.includes(given)) sessionStorage.setItem(PLAN_KEY, given);
+    return planId(sessionStorage.getItem(PLAN_KEY));
+  } catch { return planId(given); }
 })();
-const choosePlan = (id) => { chosenPlan = id === 'monthly' ? 'monthly' : 'once'; try { sessionStorage.setItem(PLAN_KEY, chosenPlan); } catch { /* fine */ } };
+const choosePlan = (id) => { chosenPlan = planId(id); try { sessionStorage.setItem(PLAN_KEY, chosenPlan); } catch { /* fine */ } };
 const planById = (id) => price.plans.find((p) => p.id === id) || price.plans[0];
 
 // The two plans as a choice. Same Kairo either way; the only difference is
@@ -35,7 +39,13 @@ function planPicker(selected) {
   const once = planById('once');
   const monthly = planById('monthly');
   const extra = monthly.total_cents - once.total_cents;
-  return `<div class="plans" role="radiogroup" aria-label="How would you like to pay?">
+  const days = price.trial_days || 14;
+  return `<div class="plans" role="radiogroup" aria-label="How would you like to start?">
+    <label class="plan"><input type="radio" name="plan" value="trial" ${selected === 'trial' ? 'checked' : ''}>
+      <div class="p-top"><span class="p-name">Free ${days}-day trial<span class="p-tag">No card</span></span>
+        <span class="p-price">$0<small> today</small></span></div>
+      <div class="p-note">Try Kairo with your real clients for ${days} days. Pay only if you keep it, and everything you set up stays.</div>
+    </label>
     <label class="plan"><input type="radio" name="plan" value="once" ${selected === 'once' ? 'checked' : ''}>
       <div class="p-top"><span class="p-name">Pay once<span class="p-tag">Lowest total</span></span>
         <span class="p-price">${money(once.cents)}</span></div>
@@ -49,9 +59,16 @@ function planPicker(selected) {
   </div>`;
 }
 const payLabel = (id) => {
+  if (id === 'trial') return 'Start my free trial';
   const p = planById(id);
   return p.payments > 1 ? `Pay ${money(p.cents)} today and set up my Kairo` : `Pay ${money(p.cents)} and set up my Kairo`;
 };
+const ticksFor = (id) => (id === 'trial'
+  ? '<li>Free for 14 days. No card, nothing to cancel</li><li>Pay only if you keep it, and everything you set up stays</li><li>Your data is yours, exportable any time</li>'
+  : '<li>No commission, and nothing to pay after your plan</li><li>14 days to change your mind, no reason needed</li><li>Your data is yours, exportable any time</li>');
+const payHint = (id) => (id === 'trial'
+  ? 'No payment details needed. We\'ll remind you before your trial ends.'
+  : 'Secure payment by Stripe. Card, Apple&nbsp;Pay or Google&nbsp;Pay.');
 let token = localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '';
 // The website page that sent them here (?from=fresha-price), kept through a
 // reload so the signup still says where it came from. A page name, nothing more.
@@ -82,6 +99,7 @@ async function call(method, path, body) {
 // phone at the counter should be able to see how much is left before they
 // start, and what the thing they are in the middle of is called.
 const STEP_NAMES = ['Your details', 'Confirm it\'s you', 'Payment', 'Setting up'];
+const stepName = (i) => (i === 3 && chosenPlan === 'trial' ? 'Start your trial' : STEP_NAMES[i - 1]);
 const header = (step) => `
   <div class="brand"><a href="/" style="display:flex;align-items:center;gap:10px;color:inherit">
     <svg class="mark" viewBox="0 0 48 48" width="32" height="32" aria-hidden="true">
@@ -96,11 +114,11 @@ const header = (step) => `
     </svg><b>Kairo</b></a></div>
   ${step ? `
     <div class="steps" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="${step}"
-         aria-label="Step ${step} of 4: ${STEP_NAMES[step - 1]}">
+         aria-label="Step ${step} of 4: ${stepName(step)}">
       ${[1, 2, 3, 4].map((i) => `<i class="${i <= step ? 'on' : ''}"></i>`).join('')}
     </div>
     <div class="hint" style="margin:-16px 0 22px;display:flex;justify-content:space-between">
-      <span>Step ${step} of 4</span><span>${esc(STEP_NAMES[step - 1])}</span>
+      <span>Step ${step} of 4</span><span>${esc(stepName(step))}</span>
     </div>` : ''}`;
 
 const foot = `<div class="foot">
@@ -114,9 +132,9 @@ function renderForm(prefill = {}, error = '') {
     <h1>Your salon's booking system. No ongoing fees.</h1>
     <p class="lede">Bookings, reminders, clients, payments and your own booking page — under your name, on your own address.</p>
     <div class="card">
-      <h2 style="margin-bottom:10px">How would you like to pay?</h2>
+      <h2 style="margin-bottom:10px">How would you like to start?</h2>
       ${planPicker(chosenPlan)}
-      <div class="hint">Same Kairo either way. No commission, and a full refund within 14 days on both.</div>
+      <div class="hint">Same Kairo every way. No commission, and a full refund within 14 days of paying.</div>
       <ul class="ticks">
         <li>Your own booking page customers book on</li>
         <li>Automatic confirmations and reminders</li>
@@ -160,7 +178,7 @@ function renderForm(prefill = {}, error = '') {
 
         ${error ? `<div class="err">${esc(error)}</div>` : ''}
         <button class="primary" type="submit" id="go">Create my Kairo</button>
-        <div class="hint" style="text-align:center;margin-top:10px">You'll confirm your email with a code before paying.</div>
+        <div class="hint" style="text-align:center;margin-top:10px" id="go-hint">${chosenPlan === 'trial' ? "You'll confirm your email with a code, then your trial starts. No card." : "You'll confirm your email with a code before paying."}</div>
       </form>
     </div>${foot}`;
 
@@ -184,7 +202,11 @@ function renderForm(prefill = {}, error = '') {
   bizEl.addEventListener('input', debounced);
   slugEl.addEventListener('input', () => { touched = true; debounced(); });
   if (prefill.business_name || prefill.slug) checkSlug();
-  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => choosePlan(r.value)));
+  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => {
+    choosePlan(r.value);
+    const h = app.querySelector('#go-hint');
+    if (h) h.textContent = chosenPlan === 'trial' ? "You'll confirm your email with a code, then your trial starts. No card." : "You'll confirm your email with a code before paying.";
+  }));
 
   app.querySelector('#f').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -241,27 +263,37 @@ async function renderCodes(error = '') {
 // ── step 3: pay ────────────────────────────────────────────────────────────
 async function renderPay(error = '') {
   const st = await call('GET', `/api/status?token=${encodeURIComponent(token)}`);
-  if (st.state === 'ready') return renderStatus();
+  if (['ready', 'trial'].includes(st.state)) return renderStatus();
   const cancelled = new URLSearchParams(location.search).get('cancelled');
-  let selected = st.plan === 'monthly' ? 'monthly' : 'once';
+  let selected = planId(st.plan);
+  chosenPlan = selected;
   app.innerHTML = `${header(3)}
     <div class="card">
       <h2>${esc(st.business_name)} is ready to go live</h2>
       <p class="lede">Your address will be <span class="mono">${esc(st.slug)}.${esc(price.base_domain)}</span></p>
       ${planPicker(selected)}
-      <ul class="ticks"><li>No commission, and nothing to pay after your plan</li><li>14 days to change your mind, no reason needed</li><li>Your data is yours, exportable any time</li></ul>
+      <ul class="ticks" id="pay-ticks">${ticksFor(selected)}</ul>
       ${cancelled ? '<div class="err">Payment cancelled — nothing was charged.</div>' : ''}
       ${error ? `<div class="err">${esc(error)}</div>` : ''}
       <button class="primary" id="pay">${esc(payLabel(selected))}</button>
-      <p class="hint" style="text-align:center;margin-top:10px">Secure payment by Stripe. Card, Apple&nbsp;Pay or Google&nbsp;Pay.</p>
+      <p class="hint" style="text-align:center;margin-top:10px" id="pay-hint">${payHint(selected)}</p>
     </div>${foot}`;
   const payBtn = app.querySelector('#pay');
   app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => {
     choosePlan(r.value); selected = chosenPlan; payBtn.textContent = payLabel(selected);
+    app.querySelector('#pay-ticks').innerHTML = ticksFor(selected);
+    app.querySelector('#pay-hint').innerHTML = payHint(selected);
   }));
   payBtn.addEventListener('click', async (e) => {
-    e.target.disabled = true; e.target.textContent = 'Opening secure payment…';
+    e.target.disabled = true;
     try {
+      if (selected === 'trial') {
+        e.target.textContent = 'Setting up your Kairo…';
+        await call('POST', '/api/trial/start', { token });
+        renderStatus();
+        return;
+      }
+      e.target.textContent = 'Opening secure payment…';
       const r = await call('POST', '/api/checkout', { token, plan: selected });
       location.href = r.checkout_url;
     } catch (err) { renderPay(err.message); }
@@ -271,6 +303,28 @@ async function renderPay(error = '') {
 // ── step 4: watching it happen, then done ──────────────────────────────────
 async function renderStatus() {
   const st = await call('GET', `/api/status?token=${encodeURIComponent(token)}`);
+  if (st.state === 'trial') {
+    localStorage.removeItem(KEY);
+    const ends = st.trial_ends_at ? new Date(st.trial_ends_at).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+    app.innerHTML = `${header(0)}
+      <div class="card">
+        <div class="big"><span class="done-tick"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span></div>
+        <h2 style="text-align:center">Your free trial has started</h2>
+        <p class="lede" style="text-align:center">${esc(st.business_name)} is yours to try${ends ? ` until ${esc(ends)}` : ''}. Sign in with the email and password you chose.</p>
+        <a class="primary" href="${esc(st.url)}" style="display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700">Open ${esc(st.slug)}.${esc(price.base_domain)}</a>
+        <p class="hint" style="text-align:center;margin-top:16px">Your booking link for Instagram:<br><span class="mono">${esc(st.url)}/book</span></p>
+      </div>
+      <div class="card">
+        <h2>On your iPhone</h2>
+        <p class="hint">Get the Kairo app and sign in with the same email and password. Kairo walks you through your hours, services and team the first time.</p>
+        <a href="${esc(st.app_url)}" style="display:inline-block;margin-top:8px;font-weight:700">Get the Kairo app</a>
+      </div>
+      <div class="card">
+        <h2>What's in your trial</h2>
+        <p class="hint">Everything except Kai, text reminders, deposits and card payments, automatic and bulk messages, and your own email address. Those come with a plan. Keep Kairo and everything you set up stays exactly as it is. We've emailed you all of this.</p>
+      </div>${foot}`;
+    return;
+  }
   if (st.state === 'ready') {
     localStorage.removeItem(KEY);
     app.innerHTML = `${header(0)}
@@ -290,7 +344,7 @@ async function renderStatus() {
   }
   if (['created', 'verified'].includes(st.state)) return st.email_verified ? renderPay() : renderCodes();
   if (st.state === 'payment_pending') return renderPay();
-  if (['refunded', 'expired'].includes(st.state)) { localStorage.removeItem(KEY); return renderForm({}, st.message); }
+  if (['refunded', 'expired', 'trial_ended', 'trial_deleted'].includes(st.state)) { localStorage.removeItem(KEY); return renderForm({}, st.message); }
 
   app.innerHTML = `${header(4)}
     <div class="card" style="text-align:center">

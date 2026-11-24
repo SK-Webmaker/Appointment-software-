@@ -5,6 +5,7 @@ import { esc, icon, toast, timeOptions, setCurrency, confirmDialog, openModal, o
 import { refreshKaiStatus } from '../kai-chat.js';
 import { state, refreshLookups } from '../app.js';
 import { openSmsSetup } from './sms-setup.js';
+import { guardLocked } from '../trial.js';
 import { videoCard, wireVideos } from '../video.js';
 import { SCHEMES } from '../schemes.js';
 import { parseDayRules } from '../hours.js';
@@ -1270,6 +1271,7 @@ export async function renderSettings(container, params) {
   });
   wireVideos(container);
   container.querySelector('#sms-guided')?.addEventListener('click', () => {
+    if (guardLocked('sms')) return;
     openSmsSetup({ onDone: () => renderSettings(container, params) });
   });
   container.querySelector('#set-consult').addEventListener('submit', async (e) => {
@@ -1988,6 +1990,7 @@ export async function renderSettings(container, params) {
   // Straight from the dashboard's "Set up texts" — open the walkthrough itself
   // rather than a page of settings to find it on.
   if (params?.get('setup') === 'texts') {
+    if (guardLocked('sms')) return;
     openSmsSetup({ onDone: () => renderSettings(container, new URLSearchParams('open=sms')) });
   }
 }

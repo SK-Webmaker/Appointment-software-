@@ -196,6 +196,15 @@ Ordered as a journey — this is the spine a scrolling site should follow.
 6. **The service menu** — categories, durations, and three price types: fixed,
    "from" (varies by hair length), and free (consultations).
 7. **Branding** — business name, logo, address, the lot.
+8. **A free 14-day trial, no card** — "Start your free trial" on the website
+   builds a real Kairo after the email code, with the same setup walkthrough and
+   the iPhone app. Everything works except five things that come with a plan:
+   Kai, text messages, deposits and card payments, automatic and bulk messages,
+   and the owner's own email address (each shows a lock and what it does).
+   A bar on every screen counts the days down. Emails go on day 0, 3, 7, 11 and
+   13. Paying keeps the very same Kairo, with everything in it. If they don't
+   pay, it pauses on day 14 (sign in and look, no changes, no bookings, no
+   messages), a final notice goes on day 19, and it's deleted on day 21.
 
 ### ACT IX — In the hand
 > **Screens: `23`, `24`, `25`**

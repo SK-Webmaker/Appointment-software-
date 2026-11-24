@@ -73,6 +73,7 @@ import {
 } from './referrals.js';
 import { growthPlan, setManualTick } from './growth-plan.js';
 import { businessStats, reportEmail } from './stats.js';
+import { trialLock, lockedSettingIn, trialInfo, isTrial } from './trial.js';
 import { contentIdeas, contentCalendar, businessFacts } from './growth-content.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
 import * as kaiAgent from './kai-agent.js';
@@ -394,6 +395,13 @@ route('GET', '/api/version', async () => ({ version: VERSION }), { auth: false }
 // answers "who am I, what am I on, and what am I getting for it".
 // ---------------------------------------------------------------------------
 
+/**
+ * The free trial, for the banner on every screen: days left, when it pauses
+ * and is deleted, where to choose a plan, and what is locked until then.
+ * { trial: false } for every salon that has paid.
+ */
+route('GET', '/api/trial', async () => trialInfo());
+
 route('GET', '/api/account', async ({ user }) => {
   const row = db.prepare('SELECT id, name, email, role, created_at, email_verified FROM users WHERE id = ?').get(user.id);
   const one = (sql, ...args) => db.prepare(sql).get(...args)?.n ?? 0;
@@ -682,7 +690,7 @@ export const EDITABLE_SETTINGS = new Set([
   'currency', 'tax_rate', 'prices_include_tax', 'open_min', 'close_min', 'slot_interval',
   'business_tz', 'booking_lead_min', 'cal_start_min', 'cal_end_min', 'rebook_weeks_default',
   'booking_horizon_days', 'cancel_window_hours', 'client_cancel_enabled',
-  'plan_name', 'plan_status', 'plan_price_cents', 'plan_interval',
+  'plan_name', 'plan_status', 'plan_price_cents', 'plan_interval', 'trial_ends_at', 'trial_deletes_at',
   'plan_started_at', 'plan_renews_at', 'billing_contact', 'billing_note',
   'booking_enabled', 'invoice_prefix', 'invoice_due_days', 'invoice_footer', 'business_abn',
   'open_days', 'day_rules', 'brand_scheme',
@@ -897,6 +905,14 @@ route('PUT', '/api/settings', async ({ req }) => {
   for (const k of Object.keys(body)) {
     if (!EDITABLE_SETTINGS.has(k)) throw httpError(400, `Unexpected field: ${k}`);
   }
+  // The plan is the platform's to say, through its signed control API (which
+  // applies settings directly, not through this route). An owner who could set
+  // it here could end their own trial by typing "active".
+  for (const k of ['plan_status', 'trial_ends_at', 'trial_deletes_at']) {
+    if (k in body) throw httpError(400, `Unexpected field: ${k}`);
+  }
+  const locked = lockedSettingIn(body);
+  if (locked) trialLock(locked);
   applySettings(body);
   return getSettings();
 });
@@ -2857,6 +2873,8 @@ route('GET', '/api/automations', async () => ({
 
 route('PUT', '/api/automations/:kind', async ({ req, params }) => {
   const b = await readJson(req);
+  // Switching one on is the locked part; switching one off is always allowed.
+  if (b?.enabled) trialLock('marketing');
   return saveAutomation(params.kind, b);
 });
 
@@ -2886,6 +2904,7 @@ route('GET', '/api/automations/:kind/preview', async ({ params }) => {
 
 /** Run one now, rather than waiting for tomorrow morning. */
 route('POST', '/api/automations/:kind/run', async ({ req, params }) => {
+  trialLock('marketing');
   const b = await readJson(req).catch(() => ({}));
   return runAutomation(params.kind, { dryRun: b?.dry_run === true });
 });
@@ -2979,6 +2998,7 @@ route('GET', '/api/growth/content', async () => ({
  * on a guess is one bad match away from cancelling the wrong Sarah.
  */
 route('GET', '/api/ask', async ({ query }) => {
+  trialLock('kai');
   const q = str(query.get('q'), 200);
   const last = kaiLastChange();
   // The bar shows "you can still undo that" for as long as there is something
@@ -3004,6 +3024,7 @@ route('GET', '/api/ask', async ({ query }) => {
  * undo whatever happened in between.
  */
 route('POST', '/api/ask/apply', async ({ req, user }) => {
+  trialLock('kai');
   const b = checkBody(await readJson(req), {
     q: s.str(200, { required: true }),
     fingerprint: s.str(64, { required: true }),
@@ -3034,6 +3055,7 @@ route('POST', '/api/ask/apply', async ({ req, user }) => {
  * from what its owner believes is not fixed by an undo nobody knew to press.
  */
 route('POST', '/api/ask/do', async ({ req, user }) => {
+  trialLock('kai');
   const b = checkBody(await readJson(req), {
     q: s.str(200, { required: true }),
     turn: s.num({ min: 0, max: 100000 }),
@@ -3345,6 +3367,7 @@ route('GET', '/api/kai/status', async ({ user }) => ({
 }));
 
 route('POST', '/api/kai/consent', async ({ user }) => {
+  trialLock('kai');
   setSetting(kaiConsentKey(user), new Date().toISOString());
   return { consented: true };
 });
@@ -3368,6 +3391,7 @@ route('DELETE', '/api/kai/chats/:id', async ({ params, user }) => {
 });
 
 route('POST', '/api/kai/chats', async ({ req, user }) => {
+  trialLock('kai');
   kaiRequireOn();
   const b = checkBody(await readJson(req), { message: s.str(4000, { required: true }), chat_id: s.num({ min: 1 }) });
   if (!kaiConsented(user)) {
@@ -3378,6 +3402,7 @@ route('POST', '/api/kai/chats', async ({ req, user }) => {
 });
 
 route('POST', '/api/kai/chats/:id/confirm', async ({ req, params, user }) => {
+  trialLock('kai');
   kaiRequireOn();
   const b = checkBody(await readJson(req), { approve: s.bool() });
   if (!kaiConsented(user)) throw Object.assign(httpError(428, 'Turn on Kai first.'), { data: { consent_required: true } });
@@ -3941,6 +3966,9 @@ route('POST', '/api/account/delete', async ({ req, user }) => {
  * account screen.
  */
 route('GET', '/api/account/guarantee', async () => {
+  // A free trial has paid nothing, so there is nothing to refund and no
+  // countdown to show; its own card on the Account page says how long is left.
+  if (isTrial()) return { available: false, reason: 'trial' };
   const { platform_url: platform, connect_token: token } = platformHandles();
   if (!platform || !token) {
     // A self-hosted or hand-installed Kairo has no platform behind it. Saying
@@ -4087,6 +4115,7 @@ export function tidyClickSendPaste(v, { isKey = false } = {}) {
 }
 
 route('POST', '/api/sms/connect', async ({ req }) => {
+  trialLock('sms');
   const b = checkBody(await readJson(req), {
     username: s.str(200, { required: true }),
     api_key: s.str(200, { required: true }),
@@ -4119,6 +4148,7 @@ route('POST', '/api/sms/connect', async ({ req }) => {
  * where a human reads it. ClickSend proves they hold it by texting a code.
  */
 route('POST', '/api/sms/own-number', async ({ req }) => {
+  trialLock('sms');
   const b = checkBody(await readJson(req), { number: s.str(24, { required: true }), label: s.str(80) });
   const out = await requestOwnNumberCode(str(b.number, 24), str(b.label, 80) || getSetting('business_name', 'Kairo'));
   if (!out.ok) throw httpError(400, out.detail);
@@ -4126,6 +4156,7 @@ route('POST', '/api/sms/own-number', async ({ req }) => {
 });
 
 route('POST', '/api/sms/own-number/verify', async ({ req }) => {
+  trialLock('sms');
   const b = checkBody(await readJson(req), {
     verification_id: s.str(64, { required: true }),
     code: s.str(12, { required: true }),
@@ -5219,6 +5250,7 @@ route('DELETE', '/api/waitlist/:id', async ({ params }) => {
 });
 
 route('POST', '/api/campaigns/send', async ({ req }) => {
+  trialLock('marketing');
   const b = checkBody(await readJson(req), {
     kind: s.str(40, { required: true }),
     channel: s.oneOf(['email', 'sms', 'both'], { required: true }),

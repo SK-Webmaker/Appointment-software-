@@ -19,6 +19,7 @@ import { forEachTenant, isMuted } from './tenant.js';
 import { pushToOwner, pushConfigured } from './push.js';
 import { renderEmail } from './email-html.js';
 import { invoiceTotals, formatAbn } from './invoice-math.js';
+import { trialEmailAllowed, trialEmailSent } from './trial.js';
 
 // Overridable so the test suite can stand a local server in front of a
 // provider and exercise the real network path — the same seam src/stripe.js
@@ -1114,6 +1115,9 @@ export async function deliverMessage(msg) {
   if (isMuted()) {
     // A rehearsal copy of a real salon: everything works, nothing leaves.
     result = { ok: false, skipped: true, detail: 'Muted — this is a rehearsal copy; nothing is sent' };
+  } else if (msg.channel === 'email' && !trialEmailAllowed()) {
+    // A free trial's share of the shared sender is used up for today (src/trial.js).
+    result = { ok: false, skipped: true, detail: "Free trial: today's email allowance is used up. Choosing a plan lifts it." };
   } else try {
     result = msg.channel === 'sms'
       ? await sendSms(msg.to_addr, msg.body)
@@ -1122,6 +1126,7 @@ export async function deliverMessage(msg) {
     result = { ok: false, detail: `Network error: ${err.message}` };
   }
   const status = result.ok ? 'sent' : result.skipped ? 'skipped' : 'failed';
+  if (result.ok && msg.channel === 'email') trialEmailSent();
   db.prepare('UPDATE messages SET status = ?, detail = ?, sent_at = ? WHERE id = ?')
     .run(status, result.detail, result.ok ? localStamp() : '', msg.id);
   if (status === 'failed' && msg.channel === 'sms') textsStopped(result.detail).catch(() => {});

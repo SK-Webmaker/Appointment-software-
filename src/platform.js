@@ -228,8 +228,18 @@ async function route(req, res, pathname, body) {
       if (body.settings) applySettings(body.settings);
       // The plan the owner bought, shown read-only on their Account page.
       setSetting('plan_name', String(body.plan_name || 'Kairo').slice(0, 80));
-      setSetting('plan_status', 'active');
-      setSetting('plan_interval', 'once');
+      // A free trial (src/trial.js): the dates come from the platform, which
+      // decides when it pauses and when it goes. Anything else is paid for.
+      const trialEnds = Date.parse(String(body.trial_ends_at || ''));
+      const trialDeletes = Date.parse(String(body.trial_deletes_at || ''));
+      if (trialEnds) {
+        setSetting('plan_status', 'trial');
+        setSetting('trial_ends_at', new Date(trialEnds).toISOString());
+        setSetting('trial_deletes_at', trialDeletes ? new Date(trialDeletes).toISOString() : '');
+      } else {
+        setSetting('plan_status', 'active');
+      }
+      setSetting('plan_interval', trialEnds ? 'trial' : 'once');
       setSetting('plan_price_cents', String(Number(body.price_cents) || 0));
       setSetting('plan_started_at', new Date().toISOString().slice(0, 10));
       setSetting('plan_renews_at', '');
@@ -274,7 +284,20 @@ async function route(req, res, pathname, body) {
   // whether that is true, from the salon's own tenant.json; the platform only
   // asks. Already gone is an answer, not an error, so a retry is harmless.
   if (tail === 'purge' && req.method === 'POST') {
-    const r = purgeTenant(slug, { graceDays: purgeGraceDays() });
+    // An unpaid free trial is deleted on the day its notices said, with no
+    // second week's wait: the week between its end and its deletion was the
+    // wait. Whether it was ever paid for is read from the salon's own file,
+    // never taken from the caller, so a paying salon can never be reached.
+    let graceDays = purgeGraceDays();
+    if (body.trial === true) {
+      const t = getTenant(slug, { includeDeleted: true });
+      // No salon left at all: purgeTenant below answers "gone".
+      if (t && withTenant(t, () => getSetting('plan_status', '')) !== 'trial') {
+        throw httpError(409, 'Only an unpaid free trial is deleted without the usual wait.');
+      }
+      graceDays = 0;
+    }
+    const r = purgeTenant(slug, { graceDays });
     if (r.refused === 'still on') throw httpError(409, 'That salon is still on. Only a deleted salon can be purged.');
     if (r.refused) throw httpError(409, `Switched off at ${r.deleted_at || 'an unknown time'}; its files are kept until ${purgeGraceDays()} days have passed.`);
     return { slug, ...r };

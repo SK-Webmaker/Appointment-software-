@@ -4220,3 +4220,29 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
   .pf-seg { width: 100%; }
   .pf-swipe { display: block; }
 }
+
+/* ── Free trial (public/js/trial.js) ────────────────────────────────────── */
+.trial-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 24px; font-size: 13px; line-height: 1.5;
+  color: var(--text); background: rgba(57, 135, 229, 0.10);
+  border-bottom: 1px solid rgba(57, 135, 229, 0.30);
+}
+.trial-bar svg { flex: none; color: var(--accent); }
+.trial-bar span { flex: 1; min-width: 200px; }
+.trial-bar .trial-cta { padding: 6px 14px; font-size: 12.5px; }
+.trial-bar.soon { background: rgba(251, 191, 36, 0.10); border-bottom-color: rgba(251, 191, 36, 0.35); }
+.trial-bar.soon svg { color: var(--amber); }
+.trial-bar.last, .trial-bar.ended { background: rgba(248, 113, 113, 0.10); border-bottom-color: rgba(248, 113, 113, 0.35); }
+.trial-bar.last svg, .trial-bar.ended svg { color: var(--red); }
+.kai-open.locked::after { content: '🔒'; font-size: 11px; margin-left: 2px; }
+.trial-lock { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px;
+  background: var(--panel-2); color: var(--text-2); font-size: 13px; font-weight: 600; }
+.trial-lock svg { flex: none; color: var(--accent); }
+.trial-lock-body { margin: 14px 0 0; font-size: 14px; line-height: 1.6; }
+.trial-lock-small { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
+.trial-kai { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.trial-kai > div { max-width: 85%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+.trial-kai .tk-me { align-self: flex-end; background: var(--accent-fill, #2563eb); color: #fff; border-bottom-right-radius: 4px; }
+.trial-kai .tk-kai { align-self: flex-start; background: var(--panel-2); border-bottom-left-radius: 4px; }
+@media (max-width: 620px) { .trial-bar { padding: 10px 16px; } }
