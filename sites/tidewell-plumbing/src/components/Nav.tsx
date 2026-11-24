@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useMotionValueEvent, useScroll, useSpring } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Menu as MenuIcon, Phone, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "./Logo";
@@ -8,23 +8,20 @@ import { lockScroll } from "@/lib/smooth";
 import { useReducedMotionSafe } from "@/lib/motion";
 
 const LINKS = [
-  { href: "#house", label: "Around the house" },
-  { href: "#drip", label: "That drip" },
-  { href: "#diy", label: "DIY or call" },
+  { href: "#services", label: "Services" },
+  { href: "#problems", label: "Common problems" },
+  { href: "#about", label: "About" },
   { href: "#work", label: "Our work" },
+  { href: "#book", label: "Service area" },
 ];
 
+/** A plain white header: logo, links, the phone number and a Book button. */
 export function Nav() {
-  const { scrollY, scrollYProgress } = useScroll();
-  const [solid, setSolid] = useState(false);
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotionSafe();
   const { openSheet } = useBooking();
-  const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 30, restDelta: 0.001 });
-
-  useMotionValueEvent(scrollY, "change", (v) => setSolid(v > 24));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -59,15 +56,9 @@ export function Nav() {
 
   return (
     <>
-      <header
-        className={`fixed inset-x-0 top-0 z-50 transition-[background-color,box-shadow,backdrop-filter] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          solid
-            ? "bg-ivory/90 shadow-[0_1px_0_rgba(60,20,32,0.08)] backdrop-blur-md"
-            : "bg-transparent"
-        }`}
-      >
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-ink/10 bg-white/95 backdrop-blur">
         <nav
-          className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-5 md:px-10 xl:px-24"
+          className="mx-auto flex h-16 max-w-[1320px] items-center justify-between px-5 md:px-8"
           aria-label="Main"
         >
           <a
@@ -75,38 +66,44 @@ export function Nav() {
             className="flex min-h-[44px] items-center pr-3"
             aria-label={`${SITE.name} — back to top`}
           >
-            <Wordmark size={40} />
+            <Wordmark size={38} />
           </a>
 
-          <div className="hidden items-center gap-8 lg:flex">
+          <div className="hidden items-center gap-7 lg:flex">
             {LINKS.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
-                className="group relative text-[12px] font-medium uppercase tracking-[0.22em] text-ink/80 transition-colors hover:text-ink"
+                className="text-[15px] font-medium text-ink/80 transition-colors hover:text-onyx"
               >
                 {l.label}
-                <span className="absolute -bottom-1.5 left-0 h-px w-full origin-left scale-x-0 bg-onyx transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-x-100" />
               </a>
             ))}
+          </div>
+
+          <div className="hidden items-center gap-4 lg:flex">
             <a
               href={SITE.phoneHref}
-              className="flex min-h-[44px] items-center gap-2 text-[13px] font-semibold text-ink/80 transition-colors hover:text-ink"
+              className="flex min-h-[44px] items-center gap-2 text-[15px] font-semibold text-ink hover:text-onyx"
             >
-              <Phone size={16} strokeWidth={1.7} /> {SITE.phone}
+              <Phone size={17} strokeWidth={2} /> {SITE.phone}
             </a>
-            <button
-              onClick={() => openSheet()}
-              className="btn-primary sheen min-h-[44px] px-6 text-[11.5px]"
-            >
+            <button onClick={() => openSheet()} className="btn-primary min-h-[44px] px-5">
               Book a plumber
             </button>
           </div>
 
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-1.5 lg:hidden">
+            <a
+              href={SITE.phoneHref}
+              aria-label={`Call ${SITE.phone}`}
+              className="grid h-11 w-11 place-items-center rounded-full text-onyx"
+            >
+              <Phone size={20} strokeWidth={2} />
+            </a>
             <button
               onClick={() => openSheet()}
-              className="btn-primary min-h-[44px] px-4 text-[11px] tracking-[0.18em]"
+              className="btn-primary min-h-[42px] px-4 text-[15px]"
             >
               Book
             </button>
@@ -118,15 +115,10 @@ export function Nav() {
               aria-expanded={open}
               aria-controls="mobile-menu"
             >
-              <MenuIcon size={22} strokeWidth={1.5} />
+              <MenuIcon size={23} strokeWidth={1.8} />
             </button>
           </div>
         </nav>
-        <motion.div
-          className="h-[2px] origin-left bg-gradient-to-r from-rose via-silk to-mint"
-          style={{ scaleX: progress }}
-          aria-hidden="true"
-        />
       </header>
 
       <AnimatePresence>
@@ -137,66 +129,49 @@ export function Nav() {
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
-            className="fixed inset-0 z-[60] flex flex-col bg-noir text-ivory"
-            initial={reduce ? false : { clipPath: "circle(0% at 92% 4%)" }}
-            animate={{ clipPath: "circle(150% at 92% 4%)" }}
-            exit={{ clipPath: "circle(0% at 92% 4%)" }}
-            transition={{ duration: reduce ? 0 : 0.75, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 z-[60] flex flex-col bg-white text-ink"
+            initial={reduce ? false : { opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: reduce ? 0 : 0.25 }}
           >
-            <div className="flex h-16 items-center justify-between px-5">
-              <Wordmark size={38} tone="light" />
+            <div className="flex h-16 items-center justify-between border-b border-ink/10 px-5">
+              <Wordmark size={38} />
               <button
                 onClick={() => setOpen(false)}
                 className="grid h-11 w-11 place-items-center rounded-full"
                 aria-label="Close menu"
                 autoFocus
               >
-                <X size={24} strokeWidth={1.5} />
+                <X size={24} strokeWidth={1.8} />
               </button>
             </div>
-            <ul className="mt-6 flex flex-1 flex-col justify-center gap-1 px-7">
-              {LINKS.map((l, i) => (
-                <motion.li
-                  key={l.href}
-                  initial={reduce ? false : { opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    delay: reduce ? 0 : 0.25 + i * 0.07,
-                    duration: reduce ? 0 : 0.8,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                >
+            <ul className="flex-1 divide-y divide-ink/10 px-5 pt-2">
+              {LINKS.map((l) => (
+                <li key={l.href}>
                   <a
                     href={l.href}
                     onClick={() => setOpen(false)}
-                    className="flex items-baseline gap-4 py-2.5 font-display text-[clamp(34px,10.5vw,46px)] leading-tight"
+                    className="flex min-h-[56px] items-center text-[19px] font-semibold"
                   >
-                    <span className="font-sans text-[11.5px] tracking-[0.2em] text-silk">
-                      0{i + 1}
-                    </span>
                     {l.label}
                   </a>
-                </motion.li>
+                </li>
               ))}
             </ul>
-            <div className="space-y-4 px-7 pb-[max(2rem,env(safe-area-inset-bottom))]">
+            <div className="space-y-3 border-t border-ink/10 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
               <button
                 onClick={() => {
                   setOpen(false);
                   openSheet();
                 }}
-                className="btn-honey sheen w-full"
+                className="btn-primary w-full"
               >
                 Book a plumber
               </button>
-              <div className="flex items-center justify-between text-[13px] tracking-[0.1em] text-ivory/75">
-                <span>
-                  {SITE.area}, {SITE.city}
-                </span>
-                <a href={SITE.phoneHref} className="flex min-h-[44px] items-center gap-2">
-                  <Phone size={16} strokeWidth={1.6} /> {SITE.phone}
-                </a>
-              </div>
+              <a href={SITE.phoneHref} className="btn-ghost w-full">
+                <Phone size={17} /> Call {SITE.phone}
+              </a>
             </div>
           </motion.div>
         )}

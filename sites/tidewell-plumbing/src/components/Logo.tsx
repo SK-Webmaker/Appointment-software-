@@ -35,7 +35,7 @@ export function Wordmark({
     >
       <Drop className={`h-[1.55em] w-auto shrink-0 ${accent}`} />
       <span className="flex flex-col items-start">
-        <span className="font-display text-[1.4em] font-semibold italic leading-[0.85] tracking-[-0.02em] [font-variation-settings:'SOFT'_100,'WONK'_1]">
+        <span className="font-display text-[1.4em] font-semibold leading-[0.85] tracking-[-0.02em]">
           Tidewell
         </span>
         <span className="mt-[0.35em] text-[0.4em] font-bold uppercase tracking-[0.36em]">

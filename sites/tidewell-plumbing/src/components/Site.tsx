@@ -1,22 +1,20 @@
 import { MotionConfig } from "framer-motion";
 import { useEffect } from "react";
+import { About } from "./About";
 import { Book } from "./Book";
 import { BookingBar } from "./BookingBar";
 import { BookingSheet } from "./BookingSheet";
-import { Curtain } from "./Curtain";
 import { Footer } from "./Footer";
+import { Help } from "./Help";
 import { Hero } from "./Hero";
-import { Marquee } from "./Marquee";
 import { Nav } from "./Nav";
-import { Diy } from "./Diy";
-import { Drip } from "./Drip";
-import { House } from "./House";
+import { Problems } from "./Problems";
+import { Services } from "./Services";
 import { Work } from "./Work";
-import { StrandRail } from "./StrandRail";
 import { BookingProvider } from "@/context/booking";
 import { settleHashJump, startSmoothScroll } from "@/lib/smooth";
 
-/** The whole page, chapter by chapter. Composition only. */
+/** The whole page, section by section. Composition only. */
 export function Site() {
   useEffect(() => {
     const stopSmooth = startSmoothScroll();
@@ -36,16 +34,14 @@ export function Site() {
         >
           Skip to booking a plumber
         </a>
-        <Curtain />
         <Nav />
-        <StrandRail />
         <main>
           <Hero />
-          <House />
-          <Drip />
-          <Diy />
-          <Marquee />
+          <Services />
+          <Problems />
+          <About />
           <Work />
+          <Help />
           <Book />
         </main>
         <Footer />

@@ -1,6 +1,6 @@
 import { ArrowRight, CalendarClock, FileText, Phone, Siren } from "lucide-react";
-import { ChapterLabel } from "./ChapterLabel";
-import { MaskLines, Reveal } from "./Reveal";
+import { Reveal } from "./Reveal";
+import { SectionHead } from "./Section";
 import { AREA, FAQ, HOURS, SITE } from "@/site.config";
 import { useBooking, type Urgency } from "@/context/booking";
 import { etaNow, suburbOf } from "@/lib/slots";
@@ -31,31 +31,19 @@ export function Book() {
   const { openSheet, postcode, setPostcode } = useBooking();
   const suburb = suburbOf(postcode);
   return (
-    <section
-      id="book"
-      className="sheet bg-noir pb-24 pt-24 text-ivory md:pb-32 md:pt-32"
-      aria-labelledby="book-title"
-    >
-      <div className="glow-clip" aria-hidden="true">
-        <div className="absolute -right-40 top-0 h-[800px] w-[800px] bg-[radial-gradient(closest-side,rgb(255_181_159/0.16),transparent)]" />
-      </div>
-      <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
-        <ChapterLabel id="book" light />
-        <h2
+    <section id="book" className="bg-noir py-20 text-ivory md:py-28" aria-labelledby="book-title">
+      <div className="relative mx-auto max-w-[1320px] px-5 md:px-8">
+        <SectionHead
           id="book-title"
-          className="mt-8 max-w-[14ch] text-[clamp(40px,8.4vw,104px)] leading-[0.96]"
-        >
-          <MaskLines
-            lines={[<>Pop the kettle on.</>, <em className="text-silk">We'll be over.</em>]}
-          />
-        </h2>
+          label="Book a plumber"
+          title="Check you're in our area, then pick a time"
+          intro="We cover the Northern Beaches from Manly to Palm Beach. Book online, or call and talk to a real person."
+          light
+        />
 
         <div className="mt-12 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Reveal className="rounded-[26px] bg-coal p-6 md:p-8">
-            <label
-              htmlFor="tw-postcode"
-              className="text-[12px] font-semibold uppercase tracking-[0.18em] text-pearl"
-            >
+          <Reveal className="rounded-[14px] bg-coal p-6 md:p-8">
+            <label htmlFor="tw-postcode" className="text-[15px] font-semibold text-pearl">
               Are you on the Beaches?
             </label>
             <input
@@ -116,7 +104,7 @@ export function Book() {
                 <button
                   type="button"
                   onClick={() => openSheet({ urgency: r.urgency })}
-                  className="group flex w-full items-center gap-5 rounded-[22px] bg-ivory p-5 text-left text-ink transition-transform duration-500 hover:-translate-y-0.5 md:p-6"
+                  className="group flex w-full items-center gap-5 rounded-[14px] bg-ivory p-5 text-left text-ink transition-colors hover:bg-white md:p-6"
                 >
                   <span
                     className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${r.urgency === "now" ? "bg-candy text-ink" : "bg-onyx text-white"}`}
@@ -124,7 +112,7 @@ export function Book() {
                     <r.icon size={24} strokeWidth={1.9} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-display text-[clamp(22px,3vw,30px)] font-semibold leading-none [font-variation-settings:'SOFT'_100,'WONK'_1]">
+                    <span className="block font-sans text-[19px] font-bold leading-tight">
                       {r.title}
                     </span>
                     <span className="mt-1.5 block text-[14.5px] text-ash">{r.text}</span>
@@ -137,7 +125,7 @@ export function Book() {
                 </button>
               </Reveal>
             ))}
-            <Reveal className="flex flex-col items-start gap-3 rounded-[22px] border border-dashed border-ivory/25 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+            <Reveal className="flex flex-col items-start gap-3 rounded-[14px] border border-ivory/20 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
               <p className="text-[15px] text-ivory/85">
                 Rather chat? A real person answers, 7 days.
               </p>
@@ -149,7 +137,7 @@ export function Book() {
         </div>
 
         <div className="mt-16 grid gap-x-12 border-t border-ivory/10 pt-12 lg:grid-cols-[0.8fr_1.2fr]">
-          <h3 className="text-[clamp(30px,4vw,48px)] leading-[1]">Good to know</h3>
+          <h3 className="text-[clamp(28px,4vw,40px)] leading-[1.1]">Frequently asked questions</h3>
           <div className="mt-6 lg:mt-0">
             {FAQ.map((f) => (
               <details key={f.q} className="group border-b border-ivory/10 py-4">

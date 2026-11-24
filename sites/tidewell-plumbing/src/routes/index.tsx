@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HERO_SIZES } from "@/components/Hero";
 import { Site } from "@/components/Site";
 import { SITE } from "@/site.config";
 
 const TITLE = `${SITE.name} — Family Plumbers, ${SITE.area} ${SITE.city}`;
-const DESCRIPTION = `${SITE.name}: friendly, fixed-price plumbers for Sydney's ${SITE.area} since ${SITE.est}. Taps, drains, toilets, hot water, gas and bathroom renos. Find the problem room by room and book in a minute.`;
+const DESCRIPTION = `${SITE.name}: friendly, fixed-price plumbers for Sydney's ${SITE.area} since ${SITE.est}. Taps, drains, toilets, hot water, gas and bathroom renos. Fixed prices agreed first, two-hour arrival windows and same-day urgent jobs.`;
 const OG_IMAGE = `${SITE.url}/og-image.jpg`;
 
 export const Route = createFileRoute("/")({
@@ -27,6 +28,16 @@ export const Route = createFileRoute("/")({
     ],
     links: [
       { rel: "canonical", href: `${SITE.url}/` },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/images/hero2-1200.webp",
+        imageSrcSet: [800, 1200, 1600, 2000, 2400]
+          .map((w) => `/images/hero2-${w}.webp ${w}w`)
+          .join(", "),
+        imageSizes: HERO_SIZES,
+        fetchPriority: "high" as const,
+      },
     ],
     scripts: [
       {

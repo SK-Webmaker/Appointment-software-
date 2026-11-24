@@ -5,21 +5,24 @@ Northern Beaches — a showcase of what a trade website can do. Business,
 prices, hours, service area timings and phone are fictional (phone from the
 ACMA fiction range). Photos: Unsplash (`public/images/CREDITS.md`).
 
-The journey:
-- **The drop.** A tap hangs over a still tide. Scroll and a single drop
-  falls, hits the water and rings spread out — "Little leak or big one,
-  we're on our way."
-- **Around the house.** A cutaway drawing of a home. Tap a room (or a chip)
-  and see what usually goes wrong there and what it usually costs — each with
-  its own Book button.
-- **That drip.** Set how fast your tap drips; the drawing drips at that speed
-  while litres a year, baths a year and dollars on the bill add up.
-- **DIY or call?** Two or three taps for an honest answer: try this first, or
-  turn the water off and call.
-- **Our work.** Two rows of finished bathrooms and kitchens drifting in
-  opposite directions.
-- **Book.** Check your postcode, then choose today, a two-hour window, or a
-  reno quote. Or call.
+The page, top to bottom:
+- **Hero** — a full-width photo of a plumber at work, the promise in one line,
+  Book and Call, and four promises underneath (fixed price, two-hour windows,
+  same-day urgent jobs, 12-month guarantee).
+- **Services** — six photo cards with a "from" price and a Book button, plus a
+  renovation quote band.
+- **Common problems** — pick a part of the house (photo tabs) and see what
+  usually goes wrong there, what it usually costs, and book it.
+- **About us** — the family story, what every job includes, and "How a job
+  works" in four steps.
+- **Recent work** — a photo grid with captions.
+- **Before you call** — honest quick checks (hot water, slow drains, running
+  toilets, leaks, gas) and what a dripping tap costs in a year.
+- **Book** — postcode check, today / a time / a reno quote, and FAQs.
+
+Version 2 (the realistic redesign) replaced the drawn tap-and-drop opening,
+the cutaway house and the drip drawing with real photography, and dropped the
+intro curtain, chapter rail, numbered chapter labels and marquee.
 
 ## Booking
 Problem → when (today / a window / a quote) → where (Northern Beaches

@@ -25,7 +25,7 @@ export function BookingBar() {
         const r = el.getBoundingClientRect();
         return { top: r.top + window.scrollY, bottom: r.bottom + window.scrollY };
       };
-      const first = abs(document.getElementById("house"));
+      const first = abs(document.getElementById("services"));
       const book = abs(document.getElementById("book"));
       const footer = abs(document.querySelector("footer"));
       marks = {
@@ -91,7 +91,7 @@ export function BookingBar() {
         >
           <button
             onClick={() => openSheet()}
-            className="group flex w-full items-center justify-between gap-4 rounded-full bg-noir py-2 pl-6 pr-2 text-left text-ivory shadow-[0_18px_40px_-14px_rgba(15,43,42,0.55)] ring-1 ring-pearl/20 md:w-auto md:min-w-[340px]"
+            className="group flex w-full items-center justify-between gap-4 rounded-[14px] bg-noir py-2 pl-5 pr-2 text-left text-ivory shadow-[0_18px_40px_-14px_rgba(15,43,42,0.55)] ring-1 ring-pearl/20 md:w-auto md:min-w-[340px]"
           >
             <span className="min-w-0">
               <AnimatePresence mode="wait" initial={false}>
@@ -105,14 +105,12 @@ export function BookingBar() {
                 >
                   {started ? (
                     <>
-                      <span className="block text-[10.5px] font-medium uppercase tracking-[0.22em] text-silk">
-                        Your job
-                      </span>
+                      <span className="block text-[12.5px] font-semibold text-silk">Your job</span>
                       <span className="block truncate text-[14.5px]">{label}</span>
                     </>
                   ) : (
                     <>
-                      <span className="block text-[10.5px] font-medium uppercase tracking-[0.22em] text-silk">
+                      <span className="block text-[12.5px] font-semibold text-silk">
                         Northern Beaches plumbers
                       </span>
                       <span className="block truncate text-[14.5px]">
@@ -123,7 +121,7 @@ export function BookingBar() {
                 </motion.span>
               </AnimatePresence>
             </span>
-            <span className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-silk px-5 text-[11.5px] font-medium uppercase tracking-[0.18em] text-noir transition-colors group-hover:bg-ivory">
+            <span className="flex h-12 shrink-0 items-center gap-2 rounded-[10px] bg-silk px-5 text-[15px] font-semibold text-noir transition-colors group-hover:bg-ivory">
               Book <ArrowUpRight size={16} strokeWidth={2} />
             </span>
           </button>

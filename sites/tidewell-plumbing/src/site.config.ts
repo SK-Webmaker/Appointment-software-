@@ -50,12 +50,14 @@ export const WINDOWS = [
   { id: "3-5", label: "3 – 5 pm", from: 15 },
 ] as const;
 
+/** The page's sections, in order — the nav, footer and booking bar read this. */
 export const CHAPTERS = [
-  { id: "house", numeral: "01", label: "Around the house" },
-  { id: "drip", numeral: "02", label: "That drip" },
-  { id: "diy", numeral: "03", label: "DIY or call?" },
-  { id: "work", numeral: "04", label: "Our work" },
-  { id: "book", numeral: "05", label: "Book" },
+  { id: "services", numeral: "01", label: "Services" },
+  { id: "problems", numeral: "02", label: "Common problems" },
+  { id: "about", numeral: "03", label: "About us" },
+  { id: "work", numeral: "04", label: "Recent work" },
+  { id: "help", numeral: "05", label: "Before you call" },
+  { id: "book", numeral: "06", label: "Book a plumber" },
 ] as const;
 
 export type ChapterId = (typeof CHAPTERS)[number]["id"];
@@ -146,57 +148,99 @@ export const PROBLEMS: {
 ];
 export const problemOf = (id: string) => PROBLEMS.find((p) => p.id === id);
 
-// ------------------------------------------------------------ the house (chapter 01)
-// Rooms in the cutaway drawing (viewBox 800 × 520) and what goes wrong in each.
-export type RoomId = "kitchen" | "bathroom" | "ensuite" | "laundry" | "outside" | "roof";
+// ------------------------------------------------------------ services
+export const SERVICES: {
+  id: ProblemId;
+  name: string;
+  image: string;
+  alt: string;
+  text: string;
+}[] = [
+  {
+    id: "tap",
+    name: "Leaking taps & pipes",
+    image: "drip",
+    alt: "A chrome tap with a drop of water about to fall",
+    text: "Washers, cartridges, new mixers and the leak you can hear in the wall.",
+  },
+  {
+    id: "drain",
+    name: "Blocked drains",
+    image: "drain",
+    alt: "A stainless steel sink plug and drain, close up",
+    text: "Cleared with a jetter and checked with a camera, so we know why it blocked.",
+  },
+  {
+    id: "hotwater",
+    name: "Hot water",
+    image: "hotwater",
+    alt: "A heat-pump hot water unit installed beside a house",
+    text: "Repairs on the day, replacements next day — gas, electric and heat pump.",
+  },
+  {
+    id: "toilet",
+    name: "Toilets",
+    image: "toilet",
+    alt: "A white basin and toilet in a tiled bathroom",
+    text: "Running cisterns, blockages, new suites and the wobble you've been ignoring.",
+  },
+  {
+    id: "gas",
+    name: "Gas fitting",
+    image: "kitchen",
+    alt: "A white kitchen with a gas cooktop and open shelves",
+    text: "Cooktops, heaters, bayonets and leak checks, with a compliance certificate.",
+  },
+  {
+    id: "stormwater",
+    name: "Gutters & stormwater",
+    image: "gutter",
+    alt: "A house eave with a white gutter and downpipe",
+    text: "Downpipes, pits and the soggy patch in the lawn that never dries out.",
+  },
+];
+
+// ------------------------------------------------------------ common problems, by room
+export type RoomId = "kitchen" | "bathroom" | "outside" | "roof";
 export const ROOMS: {
   id: RoomId;
   name: string;
-  pin: [number, number];
+  image: string;
+  alt: string;
   problems: ProblemId[];
   line: string;
 }[] = [
   {
-    id: "bathroom",
-    name: "Bathroom",
-    pin: [540, 230],
-    problems: ["shower", "toilet", "tap", "reno"],
-    line: "Where most of our callouts start — and most renovations end.",
-  },
-  {
-    id: "ensuite",
-    name: "Ensuite",
-    pin: [290, 230],
-    problems: ["toilet", "shower", "tap"],
-    line: "Small room, same pipes. Usually the toilet.",
-  },
-  {
     id: "kitchen",
-    name: "Kitchen",
-    pin: [290, 405],
-    problems: ["drain", "tap", "gas", "reno"],
-    line: "Fat, rice and coffee grounds: the drain's three enemies.",
+    name: "Kitchen & laundry",
+    image: "kitchen",
+    alt: "A bright kitchen with a gas cooktop, white cabinets and open shelving",
+    problems: ["drain", "tap", "gas", "washer"],
+    line: "Fat, rice and coffee grounds are the drain's three enemies. Laundry hoses burst quietly — check yours are braided.",
   },
   {
-    id: "laundry",
-    name: "Laundry",
-    pin: [540, 405],
-    problems: ["washer", "drain", "tap"],
-    line: "Hoses burst quietly. Check yours are braided.",
+    id: "bathroom",
+    name: "Bathroom & ensuite",
+    image: "shower",
+    alt: "A walk-in glass shower and white vanity with a wide mirror",
+    problems: ["shower", "toilet", "tap", "reno"],
+    line: "Where most of our callouts start, and most renovations end.",
   },
   {
     id: "outside",
-    name: "Outside",
-    pin: [720, 470],
-    problems: ["hotwater", "stormwater", "gas"],
-    line: "Hot water unit, gas meter and every drain out to the street.",
+    name: "Outside & hot water",
+    image: "hotwater",
+    alt: "A hot water unit and pipework on the outside wall of a house",
+    problems: ["hotwater", "gas", "stormwater"],
+    line: "The hot water unit, the gas meter and every drain out to the street.",
   },
   {
     id: "roof",
     name: "Roof & gutters",
-    pin: [415, 70],
+    image: "gutter",
+    alt: "The eave of a brick house with a gutter and downpipe",
     problems: ["stormwater"],
-    line: "Gutters overflow, downpipes block, ceilings stain.",
+    line: "Gutters overflow, downpipes block, ceilings stain. Best found before the next big storm.",
   },
 ];
 
@@ -210,69 +254,33 @@ export const WATER = {
   bathL: 150,
 };
 
-// ------------------------------------------------------------ DIY or call (chapter 03)
-export const QUIZ = [
+// ------------------------------------------------------------ before you call
+export const CHECKS = [
   {
-    q: "What's going on?",
-    options: [
-      { label: "A drip or a slow drain", next: 1 },
-      { label: "Water where it shouldn't be", verdict: "call" },
-      { label: "No hot water", next: 2 },
-      { label: "I can smell gas", verdict: "gas" },
-    ],
+    q: "No hot water — electric system",
+    a: "Check the switchboard for a tripped switch marked 'HWS' or 'Off-peak' and reset it once. If it trips again, leave it off and book us.",
   },
   {
-    q: "Is it just one sink, basin or shower?",
-    options: [
-      { label: "Yes, just one", verdict: "diy-drain" },
-      { label: "More than one / the toilet gurgles", verdict: "call" },
-    ],
+    q: "No hot water — gas system",
+    a: "The relighting steps are on the unit's front panel. If the pilot won't stay lit, or you can smell gas, stop and call us.",
   },
   {
-    q: "Is your hot water electric or gas?",
-    options: [
-      { label: "Electric", verdict: "diy-electric" },
-      { label: "Gas", verdict: "diy-pilot" },
-      { label: "No idea", verdict: "call" },
-    ],
+    q: "A slow sink or basin",
+    a: "Pour a kettle of hot (not boiling) water, then plunge with the overflow covered. Still slow after two goes? It's further down the line.",
+  },
+  {
+    q: "A toilet that keeps running",
+    a: "Lift the cistern lid and check the float isn't caught. If water keeps trickling into the bowl, it's usually a worn seal — a quick fix.",
+  },
+  {
+    q: "Water where it shouldn't be",
+    a: "Turn the water off at the meter (usually near the front boundary) and call us. Water spreads faster than you'd think.",
+  },
+  {
+    q: "A smell of gas",
+    a: "Don't switch anything on or off. Turn the gas off at the meter if it's safe, get everyone outside, then call us — or 000 if it's strong.",
   },
 ] as const;
-
-export const VERDICTS: Record<
-  string,
-  { title: string; text: string; problem?: ProblemId; diy: boolean }
-> = {
-  "diy-drain": {
-    diy: true,
-    title: "Try this first",
-    text: "Pour a kettle of hot (not boiling) water, then plunge with the overflow covered. Still slow after two goes? It's further down — book us.",
-    problem: "drain",
-  },
-  "diy-electric": {
-    diy: true,
-    title: "Check the switchboard",
-    text: "Look for a tripped switch marked 'HWS' or 'Off-peak' and reset it once. If it trips again, leave it off and book us.",
-    problem: "hotwater",
-  },
-  "diy-pilot": {
-    diy: true,
-    title: "Relight the pilot",
-    text: "The instructions are on the unit's front panel. If it won't stay lit, or you smell gas, stop and call us.",
-    problem: "hotwater",
-  },
-  call: {
-    diy: false,
-    title: "Call us — don't wait",
-    text: "Turn the water off at the meter (usually by the front boundary) and call. Water spreads faster than you'd think.",
-    problem: "toilet",
-  },
-  gas: {
-    diy: false,
-    title: "Leave the house, then call",
-    text: "Don't switch anything on or off. Turn the gas off at the meter if it's safe, get everyone outside, then call us — or 000 if it's strong.",
-    problem: "gas",
-  },
-};
 
 // ------------------------------------------------------------ the area
 export const AREA: Record<string, string> = {

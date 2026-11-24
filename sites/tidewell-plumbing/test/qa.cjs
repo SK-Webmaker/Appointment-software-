@@ -229,52 +229,53 @@ const geometry = () => {
     await ctx.close();
   }
 
-  // ---------- house, drip, quiz and the job request — on a phone
+  // ---------- services, problems, quick checks, the drip and the job request — on a phone
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true });
     const page = await ctx.newPage();
     await page.goto(TARGET, { waitUntil: "networkidle" });
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1500);
     const step = (ok, msg) => { if (!ok) fail("booking", msg); console.log(`${ok ? "  ✓" : "  ✗"} ${msg}`); };
     const cur = async (d) => (await d.locator('[aria-current="step"]').innerText()).toLowerCase();
-    console.log("house, drip, quiz and booking:");
+    console.log("services, problems, checks and booking:");
 
-    const house = page.locator("#house");
-    await house.getByRole("button", { name: "Kitchen", exact: true }).first().scrollIntoViewIfNeeded();
-    await house.getByRole("button", { name: "Kitchen", exact: true }).first().click();
-    await page.waitForTimeout(600);
-    step(/Blocked sink or drain/.test(await house.innerText()) && /Gas cooktop/.test(await house.innerText()), "tapping Kitchen lists the kitchen's problems");
-    await house.getByRole("button", { name: "Outside", exact: true }).first().click();
-    await page.waitForTimeout(600);
-    step(/No hot water/.test(await house.innerText()), "tapping Outside lists hot water and stormwater");
-
-    const drip = page.locator("#drip");
-    await drip.getByRole("slider").scrollIntoViewIfNeeded();
-    await drip.getByRole("button", { name: "Fast" }).click();
-    step(/11,826 L/.test(await drip.innerText()), "a fast drip (90/min) adds up to 11,826 litres a year");
-
-    const diy = page.locator("#diy");
-    await diy.getByRole("button", { name: /^No hot water/ }).scrollIntoViewIfNeeded();
-    await diy.getByRole("button", { name: /^No hot water/ }).click();
-    await page.waitForTimeout(500);
-    await diy.getByRole("button", { name: /^Gas/ }).click();
-    await page.waitForTimeout(600);
-    step(/Relight the pilot/.test(await diy.innerText()), "the quiz: no hot water + gas → relight the pilot");
-    await diy.getByRole("button", { name: /Start again/ }).click();
-    await page.waitForTimeout(500);
-    await diy.getByRole("button", { name: /^I can smell gas/ }).click();
-    await page.waitForTimeout(600);
-    step(/Leave the house/.test(await diy.innerText()), "the quiz: a gas smell → leave, then call");
-
-    // Book from the house panel
-    await house.getByRole("button", { name: "Bathroom", exact: true }).first().scrollIntoViewIfNeeded();
-    await house.getByRole("button", { name: "Bathroom", exact: true }).first().click();
-    await page.waitForTimeout(500);
-    await house.getByRole("button", { name: "Book: Leaking shower" }).click();
-    const dialog = page.getByRole("dialog", { name: /Your job/ });
+    const services = page.locator("#services");
+    await services.getByRole("button", { name: "Book: Hot water" }).scrollIntoViewIfNeeded();
+    await services.getByRole("button", { name: "Book: Hot water" }).click();
+    let dialog = page.getByRole("dialog", { name: /Your job/ });
     await dialog.waitFor();
-    step((await cur(dialog)).includes("when"), "booking from the house opens on 'When' (the problem is set)");
-    await dialog.getByRole("button", { name: /^Pick a time|^Book a time/ }).first().click();
+    step((await cur(dialog)).includes("when") && /No hot water/.test(await dialog.innerText()), "booking a service opens on 'When' with the problem set");
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await page.waitForTimeout(800);
+
+    const problems = page.locator("#problems");
+    await problems.getByRole("tab", { name: "Bathroom & ensuite" }).scrollIntoViewIfNeeded();
+    await problems.getByRole("tab", { name: "Bathroom & ensuite" }).click();
+    await page.waitForTimeout(500);
+    step(/Leaking shower/.test(await problems.innerText()), "the bathroom tab lists a leaking shower");
+    await problems.getByRole("tab", { name: "Outside & hot water" }).click();
+    await page.waitForTimeout(500);
+    step(/No hot water/.test(await problems.innerText()) && /Stormwater/.test(await problems.innerText()), "outside lists hot water and stormwater");
+
+    const help = page.locator("#help");
+    const elec = help.locator("summary", { hasText: "No hot water — electric system" });
+    await elec.scrollIntoViewIfNeeded();
+    await elec.click();
+    await page.waitForTimeout(300);
+    step(/switchboard/.test(await help.innerText()), "a quick check opens with what to try");
+    await help.getByRole("button", { name: "Fast" }).scrollIntoViewIfNeeded();
+    await help.getByRole("button", { name: "Fast" }).click();
+    step(/11,826 L/.test(await help.innerText()), "a fast drip (90/min) adds up to 11,826 litres a year");
+
+    // Book from the problems list
+    await problems.getByRole("tab", { name: "Bathroom & ensuite" }).scrollIntoViewIfNeeded();
+    await problems.getByRole("tab", { name: "Bathroom & ensuite" }).click();
+    await page.waitForTimeout(400);
+    await problems.getByRole("button", { name: "Book: Leaking shower" }).click();
+    dialog = page.getByRole("dialog", { name: /Your job/ });
+    await dialog.waitFor();
+    step((await cur(dialog)).includes("when"), "booking from a problem opens on 'When'");
+    await dialog.getByRole("button", { name: /^Book a time/ }).click();
     await page.waitForTimeout(300);
     let win = dialog.locator("fieldset").last().getByRole("button").first();
     if (!(await win.count())) {
@@ -307,6 +308,11 @@ const geometry = () => {
     await done.getByRole("button", { name: "Done" }).click();
     await page.waitForTimeout(800);
     step(!(await done.isVisible()), "Done closes the sheet");
+
+    const book = page.locator("#book");
+    await book.getByLabel(/Are you on the Beaches/).scrollIntoViewIfNeeded();
+    await book.getByLabel(/Are you on the Beaches/).fill("2095");
+    step(/Manly/.test(await book.innerText()), "the postcode check knows 2095 is Manly");
 
     // Mobile menu
     await page.evaluate(() => window.scrollTo(0, 0));

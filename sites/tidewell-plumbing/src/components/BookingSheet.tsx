@@ -507,7 +507,7 @@ export function BookingSheet() {
                       type="button"
                       onClick={next}
                       disabled={step === 0 && !ready[0]}
-                      className={`btn sheen flex-1 disabled:cursor-not-allowed disabled:bg-ink/25 ${urgency === "now" && step === 3 ? "bg-flare text-noir hover:bg-ink hover:text-ivory" : "bg-ink text-ivory hover:bg-rose"}`}
+                      className={`btn flex-1 disabled:cursor-not-allowed disabled:bg-ink/25 ${urgency === "now" && step === 3 ? "bg-flare text-noir hover:bg-ink hover:text-ivory" : "bg-ink text-ivory hover:bg-rose"}`}
                     >
                       {step === 3
                         ? urgency === "now"
