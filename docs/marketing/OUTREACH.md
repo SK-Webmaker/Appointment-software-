@@ -243,10 +243,11 @@ inbox. If the count reaches **25**, stop for the day.
 > straight into your diary. They get a reminder the day before, so fewer
 > no-shows.
 >
-> It's Kairo, which I make here in Melbourne. It's A$400 once (or 3 × A$150),
-> no monthly fee, and a full refund within 14 days if it's not for you.
+> It's Kairo, which I make here in Melbourne. You can try it free for 14
+> days, no card. If you keep it, it's A$400 once (or 3 × A$150), and no
+> monthly fee, ever.
 >
-> Want me to send you the link to set it up? I'll help you put your menu in.
+> Want me to send you the link? I'll help you put your menu in.
 >
 > Sachi
 > Kairo · kairobookings.com
@@ -266,7 +267,7 @@ inbox. If the count reaches **25**, stop for the day.
 >
 > The difference is the price: Kairo is A$400 once (or 3 × A$150), then
 > nothing to pay, ever: no monthly fee and no commission on bookings. And
-> there's a full refund within 14 days if it's not for you.
+> you can try it free for 14 days first, no card.
 >
 > Want me to send you the link? I'll help you move your menu across.
 >
@@ -284,10 +285,10 @@ inbox. If the count reaches **25**, stop for the day.
 
 **Reply: yes**
 
-> Great! Here's the link: https://start.kairobookings.com/start?from=preview
+> Great! Here's the link: https://start.kairobookings.com/start?plan=trial&from=preview
 >
-> It takes about four minutes. Your menu goes in under Services. Here it is
-> to copy across:
+> It's free for 14 days, no card, and takes about four minutes. Your menu
+> goes in under Services. Here it is to copy across:
 > <the services and prices, one per line>
 >
 > If you'd rather go through it together, reply with a time that suits and
@@ -296,7 +297,9 @@ inbox. If the count reaches **25**, stop for the day.
 > Sachi
 
 Every claim above is true in the app today: the cancel and confirm link,
-the 24-hour default reminder, live free times, the price and the refund.
+the 24-hour default reminder, live free times, the price, the refund and the
+free 14-day trial (from 1.89.0, 24 Nov 2026: no card; Kai, texts, deposits,
+automatic messages and own email address come with a plan).
 Check `docs/KAIRO-INFO.md` before adding a new one.
 
 ---
@@ -319,7 +322,9 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
 ## Measuring it
 
 - Sign-ups from the link carry `from=preview`. The daily sale check reads
-  `signup: paid <slug> from preview` in the kairo-platform log.
+  `signup: paid <slug> from preview` in the kairo-platform log, and trials
+  as `signup: trial <slug> from <page>`. A trial kept is logged as
+  `signup: paid <slug> from <page> (<plan>, kept from a trial)`.
 - The weekly run adds the week's totals to its `LOG.md` entry.
 
 ## If it isn't working
