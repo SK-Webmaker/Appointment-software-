@@ -1,15 +1,14 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Bath, BedDouble, Check, Minus, Plus, Users } from "lucide-react";
-import { ChapterLabel } from "./ChapterLabel";
-import { MaskLines, Reveal } from "./Reveal";
+import { Reveal } from "./Reveal";
+import { SectionHead } from "./Section";
 import { CLEANS, EXTRAS, FREQS } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { hoursLabel, quote } from "@/lib/slots";
 
 /**
- * Chapter 01 — your price, right now. Count the bedrooms and bathrooms, pick
- * the clean, how often and any extras; the price bubble wobbles to each new
- * number, with the team and the time beside it. Then book exactly that.
+ * Prices: count the bedrooms and bathrooms, pick the clean, how often and any
+ * extras; the price per clean updates as you go, with the team and the time
+ * beside it. Then book exactly that.
  */
 export function Quote() {
   const b = useBooking();
@@ -17,26 +16,17 @@ export function Quote() {
   const lease = b.clean === "lease";
 
   return (
-    <section
-      id="quote"
-      className="sheet bg-ivory pb-24 pt-24 text-ink md:pb-32 md:pt-36"
-      aria-labelledby="quote-title"
-    >
-      <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
-        <ChapterLabel id="quote" />
-        <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <h2 id="quote-title" className="max-w-[12ch] text-[clamp(44px,9vw,120px)] leading-[0.9]">
-            <MaskLines lines={[<>Your price,</>, <em className="text-rose">right now.</em>]} />
-          </h2>
-          <Reveal>
-            <p className="max-w-[40ch] text-[16px] leading-[1.7] text-ash md:text-[18px]">
-              No "from $99*". Tell us the house, and that's the price — the same on the day.
-            </p>
-          </Reveal>
-        </div>
+    <section id="quote" className="bg-ivory py-20 text-ink md:py-28" aria-labelledby="quote-title">
+      <div className="mx-auto max-w-[1320px] px-5 md:px-8">
+        <SectionHead
+          id="quote-title"
+          label="Prices"
+          title="Work out your price"
+          intro="Tell us about the house and how often you'd like us. The price you see is the price per clean — it doesn't change on the day."
+        />
 
         <div className="mt-12 grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-10">
-          <Reveal className="min-w-0 space-y-7 rounded-[30px] bg-card p-6 shadow-[0_30px_60px_-44px_rgba(20,33,61,0.45)] md:p-9">
+          <Reveal className="min-w-0 space-y-7 rounded-[14px] border border-ink/10 bg-white p-6 md:p-8">
             <div className="grid gap-3 sm:grid-cols-2">
               <Stepper
                 label="Bedrooms"
@@ -57,9 +47,7 @@ export function Quote() {
             </div>
 
             <fieldset className="min-w-0">
-              <legend className="mb-2.5 text-[12.5px] font-bold uppercase tracking-[0.14em]">
-                The clean
-              </legend>
+              <legend className="mb-2.5 text-[15px] font-bold">The clean</legend>
               <div className="grid gap-2 sm:grid-cols-3">
                 {CLEANS.map((c) => (
                   <button
@@ -67,7 +55,7 @@ export function Quote() {
                     type="button"
                     aria-pressed={b.clean === c.id}
                     onClick={() => b.set({ clean: c.id })}
-                    className={`min-h-[76px] rounded-[20px] border-2 px-4 py-3 text-left transition-colors duration-300 ${b.clean === c.id ? "border-onyx bg-onyx text-white" : "border-ink/10 bg-ivory hover:border-ink"}`}
+                    className={`min-h-[76px] rounded-[12px] border-2 px-4 py-3 text-left transition-colors duration-300 ${b.clean === c.id ? "border-onyx bg-onyx text-white" : "border-ink/10 bg-ivory hover:border-ink"}`}
                   >
                     <span className="block text-[18px] font-extrabold tracking-[-0.01em]">
                       {c.name}
@@ -79,9 +67,7 @@ export function Quote() {
             </fieldset>
 
             <fieldset className="min-w-0">
-              <legend className="mb-2.5 text-[12.5px] font-bold uppercase tracking-[0.14em]">
-                How often
-              </legend>
+              <legend className="mb-2.5 text-[15px] font-bold">How often</legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {FREQS.map((f) => {
                   const on = (lease ? "once" : b.freq) === f.id;
@@ -92,7 +78,7 @@ export function Quote() {
                       aria-pressed={on}
                       disabled={lease && f.id !== "once"}
                       onClick={() => b.set({ freq: f.id })}
-                      className={`min-h-[56px] rounded-[18px] border-2 px-3 text-[15px] font-bold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-45 ${on ? "border-ink bg-ink text-ivory" : "border-ink/10 bg-ivory hover:border-ink"}`}
+                      className={`min-h-[56px] rounded-[12px] border-2 px-3 text-[15px] font-bold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-45 ${on ? "border-ink bg-ink text-ivory" : "border-ink/10 bg-ivory hover:border-ink"}`}
                     >
                       {f.name}
                       {f.off > 0 && (
@@ -114,9 +100,7 @@ export function Quote() {
             </fieldset>
 
             <fieldset className="min-w-0">
-              <legend className="mb-2.5 text-[12.5px] font-bold uppercase tracking-[0.14em]">
-                Extras
-              </legend>
+              <legend className="mb-2.5 text-[15px] font-bold">Extras</legend>
               <div className="flex flex-wrap gap-2">
                 {EXTRAS.map((x) => {
                   const on = b.extras.includes(x.id);
@@ -137,50 +121,29 @@ export function Quote() {
             </fieldset>
           </Reveal>
 
-          {/* the price, in a bubble */}
+          {/* the price */}
           <Reveal delay={0.06} className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-            <div className="relative overflow-hidden rounded-[30px] bg-onyx p-6 text-white md:p-9">
-              <div
-                className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full border-[3px] border-white/15"
-                aria-hidden="true"
-              />
-              <div
-                className="pointer-events-none absolute -bottom-10 -left-8 h-40 w-40 rounded-full border-[3px] border-white/10"
-                aria-hidden="true"
-              />
-              <p className="relative text-[12.5px] font-bold uppercase tracking-[0.14em] text-pearl">
+            <div className="relative overflow-hidden rounded-[14px] bg-noir p-6 text-white md:p-8">
+              <p className="relative text-[15px] font-semibold text-pearl">
                 {lease
                   ? "One clean"
                   : q.freq.id === "once"
                     ? "One clean"
                     : `Per clean, ${q.freq.every}`}
               </p>
-              <div className="relative mx-auto mt-6 grid aspect-square w-[min(78%,300px)] place-items-center">
-                <AnimatePresence initial={false}>
-                  <motion.div
-                    key={q.price}
-                    className="absolute inset-0 grid place-items-center rounded-full bg-[radial-gradient(circle_at_32%_28%,#ffffff,#d9efff_38%,#9ad7ff_70%,#6fb8ff)] text-ink shadow-[inset_-14px_-18px_40px_rgba(31,69,214,0.35),0_30px_50px_-20px_rgba(0,0,0,0.45)]"
-                    initial={{ scale: 0.86 }}
-                    animate={{ scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 380, damping: 11 }}
-                  >
-                    <span className="absolute left-[22%] top-[16%] h-[16%] w-[26%] -rotate-[30deg] rounded-full bg-white/80" />
-                    <span className="text-center" aria-live="polite">
-                      <span className="block text-[clamp(52px,7vw,84px)] font-extrabold leading-none tracking-[-0.04em] [font-stretch:85%]">
-                        ${q.price}
-                      </span>
-                      {q.off > 0 && (
-                        <span className="mt-1 block text-[14px] font-semibold text-ash">
-                          <s>${q.full}</s> · {Math.round(q.off * 100)}% off
-                        </span>
-                      )}
-                    </span>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+              <p
+                className="relative mt-3 text-[clamp(52px,7vw,72px)] font-bold leading-none tracking-[-0.03em]"
+                aria-live="polite"
+              >
+                ${q.price}
+              </p>
+              {q.off > 0 && (
+                <p className="relative mt-2 text-[15px] text-white/80">
+                  <s>${q.full}</s> · {Math.round(q.off * 100)}% off for a regular booking
+                </p>
+              )}
               <dl className="relative mt-7 grid grid-cols-2 gap-3">
-                <div className="rounded-[18px] bg-white/10 p-4">
+                <div className="rounded-[10px] bg-white/10 p-4">
                   <dt className="flex items-center gap-1.5 text-[12.5px] text-white">
                     <Users size={14} /> Team
                   </dt>
@@ -188,7 +151,7 @@ export function Quote() {
                     {q.team === 2 ? "Two of us" : "One of us"}
                   </dd>
                 </div>
-                <div className="rounded-[18px] bg-white/10 p-4">
+                <div className="rounded-[10px] bg-white/10 p-4">
                   <dt className="text-[12.5px] text-white">On site</dt>
                   <dd className="mt-1 text-[22px] font-extrabold leading-none">
                     about {hoursLabel(q.hours)}
@@ -202,9 +165,6 @@ export function Quote() {
               >
                 Book this clean <ArrowRight size={16} strokeWidth={1.8} />
               </button>
-              <p className="relative mt-3 text-center text-[12.5px] text-white/75">
-                Prices for a concept business — illustrative only.
-              </p>
             </div>
           </Reveal>
         </div>
@@ -229,7 +189,7 @@ function Stepper({
   onChange: (n: number) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[20px] bg-mint px-4 py-3">
+    <div className="flex items-center justify-between gap-3 rounded-[12px] bg-mint px-4 py-3">
       <span className="flex items-center gap-2 text-[16px] font-bold">
         {icon} {label}
       </span>

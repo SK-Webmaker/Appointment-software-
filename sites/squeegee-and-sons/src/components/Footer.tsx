@@ -1,134 +1,96 @@
-import { ArrowRight, Mail, Phone } from "lucide-react";
-import { Img } from "./Img";
+import { Mail, Phone } from "lucide-react";
 import { Wordmark } from "./Logo";
-import { Reveal } from "./Reveal";
-import { CHAPTERS, HOURS, SITE } from "@/site.config";
+import { AREA, CHAPTERS, HOURS, SERVICES, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
-const STRIP = [
-  { name: "bottle", widths: [800], alt: "", position: "60% 50%" },
-  { name: "floor", widths: [800], alt: "", position: "50% 50%" },
-  { name: "amber", widths: [800], alt: "", position: "50% 50%" },
-  { name: "window", widths: [800], alt: "", position: "50% 40%" },
-];
-
+/** A plain footer: who we are, what we do, when we're open, how to reach us. */
 export function Footer() {
   const { openSheet } = useBooking();
   return (
-    <footer className="relative overflow-hidden bg-noir text-ivory" aria-label="Footer">
-      <div className="mx-auto max-w-[1440px] px-5 pt-20 md:px-10 md:pt-28 xl:px-24">
-        <Reveal className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <Wordmark size={46} tone="light" className="self-start sm:hidden" />
-          <Wordmark size={92} tone="light" className="self-start max-sm:hidden" />
-          <button onClick={() => openSheet()} className="btn-primary sheen self-start lg:self-auto">
-            Book a clean <ArrowRight size={16} strokeWidth={1.8} />
+    <footer className="bg-noir text-ivory" aria-label="Footer">
+      <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-16 md:px-8 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+        <div>
+          <Wordmark size={42} tone="light" />
+          <p className="mt-5 max-w-[34ch] text-[15px] leading-relaxed text-ivory/75">
+            Family-run house cleaning in Sydney's {SITE.area} since {SITE.est}. Regular, deep and
+            end-of-lease cleans.
+          </p>
+          <button onClick={() => openSheet()} className="btn-honey mt-6">
+            Book a clean
           </button>
-        </Reveal>
-        <div className="mt-10 grid grid-cols-4 gap-2 md:gap-4" aria-hidden="true">
-          {STRIP.map((f) => (
-            <div key={f.name} className="relative overflow-hidden rounded-[6px]">
-              <Img
-                name={f.name}
-                widths={f.widths}
-                sizes="(min-width:1440px) 312px, 25vw"
-                alt=""
-                className="aspect-square w-full object-cover"
-                style={{ objectPosition: f.position }}
-              />
-            </div>
-          ))}
         </div>
-
-        <div className="mt-16 grid gap-10 border-t border-ivory/10 pt-12 text-[15px] sm:grid-cols-3 md:mt-20">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-silk">
-              Find us
-            </p>
-            <p className="mt-4 leading-relaxed text-ivory/80">
-              Cleaning homes across the
-              <br />
-              {SITE.area}, {SITE.city}
-            </p>
-            <ul className="mt-3 text-ivory/80">
-              <li>
+        <div>
+          <p className="text-[15px] font-semibold">Services</p>
+          <ul className="mt-3 text-[15px] text-ivory/75">
+            {SERVICES.map((s) => (
+              <li key={s.id}>
                 <a
-                  href={SITE.phoneHref}
-                  className="inline-flex min-h-[44px] items-center gap-2.5 hover:text-ivory"
+                  href="#services"
+                  className="inline-flex min-h-[44px] items-center hover:text-ivory"
                 >
-                  <Phone size={16} strokeWidth={1.6} /> {SITE.phone}
+                  {s.name}
                 </a>
               </li>
-              <li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[15px] font-semibold">Hours</p>
+          <ul className="mt-3 space-y-2 text-[15px] text-ivory/75">
+            {HOURS.map((h) => (
+              <li key={h.days}>
+                <span className="block text-ivory">{h.days}</span>
+                {h.time}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-5 text-[15px] font-semibold">On this page</p>
+          <ul className="mt-2 text-[15px] text-ivory/75">
+            {CHAPTERS.map((c) => (
+              <li key={c.id}>
                 <a
-                  href={`mailto:${SITE.email}`}
-                  className="inline-flex min-h-[44px] items-center gap-2.5 break-all hover:text-ivory"
+                  href={`#${c.id}`}
+                  className="inline-flex min-h-[44px] items-center hover:text-ivory"
                 >
-                  <Mail size={16} strokeWidth={1.6} className="shrink-0" /> {SITE.email}
+                  {c.label}
                 </a>
               </li>
-            </ul>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-silk">Hours</p>
-            <ul className="mt-4 space-y-1.5 text-ivory/80">
-              {HOURS.map((h) => (
-                <li key={h.days} className="flex justify-between gap-4 sm:block">
-                  <span className="sm:mr-2">{h.days}</span>
-                  <span className="text-ivory">{h.time}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-silk">
-              Explore
-            </p>
-            <ul className="mt-2 text-ivory/80">
-              {CHAPTERS.map((c) => (
-                <li key={c.id}>
-                  <a
-                    href={`#${c.id}`}
-                    className="inline-flex min-h-[44px] min-w-[44px] items-center hover:text-ivory"
-                  >
-                    {c.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[15px] font-semibold">Contact</p>
+          <ul className="mt-3 text-[15px] text-ivory/75">
+            <li>
+              <a
+                href={SITE.phoneHref}
+                className="inline-flex min-h-[44px] items-center gap-2.5 hover:text-ivory"
+              >
+                <Phone size={16} /> {SITE.phone}
+              </a>
+            </li>
+            <li>
+              <a
+                href={`mailto:${SITE.email}`}
+                className="inline-flex min-h-[44px] items-center gap-2.5 break-all hover:text-ivory"
+              >
+                <Mail size={16} className="shrink-0" /> {SITE.email}
+              </a>
+            </li>
+          </ul>
+          <p className="mt-4 text-[14px] leading-relaxed text-ivory/65">
+            Servicing {Object.values(AREA).slice(0, 6).join(", ")} and the rest of the Eastern
+            Suburbs.
+          </p>
         </div>
       </div>
-
-      {/* The sign, big — drawn as SVG so it scales to the width and isn't read as text. */}
-      <svg
-        viewBox="0 0 1000 200"
-        className="pointer-events-none mt-8 block w-full select-none"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <text
-          x="500"
-          y="178"
-          textAnchor="middle"
-          textLength={960}
-          lengthAdjust="spacingAndGlyphs"
-          fill="#F4F7FB"
-          fillOpacity="0.07"
-          style={{
-            fontFamily: '"Bricolage Grotesque", sans-serif',
-            fontSize: 220,
-            fontWeight: 800,
-          }}
-        >
-          Squeegee
-        </text>
-      </svg>
-
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-2 border-t border-ivory/10 px-5 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-[12px] tracking-[0.04em] text-ivory/65 md:flex-row md:justify-between md:gap-8 md:px-10 xl:px-24">
-        <p className="shrink-0">
-          © {__BUILD_YEAR__} {SITE.name} · {SITE.city}
-        </p>
-        <p className="md:text-right">{SITE.concept} Photography from Unsplash.</p>
+      <div className="border-t border-ivory/10">
+        <div className="mx-auto flex max-w-[1320px] flex-col gap-2 px-5 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-[13px] text-ivory/60 md:flex-row md:justify-between md:gap-8 md:px-8">
+          <p className="shrink-0">
+            © {__BUILD_YEAR__} {SITE.name}
+          </p>
+          <p className="md:text-right">{SITE.concept} Photos from Unsplash.</p>
+        </div>
       </div>
     </footer>
   );

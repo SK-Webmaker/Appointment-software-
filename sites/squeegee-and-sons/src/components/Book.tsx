@@ -1,6 +1,6 @@
 import { ArrowRight, Phone } from "lucide-react";
-import { ChapterLabel } from "./ChapterLabel";
-import { MaskLines, Reveal } from "./Reveal";
+import { Reveal } from "./Reveal";
+import { SectionHead } from "./Section";
 import { AREA, CLEANS, FAQ, HOURS, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { suburbOf } from "@/lib/slots";
@@ -10,26 +10,18 @@ export function Book() {
   const { openSheet, postcode, setPostcode } = useBooking();
   const suburb = suburbOf(postcode);
   return (
-    <section
-      id="book"
-      className="sheet bg-candy pb-24 pt-24 text-ink md:pb-32 md:pt-32"
-      aria-labelledby="book-title"
-    >
-      <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
-        <ChapterLabel id="book" ink />
-        <h2
+    <section id="book" className="bg-candy py-20 text-ink md:py-28" aria-labelledby="book-title">
+      <div className="relative mx-auto max-w-[1320px] px-5 md:px-8">
+        <SectionHead
           id="book-title"
-          className="mt-8 max-w-[13ch] text-[clamp(44px,9vw,120px)] leading-[0.9]"
-        >
-          <MaskLines lines={[<>Get your</>, <em className="text-plum">Saturday back.</em>]} />
-        </h2>
+          label="Book a clean"
+          title="Check we cover your suburb"
+          intro="We clean across the Eastern Suburbs, from Paddington down to Maroubra. Book online or call — Mum answers the phone."
+        />
 
         <div className="mt-12 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Reveal className="rounded-[30px] bg-noir p-6 text-ivory md:p-8">
-            <label
-              htmlFor="sq-postcode"
-              className="text-[12.5px] font-bold uppercase tracking-[0.14em] text-pearl"
-            >
+          <Reveal className="rounded-[14px] bg-noir p-6 text-ivory md:p-8">
+            <label htmlFor="sq-postcode" className="text-[15px] font-bold text-pearl">
               Are we in your area?
             </label>
             <input
@@ -80,7 +72,7 @@ export function Book() {
                 <button
                   type="button"
                   onClick={() => openSheet({ clean: c.id, step: 0 })}
-                  className="group flex w-full items-center gap-5 rounded-[24px] bg-white p-5 text-left transition-transform duration-500 hover:-translate-y-0.5 md:p-6"
+                  className="group flex w-full items-center gap-5 rounded-[14px] bg-white p-5 text-left transition-colors hover:bg-ivory md:p-6"
                 >
                   <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-onyx text-[20px] font-extrabold text-white">
                     {i + 1}
@@ -99,8 +91,10 @@ export function Book() {
                 </button>
               </Reveal>
             ))}
-            <Reveal className="flex flex-col items-start gap-3 rounded-[24px] border-2 border-dashed border-ink/25 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
-              <p className="text-[15.5px] font-medium">Rather talk? Mum answers the phone.</p>
+            <Reveal className="flex flex-col items-start gap-3 rounded-[14px] border-2 border-ink/20 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+              <p className="text-[15.5px] font-medium">
+                Rather talk it through? Call us, 8 am – 5 pm.
+              </p>
               <a href={SITE.phoneHref} className="btn-primary shrink-0">
                 <Phone size={16} /> {SITE.phone}
               </a>
@@ -109,7 +103,7 @@ export function Book() {
         </div>
 
         <div className="mt-16 grid gap-x-12 border-t border-ink/15 pt-12 lg:grid-cols-[0.8fr_1.2fr]">
-          <h3 className="text-[clamp(32px,4vw,52px)] leading-[1]">Good to know</h3>
+          <h3 className="text-[clamp(28px,4vw,40px)] leading-[1.1]">Frequently asked questions</h3>
           <div className="mt-6 lg:mt-0">
             {FAQ.map((f) => (
               <details key={f.q} className="group border-b border-ink/15 py-4">

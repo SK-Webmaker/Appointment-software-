@@ -3,15 +3,14 @@ import { useEffect } from "react";
 import { Book } from "./Book";
 import { BookingBar } from "./BookingBar";
 import { BookingSheet } from "./BookingSheet";
-import { Curtain } from "./Curtain";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
-import { Marquee } from "./Marquee";
 import { Nav } from "./Nav";
-import { Bucket } from "./Bucket";
 import { Checklist } from "./Checklist";
+import { Kit } from "./Kit";
+import { Services } from "./Services";
+import { Windows } from "./Windows";
 import { Quote } from "./Quote";
-import { StrandRail } from "./StrandRail";
 import { BookingProvider } from "@/context/booking";
 import { settleHashJump, startSmoothScroll } from "@/lib/smooth";
 
@@ -35,15 +34,14 @@ export function Site() {
         >
           Skip to booking a clean
         </a>
-        <Curtain />
         <Nav />
-        <StrandRail />
         <main>
           <Hero />
+          <Services />
           <Quote />
           <Checklist />
-          <Marquee />
-          <Bucket />
+          <Windows />
+          <Kit />
           <Book />
         </main>
         <Footer />

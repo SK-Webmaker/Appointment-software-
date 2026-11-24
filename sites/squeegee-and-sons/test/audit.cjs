@@ -7,7 +7,7 @@ const { launch } = require("./pw.cjs");
 const TARGET = process.env.TARGET;
 const SITE = process.env.SITE || "sq";
 const CFG = {
-  sq: { first: "quote", book: "book", sticky: ["top"], pinnedGallery: null, sheetName: /Your clean/ },
+  sq: { first: "services", book: "book", sticky: [], pinnedGallery: null, sheetName: /Your clean/, rail: false, scene: false },
   salt: { first: "plants", book: "visit", sticky: ["top"], pinnedGallery: null, sheetName: /Your garden/ },
   tide: { first: "house", book: "book", sticky: ["top"], pinnedGallery: null, sheetName: /Your job/ },
   gull: { first: "problems", book: "book", sticky: ["top", "how"], pinnedGallery: null, sheetName: /Your job/ },
@@ -163,8 +163,9 @@ async function swipe(cdp, p, dy = 450) {
       await p.setViewportSize({ width: 390, height: 844 }); await settle(p, 900);
       check(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "back to portrait: no sideways scroll");
     } else {
-      // chapter rail (wide screens)
+      // chapter rail (wide screens), for sites that have one
       await p.setViewportSize({ width: 1440, height: 900 });
+      if (CFG.rail !== false) {
       await p.evaluate((id) => __to(document.getElementById(id).getBoundingClientRect().top + scrollY + 200), CFG.first); await settle(p, 1400);
       const rail = p.getByRole("navigation", { name: "Page chapters" });
       check(await rail.isVisible(), "chapter rail shows once the chapters begin");
@@ -176,6 +177,7 @@ async function swipe(cdp, p, dy = 450) {
       check(t !== null && t > -8 && t < 110, `rail link ${lh} jumps to its chapter (top ${Math.round(t ?? -999)}px)`);
       await p.goBack(); await settle(p, 1500);
       check(true, "back button works after a jump");
+      }
       await p.setViewportSize({ width: 1024, height: 768 }); await settle(p, 900);
       check(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "resize to 1024: no sideways scroll");
       await p.setViewportSize({ width: 1440, height: 900 }); await settle(p, 700);
@@ -194,8 +196,13 @@ async function swipe(cdp, p, dy = 450) {
     check(await p.evaluate(() => document.documentElement.style.overflow === ""), "the curtain lets go of the page with reduced motion");
     const y0 = await p.evaluate(() => scrollY); await swipe(cdp, p, 500);
     check((await p.evaluate(() => scrollY)) > y0 + 150, "page scrolls with reduced motion");
-    const tall = await p.evaluate(() => document.getElementById("top").offsetHeight > innerHeight * 1.8);
-    check(tall, "the opening scene still plays with reduced motion (it is scroll-driven)");
+    if (CFG.scene !== false) {
+      const tall = await p.evaluate(() => document.getElementById("top").offsetHeight > innerHeight * 1.8);
+      check(tall, "the opening scene still plays with reduced motion (it is scroll-driven)");
+    } else {
+      const shown = await p.evaluate(() => { const h = document.getElementById("hero-title"); return !!h && getComputedStyle(h).visibility !== "hidden" && h.getBoundingClientRect().height > 0; });
+      check(shown, "the opening headline shows with reduced motion");
+    }
     await ctx.close();
   }
   await b.close();

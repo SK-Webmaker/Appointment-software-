@@ -10,6 +10,6 @@
   chapter, bubble blue for highlights, deep navy for night. Tokens in
   `src/styles.css`.
 - **Type:** Bricolage Grotesque throughout — extra-bold and narrowed for headlines.
-- **Signature motion:** the squeegee wipe; the wobbling price bubble; ticks drawing themselves; tools lifting out of the bucket.
-- **Signature function:** the instant price; the room-by-room checklist tied to it; booking with recurring visits and .ics.
+- **Look:** photo-led and friendly, like a well-run local cleaning business — real rooms, real kit, plain headings, sentence-case buttons.
+- **Signature function:** the instant price; the room-by-room checklist tied to it; the window before-and-after; booking with recurring visits and .ics.
 - **Honesty:** footer and confirmation say it's a concept; phone (02) 5550 0196 is in the ACMA fiction range; email uses `.example`; no invented reviews or staff.

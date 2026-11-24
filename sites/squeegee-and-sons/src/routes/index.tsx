@@ -28,8 +28,8 @@ export const Route = createFileRoute("/")({
     ],
     links: [
       { rel: "canonical", href: `${SITE.url}/` },
-      // The two hero photographs are the first paint — start them with the CSS.
-      ...["kitchen2", "kitchen2-fog"].map((n) => ({
+      // The hero photograph is the largest paint — start it with the CSS.
+      ...["kitchen2"].map((n) => ({
         rel: "preload",
         as: "image",
         href: `/images/${n}-1200.webp`,

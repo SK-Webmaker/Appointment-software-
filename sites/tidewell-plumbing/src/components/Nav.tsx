@@ -66,7 +66,9 @@ export function Nav() {
             className="flex min-h-[44px] items-center pr-3"
             aria-label={`${SITE.name} — back to top`}
           >
-            <Wordmark size={38} />
+            <Wordmark size={38} className="max-lg:hidden" />
+            <Wordmark size={32} className="max-[359px]:hidden lg:hidden" />
+            <Wordmark size={27} className="min-[360px]:hidden" />
           </a>
 
           <div className="hidden items-center gap-7 lg:flex">
@@ -93,11 +95,11 @@ export function Nav() {
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 lg:hidden">
+          <div className="flex shrink-0 items-center gap-1 lg:hidden">
             <a
               href={SITE.phoneHref}
               aria-label={`Call ${SITE.phone}`}
-              className="grid h-11 w-11 place-items-center rounded-full text-onyx"
+              className="grid h-11 w-11 place-items-center rounded-full text-onyx max-[389px]:hidden"
             >
               <Phone size={20} strokeWidth={2} />
             </a>

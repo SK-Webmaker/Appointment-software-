@@ -5,21 +5,25 @@ Eastern Suburbs — a showcase of what a cleaning website can do. Business,
 prices, hours, products and phone are fictional (phone from the ACMA fiction
 range). Photos: Unsplash (`public/images/CREDITS.md`).
 
-The journey:
-- **The wipe.** A kitchen seen through a filthy window — fogged, streaked,
-  CLEAN ME written in the grime. Scroll and a squeegee pulls down the glass
-  with a wave of suds on its blade, leaving it so clear the window vanishes;
-  a few glints, then "So clean, you'll walk into it." Two baked photos and a
-  moving clip — transforms only.
-- **Your price, right now.** Bedrooms and bathrooms steppers, regular / deep
-  / end of lease, how often (with the discount) and extras. The price bubble
-  wobbles to each new number, with the team and time beside it.
-- **Every room, ticked off.** Room tabs and the same clean choice as the
-  price (change one, the other follows); the clipboard ticks itself off and
-  shows what a bigger clean would add.
-- **What's in the bucket.** A drawn bucket of kit; pick a tool and it lifts
-  out while its card slides in.
-- **Get your Saturday back.** Postcode check, the three cleans, FAQ.
+The page, top to bottom:
+- **Hero** — what we do and where, Get your price and Call, beside a photo of
+  a clean kitchen with a real example price (fortnightly, 2 bed, 1 bath).
+  Four promises underneath.
+- **Services** — regular, deep and end-of-lease cleaning, each with a photo
+  and a "from" price.
+- **Prices** — bedrooms and bathrooms, the clean, how often and extras; the
+  price per clean, team and time update as you go.
+- **What's included** — room tabs and the same clean choice as the price
+  (change one, the other follows), ticking off what's in each clean.
+- **Window cleaning** — a draggable before-and-after (labelled as an
+  illustration) and an "add inside windows" button.
+- **Our kit** — photos of what we bring, and how booking works in four steps.
+- **Book a clean** — postcode check, the three cleans, FAQs.
+
+Version 2 (the realistic redesign) replaced the scroll-wipe hero with its
+drawn squeegee, the glossy price bubble and the drawn bucket with
+photography, and dropped the intro curtain, chapter rail, numbered chapter
+labels and marquee.
 
 ## Booking
 Clean → how often → day and arrival time → postcode, address, how we get in

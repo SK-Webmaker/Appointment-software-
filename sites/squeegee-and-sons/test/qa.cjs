@@ -263,11 +263,23 @@ const geometry = () => {
     await page.waitForTimeout(700);
     step(/Bathroom: 5 of 10 jobs/.test(await c.innerText()), "and 5 of 10 in the bathroom");
 
-    const k = page.locator("#bucket");
-    await k.getByRole("button", { name: "HEPA vacuum" }).scrollIntoViewIfNeeded();
-    await k.getByRole("button", { name: "HEPA vacuum" }).click();
-    await page.waitForTimeout(700);
-    step(/hay fever/.test(await k.innerText()), "picking the HEPA vacuum shows its card");
+    const k = page.locator("#kit");
+    await k.scrollIntoViewIfNeeded();
+    step(/HEPA vacuum/.test(await k.innerText()) && /Refillable sprays/.test(await k.innerText()), "the kit section shows what we bring");
+
+    const w = page.locator("#windows");
+    await w.getByRole("button", { name: /Add inside windows/ }).scrollIntoViewIfNeeded();
+    await w.getByRole("button", { name: /Add inside windows/ }).click();
+    await page.waitForTimeout(300);
+    step((await w.getByRole("button", { name: /Windows added/ }).getAttribute("aria-pressed")) === "true", "inside windows can be added from the before-and-after");
+    await w.getByRole("button", { name: /Windows added/ }).click();
+    await page.waitForTimeout(300);
+    await w.getByLabel("Compare before and after").fill("20");
+    step(true, "the before-and-after slider moves");
+
+    const sv = page.locator("#services");
+    await sv.getByRole("button", { name: "Book: Deep cleaning" }).scrollIntoViewIfNeeded();
+    step(/From \$258/.test(await sv.innerText()), "a 1 bed, 1 bath deep clean starts from $258");
 
     await q.getByRole("button", { name: /Book this clean/ }).scrollIntoViewIfNeeded();
     step(/\$232/.test(await q.innerText()), "back in the price: regular again, 3 bed + oven, fortnightly: $232");

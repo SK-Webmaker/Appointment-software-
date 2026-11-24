@@ -87,10 +87,10 @@
   h2,
   h3 {
     @apply font-display;
-    font-weight: 800;
+    font-weight: 700;
     font-synthesis: none;
-    font-stretch: 88%;
-    letter-spacing: -0.035em;
+    font-stretch: 95%;
+    letter-spacing: -0.025em;
     text-wrap: balance;
   }
 
@@ -148,15 +148,6 @@ h3 em {
 @utility sheet {
   position: relative;
   isolation: isolate;
-  margin-top: -36px;
-  border-top-left-radius: 32px;
-  border-top-right-radius: 32px;
-  box-shadow: 0 -26px 48px -34px rgba(20, 33, 61, 0.22);
-  @media (min-width: 768px) {
-    margin-top: -48px;
-    border-top-left-radius: 48px;
-    border-top-right-radius: 48px;
-  }
 }
 
 /* Soft light inside a sheet: a plain rectangular clip that starts below the
@@ -184,39 +175,34 @@ h3 em {
 @utility btn {
   position: relative;
   display: inline-flex;
-  min-height: 52px;
+  min-height: 50px;
   align-items: center;
   justify-content: center;
-  gap: 0.625rem;
-  overflow: hidden;
-  border-radius: 9999px;
-  padding-inline: 1.75rem;
-  font-size: 12.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  transition-property: background-color, color, border-color, box-shadow, transform;
-  transition-duration: 500ms;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  &:active {
-    transform: scale(0.98);
-  }
+  gap: 0.5rem;
+  border-radius: 10px;
+  padding-inline: 1.4rem;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  transition-property: background-color, color, border-color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
 }
 
 @utility btn-primary {
-  @apply btn bg-onyx text-white shadow-[0_12px_30px_-12px_rgba(31,69,214,0.45)] hover:bg-rose;
+  @apply btn bg-onyx text-white hover:bg-[#1838ad];
 }
 
 @utility btn-honey {
-  @apply btn bg-silk text-noir hover:bg-ivory;
+  @apply btn bg-silk text-noir hover:bg-[#ffdc66];
 }
 
 @utility btn-ghost {
-  @apply btn border border-ink/25 text-ink hover:border-onyx hover:bg-onyx hover:text-ivory;
+  @apply btn border border-ink/20 bg-white text-ink hover:border-ink/50;
 }
 
 @utility btn-ghost-light {
-  @apply btn border border-ivory/35 text-ivory hover:border-ivory hover:bg-ivory hover:text-noir;
+  @apply btn border border-ivory/40 text-ivory hover:border-ivory hover:bg-ivory/10;
 }
 
 @utility no-scrollbar {
@@ -227,25 +213,6 @@ h3 em {
 }
 
 /* Plain CSS outside any layer, so it is always emitted. */
-
-/* Light travelling across a button, like a floodlight. */
-.sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  width: 40%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
-  animation: sheen 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-  pointer-events: none;
-}
-@keyframes sheen {
-  from {
-    transform: translateX(-120%) skewX(-18deg);
-  }
-  to {
-    transform: translateX(220%) skewX(-18deg);
-  }
-}
 
 .grain::before {
   content: "";

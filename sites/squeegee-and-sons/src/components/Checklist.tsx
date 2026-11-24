@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { ChapterLabel } from "./ChapterLabel";
 import { Img } from "./Img";
-import { MaskLines, Reveal } from "./Reveal";
+import { Reveal } from "./Reveal";
+import { SectionHead } from "./Section";
 import { CLEANS, ROOMS, cleanOf } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
@@ -24,24 +24,16 @@ export function Checklist() {
   return (
     <section
       id="checklist"
-      className="sheet bg-stone pb-24 pt-24 text-ink md:pb-32 md:pt-36"
+      className="bg-white py-20 text-ink md:py-28"
       aria-labelledby="checklist-title"
     >
-      <div className="mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
-        <ChapterLabel id="checklist" />
-        <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <h2
-            id="checklist-title"
-            className="max-w-[12ch] text-[clamp(44px,9vw,120px)] leading-[0.9]"
-          >
-            <MaskLines lines={[<>Every room,</>, <em className="text-rose">ticked off.</em>]} />
-          </h2>
-          <Reveal>
-            <p className="max-w-[40ch] text-[16px] leading-[1.7] text-ash md:text-[18px]">
-              Exactly what's in each clean, so nobody wonders whether the oven was "included".
-            </p>
-          </Reveal>
-        </div>
+      <div className="mx-auto max-w-[1320px] px-5 md:px-8">
+        <SectionHead
+          id="checklist-title"
+          label="What's included"
+          title="Exactly what's in each clean"
+          intro="Choose a room and a kind of clean. No guessing whether the oven was included."
+        />
 
         <Reveal className="mt-12">
           <div
@@ -59,7 +51,7 @@ export function Checklist() {
                 aria-selected={r.id === roomId}
                 aria-controls="room-panel"
                 onClick={() => setRoomId(r.id)}
-                className={`min-h-[48px] shrink-0 rounded-full px-5 text-[15.5px] font-bold transition-colors duration-300 ${r.id === roomId ? "bg-ink text-ivory" : "bg-card text-ink hover:bg-white"}`}
+                className={`min-h-[48px] shrink-0 rounded-full px-5 text-[15.5px] font-bold transition-colors duration-300 ${r.id === roomId ? "bg-ink text-ivory" : "border border-ink/15 bg-white text-ink hover:border-ink/40"}`}
               >
                 {r.name}
               </button>
@@ -73,7 +65,7 @@ export function Checklist() {
           aria-labelledby={`tab-${room.id}`}
           className="mt-6 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]"
         >
-          <Reveal className="relative min-h-[280px] overflow-hidden rounded-[30px] bg-card lg:min-h-[560px]">
+          <Reveal className="relative min-h-[280px] overflow-hidden rounded-[14px] bg-ivory lg:min-h-[560px]">
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
                 key={room.id}
@@ -94,7 +86,7 @@ export function Checklist() {
             </AnimatePresence>
           </Reveal>
 
-          <Reveal delay={0.06} className="min-w-0 rounded-[30px] bg-card p-6 md:p-9">
+          <Reveal delay={0.06} className="min-w-0 rounded-[14px] bg-ivory p-6 md:p-9">
             <div className="flex flex-wrap gap-2" role="group" aria-label="Kind of clean">
               {CLEANS.map((c) => (
                 <button

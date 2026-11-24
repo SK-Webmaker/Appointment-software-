@@ -50,11 +50,13 @@ export const WINDOWS = [
   { id: "1", label: "1:00 pm", from: 13 },
 ] as const;
 
+/** The page's sections, in order — the nav, footer and booking bar read this. */
 export const CHAPTERS = [
-  { id: "quote", numeral: "01", label: "Your price" },
-  { id: "checklist", numeral: "02", label: "What we clean" },
-  { id: "bucket", numeral: "03", label: "In the bucket" },
-  { id: "book", numeral: "04", label: "Book a clean" },
+  { id: "services", numeral: "01", label: "Services" },
+  { id: "quote", numeral: "02", label: "Prices" },
+  { id: "checklist", numeral: "03", label: "What's included" },
+  { id: "kit", numeral: "04", label: "Our kit" },
+  { id: "book", numeral: "05", label: "Book a clean" },
 ] as const;
 
 export type ChapterId = (typeof CHAPTERS)[number]["id"];
@@ -196,13 +198,38 @@ export const ROOMS: {
   },
 ];
 
+// ------------------------------------------------------------ services
+export const SERVICES = [
+  {
+    id: "regular",
+    name: "Regular cleaning",
+    image: "living2",
+    alt: "A tidy, light-filled living room with a pale sofa and a view of trees",
+    text: "Weekly, fortnightly or monthly. Same cleaners, same day, same standard.",
+  },
+  {
+    id: "deep",
+    name: "Deep cleaning",
+    image: "kitchen3",
+    alt: "A spotless kitchen bench with fruit, flowers and a stovetop",
+    text: "Inside, behind and under — a reset for a home that needs one.",
+  },
+  {
+    id: "lease",
+    name: "End-of-lease cleaning",
+    image: "bedroom2",
+    alt: "A bright, freshly cleaned bedroom with a made bed",
+    text: "Every surface to the standard agents check, with a re-clean if they ask.",
+  },
+] as const;
+
 // ------------------------------------------------------------ the bucket (chapter 03)
 export const BUCKET = [
   {
     id: "squeegee",
     name: "The squeegee",
-    image: "window",
-    alt: "A cleaner in gloves and goggles cleaning a tall window",
+    image: "squeegee",
+    alt: "A squeegee pulling a clean stripe down a wet, soapy window",
     text: "Our namesake. A brass channel and a new rubber blade every month — one pass, no streaks.",
   },
   {
