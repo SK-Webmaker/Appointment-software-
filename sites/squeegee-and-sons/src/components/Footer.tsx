@@ -1,5 +1,6 @@
 import { Mail, Phone } from "lucide-react";
 import { Wordmark } from "./Logo";
+import { SplitText } from "./fx/SplitText";
 import { AREA, CHAPTERS, HOURS, SERVICES, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
@@ -83,6 +84,14 @@ export function Footer() {
             Suburbs.
           </p>
         </div>
+      </div>
+      <div aria-hidden="true" className="overflow-hidden px-3">
+        <SplitText
+          as="p"
+          text="Squeegee"
+          stagger={0.06}
+          className="text-center text-[21vw] font-extrabold leading-[0.82] tracking-[-0.06em] text-ivory/[0.08]"
+        />
       </div>
       <div className="border-t border-ivory/10">
         <div className="mx-auto flex max-w-[1320px] flex-col gap-2 px-5 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-[13px] text-ivory/60 md:flex-row md:justify-between md:gap-8 md:px-8">

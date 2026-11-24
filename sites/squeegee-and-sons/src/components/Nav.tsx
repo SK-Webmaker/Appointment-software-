@@ -6,6 +6,7 @@ import { SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { lockScroll } from "@/lib/smooth";
 import { useReducedMotionSafe } from "@/lib/motion";
+import { Magnetic } from "./fx/Magnetic";
 
 const LINKS = [
   { href: "#services", label: "Services" },
@@ -90,9 +91,11 @@ export function Nav() {
             >
               <Phone size={17} strokeWidth={2} /> {SITE.phone}
             </a>
-            <button onClick={() => openSheet()} className="btn-primary min-h-[44px] px-5">
-              Book a clean
-            </button>
+            <Magnetic>
+              <button onClick={() => openSheet()} className="btn-primary min-h-[44px] px-5">
+                Book a clean
+              </button>
+            </Magnetic>
           </div>
 
           <div className="flex shrink-0 items-center gap-1 lg:hidden">

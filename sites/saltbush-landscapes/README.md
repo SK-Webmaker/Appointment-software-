@@ -26,6 +26,19 @@ with real photography, and dropped the intro curtain, chapter rail, numbered
 chapter labels and marquee. The plant guide now only lists plants whose
 photos are clearly identified.
 
+Version 3 (the motion round, made for screen recordings) keeps the real
+photos and the booking flow and adds: a 0–100 intro curtain; a pinned
+opening where the garden shows through a huge cut-out "NATIVE" and the
+camera flies through the "I" until the garden fills the screen; gum leaves
+drifting down; headings that type in; a speed-reactive marquee of plant
+names; tilting service and plant cards with photos that wipe in; "How we
+work" as stacking photo cards that shrink back as the next arrives; projects
+as a pinned sideways reel; the price guide rolling between figures; a mouse
+spotlight on Book; a giant "Saltbush" in the footer; custom cursor and
+magnetic buttons.
+
+Shared motion kit in `src/components/fx/`: intro counter and split curtain (Preloader), custom cursor, magnetic buttons, letter-by-letter headings (SplitText), speed-reactive word marquee, 3D tilt cards, wipe-in photos (RevealImg), pinned sideways gallery (HScroll), counters and rolling prices (Counter, Tween), scroll progress bar, mouse spotlight. Everything is transforms-only, mounts only while on screen, and calms down under reduced motion (no cursor, no curtain wipe, no decorative loops).
+
 ## Booking
 Project → garden (size, look, postcode, address) → visit (day and start
 time) → details (with the plant list and an optional photo) → reference

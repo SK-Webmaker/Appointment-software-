@@ -11,4 +11,5 @@
 - **Type:** Fraunces (soft, wonky optical serif) and DM Sans.
 - **Look:** photo-led and plain-spoken, like a well-run local trade business — real photos of the work, sentence-case buttons, no gimmicks.
 - **Signature function:** services with "from" prices; common problems by room; honest quick checks; the drip cost calculator; postcode check and job booking with .ics.
+- **Motion (v3):** made to be filmed — the opening photo grows to fill the screen with ripples spreading from the pointer; headings type in; jobs scroll past in a speed-reactive marquee; steps stack; recent work slides sideways. Never at the cost of the booking flow.
 - **Honesty:** footer and confirmation say it's a concept; phone (02) 5550 0128 is in the ACMA fiction range; email uses `.example`.

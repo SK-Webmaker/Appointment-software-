@@ -24,6 +24,18 @@ Version 2 (the realistic redesign) replaced the drawn tap-and-drop opening,
 the cutaway house and the drip drawing with real photography, and dropped the
 intro curtain, chapter rail, numbered chapter labels and marquee.
 
+Version 3 (the motion round, made for screen recordings) keeps the real
+photos and the booking flow and adds: a 0–100 intro curtain; a pinned
+opening where the photo card grows to fill the screen while ripples spread
+from the pointer (and drip on their own); headings that type in letter by
+letter; a speed-reactive marquee of jobs; tilting service cards with photos
+that wipe in; counting stats; "How a job works" as stacking cards; recent
+work as a pinned sideways reel; a falling drop on the drip photo; a mouse
+spotlight on Book; a giant "Tidewell" in the footer; custom cursor and
+magnetic buttons.
+
+Shared motion kit in `src/components/fx/`: intro counter and split curtain (Preloader), custom cursor, magnetic buttons, letter-by-letter headings (SplitText), speed-reactive word marquee, 3D tilt cards, wipe-in photos (RevealImg), pinned sideways gallery (HScroll), counters and rolling prices (Counter, Tween), scroll progress bar, mouse spotlight. Everything is transforms-only, mounts only while on screen, and calms down under reduced motion (no cursor, no curtain wipe, no decorative loops).
+
 ## Booking
 Problem → when (today / a window / a quote) → where (Northern Beaches
 postcodes only) → details → job number TW-XXXXX, summary, **Add to

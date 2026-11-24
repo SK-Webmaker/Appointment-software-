@@ -1,6 +1,7 @@
 import { ArrowRight, Bath, BedDouble, Check, Minus, Plus, Users } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./Section";
+import { Tween } from "./fx/Tween";
 import { CLEANS, EXTRAS, FREQS } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { hoursLabel, quote } from "@/lib/slots";
@@ -135,7 +136,7 @@ export function Quote() {
                 className="relative mt-3 text-[clamp(52px,7vw,72px)] font-bold leading-none tracking-[-0.03em]"
                 aria-live="polite"
               >
-                ${q.price}
+                <Tween value={q.price} format={(n) => `$${Math.round(n)}`} />
               </p>
               {q.off > 0 && (
                 <p className="relative mt-2 text-[15px] text-white/80">

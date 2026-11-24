@@ -282,3 +282,68 @@ html.lenis body {
     transform: translate3d(0, -110%, 0);
   }
 }
+
+/* The custom cursor (fx/Cursor.tsx) replaces the arrow for mouse users —
+   except where you type. */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+html.has-cursor input,
+html.has-cursor textarea,
+html.has-cursor select {
+  cursor: auto !important;
+}
+
+/* Soap bubbles rising through the opening and popping (Bubbles.tsx). */
+.bubble {
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 0.95) 0 7%, transparent 16%),
+    radial-gradient(circle at 70% 75%, rgb(255 126 182 / 0.28), transparent 45%),
+    radial-gradient(circle at 50% 50%, transparent 52%, rgb(154 215 255 / 0.35) 70%, rgb(255 255 255 / 0.55) 100%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.55);
+  animation: bubble-rise 10s linear infinite;
+  will-change: transform;
+}
+@keyframes bubble-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate3d(calc(var(--dx, 0) * -0.5), calc(var(--rise, -80vh) * 0.45), 0) scale(1);
+  }
+  92% {
+    transform: translate3d(var(--dx, 0), var(--rise, -80vh), 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--dx, 0), var(--rise, -80vh), 0) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Sparkles behind the mouse (fx/Sparkles.tsx). */
+.sparkle {
+  position: absolute;
+  translate: -50% -50%;
+  animation: sparkle 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes sparkle {
+  from {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1) rotate(90deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(0, 14px, 0) scale(0.2) rotate(180deg);
+    opacity: 0;
+  }
+}

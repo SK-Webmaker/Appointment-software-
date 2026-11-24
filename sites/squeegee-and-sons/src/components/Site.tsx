@@ -5,6 +5,11 @@ import { BookingBar } from "./BookingBar";
 import { BookingSheet } from "./BookingSheet";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { Wordmark } from "./Logo";
+import { Cursor } from "./fx/Cursor";
+import { Preloader } from "./fx/Preloader";
+import { ScrollBar } from "./fx/ScrollBar";
+import { Sparkles } from "./fx/Sparkles";
 import { Nav } from "./Nav";
 import { Checklist } from "./Checklist";
 import { Kit } from "./Kit";
@@ -34,6 +39,14 @@ export function Site() {
         >
           Skip to booking a clean
         </a>
+        <Preloader bg="#1f45d6" accent="#ffd23f">
+          <span className="inline-block origin-center scale-[0.7] sm:scale-100">
+            <Wordmark size={72} tone="light" />
+          </span>
+        </Preloader>
+        <ScrollBar />
+        <Cursor />
+        <Sparkles />
         <Nav />
         <main>
           <Hero />

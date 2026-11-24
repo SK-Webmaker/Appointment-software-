@@ -3,8 +3,9 @@
 All photographs are from [Unsplash](https://unsplash.com), under the
 [Unsplash License](https://unsplash.com/license) (free for commercial use,
 no attribution required — credited here anyway). No "Unsplash+" images are
-used. `kitchen2-fog` is `kitchen2` with grimy glass baked over it (made with
-Pillow) for the before-and-after, which is labelled as an illustration on
+used. `kitchen2-fog` and `lounge-fog` are the same photos with grimy glass
+baked over them (made with Pillow), for the wipe-the-window opening and the
+before-and-after, which is labelled as an illustration on
 the page.
 
 | File | Unsplash photo |
@@ -23,3 +24,4 @@ the page.
 | duster | photo-1713110824336-f78c320dcf8e |
 | mop | photo-1758272422155-d898efd14f81 |
 | vacuum | photo-1686178827149-6d55c72d81df |
+| lounge, lounge-fog (fogged copy made here) | photo-1721932423849-e9033192b190 · Clay Banks · https://unsplash.com/photos/7pvC_d2iXSE |

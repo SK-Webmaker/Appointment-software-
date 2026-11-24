@@ -39,7 +39,9 @@ export function Site() {
           Skip to booking a visit
         </a>
         <Preloader bg="#1e2a22" accent="#e9b45a">
-          <Wordmark size={72} tone="light" />
+          <span className="inline-block origin-center scale-[0.7] sm:scale-100">
+            <Wordmark size={72} tone="light" />
+          </span>
         </Preloader>
         <ScrollBar />
         <Cursor />

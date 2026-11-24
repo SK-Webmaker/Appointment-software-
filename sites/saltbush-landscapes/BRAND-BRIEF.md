@@ -11,4 +11,5 @@
 - **Type:** Young Serif (a chunky, seed-packet serif) and Karla.
 - **Look:** photo-led and calm, like a well-run local landscaping business — real gardens, plain headings, sentence-case buttons.
 - **Signature function:** services with price guides; the four-step process; the plant list carried to the visit; the pricing guide; visit booking with .ics.
+- **Motion (v3):** made to be filmed — the garden shows through a giant cut-out word and the camera flies through it; leaves drift down; headings type in; process cards stack; projects slide sideways; the price guide rolls. Never at the cost of the booking flow.
 - **Honesty:** footer and confirmation say it's a concept; phone (02) 5550 0147 is in the ACMA fiction range; email uses `.example`.

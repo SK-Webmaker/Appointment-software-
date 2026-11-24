@@ -25,6 +25,20 @@ drawn squeegee, the glossy price bubble and the drawn bucket with
 photography, and dropped the intro curtain, chapter rail, numbered chapter
 labels and marquee.
 
+Version 3 (the motion round, made for screen recordings) keeps the real
+photos and the booking flow and adds: a 0–100 intro curtain; the hero kitchen
+behind steamed-up glass that a squeegee wipes clean in stripes — then you can
+wipe it with the mouse or a finger, and the fog creeps back so it loops;
+soap bubbles drifting up and popping; a sparkle trail behind the mouse; the
+example price counting up; headings that type in; a speed-reactive marquee;
+tilting service cards with photos that wipe in; the calculator price rolling
+between figures; the before-and-after (now a living room with big windows)
+sweeping once on its own; the kit as a pinned sideways reel; how booking
+works as stacking cards; a giant "Squeegee" in the footer; custom cursor and
+magnetic buttons.
+
+Shared motion kit in `src/components/fx/`: intro counter and split curtain (Preloader), custom cursor, magnetic buttons, letter-by-letter headings (SplitText), speed-reactive word marquee, 3D tilt cards, wipe-in photos (RevealImg), pinned sideways gallery (HScroll), counters and rolling prices (Counter, Tween), scroll progress bar, mouse spotlight. Everything is transforms-only, mounts only while on screen, and calms down under reduced motion (no cursor, no curtain wipe, no decorative loops).
+
 ## Booking
 Clean → how often → day and arrival time → postcode, address, how we get in
 and who you are → reference SQ-XXXXX, summary, **Add to calendar**. The
