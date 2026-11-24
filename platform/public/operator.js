@@ -264,17 +264,18 @@ function salonRow(b) {
 // its own owner; this page only learns where it went.
 const RANGES = [['this_month', 'This month'], ['last_month', 'Last month'], ['last_3_months', 'Last 3 months'],
   ['last_6_months', 'Last 6 months'], ['last_12_months', 'Last 12 months'], ['this_year', 'This year']];
-const numbers = { salons: null, slug: '', preset: 'last_3_months', msg: '' };
+const numbers = { salons: null, slug: '', preset: 'last_3_months', email: '', msg: '' };
 function numbersCard() {
   const body = !numbers.salons
     ? '<button class="btn" data-act="numbers-load">Choose a salon</button>'
     : `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
         <select id="nb-slug" class="btn" aria-label="Salon">${numbers.salons.map((x) => `<option value="${esc(x.slug)}" ${x.slug === numbers.slug ? 'selected' : ''}>${esc(x.name)} (${esc(x.slug)})</option>`).join('')}</select>
         <select id="nb-range" class="btn" aria-label="Dates">${RANGES.map(([id, l]) => `<option value="${id}" ${id === numbers.preset ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <input id="nb-email" class="btn" type="email" placeholder="Their address (optional)" value="${esc(numbers.email)}" aria-label="Send to" style="min-width:220px">
         <button class="btn go" data-act="numbers-send">${icon('mail', 15)} Email their numbers</button>
       </div>`;
   return `<div class="card" style="margin-bottom:14px"><h2>Send a salon its numbers</h2>
-    <div class="cap">Each month on its own: appointment value, appointments, new clients, rebooking, how full the diary was and the run rate. It goes to the salon's own owner, from their Kairo.</div>
+    <div class="cap">Each month on its own: appointment value, appointments, new clients, rebooking, how full the diary was and the run rate. It goes to the salon's own owner, from their Kairo. Leave the address blank for the owner's sign-in email, or type another address the salon already has on file; any other address is refused.</div>
     ${body}${numbers.msg ? `<div class="cap" style="margin:10px 0 0">${esc(numbers.msg)}</div>` : ''}</div>`;
 }
 const FILTERS = [['all', 'All'], ['live', 'Live'], ['window', 'In refund window'], ['unpaid', 'Not paid'], ['refunded', 'Refunded']];
@@ -399,7 +400,7 @@ async function numbersAct(a, btn) {
       numbers.slug = numbers.slug || numbers.salons[0]?.slug || '';
       numbers.msg = numbers.salons.length ? '' : 'There are no salons on the server yet.';
     } else {
-      const r = await call('POST', `/api/operator/salon/${encodeURIComponent(numbers.slug)}/report`, { preset: numbers.preset });
+      const r = await call('POST', `/api/operator/salon/${encodeURIComponent(numbers.slug)}/report`, { preset: numbers.preset, email: numbers.email.trim() });
       numbers.msg = `Sent to ${r.sent_to}: ${r.from} to ${r.to}.`;
       toast('Their numbers are on the way');
     }
@@ -411,6 +412,7 @@ async function numbersAct(a, btn) {
 app.addEventListener('change', (e) => {
   if (e.target.id === 'nb-slug') numbers.slug = e.target.value;
   if (e.target.id === 'nb-range') numbers.preset = e.target.value;
+  if (e.target.id === 'nb-email') numbers.email = e.target.value;
 });
 
 // One delegated listener for the life of the page, so a failed action never
@@ -427,7 +429,11 @@ app.addEventListener('click', (e) => {
 app.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches('[data-open]')) openSalon(e.target.dataset.open);
 });
-app.addEventListener('input', (e) => { if (e.target.id === 'q') { query = e.target.value; render(); } });
+app.addEventListener('input', (e) => {
+  if (e.target.id === 'q') { query = e.target.value; render(); }
+  // Kept as typed, so the minute's refresh can never wipe a half-typed address.
+  if (e.target.id === 'nb-email') numbers.email = e.target.value;
+});
 
 // ── loading ────────────────────────────────────────────────────────────────
 function stop() { clearInterval(timer); timer = null; }
