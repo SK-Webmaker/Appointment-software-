@@ -7,15 +7,16 @@ Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 - **Replies:** 0. **New bounces:** 0.
 - **Follow-ups:** none sent. The 22 Nov batch reaches 3 days on the next
   run (the 19 Nov batch had theirs on 23 Nov).
-- **Checked:** 32 sites in Newcastle, the Gold Coast, the Sunshine Coast,
-  Hobart, Canberra and Perth. 7 passed: 2 first group (book by phone,
-  email or a form) and 5 second group (already book online).
+- **Checked:** 46 sites in Newcastle, the Gold Coast, the Sunshine Coast,
+  Hobart, Canberra, Perth, Darwin, Brisbane, Sydney and Melbourne.
+  10 passed: 3 first group (book by phone, email or a form) and 7 second
+  group (already book online).
   - **Skipped:** no published email, no menu with prices, a chain with
     its own booking system, or nothing dated 2025 or later. One studio's
     only "2026" was font code in the page, not a date.
-- **Sent:** 7 first emails, each with its picture, and each now ending in
-  the free 14-day trial. Mail-tester: 9.9/10.
-- **Totals so far:** 23 businesses emailed, 1 hard bounce, 6 follow-ups,
+- **Sent:** 10 first emails (the daily limit), each with its picture, and
+  each now offering the free 14-day trial. Mail-tester: 9.9/10.
+- **Totals so far:** 26 businesses emailed, 1 hard bounce, 6 follow-ups,
   0 replies, 0 sign-ups (to the 24 Nov sale check).
 
 ## 24 November 2026 — preview outreach
