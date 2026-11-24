@@ -53,12 +53,14 @@ export const WINDOWS = [
   { id: "230", label: "2:30 pm", from: 14.5 },
 ] as const;
 
+/** The page's sections, in order — the nav, footer and booking bar read this. */
 export const CHAPTERS = [
-  { id: "plants", numeral: "01", label: "Find your plants" },
-  { id: "seasons", numeral: "02", label: "The year in flower" },
-  { id: "estimate", numeral: "03", label: "What it costs" },
-  { id: "gardens", numeral: "04", label: "Our gardens" },
-  { id: "visit", numeral: "05", label: "Book a visit" },
+  { id: "services", numeral: "01", label: "Services" },
+  { id: "process", numeral: "02", label: "How we work" },
+  { id: "projects", numeral: "03", label: "Projects" },
+  { id: "plants", numeral: "04", label: "Plants we love" },
+  { id: "pricing", numeral: "05", label: "Pricing" },
+  { id: "visit", numeral: "06", label: "Book a site visit" },
 ] as const;
 
 export type ChapterId = (typeof CHAPTERS)[number]["id"];
@@ -176,111 +178,31 @@ export const PLANTS: Plant[] = [
   },
   {
     id: "grevillea",
-    name: "Grevillea 'Robyn Gordon'",
-    latin: "Grevillea hybrid",
+    name: "Grevillea",
+    latin: "Grevillea hybrids",
+    image: "grevillea",
+    alt: "A pink and cream spider-like grevillea flower among fine green leaves",
     colour: "#d8344e",
     sun: ["sun", "part"],
     size: "medium",
     height: "1 – 1.5 m",
     traits: ["birds"],
     flowers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-    note: "Flowers almost all year. Wear gloves to prune — the leaves can irritate skin.",
+    note: "The hybrids flower for most of the year. Wear gloves to prune — some can irritate skin.",
   },
   {
-    id: "correa",
-    name: "Native fuchsia",
-    latin: "Correa reflexa",
-    colour: "#d14a3a",
-    sun: ["part", "shade"],
+    id: "yellowpaw",
+    name: "Kangaroo paw, yellow",
+    latin: "Anigozanthos cultivar",
+    image: "yellowpaw2",
+    alt: "Yellow kangaroo paw flowers above strappy green leaves",
+    colour: "#e0b021",
+    sun: ["sun"],
     size: "small",
-    height: "0.5 – 1.5 m",
+    height: "0.5 – 1 m",
     traits: ["birds", "pots"],
-    flowers: [4, 5, 6, 7, 8],
-    note: "Little bells for the shady side of the house, right through winter.",
-  },
-  {
-    id: "westringia",
-    name: "Coastal rosemary",
-    latin: "Westringia fruticosa",
-    colour: "#b9b0d6",
-    sun: ["sun", "part"],
-    size: "medium",
-    height: "1 – 2 m",
-    traits: ["coastal", "hedge", "pots"],
-    flowers: [8, 9, 10, 11, 12],
-    note: "Clips into a tidy grey-green hedge. Shrugs off wind, salt and neglect.",
-  },
-  {
-    id: "lillypilly",
-    name: "Lilly pilly",
-    latin: "Syzygium australe",
-    colour: "#a6345a",
-    sun: ["sun", "part"],
-    size: "tall",
-    height: "3 – 5 m (hedged 2 – 3 m)",
-    traits: ["hedge", "birds"],
-    flowers: [11, 12, 1],
-    note: "The screening hedge. Red new growth, white fluffy flowers, then berries for the birds.",
-  },
-  {
-    id: "dianella",
-    name: "Flax lily",
-    latin: "Dianella caerulea",
-    colour: "#4a5bc4",
-    sun: ["sun", "part", "shade"],
-    size: "small",
-    height: "0.5 – 1 m",
-    traits: ["pots"],
-    flowers: [9, 10, 11, 12],
-    note: "Strappy leaves, starry blue flowers, then bright blue berries.",
-  },
-  {
-    id: "lomandra",
-    name: "Mat rush",
-    latin: "Lomandra longifolia",
-    colour: "#9aa23a",
-    sun: ["sun", "part", "shade"],
-    size: "small",
-    height: "0.6 – 1 m",
-    traits: ["coastal", "pots"],
-    flowers: [9, 10],
-    note: "The tough one. Sun, shade, clay, sand, drought — it grows.",
-  },
-  {
-    id: "cushion",
-    name: "Cushion bush",
-    latin: "Leucophyta brownii",
-    colour: "#c3cbc2",
-    sun: ["sun"],
-    size: "small",
-    height: "0.5 – 1 m",
-    traits: ["coastal", "pots"],
-    flowers: [],
-    note: "A silver cloud of a plant, grown for its leaves. Lovely beside red paws.",
-  },
-  {
-    id: "saltbush",
-    name: "Old man saltbush",
-    latin: "Atriplex nummularia",
-    colour: "#a9b5a2",
-    sun: ["sun"],
-    size: "medium",
-    height: "1 – 3 m",
-    traits: ["coastal", "hedge"],
-    flowers: [],
-    note: "Our namesake. Silver leaves you can cook with, and nearly unkillable in a dry summer.",
-  },
-  {
-    id: "violet",
-    name: "Native violet",
-    latin: "Viola hederacea",
-    colour: "#8a6bc4",
-    sun: ["part", "shade"],
-    size: "ground",
-    height: "about 10 cm",
-    traits: ["pots"],
-    flowers: [9, 10, 11, 12, 1, 2, 3],
-    note: "A soft carpet for between stepping stones and under trees.",
+    flowers: [9, 10, 11, 12, 1],
+    note: "Bright yellow paws for pots and borders. Lovely beside the red.",
   },
 ];
 export const plantOf = (id: string) => PLANTS.find((p) => p.id === id);
@@ -302,6 +224,69 @@ export const MONTHS = [
 /** Sydney's seasons by month (1 = January). */
 export const seasonOf = (m: number) =>
   m === 12 || m <= 2 ? "Summer" : m <= 5 ? "Autumn" : m <= 8 ? "Winter" : "Spring";
+
+// ------------------------------------------------------------ services
+export const SERVICES = [
+  {
+    id: "new",
+    name: "Garden design",
+    image: "garden2",
+    alt: "A planted garden of shrubs and flowering groundcovers around a lawn",
+    text: "A drawn plan for the whole garden — layout, levels, paths and a planting schedule.",
+    price: "Plans from $350",
+  },
+  {
+    id: "makeover",
+    name: "Landscape construction",
+    image: "paving",
+    alt: "A newly laid paved courtyard edged with planting",
+    text: "Sandstone and paved paths, retaining, steps, edging, soil and drainage.",
+    price: "Usually $180–$260 per m²",
+  },
+  {
+    id: "planting",
+    name: "Planting",
+    image: "planting",
+    alt: "Gloved hands planting seedlings into freshly turned soil",
+    text: "The right plants for your soil and light, planted properly and mulched.",
+    price: "Usually $55–$90 per m²",
+  },
+  {
+    id: "care",
+    name: "Garden care",
+    image: "crew",
+    alt: "A gardener in work clothes pushing a wheelbarrow across a lawn",
+    text: "Seasonal visits to prune, feed, mulch and replace — or notes so you can do it.",
+    price: "From $160 a visit",
+  },
+] as const;
+
+export const PROCESS = [
+  {
+    title: "Site visit",
+    text: "We walk the garden with you, check the light and drainage, and test the soil. Free, about 45 minutes.",
+    image: "soil",
+    alt: "Hands working compost into the soil of a raised garden bed",
+  },
+  {
+    title: "Drawn plan & fixed price",
+    text: "A scaled plan and planting list within two weeks, with a fixed price to build it.",
+    image: "park",
+    alt: "A landscaped garden with curved gravel paths, lawn and low shrubs",
+  },
+  {
+    title: "Build",
+    text: "Our own crew does the earthworks, stone, soil and planting. Most gardens take one to two weeks.",
+    image: "rocks",
+    alt: "Large stones, gravel and bamboo stakes arranged in a garden bed under construction",
+  },
+  {
+    title: "Aftercare",
+    text: "We come back at six weeks to check everything has taken, then seasonally if you'd like.",
+    image: "shadepath",
+    alt: "A shady stone path through established green planting",
+  },
+] as const;
 
 // ------------------------------------------------------------ the estimator (chapter 03)
 export type ProjectId = "new" | "makeover" | "planting" | "care";
@@ -473,6 +458,13 @@ export const GARDENS = [
     caption: "Sandstone terrace, Glenorie",
     plants: "grevillea, kangaroo paw",
     tilt: 2,
+  },
+  {
+    image: "stonepath",
+    alt: "A narrow stone path between ferns and a mossy sandstone wall",
+    caption: "Side passage, West Pennant Hills",
+    plants: "native violet, ferns, sandstone steps",
+    tilt: 0,
   },
 ] as const;
 

@@ -229,7 +229,7 @@ const geometry = () => {
     await ctx.close();
   }
 
-  // ---------- plant finder, seasons, estimator and the visit request — on a phone
+  // ---------- plants, services, pricing guide and the visit request — on a phone
   {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, acceptDownloads: true });
     const page = await ctx.newPage();
@@ -237,30 +237,25 @@ const geometry = () => {
     await page.waitForTimeout(2000);
     const step = (ok, msg) => { if (!ok) fail("booking", msg); console.log(`${ok ? "  ✓" : "  ✗"} ${msg}`); };
     const cur = async (d) => (await d.locator('[aria-current="step"]').innerText()).toLowerCase();
-    console.log("finder, seasons, estimator and visit:");
+    console.log("plants, services, pricing and visit:");
 
     const plants = page.locator("#plants");
-    const sun = plants.getByRole("group", { name: "How much sun?" });
-    await sun.scrollIntoViewIfNeeded();
-    await sun.getByRole("button", { name: "Shade", exact: true }).click();
-    await page.waitForTimeout(600);
-    step(/4 of 14 plants/.test(await plants.innerText()), "the Shade filter leaves 4 of 14 plants");
-    await plants.getByRole("group", { name: "Good for" }).getByRole("button", { name: "Brings birds" }).click();
-    await page.waitForTimeout(600);
-    step(/1 of 14 plants/.test(await plants.innerText()) && /Native fuchsia/.test(await plants.innerText()), "shade + birds → just the native fuchsia");
-    await plants.getByRole("button", { name: /Clear/ }).first().click();
-    await page.waitForTimeout(600);
+    await plants.getByRole("button", { name: "Save Kangaroo paw to my list" }).scrollIntoViewIfNeeded();
     await plants.getByRole("button", { name: "Save Kangaroo paw to my list" }).click();
     await page.waitForTimeout(400);
     step(/My plant list · 1 plant/i.test(await plants.innerText()), "saving a plant adds it to my list");
+    step(/Flowers Sep – Jan/.test(await plants.innerText()), "each plant shows when it flowers");
 
-    const seasons = page.locator("#seasons");
-    await seasons.getByRole("button", { name: "July" }).scrollIntoViewIfNeeded();
-    await seasons.getByRole("button", { name: "July" }).click();
-    await page.waitForTimeout(700);
-    step(/In flower in July · 5/i.test(await seasons.innerText()), "July has five plants in flower");
+    const services = page.locator("#services");
+    await services.getByRole("button", { name: "Book a visit: Planting" }).scrollIntoViewIfNeeded();
+    await services.getByRole("button", { name: "Book a visit: Planting" }).click();
+    let sheet = page.getByRole("dialog", { name: /Your garden/ });
+    await sheet.waitFor();
+    step((await cur(sheet)).includes("garden"), "booking a service opens on 'Garden' with the job set");
+    await sheet.getByRole("button", { name: "Close", exact: true }).click();
+    await page.waitForTimeout(800);
 
-    const est = page.locator("#estimate");
+    const est = page.locator("#pricing");
     await est.getByRole("slider").scrollIntoViewIfNeeded();
     await est.getByRole("slider").fill("200");
     await est.getByRole("button", { name: /^Planting only/ }).click();

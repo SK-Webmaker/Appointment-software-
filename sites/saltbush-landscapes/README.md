@@ -6,22 +6,25 @@ prices, hours and phone are fictional (phone from the ACMA fiction range).
 Plant notes are general gardening knowledge, not advice for a particular
 garden. Photos: Unsplash (`public/images/CREDITS.md`).
 
-The journey:
-- **A day in a garden.** Dawn over the Hills, a bed of bare dirt and two
-  sandstone rocks. Scroll and the sun crosses the sky while a native garden
-  grows — mat rush, kangaroo paws, a banksia in flower, a grass tree, a gum —
-  until it's dusk and the stars are out. "Plant it once. Let the weather do
-  the rest." All drawn in SVG.
-- **Find your plants.** Filter fourteen natives by sun, size and what you
-  want from them (birds, salt and wind, hedges, pots); save the ones you like
-  to a list that comes with you to the visit.
-- **Something in flower, every month.** A radial calendar: each ring is a
-  plant, each arc a month it flowers. Turn the dial and that month lights up.
-- **Dig into the numbers.** Garden size, the job, the look and extras give a
-  rough price, plant count and days on site — while a plan of your plot is
-  drawn from above and planted in that style's colours.
-- **Gardens we've grown.** Prints that come in crooked and straighten up.
-- **Let's walk the garden.** Postcode check and four kinds of job.
+The page, top to bottom:
+- **Hero** — a full-width photo of a native garden, what we do in one line,
+  Book a free site visit and Call, and four promises underneath.
+- **Services** — garden design, landscape construction, planting and garden
+  care, each with a photo, a price guide and a Book button.
+- **How we work** — site visit, drawn plan and fixed price, build, aftercare,
+  each with a photo.
+- **Projects** — a photo grid of recent gardens with what was planted.
+- **Plants we love** — seven natives with real photos, height, light and
+  flowering months; save them to a list that comes to the site visit.
+- **Pricing** — a rough guide (size, job, look, extras) with a photo of that
+  kind of job.
+- **Book a site visit** — postcode check, the four jobs, FAQs.
+
+Version 2 (the realistic redesign) replaced the drawn, scroll-grown garden,
+the drawn plant cards, the flower-calendar dial and the drawn estimate plan
+with real photography, and dropped the intro curtain, chapter rail, numbered
+chapter labels and marquee. The plant guide now only lists plants whose
+photos are clearly identified.
 
 ## Booking
 Project → garden (size, look, postcode, address) → visit (day and start
@@ -39,11 +42,6 @@ node test/qa.cjs; SITE=salt node test/audit.cjs; node test/a11y-overlays.cjs
 node test/hydration.cjs; node test/menu-focus.cjs; node test/imgq.cjs
 MODE=desktop node test/smooth.cjs; MODE=phone node test/smooth.cjs
 ```
-
-Performance notes: the opening garden stops rendering (and drops its layers)
-once it has scrolled away, and the estimator's dots use a `backwards`
-animation fill so they don't stay composited — an earlier `both` fill kept
-~140 layers alive and made every frame further down the page slower.
 
 ## Lovable (no credits spent)
 

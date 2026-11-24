@@ -509,7 +509,7 @@ export function BookingSheet() {
                       type="button"
                       onClick={next}
                       disabled={step === 0 && !ready[0]}
-                      className="btn sheen flex-1 bg-onyx text-white hover:bg-rose disabled:cursor-not-allowed disabled:bg-ink/25"
+                      className="btn flex-1 bg-onyx text-white hover:bg-rose disabled:cursor-not-allowed disabled:bg-ink/25"
                     >
                       {step === 3 ? "Book the visit" : "Continue"}{" "}
                       {step < 3 && <ArrowRight size={16} strokeWidth={1.8} />}

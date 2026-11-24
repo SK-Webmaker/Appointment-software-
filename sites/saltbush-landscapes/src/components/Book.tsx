@@ -1,52 +1,31 @@
 import { ArrowRight, Phone } from "lucide-react";
-import { ChapterLabel } from "./ChapterLabel";
-import { MaskLines, Reveal } from "./Reveal";
-import { PlantArt, type PlantKind } from "./PlantArt";
-import { AREA, FAQ, HOURS, PROJECTS, SITE } from "@/site.config";
+import { Img } from "./Img";
+import { Reveal } from "./Reveal";
+import { SectionHead } from "./Section";
+import { AREA, FAQ, HOURS, PROJECTS, SERVICES, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { suburbOf } from "@/lib/slots";
 
-const ICON: Record<string, PlantKind> = {
-  new: "grasstree",
-  makeover: "banksia",
-  planting: "paw",
-  care: "lomandra",
-};
+const PHOTO = Object.fromEntries(SERVICES.map((x) => [x.id, x.image])) as Record<string, string>;
 
-/** Chapter 05 — book a visit: check your suburb, then choose the job. Or just call. */
+/** Book a visit: check your suburb, then choose the job. Or just call. */
 export function Book() {
   const { openSheet, postcode, setPostcode } = useBooking();
   const suburb = suburbOf(postcode);
   return (
-    <section
-      id="visit"
-      className="sheet bg-noir pb-24 pt-24 text-ivory md:pb-32 md:pt-32"
-      aria-labelledby="visit-title"
-    >
-      <div className="glow-clip" aria-hidden="true">
-        <div className="absolute -left-40 top-0 h-[800px] w-[800px] bg-[radial-gradient(closest-side,rgb(201_214_195/0.12),transparent)]" />
-      </div>
-      <div className="relative mx-auto max-w-[1440px] px-5 md:px-10 xl:px-24">
-        <ChapterLabel id="visit" light />
-        <h2
+    <section id="visit" className="bg-noir py-20 text-ivory md:py-28" aria-labelledby="visit-title">
+      <div className="relative mx-auto max-w-[1320px] px-5 md:px-8">
+        <SectionHead
           id="visit-title"
-          className="mt-8 max-w-[14ch] text-[clamp(40px,8.4vw,104px)] leading-[0.96]"
-        >
-          <MaskLines lines={[<>Let's walk</>, <em className="text-silk">the garden.</em>]} />
-        </h2>
-        <Reveal>
-          <p className="mt-6 max-w-[46ch] text-[16px] leading-[1.75] text-ivory/80 md:text-[17px]">
-            A free, 45-minute visit: we look at the light, dig a test hole, hear what you love and
-            what you'd happily lose.
-          </p>
-        </Reveal>
+          label="Book a site visit"
+          title="Let's walk the garden together"
+          intro="A free, 45-minute visit: we look at the light, dig a test hole, and hear what you love and what you'd happily lose."
+          light
+        />
 
         <div className="mt-12 grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Reveal className="rounded-[26px] bg-coal p-6 md:p-8">
-            <label
-              htmlFor="sb-postcode"
-              className="text-[12px] font-bold uppercase tracking-[0.16em] text-pearl"
-            >
+          <Reveal className="rounded-[14px] bg-coal p-6 md:p-8">
+            <label htmlFor="sb-postcode" className="text-[15px] font-bold text-pearl">
               Are you in the Hills?
             </label>
             <input
@@ -97,11 +76,17 @@ export function Book() {
                 <button
                   type="button"
                   onClick={() => openSheet({ project: p.id })}
-                  className="group flex h-full w-full flex-col justify-between gap-6 rounded-[22px] bg-ivory p-5 text-left text-ink transition-transform duration-500 hover:-translate-y-0.5 md:p-6"
+                  className="group flex h-full w-full flex-col justify-between gap-6 rounded-[14px] bg-ivory p-5 text-left text-ink transition-colors hover:bg-white md:p-6"
                 >
                   <span className="flex items-start justify-between gap-3">
-                    <span className="grid h-16 w-16 shrink-0 place-items-end justify-center overflow-hidden rounded-2xl bg-mint pb-1">
-                      <PlantArt kind={ICON[p.id] ?? "shrub"} className="h-12 w-auto" />
+                    <span className="h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-mint">
+                      <Img
+                        name={PHOTO[p.id] ?? "planting"}
+                        widths={[800]}
+                        sizes="64px"
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     </span>
                     <ArrowRight
                       size={22}
@@ -110,7 +95,7 @@ export function Book() {
                     />
                   </span>
                   <span>
-                    <span className="block font-display text-[clamp(22px,2.6vw,28px)] leading-tight">
+                    <span className="block font-sans text-[19px] font-bold leading-tight">
                       {p.name}
                     </span>
                     <span className="mt-1.5 block text-[14.5px] text-ash">{p.note}</span>
@@ -118,7 +103,7 @@ export function Book() {
                 </button>
               </Reveal>
             ))}
-            <Reveal className="flex flex-col items-start gap-3 rounded-[22px] border border-dashed border-ivory/25 p-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between md:p-6">
+            <Reveal className="flex flex-col items-start gap-3 rounded-[14px] border border-ivory/20 p-5 sm:col-span-2 sm:flex-row sm:items-center sm:justify-between md:p-6">
               <p className="text-[15px] text-ivory/85">
                 Rather talk it through? We answer between gardens.
               </p>
@@ -130,7 +115,7 @@ export function Book() {
         </div>
 
         <div className="mt-16 grid gap-x-12 border-t border-ivory/10 pt-12 lg:grid-cols-[0.8fr_1.2fr]">
-          <h3 className="text-[clamp(30px,4vw,48px)] leading-[1]">Good to know</h3>
+          <h3 className="text-[clamp(28px,4vw,40px)] leading-[1.1]">Frequently asked questions</h3>
           <div className="mt-6 lg:mt-0">
             {FAQ.map((f) => (
               <details key={f.q} className="group border-b border-ivory/10 py-4">

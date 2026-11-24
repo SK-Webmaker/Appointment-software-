@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HERO_SIZES } from "@/components/Hero";
 import { Site } from "@/components/Site";
 import { SITE } from "@/site.config";
 
 const TITLE = `${SITE.name} — Native Gardens, ${SITE.area} ${SITE.city}`;
-const DESCRIPTION = `${SITE.name}: native garden design and planting for Sydney's ${SITE.area}. Find plants for your spot, see what flowers each month, estimate a garden and book a free site visit.`;
+const DESCRIPTION = `${SITE.name}: native garden design and planting for Sydney's ${SITE.area}. Garden design, landscape construction, planting and care — book a free site visit.`;
 const OG_IMAGE = `${SITE.url}/og-image.jpg`;
 
 export const Route = createFileRoute("/")({
@@ -25,7 +26,19 @@ export const Route = createFileRoute("/")({
       { property: "og:image:height", content: "630" },
       { name: "twitter:image", content: OG_IMAGE },
     ],
-    links: [{ rel: "canonical", href: `${SITE.url}/` }],
+    links: [
+      { rel: "canonical", href: `${SITE.url}/` },
+      {
+        rel: "preload",
+        as: "image",
+        href: "/images/hero2-1200.webp",
+        imageSrcSet: [800, 1200, 1600, 2000, 2400]
+          .map((w) => `/images/hero2-${w}.webp ${w}w`)
+          .join(", "),
+        imageSizes: HERO_SIZES,
+        fetchPriority: "high" as const,
+      },
+    ],
     scripts: [
       {
         type: "application/ld+json",
