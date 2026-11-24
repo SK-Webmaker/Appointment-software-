@@ -21,6 +21,17 @@ let lenis: Lenis | null = null;
  */
 const ANCHOR_OFFSET = 0;
 
+/**
+ * Where a section should sit: measured from the real scroll position, not
+ * Lenis's own idea of it, which drifts after a native jump (scrollIntoView,
+ * a restored position) on long pages with pinned scenes.
+ */
+function anchorY(target: HTMLElement | 0): number {
+  if (target === 0) return 0;
+  const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+  return Math.max(0, target.getBoundingClientRect().top + window.scrollY - pad + ANCHOR_OFFSET);
+}
+
 export function startSmoothScroll(): () => void {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return () => {};
   // Phones and tablets keep their own scrolling untouched: Lenis would only
@@ -52,7 +63,7 @@ export function startSmoothScroll(): () => void {
     const target = href === "#top" ? 0 : document.getElementById(href.slice(1));
     if (target === null) return;
     e.preventDefault();
-    instance.scrollTo(target, { offset: ANCHOR_OFFSET, force: true });
+    instance.scrollTo(anchorY(target), { force: true });
     history.pushState(null, "", href);
   };
   document.addEventListener("click", onClick);
@@ -103,7 +114,7 @@ export function settleHashJump(): () => void {
   const go = () => {
     const el = document.getElementById(id);
     if (cancelled || !el) return;
-    if (lenis) lenis.scrollTo(el, { offset: ANCHOR_OFFSET, immediate: true, force: true });
+    if (lenis) lenis.scrollTo(anchorY(el), { immediate: true, force: true });
     else el.scrollIntoView({ block: "start" });
   };
   const timers = [120, 600, 1700].map((ms) => window.setTimeout(go, ms));

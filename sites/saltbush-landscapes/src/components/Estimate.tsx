@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Img } from "./Img";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./Section";
+import { useTweened } from "./fx/Tween";
 import {
   EXTRAS,
   PROJECTS,
@@ -37,6 +38,8 @@ export function Estimate() {
   const [extras, setExtras] = useState<ExtraId[]>(["mulch"]);
   const est = estimate({ m2, project, style, extras });
   const side = Math.round(Math.sqrt(m2));
+  const lo = useTweened(est?.from ?? 0);
+  const hi = useTweened(est?.to ?? 0);
 
   return (
     <section
@@ -159,7 +162,16 @@ export function Estimate() {
               <div className="p-6 md:p-8" aria-live="polite">
                 <p className="text-[14px] font-bold text-silk">Roughly</p>
                 <p className="mt-2 font-display text-[clamp(34px,5vw,54px)] leading-none">
-                  {est ? `${money(est.from)} – ${money(est.to)}` : "—"}
+                  {est ? (
+                    <>
+                      <span className="sr-only">{`${money(est.from)} – ${money(est.to)}`}</span>
+                      <span aria-hidden="true" className="tabular-nums">
+                        {`${money(Math.round(lo))} – ${money(Math.round(hi))}`}
+                      </span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                   {est?.perVisit && (
                     <span className="ml-2 font-sans text-[16px] text-ivory/75">a visit</span>
                   )}

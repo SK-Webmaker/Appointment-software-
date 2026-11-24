@@ -2,6 +2,8 @@ import { ArrowRight, Check, Cloud, CloudSun, Plus, Sun } from "lucide-react";
 import { Img } from "./Img";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./Section";
+import { RevealImg } from "./fx/RevealImg";
+import { Tilt } from "./fx/Tilt";
 import { MONTHS, PLANTS, SUN_LABEL, type Plant } from "@/site.config";
 import { useBooking } from "@/context/booking";
 
@@ -67,7 +69,14 @@ export function Plants() {
         <ul className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {PLANTS.map((p, i) => (
             <Reveal as="li" key={p.id} delay={(i % 4) * 0.04}>
-              <Card p={p} saved={shortlist.includes(p.id)} onSave={() => toggleShortlist(p.id)} />
+              <Tilt className="h-full" max={7}>
+                <Card
+                  p={p}
+                  i={i}
+                  saved={shortlist.includes(p.id)}
+                  onSave={() => toggleShortlist(p.id)}
+                />
+              </Tilt>
             </Reveal>
           ))}
         </ul>
@@ -76,18 +85,30 @@ export function Plants() {
   );
 }
 
-function Card({ p, saved, onSave }: { p: Plant; saved: boolean; onSave: () => void }) {
+function Card({
+  p,
+  i,
+  saved,
+  onSave,
+}: {
+  p: Plant;
+  i: number;
+  saved: boolean;
+  onSave: () => void;
+}) {
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-[14px] border border-ink/10 bg-white">
       <div className="relative aspect-square overflow-hidden bg-stone">
         {p.image && (
-          <Img
-            name={p.image}
-            widths={[800]}
-            sizes="(min-width:1024px) 310px, (min-width:768px) 31vw, 46vw"
-            alt={p.alt ?? p.name}
-            className="h-full w-full object-cover"
-          />
+          <RevealImg className="h-full w-full" delay={(i % 4) * 0.07}>
+            <Img
+              name={p.image}
+              widths={[800]}
+              sizes="(min-width:1024px) 310px, (min-width:768px) 31vw, 46vw"
+              alt={p.alt ?? p.name}
+              className="h-full w-full object-cover"
+            />
+          </RevealImg>
         )}
         <button
           type="button"

@@ -5,6 +5,10 @@ import { BookingBar } from "./BookingBar";
 import { BookingSheet } from "./BookingSheet";
 import { Footer } from "./Footer";
 import { Hero } from "./Hero";
+import { Wordmark } from "./Logo";
+import { Cursor } from "./fx/Cursor";
+import { Preloader } from "./fx/Preloader";
+import { ScrollBar } from "./fx/ScrollBar";
 import { Nav } from "./Nav";
 import { Estimate } from "./Estimate";
 import { Plants } from "./Plants";
@@ -34,6 +38,11 @@ export function Site() {
         >
           Skip to booking a visit
         </a>
+        <Preloader bg="#1e2a22" accent="#e9b45a">
+          <Wordmark size={72} tone="light" />
+        </Preloader>
+        <ScrollBar />
+        <Cursor />
         <Nav />
         <main>
           <Hero />

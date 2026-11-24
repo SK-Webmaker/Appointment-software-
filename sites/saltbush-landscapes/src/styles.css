@@ -296,3 +296,41 @@ html.lenis body {
     transform: scale(0);
   }
 }
+
+/* The custom cursor (fx/Cursor.tsx) replaces the arrow for mouse users —
+   except where you type. */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+html.has-cursor input,
+html.has-cursor textarea,
+html.has-cursor select {
+  cursor: auto !important;
+}
+
+/* Leaves drifting down the opening scene (Leaves.tsx): one layer falls and
+   turns, the one inside sways side to side. */
+@keyframes leaf-fall {
+  from {
+    transform: translate3d(0, -12vh, 0) rotate(0deg);
+  }
+  to {
+    transform: translate3d(var(--dx, 0), 112vh, 0) rotate(var(--spin, 360deg));
+  }
+}
+@keyframes leaf-sway {
+  from {
+    transform: translate3d(-18px, 0, 0) rotate(-16deg);
+  }
+  to {
+    transform: translate3d(18px, 0, 0) rotate(16deg);
+  }
+}
+.leaf-fall {
+  animation: leaf-fall 12s linear infinite;
+  will-change: transform;
+}
+.leaf-sway {
+  animation: leaf-sway 3s ease-in-out infinite alternate;
+}

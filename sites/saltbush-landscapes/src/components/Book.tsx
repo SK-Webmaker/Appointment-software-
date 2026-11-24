@@ -2,6 +2,7 @@ import { ArrowRight, Phone } from "lucide-react";
 import { Img } from "./Img";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./Section";
+import { Spotlight } from "./fx/Spotlight";
 import { AREA, FAQ, HOURS, PROJECTS, SERVICES, SITE } from "@/site.config";
 import { useBooking } from "@/context/booking";
 import { suburbOf } from "@/lib/slots";
@@ -13,7 +14,12 @@ export function Book() {
   const { openSheet, postcode, setPostcode } = useBooking();
   const suburb = suburbOf(postcode);
   return (
-    <section id="visit" className="bg-noir py-20 text-ivory md:py-28" aria-labelledby="visit-title">
+    <section
+      id="visit"
+      className="relative overflow-hidden bg-noir py-20 text-ivory md:py-28"
+      aria-labelledby="visit-title"
+    >
+      <Spotlight color="rgb(233 180 90 / 0.16)" />
       <div className="relative mx-auto max-w-[1320px] px-5 md:px-8">
         <SectionHead
           id="visit-title"

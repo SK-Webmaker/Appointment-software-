@@ -1,54 +1,62 @@
 import { Img } from "./Img";
-import { Reveal } from "./Reveal";
-import { SectionHead } from "./Section";
+import { HScroll } from "./fx/HScroll";
+import { SplitText } from "./fx/SplitText";
 import { GARDENS } from "@/site.config";
 
-/** Recent projects: a plain photo grid, one large feature, with what we planted under each. */
+/**
+ * Recent gardens as a pinned sideways reel: the section holds while you
+ * scroll and the gardens slide past, big, with what we planted in each.
+ */
 export function Projects() {
   return (
-    <section
+    <HScroll
       id="projects"
-      className="bg-ivory py-20 text-ink md:py-28"
-      aria-labelledby="projects-title"
+      labelledBy="projects-title"
+      className="bg-noir text-white"
+      head={
+        <div className="flex w-[78vw] shrink-0 flex-col justify-center sm:w-[56vw] lg:w-[34vw]">
+          <p className="text-[14px] font-semibold text-pearl">Projects</p>
+          <SplitText
+            as="h2"
+            id="projects-title"
+            text="Recent gardens around the Hills"
+            className="mt-3 text-[clamp(36px,5.6vw,78px)] leading-[1.02]"
+          />
+          <p className="mt-5 max-w-[34ch] text-[16.5px] leading-relaxed text-white/75">
+            Front yards, courtyards and the awkward strip down the side — each one planted for its
+            own soil and sun. Keep scrolling →
+          </p>
+        </div>
+      }
     >
-      <div className="mx-auto max-w-[1320px] px-5 md:px-8">
-        <SectionHead
-          id="projects-title"
-          label="Projects"
-          title="Recent gardens around the Hills"
-          intro="Front yards, courtyards and the awkward strip down the side — each one planted for its own soil and sun."
-        />
-        <ul className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
-          {GARDENS.map((g, i) => (
-            <Reveal
-              as="li"
-              key={g.image}
-              delay={(i % 4) * 0.04}
-              className={i === 0 ? "col-span-2 row-span-2" : ""}
-            >
-              <figure className="flex h-full flex-col">
-                <div
-                  className={`overflow-hidden rounded-[12px] bg-stone ${i === 0 ? "aspect-[4/3] md:aspect-auto md:flex-1" : "aspect-[4/3]"}`}
-                >
-                  <Img
-                    name={g.image}
-                    widths={[800, 1200]}
-                    sizes={
-                      i === 0 ? "(min-width:768px) 640px, 92vw" : "(min-width:768px) 320px, 46vw"
-                    }
-                    alt={g.alt}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <figcaption className="mt-2">
-                  <span className="block text-[15px] font-bold">{g.caption}</span>
-                  <span className="block text-[13.5px] text-ash">{g.plants}</span>
-                </figcaption>
-              </figure>
-            </Reveal>
-          ))}
-        </ul>
-      </div>
-    </section>
+      {GARDENS.map((g, i) => (
+        <figure
+          key={g.image}
+          data-cursor="View"
+          className={`group relative h-[64svh] shrink-0 overflow-hidden rounded-[18px] bg-coal ${i % 2 ? "w-[72vw] sm:w-[40vw] lg:w-[30vw]" : "w-[84vw] sm:w-[56vw] lg:w-[44vw]"}`}
+        >
+          <Img
+            name={g.image}
+            widths={[800, 1200]}
+            sizes="(min-width:1024px) 44vw, 84vw"
+            alt={g.alt}
+            className="h-full w-full object-cover transition-transform duration-[1.2s] ease-out group-hover:scale-[1.06]"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          <figcaption data-qa="layered" className="absolute inset-x-5 bottom-5">
+            <span className="block font-display text-[clamp(22px,2.2vw,30px)] leading-tight">
+              {g.caption}
+            </span>
+            <span className="mt-1 block text-[14px] text-white/85">{g.plants}</span>
+          </figcaption>
+          <span
+            className="absolute right-5 top-4 font-display text-[44px] leading-none text-white/90"
+            aria-hidden="true"
+          >
+            0{i + 1}
+          </span>
+        </figure>
+      ))}
+    </HScroll>
   );
 }
