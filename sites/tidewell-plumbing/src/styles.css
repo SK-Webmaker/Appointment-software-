@@ -322,3 +322,49 @@ html.lenis body {
     opacity: 0;
   }
 }
+
+/* The custom cursor (fx/Cursor.tsx) replaces the arrow for mouse users —
+   except where you type or drag a slider. */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+html.has-cursor input,
+html.has-cursor textarea,
+html.has-cursor select {
+  cursor: auto !important;
+}
+
+/* A ripple spreading out on the water (Hero.tsx). */
+@keyframes ripple {
+  from {
+    transform: translate(-50%, -50%) scale(0.1);
+    opacity: 0.9;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+.ripple {
+  animation: ripple 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* A drop falling from the tap in the drip photo (Help.tsx). */
+@keyframes fall {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.4, 0.6);
+    opacity: 0;
+  }
+  15% {
+    transform: translate3d(0, 0, 0) scale(1, 1);
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, 260px, 0) scale(0.9, 1.3);
+    opacity: 0;
+  }
+}

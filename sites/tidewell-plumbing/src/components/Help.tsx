@@ -64,13 +64,20 @@ export function Help() {
             delay={0.05}
             className="overflow-hidden rounded-[14px] border border-ink/10 bg-white"
           >
-            <div className="aspect-[16/9] overflow-hidden bg-stone">
+            <div className="relative aspect-[16/9] overflow-hidden bg-stone">
               <Img
                 name="drip"
                 widths={[800, 1200]}
                 sizes="(min-width:1024px) 520px, 92vw"
                 alt="A drop of water about to fall from a chrome tap"
                 className="h-full w-full object-cover"
+              />
+              {/* drops falling from the tap at the speed you set */}
+              <span
+                key={dpm}
+                className="absolute left-[52.5%] top-[30%] h-4 w-3 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] bg-[linear-gradient(160deg,#ffffff,#9fe3d4)] shadow-[0_0_10px_rgba(159,227,212,0.8)] will-change-transform [animation-iteration-count:infinite] [animation-name:fall] [animation-timing-function:cubic-bezier(0.55,0,1,0.45)] motion-reduce:hidden"
+                style={{ animationDuration: `${Math.max(0.45, 60 / dpm)}s` }}
+                aria-hidden="true"
               />
             </div>
             <div className="p-6 md:p-7" id="drip">

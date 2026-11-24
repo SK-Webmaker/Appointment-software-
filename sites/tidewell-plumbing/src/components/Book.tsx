@@ -1,6 +1,7 @@
 import { ArrowRight, CalendarClock, FileText, Phone, Siren } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { SectionHead } from "./Section";
+import { Spotlight } from "./fx/Spotlight";
 import { AREA, FAQ, HOURS, SITE } from "@/site.config";
 import { useBooking, type Urgency } from "@/context/booking";
 import { etaNow, suburbOf } from "@/lib/slots";
@@ -31,7 +32,12 @@ export function Book() {
   const { openSheet, postcode, setPostcode } = useBooking();
   const suburb = suburbOf(postcode);
   return (
-    <section id="book" className="bg-noir py-20 text-ivory md:py-28" aria-labelledby="book-title">
+    <section
+      id="book"
+      className="relative overflow-hidden bg-noir py-20 text-ivory md:py-28"
+      aria-labelledby="book-title"
+    >
+      <Spotlight />
       <div className="relative mx-auto max-w-[1320px] px-5 md:px-8">
         <SectionHead
           id="book-title"

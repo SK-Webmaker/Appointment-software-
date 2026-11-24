@@ -1,6 +1,9 @@
 import { Check } from "lucide-react";
 import { Img } from "./Img";
 import { Reveal } from "./Reveal";
+import { Counter } from "./fx/Counter";
+import { RevealImg } from "./fx/RevealImg";
+import { SplitText } from "./fx/SplitText";
 import { AREA, SITE } from "@/site.config";
 
 const POINTS = [
@@ -36,7 +39,7 @@ export function About() {
       <div className="mx-auto max-w-[1320px] px-5 md:px-8">
         <div className="grid items-center gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
           <Reveal className="relative">
-            <div className="aspect-[4/5] overflow-hidden rounded-[14px] bg-stone">
+            <RevealImg className="aspect-[4/5] rounded-[14px] bg-stone">
               <Img
                 name="plumber"
                 widths={[800, 1200]}
@@ -44,8 +47,11 @@ export function About() {
                 alt="A plumber in work gear fitting a bathroom basin, with a toilet beside him"
                 className="h-full w-full object-cover"
               />
-            </div>
-            <div data-qa="layered" className="absolute -bottom-6 right-4 hidden w-[46%] overflow-hidden rounded-[12px] border-[6px] border-ivory sm:block">
+            </RevealImg>
+            <div
+              data-qa="layered"
+              className="absolute -bottom-6 right-4 hidden w-[46%] overflow-hidden rounded-[12px] border-[6px] border-ivory sm:block"
+            >
               <Img
                 name="tools"
                 widths={[800]}
@@ -77,14 +83,19 @@ export function About() {
               ))}
             </ul>
             <dl className="mt-8 grid grid-cols-3 gap-4 border-t border-ink/10 pt-6">
-              {[
-                [SITE.est, "Family-run since"],
-                [String(Object.keys(AREA).length), "Suburbs we cover"],
-                ["7 days", "For urgent jobs"],
-              ].map(([v, k]) => (
+              {(
+                [
+                  [Number(SITE.est), "Family-run since", ""],
+                  [Object.keys(AREA).length, "Suburbs we cover", ""],
+                  [7, "Days a week for urgent jobs", ""],
+                ] as const
+              ).map(([v, k, suffix]) => (
                 <div key={k}>
                   <dt className="text-[13.5px] text-ash">{k}</dt>
-                  <dd className="mt-1 font-display text-[28px] font-semibold leading-none">{v}</dd>
+                  <dd className="mt-1 font-display text-[34px] font-semibold leading-none">
+                    <Counter to={v} />
+                    {suffix}
+                  </dd>
                 </div>
               ))}
             </dl>
@@ -92,20 +103,34 @@ export function About() {
         </div>
 
         <div className="mt-24">
-          <Reveal>
-            <h3 className="text-[clamp(26px,4vw,36px)] leading-tight">How a job works</h3>
-          </Reveal>
-          <ol className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <SplitText
+            as="h3"
+            text="How a job works"
+            className="text-[clamp(30px,5vw,52px)] leading-tight"
+          />
+          <ol className="mt-10">
             {STEPS.map((s, i) => (
-              <Reveal as="li" key={s.title} delay={i * 0.05}>
-                <div className="h-full rounded-[14px] border border-ink/10 bg-white p-6">
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-onyx text-[15px] font-bold text-white">
-                    {i + 1}
+              <li
+                key={s.title}
+                className="sticky mb-[18vh] last:mb-0"
+                style={{ top: `calc(var(--nav-h) + 24px + ${i * 22}px)` }}
+              >
+                <div
+                  className={`grid min-h-[300px] gap-6 rounded-[22px] p-7 shadow-[0_-20px_50px_-30px_rgba(15,43,42,0.5)] md:grid-cols-[auto_1fr] md:items-center md:gap-12 md:p-12 ${["bg-noir text-white", "bg-onyx text-white", "bg-candy text-ink", "bg-white text-ink"][i % 4]}`}
+                >
+                  <span className="font-display text-[clamp(90px,16vw,200px)] font-semibold leading-[0.8] opacity-90">
+                    0{i + 1}
                   </span>
-                  <h4 className="mt-4 text-[18px] font-bold">{s.title}</h4>
-                  <p className="mt-2 text-[15px] leading-relaxed text-ash">{s.text}</p>
+                  <div>
+                    <h4 className="font-display text-[clamp(28px,4vw,48px)] font-semibold leading-tight">
+                      {s.title}
+                    </h4>
+                    <p className="mt-3 max-w-[48ch] text-[17px] leading-relaxed opacity-85">
+                      {s.text}
+                    </p>
+                  </div>
                 </div>
-              </Reveal>
+              </li>
             ))}
           </ol>
         </div>

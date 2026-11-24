@@ -11,6 +11,10 @@ import { Nav } from "./Nav";
 import { Problems } from "./Problems";
 import { Services } from "./Services";
 import { Work } from "./Work";
+import { Wordmark } from "./Logo";
+import { Cursor } from "./fx/Cursor";
+import { Preloader } from "./fx/Preloader";
+import { ScrollBar } from "./fx/ScrollBar";
 import { BookingProvider } from "@/context/booking";
 import { settleHashJump, startSmoothScroll } from "@/lib/smooth";
 
@@ -34,6 +38,11 @@ export function Site() {
         >
           Skip to booking a plumber
         </a>
+        <Preloader>
+          <Wordmark size={72} tone="light" />
+        </Preloader>
+        <ScrollBar />
+        <Cursor />
         <Nav />
         <main>
           <Hero />

@@ -7,7 +7,7 @@ const { launch } = require("./pw.cjs");
 const TARGET = process.env.TARGET;
 const SITE = process.env.SITE || "tide";
 const CFG = {
-  tide: { first: "services", book: "book", sticky: [], pinnedGallery: null, sheetName: /Your job/, rail: false, scene: false },
+  tide: { first: "services", book: "book", sticky: ["top"], pinnedGallery: "work", sheetName: /Your job/, rail: false },
   gull: { first: "problems", book: "book", sticky: ["top", "how"], pinnedGallery: null, sheetName: /Your job/ },
   hollis: { first: "cuts", book: "book", sticky: ["top", "ritual"], pinnedGallery: null, sheetName: /Your booking/ },
   jovana: { first: "glam", book: "book", sticky: ["top", "bridal"], pinnedGallery: null, sheetName: /Your booking/ },
