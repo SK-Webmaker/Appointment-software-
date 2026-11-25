@@ -73,6 +73,22 @@ body {
 }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
 input, select, textarea { font: inherit; color: var(--text); }
+/* Native controls (calendar icon, number arrows, option lists) follow the
+   dark theme. A business that picked the light booking page keeps light ones. */
+:root { color-scheme: dark; }
+:root[data-brand-theme="light"] { color-scheme: light; }
+/* A date, time or number box outside a .field had no background of its own,
+   so the browser drew it white under our near-white text — the dates picked
+   on Performance and the hours in Settings were close to invisible. :where()
+   keeps this at zero specificity, so any container that styles its own boxes
+   still wins. */
+:where(input[type=date], input[type=time], input[type=datetime-local], input[type=month], input[type=number]) {
+  background-color: var(--bg-raise); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+}
+:where(input[type=date], input[type=time], input[type=datetime-local], input[type=month], input[type=number]):focus {
+  border-color: var(--accent); outline: none;
+}
 a { color: var(--accent); text-decoration: none; }
 ::placeholder { color: var(--muted); }
 
