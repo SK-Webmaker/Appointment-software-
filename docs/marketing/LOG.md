@@ -2,6 +2,23 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 26 November 2026 — preview outreach
+
+- **Replies:** 0. **New bounces:** 0.
+- **Follow-ups:** 4 sent, in their threads, to the 22 Nov first emails.
+  The fifth (the resend to a second address on 23 Nov) is due on the
+  next run.
+- **Checked:** 49 sites in 17 regional towns and outer suburbs not tried
+  before (Frankston, Penrith, Mandurah, Bunbury, Wagga Wagga, Coffs
+  Harbour, Gosford, Albury-Wodonga, Mackay and others). 6 passed, all
+  second group (they already book online).
+  - **Skipped:** no published email (the most common reason), no menu
+    with prices that could be read clearly, nothing on the site dated
+    2025 or later, or a training academy rather than a salon.
+- **Sent:** 6 first emails, each with its picture. Mail-tester: 9.4/10.
+- **Totals so far:** 32 businesses emailed, 1 hard bounce, 10 follow-ups,
+  0 replies, 0 sign-ups.
+
 ## 25 November 2026 — preview outreach (first run offering the free trial)
 
 - **Replies:** 0. **New bounces:** 0.
