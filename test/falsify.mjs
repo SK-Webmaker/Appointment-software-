@@ -1624,6 +1624,37 @@ const MUTATIONS = {
     find: "      if (asked && !allowed.has(asked)) throw httpError(400,",
     replace: "      if (false) throw httpError(400,",
   },
+  // ── Kai's week, the marketing assistant (src/marketing.js) ───────────────
+  'kai-discount-ignores-cap': {
+    file: 'src/marketing.js', suites: ['marketing'],
+    find: '  const percent = Math.min(10, cap);',
+    replace: '  const percent = 10;',
+  },
+  'kai-winback-messages-opted-out': {
+    file: 'src/campaigns.js', suites: ['marketing'],
+    find: '  for (const c0 of candidates) {\n    if (off.has(c0.id)) continue;',
+    replace: '  for (const c0 of candidates) {',
+  },
+  'kai-perk-forgotten-at-booking': {
+    file: 'src/api.js', suites: ['marketing'],
+    find: '  const perk = perkFor(credited);',
+    replace: "  const perk = '';",
+  },
+  'kai-rewrite-invents-numbers': {
+    file: 'src/kai-agent.js', suites: ['marketing'],
+    find: '  if (added.length) {',
+    replace: '  if (false) {',
+  },
+  'kai-allowance-never-runs-out': {
+    file: 'src/kai-agent.js', suites: ['marketing'],
+    find: '  if (a.left <= 0) {',
+    replace: '  if (false) {',
+  },
+  'kai-week-shown-to-staff': {
+    file: 'src/api.js', suites: ['marketing'],
+    find: "route('GET', '/api/marketing/week', async ({ user }) => {\n  ownerOnly(user);",
+    replace: "route('GET', '/api/marketing/week', async ({ user }) => {",
+  },
 };
 
 const only = process.argv.slice(2);

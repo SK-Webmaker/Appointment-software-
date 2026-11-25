@@ -37,13 +37,19 @@
 // what makes a deploy a file copy. The wire format used is exactly the
 // documented one: tools, adaptive thinking (the model's default), effort,
 // prompt caching and server-side refusal fallback.
-import { db } from './db.js';
+import { db, getSetting, setSetting } from './db.js';
 
 const API_URL = () => (process.env.KAIRO_ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '') + '/v1/messages';
 const apiKey = () => process.env.KAIRO_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-// Claude Sonnet 5.5: half the price of Opus, and plenty for looking things up
-// and filling in forms. KAIRO_KAI_MODEL=claude-opus-5-5 switches back.
-export const MODEL = () => process.env.KAIRO_KAI_MODEL || 'claude-sonnet-5-5';
+// Claude Haiku 5.5, the owner's choice (24 Nov 2026): Kai comes free with every
+// salon inside a fair-use allowance, so the model has to cost pennies a month
+// for a busy salon. It looks things up, fills in forms and words a message
+// well. KAIRO_KAI_MODEL=claude-sonnet-5-5 (or claude-opus-5-5) moves it up.
+export const MODEL = () => process.env.KAIRO_KAI_MODEL || 'claude-haiku-5-5';
+// Haiku has no server-side refusal fallback: a declined request stays declined
+// and a list of fallback models is a 400, so the parameter is sent only to the
+// models that have one.
+const hasFallback = (model) => !/^claude-haiku/.test(model);
 const EFFORT = () => (['low', 'medium', 'high', 'xhigh', 'max'].includes(process.env.KAIRO_KAI_EFFORT)
   ? process.env.KAIRO_KAI_EFFORT : 'medium');
 
@@ -186,17 +192,18 @@ const TOOLS = [
 
 class AgentError extends Error {}
 
-async function callClaude({ system, messages }) {
+async function callClaude({ system, messages, tools = TOOLS, maxTokens = 16000, effort = EFFORT() }) {
+  const model = MODEL();
   const body = {
-    model: MODEL(),
-    max_tokens: 16000,
+    model,
+    max_tokens: maxTokens,
     system,
-    tools: TOOLS,
+    ...(tools.length ? { tools } : {}),
     messages,
-    output_config: { effort: EFFORT() },
+    output_config: { effort },
     // A safety decline is re-run server-side on the recommended model for its
     // category instead of coming back as a dead end mid-conversation.
-    fallbacks: 'default',
+    ...(hasFallback(model) ? { fallbacks: 'default' } : {}),
     // The newest turn joins the cached prefix, so each step of a multi-step
     // job re-reads the conversation from cache rather than paying for it again.
     cache_control: { type: 'ephemeral' },
@@ -211,7 +218,7 @@ async function callClaude({ system, messages }) {
           'content-type': 'application/json',
           'x-api-key': apiKey(),
           'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'server-side-fallback-2026-07-01',
+          ...(hasFallback(model) ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : {}),
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(180_000),
@@ -377,6 +384,7 @@ export async function send({ userId, chatId, text, ctx, invoke, catalogue }) {
   if (chat && JSON.stringify(chat.messages).length > HISTORY_CAP) chat = null;  // too long: start afresh
   if (!chat) chat = create(userId, text.replace(/\s+/g, ' ').trim());
   if (busy.has(chat.id)) throw Object.assign(new Error('Kai is still working on your last message'), { status: 409 });
+  takeAllowance();
   busy.add(chat.id);
   try {
     const content = [];
@@ -434,4 +442,88 @@ export async function confirm({ userId, chatId, approve, ctx, invoke, catalogue 
   } finally {
     busy.delete(chat.id);
   }
+}
+
+// ── Fair use ─────────────────────────────────────────────────────────────────
+//
+// Kai is included with every salon, with no credits to buy. What keeps that
+// honest is a monthly allowance per salon: each message the owner sends Kai,
+// and each "reword this" on a draft, is one. A busy salon uses well under it;
+// the cap is what stops one salon running up a bill for everyone. Reset on
+// the 1st. The weekly plan, the promo builder and sending need no AI at all
+// and are never counted.
+export const MONTHLY_ALLOWANCE = () => Math.max(0, Number(process.env.KAIRO_KAI_MONTHLY_LIMIT || 300));
+
+const thisMonth = () => new Date().toISOString().slice(0, 7);
+
+/** { month, used, allowance, left } for the salon in scope. */
+export function allowance() {
+  let used = 0;
+  try {
+    const raw = JSON.parse(getSetting('kai_uses', '{}') || '{}');
+    if (raw && raw.month === thisMonth()) used = Number(raw.n) || 0;
+  } catch { used = 0; }
+  const cap = MONTHLY_ALLOWANCE();
+  return { month: thisMonth(), used, allowance: cap, left: Math.max(0, cap - used) };
+}
+
+/** Count one use, or refuse with a plain 429 once the month's allowance is spent. */
+export function takeAllowance() {
+  const a = allowance();
+  if (a.left <= 0) {
+    throw Object.assign(new Error(`Kai has used this month's ${a.allowance} messages. It starts again on the 1st. `
+      + 'Your weekly plan, promos and sending still work in the meantime.'), { status: 429 });
+  }
+  setSetting('kai_uses', JSON.stringify({ month: a.month, n: a.used + 1 }));
+  return { ...a, used: a.used + 1, left: a.left - 1 };
+}
+
+// ── Rewording a draft ────────────────────────────────────────────────────────
+
+const REWRITE_SYSTEM = `You reword short marketing messages for a small appointment-based business (a salon, barber, nail, lash or beauty studio) so they sound like the owner wrote them: warm, plain, brief, Australian English.
+
+Keep every fact exactly as given: names, dates, days, times, prices, percentages and what is offered for free. Do not add an offer, a discount, a deadline, urgency or a claim that is not already in the message. Keep the placeholders {first_name}, {business_name} and {booking_link} exactly as written, each where it makes sense. Keep any opt-out line. No emojis, no hashtags, no exclamation marks.
+
+Reply with the reworded message only, as plain text, with nothing before or after it.`;
+
+/** The numbers in a text: "$45", "10%", "2:30", "14". */
+const numbersIn = (t) => new Set(String(t).match(/\d+(?:[.:]\d+)?/g) || []);
+
+/**
+ * Reword one draft in the owner's voice. Counted against the allowance.
+ *
+ * The reply is checked before it is used: every placeholder that was in the
+ * draft must still be there, and it must not contain a number the draft did
+ * not. A model that turns "a free toner" into "20% off" has invented an offer,
+ * and the owner would be the one honouring it.
+ */
+export async function rewriteDraft({ text, channel = 'email' }) {
+  if (!agentEnabled()) throw Object.assign(new Error('Rewording needs Kai\'s AI, which is not switched on for this server'), { status: 409 });
+  const draft = String(text || '').trim();
+  if (!draft) throw Object.assign(new Error('There is nothing to reword yet'), { status: 400 });
+  takeAllowance();
+  const ask = channel === 'sms'
+    ? `Reword this text message. Keep it under 300 characters.\n\n${draft}`
+    : `Reword this email.\n\n${draft}`;
+  const resp = await callClaude({
+    system: [{ type: 'text', text: REWRITE_SYSTEM }],
+    messages: [{ role: 'user', content: ask }],
+    tools: [],
+    maxTokens: 4000,
+    effort: 'low',
+  }).catch((err) => { throw Object.assign(new Error(err.message || 'Kai could not reword that just now'), { status: 502 }); });
+  if (resp.stop_reason === 'refusal') throw Object.assign(new Error('Kai would not reword that one. The original is unchanged.'), { status: 422 });
+  const out = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  if (!out) throw Object.assign(new Error('Kai came back with nothing. The original is unchanged.'), { status: 502 });
+  for (const tok of ['{first_name}', '{booking_link}', '{business_name}']) {
+    if (draft.includes(tok) && !out.includes(tok)) {
+      throw Object.assign(new Error(`Kai's version dropped ${tok}, so it was not used. The original is unchanged.`), { status: 422 });
+    }
+  }
+  const before = numbersIn(draft);
+  const added = [...numbersIn(out)].filter((n) => !before.has(n));
+  if (added.length) {
+    throw Object.assign(new Error('Kai\'s version changed a number in the offer, so it was not used. The original is unchanged.'), { status: 422 });
+  }
+  return { text: out, allowance: allowance() };
 }

@@ -17,16 +17,18 @@
 //      two. Enforced here, on the server, not in the screen that calls it.
 //   2. THE OWNER SEES THE LIST. Every recipient carries the reason they are on
 //      it, so a name that looks wrong can be unticked before anything goes.
-//   3. KAIRO NEVER INVENTS A DISCOUNT. If an offer is going in the message the
-//      owner types it. Software that quietly cuts a business's margins to hit
-//      its own numbers is not on their side.
+//   3. NOTHING GOES OUT UNREAD. Kai's weekly plan (src/marketing.js) may
+//      SUGGEST a perk — a free add-on first, a discount only when there is no
+//      add-on, and never more than the owner's own cap — but it is in a draft
+//      the owner reads, edits and sends. Software that quietly cuts a
+//      business's margins to hit its own numbers is not on their side.
 import crypto from 'node:crypto';
 import { db, getSetting, publicUrl } from './db.js';
 
 /** Message kinds this module can queue. Kept apart from the transactional
  *  kinds (confirmation, reminder, receipt) because those are expected mail and
  *  these are not — only these are rate-limited by the cooldown. */
-export const CAMPAIGN_KINDS = new Set(['gap_offer', 'rebook_nudge']);
+export const CAMPAIGN_KINDS = new Set(['gap_offer', 'rebook_nudge', 'winback_offer', 'birthday_offer', 'promo']);
 
 /**
  * Who a campaign goes to.
@@ -231,6 +233,26 @@ export function draftFor(kind, context = {}, audience = 'matched') {
         + `If you'd like it, it's first to book.${linkLine}\n\n${biz}`,
     };
   }
+  if (kind === 'winback_offer') {
+    const perk = context.perk ? ` If you book in the next fortnight, ${context.perk} is on us.` : '';
+    return {
+      subject: `We've missed you at ${biz}`,
+      body: `Hi {first_name}, it's been a while since we saw you and we'd love to have you back.${perk}${linkLine}\n\n${biz}`,
+    };
+  }
+  if (kind === 'birthday_offer') {
+    const perk = context.perk ? ` As a little treat, ${context.perk} is on us if you book in this month.` : '';
+    return {
+      subject: `Happy birthday from ${biz}`,
+      body: `Hi {first_name}, happy birthday from all of us at ${biz}.${perk}${linkLine}\n\n${biz}`,
+    };
+  }
+  if (kind === 'promo') {
+    return {
+      subject: context.subject || `Something for you at ${biz}`,
+      body: context.body || `Hi {first_name}, we've got room in the diary ${context.when || 'this week'}.${linkLine}\n\n${biz}`,
+    };
+  }
   if (kind === 'rebook_nudge') {
     return {
       subject: `Time for your next visit?`,
@@ -383,6 +405,13 @@ export function recipientsFor(kind, { today, channel = 'both', context = {}, aud
     return out;
   }
 
+  // Kai's three: people who have been gone a long time, people with a
+  // birthday this week, and people a promo is actually about. None of them
+  // needs a visit rhythm, so they are picked before the cadence loop below.
+  if (kind === 'winback_offer' || kind === 'birthday_offer' || kind === 'promo') {
+    return kaiRecipients(kind, { today, channel, context, history, skip, off, booked });
+  }
+
   const out = [];
   for (const [clientId, dates] of history) {
     if (booked.has(clientId)) continue;            // already coming in
@@ -429,14 +458,104 @@ export function recipientsFor(kind, { today, channel = 'both', context = {}, aud
   return out;
 }
 
+/** 'MM-DD' for each of the next `days` days, starting today. */
+function birthdayKeys(today, days = 7) {
+  const out = new Map();
+  for (let i = 0; i < days; i++) {
+    const d = addDays(today, i);
+    out.set(d.slice(5), d);
+  }
+  return out;
+}
+
+/** How long a client counts as "gone": past twice their own gap, and ten weeks at least. */
+export const WINBACK_MIN_DAYS = 70;
+/** And not so long ago they have forgotten who you are. */
+export const WINBACK_MAX_DAYS = 400;
+
+/**
+ * Recipients for Kai's kinds. The same exclusions as every campaign — opted
+ * out never, already booked never, cooling off shown but not selectable — and
+ * each person carries the reason they are on the list.
+ */
+function kaiRecipients(kind, { today, channel, context, history, skip, off, booked }) {
+  const weeks = (n) => Math.max(1, Math.round(n / 7));
+  const candidates = [];
+
+  if (kind === 'winback_offer') {
+    for (const [clientId, dates] of history) {
+      if (dates.length < 2) continue;
+      const since = daysBetween(dates[dates.length - 1], today);
+      if (since < WINBACK_MIN_DAYS || since > WINBACK_MAX_DAYS) continue;
+      // A client with a rhythm is only "gone" once they are well past it; the
+      // rebooking nudge is the right message for somebody merely late.
+      // A client with a regular rhythm who has drifted is the rebooking
+      // nudge's ("it's been a little while"), not a win-back: one approach per
+      // person, never both on the same screen.
+      if (cadence(dates)) continue;
+      candidates.push({ id: clientId, why: `${dates.length} visits · last in ${weeks(since)} wks ago`, n: dates.length });
+    }
+  } else if (kind === 'birthday_offer') {
+    const keys = birthdayKeys(today, 7);
+    const rows = keys.size
+      ? db.prepare(`SELECT id, birthday FROM clients WHERE birthday IN (${[...keys.keys()].map(() => '?').join(',')})`)
+        .all(...keys.keys())
+      : [];
+    for (const r of rows) {
+      const d = keys.get(r.birthday);
+      const day = DAY_NAMES[weekdayOf(d)];
+      candidates.push({ id: r.id, why: `Birthday ${day} ${Number(d.slice(8))}`, n: history.get(r.id)?.length || 0 });
+    }
+  } else if (kind === 'promo') {
+    // The people a promo is about: anyone who has had this service (or, with
+    // no service named, anyone who has been in) in the last year or so.
+    const serviceId = Number(context.service_id) || 0;
+    const rows = serviceId
+      ? db.prepare(
+        `SELECT a.client_id, MAX(a.date) AS last, COUNT(*) AS n FROM appointments a
+          WHERE a.client_id IS NOT NULL AND a.status NOT IN ('cancelled','no_show') AND a.date <= ?
+            AND (a.service_id = ? OR a.id IN (SELECT appointment_id FROM appointment_services WHERE service_id = ?))
+          GROUP BY a.client_id`
+      ).all(today, serviceId, serviceId)
+      : [];
+    if (serviceId) {
+      for (const r of rows) {
+        const since = daysBetween(r.last, today);
+        if (since > WINBACK_MAX_DAYS) continue;
+        candidates.push({ id: r.client_id, why: `Had it ${r.n} time${r.n === 1 ? '' : 's'} · last in ${weeks(since)} wks ago`, n: r.n });
+      }
+    } else {
+      for (const [clientId, dates] of history) {
+        const since = daysBetween(dates[dates.length - 1], today);
+        if (since > WINBACK_MAX_DAYS) continue;
+        candidates.push({ id: clientId, why: `${dates.length} visit${dates.length === 1 ? '' : 's'} · last in ${weeks(since)} wks ago`, n: dates.length });
+      }
+    }
+  }
+
+  const out = [];
+  for (const c0 of candidates) {
+    if (off.has(c0.id)) continue;
+    if (booked.has(c0.id)) continue;
+    const c = db.prepare('SELECT id, first_name, last_name, email, phone FROM clients WHERE id = ?').get(c0.id);
+    if (!c || !reachable(c, channel)) continue;
+    out.push({ ...c, why: c0.why, cooling_off: skip.has(c0.id), visits: c0.n });
+  }
+  out.sort((a, b) => {
+    if (a.cooling_off !== b.cooling_off) return a.cooling_off ? 1 : -1;
+    return (b.visits || 0) - (a.visits || 0);
+  });
+  return out.map(({ visits, ...r }) => r);
+}
+
 // ---------------------------------------------------------------------------
 // Sending
 // ---------------------------------------------------------------------------
 
 const insMessage = () => db.prepare(
   `INSERT INTO messages (appointment_id, client_id, channel, kind, to_addr, subject, body, html, status, send_after, token,
-                         offer_service_ids, offer_staff_id, offer_date, offer_start_min)
-   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?)`
+                         offer_service_ids, offer_staff_id, offer_date, offer_start_min, perk)
+   VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?)`
 );
 
 /**
@@ -493,13 +612,17 @@ function localStamp(d = new Date()) {
  * tab was stale is exactly the failure this is supposed to prevent.
  */
 export function sendCampaign(kind, {
-  clientIds = [], channel = 'email', subject = '', body = '', renderEmail, offer = null,
+  clientIds = [], channel = 'email', subject = '', body = '', renderEmail, offer = null, perk = '',
 } = {}) {
   if (!CAMPAIGN_KINDS.has(kind)) throw new Error('Unknown campaign');
   if (!body.trim()) throw new Error('The message is empty');
   // Validated once here rather than per recipient — it is the same slot for
   // everyone, and an offer that fails the check is dropped rather than fatal.
   const slot = cleanOffer(offer);
+  // What was promised, kept with the message so the booking it brings can say
+  // so: "Kai offer: a free Deep Conditioning" on the appointment is what stops
+  // the promise being forgotten at the counter.
+  const promised = String(perk || '').replace(/\s+/g, ' ').trim().slice(0, 120);
 
   const skip = recentlyMessaged();
   const off = optedOut();
@@ -542,7 +665,7 @@ export function sendCampaign(kind, {
         : '';
       ins.run(c.id, ch, kind, to, subj, text, html, now, token,
         slot ? slot.service_ids.join(',') : '', slot ? slot.staff_id : null,
-        slot ? slot.date : '', slot ? slot.start_min : null);
+        slot ? slot.date : '', slot ? slot.start_min : null, promised);
     }
     queued++;
     // Within one campaign too — the same client cannot appear twice because
@@ -583,6 +706,16 @@ export function attributionFor(token, clientId) {
     return row ? row.id : null;
   } catch {
     return null;
+  }
+}
+
+/** The perk a credited message promised, or ''. */
+export function perkFor(messageId) {
+  if (!messageId) return '';
+  try {
+    return String(db.prepare('SELECT perk FROM messages WHERE id = ?').get(messageId)?.perk || '');
+  } catch {
+    return '';
   }
 }
 

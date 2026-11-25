@@ -13,6 +13,7 @@ const EARNED_LABEL = {
   due_back: 'Due back soon', lapsed_winback: 'Win-backs', first_visit: 'After a first visit',
   abandoned_booking: 'Unfinished bookings', birthday: 'Birthdays',
   no_future_booking: 'Left without rebooking',
+  winback_offer: 'Kai win-backs', birthday_offer: 'Kai birthdays', promo: 'Kai promos',
 };
 
 /**

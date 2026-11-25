@@ -15,6 +15,7 @@ import { renderMessages } from './pages/messages.js';
 import { renderReviews } from './pages/reviews.js';
 import { renderGrowth } from './pages/growth.js';
 import { renderPerformance } from './pages/performance.js';
+import { renderMarketing } from './pages/marketing.js';
 import { renderPos } from './pages/pos.js';
 import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
@@ -52,6 +53,7 @@ const ROUTES = {
   messages: { title: 'Messages', icon: 'send', render: renderMessages },
   reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
   performance: { title: 'Performance', icon: 'bar', render: renderPerformance },
+  marketing: { title: 'Your week', icon: 'zap', render: renderMarketing },
   growth: { title: 'Growth', icon: 'trendUp', render: renderGrowth },
   staff: { title: 'Team', icon: 'user', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
@@ -173,11 +175,15 @@ function renderShell() {
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
   const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
-  // Performance is the business's money, so only the owner sees it in the menu
-  // (the page and its API refuse anyone else as well).
+  // Performance is the business's money and Your week is the owner's marketing
+  // assistant, so only the owner sees them in the menu (the pages and their
+  // APIs refuse anyone else as well).
   const owner = !state.user?.role || state.user.role === 'owner';
-  const navManage = ['messages', 'reviews', 'performance', 'growth', 'staff', 'settings', 'account', 'help']
-    .filter((k) => k !== 'performance' || owner);
+  const OWNER_ONLY = new Set(['performance', 'marketing']);
+  // Your week is being rolled out salon by salon (src/marketing.js kaiWeekOn).
+  const rolledOut = (k) => k !== 'marketing' || state.settings.kai_week_on === '1';
+  const navManage = ['marketing', 'messages', 'reviews', 'performance', 'growth', 'staff', 'settings', 'account', 'help']
+    .filter((k) => (!OWNER_ONLY.has(k) || owner) && rolledOut(k));
   const navHtml = (keys) => keys.map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');

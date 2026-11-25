@@ -54,7 +54,7 @@ import { buildRoster, bookableWindow, rosteredShift, NO_ROSTER } from '../public
 import { checkBody, s } from './validate.js';
 import * as gcal from './gcal.js';
 import { hit as rateHit, clientIp, classifyRequest } from './ratelimit.js';
-import { current as currentTenant, isReadOnly, MULTI } from './tenant.js';
+import { current as currentTenant, isReadOnly, isMuted, MULTI } from './tenant.js';
 import { renderEmail } from './email-html.js';
 import { sendEmail } from './notify.js';
 import { parseXlsx } from './xlsx.js';
@@ -73,6 +73,7 @@ import {
 } from './referrals.js';
 import { growthPlan, setManualTick } from './growth-plan.js';
 import { businessStats, reportEmail } from './stats.js';
+import { weekPlan, buildPromo, weekNote, PROMO_GOALS, kaiWeekOn } from './marketing.js';
 import { trialLock, lockedSettingIn, trialInfo, isTrial } from './trial.js';
 import { contentIdeas, contentCalendar, businessFacts } from './growth-content.js';
 import { ask as kaiAsk, suggestions as kaiSuggestions } from './kai.js';
@@ -99,7 +100,7 @@ import {
 import {
   recipientsFor, draftFor, messageCost, sendCampaign, CAMPAIGN_KINDS, AUDIENCES, lastSent,
   recentlyMessagedSet, setMarketingOptOut, clientByUnsubToken,
-  attributionFor, attributionSummary, bookingsFromMessage, fillTokens, bookingLinkFor, mintToken,
+  attributionFor, perkFor, attributionSummary, bookingsFromMessage, fillTokens, bookingLinkFor, mintToken,
 } from './campaigns.js';
 import {
   offerFreedSlot, listWaitlist, addToWaitlist, removeFromWaitlist, waitlistStats,
@@ -124,6 +125,10 @@ const PAY_METHODS = new Set(['card', 'square', 'cash', 'transfer', 'other']);
  * owner's side must too, or the two disagree about what day it is.
  */
 const bizNow = () => nowParts(getSetting('business_tz', ''));
+// The settings the app is sent, plus one worked out rather than stored:
+// kai_week_on, whether this salon is in the rollout of Your week
+// (src/marketing.js), so the menu knows whether to show it.
+const appSettings = () => ({ ...getSettings(), kai_week_on: kaiWeekOn() ? '1' : '0' });
 const bizToday = () => bizNow().date;
 
 /** 'YYYY-MM-DD HH:MM:SS' in the business's zone, for stamping records. */
@@ -379,7 +384,7 @@ route('GET', '/api/auth/me', async ({ user }) => {
   // clients list can say so rather than leaving an owner to work out which of
   // these people are real.
   return {
-    user: safeUser, settings: getSettings(), version: VERSION, has_demo_data: hasDemoData(),
+    user: safeUser, settings: appSettings(), version: VERSION, has_demo_data: hasDemoData(),
     // Whether Settings may offer "Reset to demo data" at all. Same test the
     // route applies; the button follows it so nobody is shown a control that
     // will only say no.
@@ -736,6 +741,9 @@ export const EDITABLE_SETTINGS = new Set([
   'enquiries_enabled', 'enquiries_note',
   // The salon's own no to Kai, over every user's yes (see kaiOn).
   'kai_enabled',
+  // Kai's week (src/marketing.js): the most it may suggest taking off, the
+  // Monday notification, and last month's numbers by email on the 1st.
+  'kai_discount_cap', 'kai_weekly_push', 'monthly_report_enabled',
 ]);
 
 // data: URIs are large; give image fields room, everything else a tight cap
@@ -898,7 +906,7 @@ const APPT_SCHEMA = {
 /** The owner's per-appointment channel pick, or '' for the standing setting. */
 const chosenChannel = (b) => (['email', 'sms', 'both'].includes(b.notify_channel) ? b.notify_channel : '');
 
-route('GET', '/api/settings', async () => getSettings());
+route('GET', '/api/settings', async () => appSettings());
 
 route('PUT', '/api/settings', async ({ req }) => {
   const body = await readJson(req);
@@ -914,7 +922,7 @@ route('PUT', '/api/settings', async ({ req }) => {
   const locked = lockedSettingIn(body);
   if (locked) trialLock(locked);
   applySettings(body);
-  return getSettings();
+  return appSettings();
 });
 
 route('POST', '/api/settings/reset-demo', async ({ user }) => {
@@ -3036,7 +3044,7 @@ route('POST', '/api/ask/apply', async ({ req, user }) => {
   const undoToken = kaiApply(plan, { who: str(user?.name, 100) });
   return {
     ok: true, did: plan.title, said: plan.said, changes: plan.changes,
-    warnings: plan.warnings, undo_token: undoToken, settings: getSettings(),
+    warnings: plan.warnings, undo_token: undoToken, settings: appSettings(),
   };
 });
 
@@ -3083,7 +3091,7 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
     if (!undone) return dress({ ok: false, kind: 'nothing', said: "There's nothing to undo." });
     return dress({
       ok: true, kind: 'undone', said: undone.said,
-      did: undone.title, undone_token: undone.token, settings: getSettings(),
+      did: undone.title, undone_token: undone.token, settings: appSettings(),
     });
   }
 
@@ -3134,7 +3142,7 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
         ...many.stuck.map((c) => `I couldn't work out what to do with “${c}”.`),
       ],
       undo_token: many.token || null,
-      settings: getSettings(),
+      settings: appSettings(),
     });
   }
 
@@ -3195,7 +3203,7 @@ route('POST', '/api/ask/do', async ({ req, user }) => {
   return dress({
     ok: true, kind: 'done', did: plan.title, said: plan.said,
     changes: plan.changes, warnings: plan.warnings,
-    undo_token: undoToken, settings: getSettings(),
+    undo_token: undoToken, settings: appSettings(),
   });
 });
 
@@ -3204,7 +3212,7 @@ route('POST', '/api/ask/undo', async ({ req }) => {
   const b = checkBody(await readJson(req), { token: s.str(32) });
   const undone = kaiUndo(str(b.token, 32));
   if (!undone) throw httpError(409, "There's nothing to undo.");
-  return { ok: true, said: undone.said, did: undone.title, settings: getSettings() };
+  return { ok: true, said: undone.said, did: undone.title, settings: appSettings() };
 });
 
 // ---------------------------------------------------------------------------
@@ -3364,6 +3372,7 @@ route('GET', '/api/kai/status', async ({ user }) => ({
   agent: kaiOn(), consented: kaiConsented(user),
   server: kaiAgent.agentEnabled(), salon_enabled: kaiSalonAllows(),
   used_today: kaiUsedToday(), daily_limit: KAI_DAILY_LIMIT(),
+  month: kaiAgent.allowance(),
 }));
 
 route('POST', '/api/kai/consent', async ({ user }) => {
@@ -5139,6 +5148,120 @@ route('POST', '/api/stats/email', async ({ req, user }) => {
   return { sent: true, to: me.email };
 });
 
+// ---------------------------------------------------------------------------
+// Kai's week — the marketing assistant (src/marketing.js)
+// ---------------------------------------------------------------------------
+
+/** The plan for the next seven days. Read-only: every play opens the campaign preview. */
+function kaiWeekPlan() {
+  const now = bizNow();
+  return weekPlan({ today: now.date, nowMin: now.min, hoursFor, staffWindow, blocksFor });
+}
+
+/** Not in the rollout yet: the page and its routes are simply not there. */
+function kaiWeekRequired() {
+  if (!kaiWeekOn()) throw httpError(404, 'Not found');
+}
+
+route('GET', '/api/marketing/week', async ({ user }) => {
+  ownerOnly(user);
+  kaiWeekRequired();
+  return {
+    ...kaiWeekPlan(),
+    ai: { available: kaiOn(), ...kaiAgent.allowance() },
+    settings: {
+      weekly_push: getSetting('kai_weekly_push', '1') === '1',
+      monthly_report: getSetting('monthly_report_enabled', '1') === '1',
+    },
+  };
+});
+
+/** A promo, built from the goal: quiet | occasion | service | winback. Read-only. */
+route('GET', '/api/marketing/promo', async ({ query, user }) => {
+  ownerOnly(user);
+  kaiWeekRequired();
+  const goal = PROMO_GOALS.includes(query.get('goal')) ? query.get('goal') : 'quiet';
+  const weekdays = String(query.get('weekdays') || '').split(',').filter((d) => /^[0-6]$/.test(d)).map(Number);
+  try {
+    return buildPromo({
+      today: bizToday(), goal, occasion: str(query.get('occasion') || '', 30),
+      serviceId: Number(query.get('service_id')) || 0, weekdays: weekdays.length ? weekdays : null,
+    });
+  } catch (err) {
+    throw httpError(err.status || 400, err.message);
+  }
+});
+
+/**
+ * Reword a draft in the owner's voice, with Kai's AI. One use of the month's
+ * allowance. The draft holds no client details — {first_name} is still a
+ * placeholder at this point — so nothing about a client leaves Kairo here.
+ */
+route('POST', '/api/marketing/rewrite', async ({ req, user }) => {
+  ownerOnly(user);
+  kaiWeekRequired();
+  trialLock('kai');
+  kaiRequireOn();
+  const b = checkBody(await readJson(req), { text: s.str(1600, { required: true }), channel: s.oneOf(['email', 'sms', 'both']) });
+  kaiLimited(user);
+  return kaiAgent.rewriteDraft({ text: b.text, channel: b.channel === 'sms' ? 'sms' : 'email' });
+});
+
+/**
+ * Monday morning: one notification with the week's plan. Guarded to once a
+ * week by the Monday's date, after 9am where the salon is, and silent when
+ * there is nothing worth sending.
+ */
+export async function maybeWeeklyPlan() {
+  if (!kaiWeekOn()) return { sent: 0, skipped: 'not in the rollout' };
+  if (getSetting('kai_weekly_push', '1') !== '1') return { sent: 0, skipped: 'off' };
+  if (!pushConfigured()) return { sent: 0, skipped: 'push not configured' };
+  const now = bizNow();
+  if (new Date(`${now.date}T12:00:00`).getDay() !== 1) return { sent: 0, skipped: 'not Monday' };
+  if (now.min < 9 * 60) return { sent: 0, skipped: 'too early' };
+  if (getSetting('kai_week_pushed_on', '') === now.date) return { sent: 0, skipped: 'already this week' };
+  setSetting('kai_week_pushed_on', now.date);
+  const note = weekNote(kaiWeekPlan());
+  if (!note) return { sent: 0, skipped: 'nothing to say' };
+  return pushToOwner({
+    title: 'Your week',
+    body: note,
+    threadId: 'kai-week',
+    collapseId: `kai-week-${now.date}`,
+    data: { kind: 'kai_week', route: '#/marketing' },
+  });
+}
+
+/**
+ * The 1st of the month: last month's numbers to the owner by email, the same
+ * report as Performance → Email this report. Once a month by a stored marker,
+ * after 9am local. Not for a trial (a fortnight has no "last month"), a paused
+ * salon, or one with no way to send email.
+ */
+export async function maybeMonthlyReport() {
+  if (!kaiWeekOn()) return { sent: 0, skipped: 'not in the rollout' };
+  if (getSetting('monthly_report_enabled', '1') !== '1') return { sent: 0, skipped: 'off' };
+  const now = bizNow();
+  if (Number(now.date.slice(8)) !== 1 || now.min < 9 * 60) return { sent: 0, skipped: 'not yet' };
+  const month = now.date.slice(0, 7);
+  if (getSetting('monthly_report_sent', '') === month) return { sent: 0, skipped: 'already this month' };
+  if (isTrial() || isReadOnly() || isMuted()) return { sent: 0, skipped: 'trial, paused or muted' };
+  if (!canSendEmail()) return { sent: 0, skipped: 'no email' };
+  setSetting('monthly_report_sent', month);
+  const owners = db.prepare(
+    "SELECT name, email FROM users WHERE role = 'owner' AND email != '' ORDER BY id"
+  ).all();
+  const to = owners.length ? owners : [{ name: '', email: getSetting('business_email', '') }].filter((o) => o.email);
+  let sent = 0;
+  for (const o of to.slice(0, 3)) {
+    const r = await sendStatsReport({ preset: 'last_month' }, o.email, { greetingName: String(o.name || '').split(' ')[0] })
+      .catch((err) => ({ ok: false, detail: err.message }));
+    if (r.ok) sent += 1;
+    else console.error(`monthly report: ${r.detail || 'not sent'}`);
+  }
+  return { sent };
+}
+
 route('GET', '/api/opportunities', async ({ query }) => {
   const asked = query.get('date');
   const today = isDateStr(asked) ? asked : bizToday();
@@ -5169,6 +5292,8 @@ route('GET', '/api/campaigns/preview', async ({ query }) => {
     weekday: query.get('weekday') === null ? undefined : Number(query.get('weekday')),
     when: str(query.get('when') || '', 60),
     times: str(query.get('times') || '', 60),
+    service_id: Number(query.get('service_id')) || 0,
+    perk: str(query.get('perk') || '', 120),
   };
 
   // Who it goes to. A broadcast is always email — two hundred texts is real
@@ -5261,6 +5386,7 @@ route('POST', '/api/campaigns/send', async ({ req }) => {
     offer_staff_id: s.num({ min: 1 }),
     offer_date: s.str(10),
     offer_start_min: s.num({ min: 0, max: 1439 }),
+    perk: s.str(120),
   });
   if (!CAMPAIGN_KINDS.has(b.kind)) throw httpError(400, 'Unknown campaign');
   if (!b.client_ids.length) throw httpError(400, 'Nobody is selected');
@@ -5298,7 +5424,7 @@ route('POST', '/api/campaigns/send', async ({ req }) => {
 
   const out = sendCampaign(b.kind, {
     clientIds: b.client_ids, channel: b.channel,
-    subject: b.subject || '', body: b.body, renderEmail, offer,
+    subject: b.subject || '', body: b.body, renderEmail, offer, perk: b.perk || '',
   });
   processQueue().catch(() => {});
   const aside = [
@@ -6115,6 +6241,10 @@ route('POST', '/api/public/book', async ({ req }) => {
   // shared between friends credits nobody rather than crediting the wrong
   // person and inflating what the campaign appears to have earned.
   const credited = attributionFor(str(b.from_message, 64), client.id);
+  // A Kai offer they are booking on: said on the appointment, so whoever is at
+  // the desk honours it without having to remember which message said what.
+  const perk = perkFor(credited);
+  const bookingNotes = [perk ? `Kai offer: ${perk}` : '', str(b.notes, 1000)].filter(Boolean).join(' · ').slice(0, 1000);
 
   // They finished. Close any open attempt so the "didn't finish" follow-up can
   // never chase somebody who is already in the diary.
@@ -6140,7 +6270,7 @@ route('POST', '/api/public/book', async ({ req }) => {
     `INSERT INTO appointments (client_id, staff_id, service_id, date, start_min, end_min, status, notes, source,
                                source_message_id, referrer_client_id, heard_from)
      VALUES (?, ?, ?, ?, ?, ?, 'booked', ?, 'online', ?, ?, ?)`
-  ).run(client.id, staffId, service.id, b.date, start, start + duration, str(b.notes, 1000), credited,
+  ).run(client.id, staffId, service.id, b.date, start, start + duration, bookingNotes, credited,
     referredBy, heardValue(b.heard_from, referredBy));
   const apptId = Number(info.lastInsertRowid);
   setApptServices(apptId, svc.ids);

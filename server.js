@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getSetting, storageWarning, publicUrl, publicUrlIsRaw } from './src/db.js';
 import { MULTI, current, resolveHost, effectiveHost, withTenant, listTenantSlugs, isReadOnly, TENANTS_DIR, BASE_DOMAIN, getTenant, tenantFault, tenantFaults, slugForHost } from './src/tenant.js';
 import { sendJson } from './src/util.js';
-import { handleApi, maybeDailySummary } from './src/api.js';
+import { handleApi, maybeDailySummary, maybeWeeklyPlan, maybeMonthlyReport } from './src/api.js';
 import { startScheduler, chaseReviews } from './src/notify.js';
 import { runScheduledBackup } from './src/backup.js';
 import { runDailyPass } from './src/automations.js';
@@ -76,6 +76,18 @@ startScheduler({
       await maybeDailySummary();
     } catch (err) {
       console.error('daily summary push:', err.message);
+    }
+    // Kai's week on Monday morning, and last month's numbers on the 1st. Both
+    // guarded by a stored marker, so a restart neither repeats nor skips them.
+    try {
+      await maybeWeeklyPlan();
+    } catch (err) {
+      console.error('weekly plan push:', err.message);
+    }
+    try {
+      await maybeMonthlyReport();
+    } catch (err) {
+      console.error('monthly report:', err.message);
     }
   },
 });

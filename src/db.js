@@ -597,6 +597,9 @@ function migrate() {
   addColumn('messages', 'offer_staff_id', 'offer_staff_id INTEGER REFERENCES staff(id) ON DELETE SET NULL');
   addColumn('messages', 'offer_date', "offer_date TEXT NOT NULL DEFAULT ''");
   addColumn('messages', 'offer_start_min', 'offer_start_min INTEGER');
+  // What a Kai message promised ("a free Deep Conditioning"), so the booking
+  // it brings carries the promise into the diary.
+  addColumn('messages', 'perk', "perk TEXT NOT NULL DEFAULT ''");
 
   // Birthday as MM-DD, never the year.
   //

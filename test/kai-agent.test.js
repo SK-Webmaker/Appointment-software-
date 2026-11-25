@@ -110,9 +110,12 @@ test('what goes to Claude: the key, the model, effort, fallback, caching, the to
   const req = mock.state.requests.at(-1);
   assert.equal(req.headers['x-api-key'], 'test-key');
   assert.equal(req.headers['anthropic-version'], '2023-06-01');
-  assert.match(req.headers['anthropic-beta'], /server-side-fallback-2026-07-01/);
-  assert.equal(req.body.model, 'claude-sonnet-5-5');
-  assert.equal(req.body.fallbacks, 'default');
+  // Claude Haiku 5.5, the owner's choice, which has no server-side refusal
+  // fallback: a list of fallback models would be a 400, so neither the
+  // parameter nor its beta header is sent.
+  assert.equal(req.headers['anthropic-beta'], undefined);
+  assert.equal(req.body.model, 'claude-haiku-5-5');
+  assert.equal(req.body.fallbacks, undefined);
   assert.equal(req.body.output_config.effort, 'medium');
   assert.equal(req.body.thinking, undefined, 'adaptive thinking is the default on this model');
   assert.deepEqual(req.body.cache_control, { type: 'ephemeral' });

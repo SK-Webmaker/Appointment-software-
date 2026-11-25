@@ -165,6 +165,25 @@ function gapsOn(date, { staff, services, hoursFor, staffWindow, blocksFor, fromM
   return out;
 }
 
+/**
+ * Every fillable gap from today to `horizonDays` ahead, soonest first, counted
+ * by exactly the rules above. Kai's weekly plan (src/marketing.js) reads the
+ * whole week from this rather than keeping a second copy of the arithmetic.
+ */
+export function emptyGaps({ today, horizonDays = 6, nowMin = -1, hoursFor, staffWindow, blocksFor }) {
+  const staff = db.prepare('SELECT id, name FROM staff WHERE active = 1').all();
+  const services = db.prepare(
+    'SELECT id, name, duration_min, price_cents FROM services WHERE active = 1 AND price_cents > 0 ORDER BY duration_min'
+  ).all();
+  if (!staff.length || !services.length) return [];
+  const opts = { staff, services, hoursFor, staffWindow, blocksFor };
+  const out = [];
+  for (let i = 0; i <= horizonDays; i++) {
+    out.push(...gapsOn(addDays(today, i), { ...opts, fromMin: i === 0 ? Math.max(0, nowMin) : -1 }));
+  }
+  return out.sort((a, b) => (a.date === b.date ? a.start_min - b.start_min : a.date.localeCompare(b.date)));
+}
+
 function emptyTime({ today, horizonDays = 3, nowMin = -1, hoursFor, staffWindow, blocksFor }) {
   const staff = db.prepare('SELECT id, name FROM staff WHERE active = 1').all();
   const services = db.prepare(

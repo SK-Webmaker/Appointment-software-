@@ -4246,3 +4246,55 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
 .trial-kai .tk-me { align-self: flex-end; background: var(--accent-fill, #2563eb); color: #fff; border-bottom-right-radius: 4px; }
 .trial-kai .tk-kai { align-self: flex-start; background: var(--panel-2); border-bottom-left-radius: 4px; }
 @media (max-width: 620px) { .trial-bar { padding: 10px 16px; } }
+
+/* ── Your week: Kai, the marketing assistant (pages/marketing.js) ───────────── */
+.kw-hero { padding: 20px 22px; margin-bottom: 14px; }
+.kw-headline { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+.kw-sub { color: var(--text-2); margin-top: 6px; font-size: 14px; }
+.kw-promise { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 12.5px; color: var(--text-2); }
+.kw-promise svg { color: var(--green); flex: none; }
+.kw-locked { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; padding: 12px 16px; font-size: 13px; color: var(--text-2); border-color: var(--amber); }
+.kw-locked svg { color: var(--amber); flex: none; margin-top: 2px; }
+.kw-plays { display: grid; gap: 10px; margin-bottom: 14px; }
+.kw-play { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.kw-icon { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--panel-3); color: var(--accent); }
+.kw-title { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+.kw-why { color: var(--text-2); font-size: 13px; line-height: 1.55; margin-top: 4px; }
+.kw-perk { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--text-2); background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: 8px; padding: 4px 10px; }
+.kw-perk b { color: var(--text); }
+.kw-perk span { color: var(--muted); }
+.kw-sample { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--panel-2); border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text); line-height: 1.5; }
+.kw-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.kw-meta { font-size: 12px; color: var(--muted); }
+.kw-worth { text-align: right; min-width: 92px; }
+.kw-worth .v { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.kw-worth .l { font-size: 11.5px; color: var(--muted); }
+.kw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.kw-post, .kw-results, .kw-promo { padding: 16px 18px; }
+.kw-post-head { display: flex; gap: 8px; align-items: center; font-size: 13.5px; }
+.kw-post-head svg { color: var(--accent); }
+.kw-caption { white-space: pre-wrap; font: inherit; font-size: 13px; line-height: 1.55; background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: 8px; padding: 10px 12px; margin: 10px 0 0; color: var(--text); }
+.kw-res-big { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-top: 8px; }
+.kw-res-big span { font-size: 13px; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.kw-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.kw-promo { margin-bottom: 14px; }
+.kw-goals { margin-top: 12px; flex-wrap: wrap; }
+.kw-pick { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.kw-pick select { width: auto; min-width: 200px; }
+.kw-reasons { margin: 8px 0 0; padding-left: 18px; color: var(--text-2); font-size: 13px; line-height: 1.6; }
+.kw-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+.kw-two .btn { margin-top: 8px; }
+.kw-settings { padding: 14px 18px; }
+.kw-settings summary { cursor: pointer; font-weight: 600; display: flex; gap: 8px; align-items: center; }
+.kw-set { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--border-soft); font-size: 13.5px; }
+.kw-set:first-of-type { margin-top: 10px; }
+.kw-cap { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.kw-cap input { width: 70px; }
+.cmp-reword-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+@media (max-width: 720px) {
+  .kw-play { grid-template-columns: auto 1fr; }
+  .kw-worth { grid-column: 2; text-align: left; }
+  .kw-grid, .kw-two { grid-template-columns: 1fr; }
+  .kw-headline { font-size: 19px; }
+}
+.kw-pick .seg { flex-wrap: wrap; }

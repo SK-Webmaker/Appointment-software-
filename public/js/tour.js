@@ -36,6 +36,8 @@ export const STEPS = [
     body: 'Retail stock with prices and counts. Sell through Point of Sale and the count goes down by itself.' },
   { sel: nav('invoices'), group: 'Your business', title: 'Billing — invoices and payments',
     body: 'Every invoice, deposit and payment in one list, so you can see at a glance who still owes.' },
+  { sel: nav('marketing'), group: 'Keeping in touch', title: 'Your week — Kai, your marketing assistant',
+    body: 'Every week Kai works out how to fill your diary: who is due back, who has drifted, whose birthday it is and which days are quiet. Each idea has one button, and Kai always shows you who it goes to before anything is sent.' },
   { sel: nav('messages'), group: 'Keeping in touch', title: 'Messages — sent for you',
     body: 'Confirmations, reminders, receipts and review requests already go out by email. Every one is listed here. Texts can be added any time — there is a one-minute video in Settings → Messages.' },
   { sel: nav('reviews'), group: 'Keeping in touch', title: 'Reviews — what clients say',

@@ -165,6 +165,26 @@ Ordered as a journey — this is the spine a scrolling site should follow.
    reviews page and the ability to reply.
 5. **A complete log** — every message, its channel, its status, and exactly what
    happened to it. Nothing sends silently and nothing fails silently.
+6. **Your week: Kai, the marketing assistant** (Manage → Your week, owner
+   only; from 1.90.0, rolling out salon by salon, the demo salon first). Every
+   week Kai works out how to fill the next seven days from the salon's own
+   diary and clients: the empty hours and what they are worth, regulars late
+   coming back, clients who have stopped coming, birthdays this week, an
+   occasion coming up (Christmas, Valentine's Day, Mother's Day, Father's Day,
+   the New Year) and one post for Instagram. Each idea has one button, which
+   opens the usual campaign preview with the exact list, the words and the
+   cost. **Kai always asks first: nothing is sent until the owner presses
+   Send.** A perk is a free add-on from the salon's own menu first; money off
+   only when there is no add-on, and never above the owner's cap (15% unless
+   they raise it). The promo builder makes a complete promo from a goal (quiet
+   days, an occasion, one service, win-backs): the perk, the days, the words
+   for a text or email, and an Instagram caption. A perk is written on the
+   booking it brings ("Kai offer: a free Deep Conditioning"), and the page
+   shows what the messages brought in, counted only from bookings made from a
+   message's own link. Optional: a Monday notification, last month's numbers
+   by email on the 1st, and "Reword in my style" with Kai's AI (Claude Haiku
+   5.5, free within 300 Kai messages a month per salon). A trial salon sees
+   the whole plan with sending locked.
 
 ### ACT VII — What the customer sees
 > *"The shopfront that never closes."*
