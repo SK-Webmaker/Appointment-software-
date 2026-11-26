@@ -22,15 +22,17 @@ const SPLASH_FADE_MS = 460;
  */
 export function adoptBootSplash() {
   const el = document.getElementById('boot-splash');
-  if (!el) return { done() {} };
+  if (!el) return { done(onFade) { try { onFade?.(); } catch { /* as below */ } } };
   const t0 = performance.now();
   let gone = false;
   return {
-    done() {
+    /** @param {() => void} [onFade] runs as the splash starts to fade (the workspace's entrance). */
+    done(onFade) {
       if (gone) return;
       gone = true;
       const wait = Math.max(0, SPLASH_MIN_MS - (performance.now() - t0));
       setTimeout(() => {
+        try { onFade?.(); } catch { /* motion is never worth a broken start */ }
         el.classList.add('bs-out');
         setTimeout(() => el.remove(), SPLASH_FADE_MS + 60);
       }, wait);

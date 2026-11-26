@@ -105,7 +105,7 @@ a { color: var(--accent); text-decoration: none; }
 
 /* Mobile-only shell chrome — hidden on desktop, shown in the phone media
    query. Selectors are qualified (0,2,0) so they beat .icon-btn's display. */
-.topbar .nav-toggle, .brand-mobile, .brand .nav-close, .nav-scrim { display: none; }
+.topbar .nav-toggle, .brand-mobile, .brand .nav-close, .nav-scrim, .app .tabbar { display: none; }
 
 .sidebar {
   background: var(--bg-raise);
@@ -119,11 +119,12 @@ a { color: var(--accent); text-decoration: none; }
 .brand-name { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
 .brand-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-.nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 16px 12px 6px; }
+.nav { display: flex; flex-direction: column; gap: 1px; }
+.nav-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 14px 12px 5px; }
+.nav-label:first-child { padding-top: 4px; }
 .nav-item {
   display: flex; align-items: center; gap: 11px;
-  padding: 9px 12px; border-radius: 9px;
+  padding: 7px 12px; border-radius: 9px;
   color: var(--text-2); font-weight: 500; font-size: 13.5px;
   border-left: 2px solid transparent;
   transition: background var(--dur-state) var(--ease-out),
@@ -2441,8 +2442,40 @@ button.kai-open span { flex: 1; text-align: left; }
   .content { padding: 16px calc(14px + var(--safe-right)) calc(40px + var(--safe-bottom)) calc(14px + var(--safe-left)); }
 
   /* Larger nav rows in the drawer for easy thumbing. */
-  .nav-item { padding: 12px 12px; font-size: 15px; }
+  .nav-item { padding: 11px 12px; font-size: 15px; }
   .nav-item svg { width: 19px; height: 19px; }
+
+  /* The tab bar: Home, Calendar, Sale, Clients and More under the thumb.
+     Pinned bars and toasts sit on top of it rather than behind it. */
+  :root { --tabbar-h: calc(60px + var(--safe-bottom)); }
+  .app .tabbar {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+    height: var(--tabbar-h);
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+    background: color-mix(in srgb, var(--bg-raise) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    border-top: 1px solid var(--border-soft);
+  }
+  .tab-item {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; min-width: 0; color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em;
+    transition: color var(--dur-state) var(--ease-out);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-item svg { width: 21px; height: 21px; transition: transform var(--dur-enter) var(--ease-spring); }
+  .tab-item::before {
+    content: ''; position: absolute; top: 0; left: 50%; width: 28px; height: 2px; margin-left: -14px;
+    border-radius: 0 0 3px 3px; background: var(--accent);
+    transform: scaleX(0); transition: transform var(--dur-enter) var(--ease-out);
+  }
+  .tab-item.active { color: var(--accent); }
+  .tab-item.active::before { transform: scaleX(1); }
+  .tab-item.active svg { transform: translateY(-1px); }
+  .tab-item:active svg { transform: scale(0.88); }
+  .content { padding-bottom: calc(var(--tabbar-h) + 28px); }
+  .pos-paybar { bottom: var(--tabbar-h); padding-bottom: 12px; }
+  .toasts { bottom: calc(var(--tabbar-h) + 12px); }
 
   /* Primary top-bar action shrinks to a round + on phones (label would clip). */
   .topbar-right .btn.primary { padding: 9px; border-radius: 10px; }
@@ -2452,7 +2485,7 @@ button.kai-open span { flex: 1; text-align: left; }
   /* Page headers: icon + title stay on one row, actions wrap to a full-width
      row beneath (so buttons never clip). */
   .page-head { flex-wrap: wrap; align-items: center; gap: 12px 14px; margin-bottom: 18px; }
-  .page-head > div:not([class]) { flex: 1 1 auto; min-width: 0; }
+  .page-head > div:not([class]) { flex: 1 1 0; min-width: 0; }
   /* Even rows rather than a ragged wrap: the primary action takes its own
      full-width row at the top, secondaries pair off beneath it — and a lone
      secondary grows to fill its row instead of leaving a gap. */
@@ -2464,6 +2497,12 @@ button.kai-open span { flex: 1; text-align: left; }
     flex: 1 1 calc(50% - 4px); min-width: calc(50% - 4px); justify-content: center;
   }
   .page-head .ph-actions .btn.primary { flex: 1 1 100%; min-width: 100%; order: -1; }
+  /* The Guide link rides on the title row as a small round "?" instead of
+     taking a row of its own under the buttons on every screen. */
+  .page-head .ph-actions { order: 2; }
+  .page-head .ph-guide { order: 1; align-self: flex-start; padding: 7px; margin-left: 0; }
+  .page-head .ph-guide span { display: none; }
+  .page-head .ph-guide svg { width: 16px; height: 16px; }
 
   /* Forms go single-column so no field is cut off. */
   .form-grid { grid-template-columns: 1fr; }
@@ -3535,6 +3574,12 @@ a:focus-visible,
 .ss-video-text b { color: var(--text); font-size: 14px; font-weight: 650; }
 .ss-video.playing { display: block; padding: 0; overflow: hidden; background: #000; }
 .ss-video.playing video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+/* The spoken steps, readable over any frame: solid dark box, white text, a
+   size that holds on a phone held upright. */
+.ss-video video::cue {
+  background: rgba(4, 8, 15, 0.86); color: #fff;
+  font-size: clamp(13px, 2.6vw, 18px); line-height: 1.4; font-family: inherit;
+}
 @media (max-width: 520px) {
   .ss-video { grid-template-columns: 1fr; }
 }
@@ -4318,3 +4363,50 @@ html.kc-lock, html.kc-lock body { overflow: hidden; }
   .kw-headline { font-size: 19px; }
 }
 .kw-pick .seg { flex-wrap: wrap; }
+
+/* One "New appointment" per screen: above phone width the top bar's button is
+   always in view, so the dashboard's own copy of it goes. */
+@media (min-width: 761px) { .page-head #qa-new { display: none; } }
+
+/* ── Motion: page changes, tabs and opening the app (public/js/motion.js) ──
+   Pieces of a page rise in one after another rather than all at once; the
+   page being left dims while the next one loads. `backwards` fill only: once
+   an entrance ends nothing is left transformed, so pinned bars inside a page
+   (the till's Charge button) sit where they should. */
+@keyframes pageRise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes pageFade { from { opacity: 0; } }
+@keyframes navIn    { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes topIn    { from { opacity: 0; transform: translateY(-10px); } }
+@keyframes tabIn    { from { transform: translateY(100%); } }
+
+#page { transition: opacity 160ms var(--ease-out); }
+#page.page-out { opacity: 0.45; }
+.page-in .pi {
+  animation: pageRise 520ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.page-in .pi.pi-flat { animation-name: pageFade; }
+
+/* Opening the app: the menu slides in item by item, the top bar drops in, the
+   phone tab bar rises, and the page follows a beat later. */
+.app-enter .page-in .pi { animation-delay: calc(var(--i, 0) * 45ms + 160ms); }
+.app-enter .sidebar .brand, .app-enter .sidebar .nav > *, .app-enter .sidebar-foot {
+  animation: navIn 520ms var(--ease-out) backwards;
+  animation-delay: calc(var(--n, 0) * 16ms + 40ms);
+}
+.app-enter .topbar { animation: topIn 520ms var(--ease-out) backwards; }
+.app-enter .tabbar { animation: tabIn 560ms var(--ease-out) 120ms backwards; }
+
+/* Tabs and buttons answer the finger. */
+.seg button, .set-tab {
+  transition: background var(--dur-state) var(--ease-out), color var(--dur-state) var(--ease-out),
+              box-shadow var(--dur-state) var(--ease-out), border-color var(--dur-state) var(--ease-out);
+}
+.btn:active, .btn.primary:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  #page { transition: none; }
+  .page-in .pi, .app-enter .sidebar .brand, .app-enter .sidebar .nav > *, .app-enter .sidebar-foot,
+  .app-enter .topbar, .app-enter .tabbar { animation: none; }
+  .btn:active, .btn.primary:active { transform: none; }
+}

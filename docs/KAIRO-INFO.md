@@ -65,7 +65,7 @@ Ordered as a journey — this is the spine a scrolling site should follow.
    clients with 2+ past visits, nothing in eight weeks, and nothing booked.
 7. **Booking rhythm & trends** — appointments by hour of day (so the owner knows
    which hours to protect), revenue per day, and the top-selling services.
-8. **Performance, for any dates** (Manage → Performance, owner only) — this
+8. **Performance, for any dates** (Grow → Performance, owner only) — this
    month, last month, the last 3, 6 or 12 months, the year so far, or any two
    dates. Each month on its own and the total: appointment value at your
    prices, appointments, average appointment, new and returning clients, how
@@ -165,7 +165,7 @@ Ordered as a journey — this is the spine a scrolling site should follow.
    reviews page and the ability to reply.
 5. **A complete log** — every message, its channel, its status, and exactly what
    happened to it. Nothing sends silently and nothing fails silently.
-6. **Your week: Kai, the marketing assistant** (Manage → Your week, owner
+6. **Your week: Kai, the marketing assistant** (Grow → Your week, owner
    only; from 1.90.0, rolling out salon by salon, the demo salon first). Every
    week Kai works out how to fill the next seven days from the salon's own
    diary and clients: the empty hours and what they are worth, regulars late

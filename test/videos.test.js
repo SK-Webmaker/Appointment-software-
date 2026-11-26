@@ -94,7 +94,7 @@ test('the welcome video starts silent with captions, and Sound on starts it agai
   assert.match(wiz, /Sound on/);
   assert.match(wiz, /v\.currentTime = 0; play\(true\)/, 'sound on starts from the top');
   const vid = read('public/js/video.js');
-  assert.match(vid, /\$\{captions\(v\.src\)\}/, 'every pressed video carries its captions');
+  assert.match(vid, /\$\{captions\(v\.src, \{ on: true \}\)\}/, 'every pressed video carries its captions, showing');
   assert.doesNotMatch(vid.match(/export function playVideo[\s\S]*?\n\}/)[0], /muted/, 'pressing play is a tap, so it starts with sound');
 });
 
@@ -125,7 +125,9 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 test('the tour visits every page in the menu', () => {
   const app = read('public/js/app.js');
-  const keys = [...app.matchAll(/const nav(?:Main|Manage) = \[([^\]]+)\]/g)]
+  // Every page key in the menu's groups (NAV_GROUPS in renderShell).
+  const groups = (/const NAV_GROUPS = \[([\s\S]*?)\n  \];/.exec(app) || [])[1] || '';
+  const keys = [...groups.matchAll(/\[\s*'[^']+',\s*\[([^\]]+)\]/g)]
     .flatMap((m) => m[1].match(/'([a-z]+)'/g).map((q) => q.slice(1, -1)));
   assert.ok(keys.length >= 12, 'found the menu');
   const tour = read('public/js/tour.js');

@@ -869,9 +869,11 @@ export async function renderSettings(container, params) {
             </div>
             <div class="field"><label>Sender name or number (optional)</label>
               <input name="clicksend_from" value="${esc(s.clicksend_from || '')}" placeholder="e.g. LuxeHair (business name) or +61…">
-              <div class="hint">Two ways to do this. A <b>business-name sender</b> ("LuxeHair") looks best but needs a
-                one-off ACMA registration with your ABN — free, and ClickSend handles it. A <b>phone number</b> works
-                straight away but shows a number rather than your name. Leave blank for a shared number.</div></div>
+              <div class="hint">Two ways to do this. A <b>business-name sender</b> ("LuxeHair") looks best but has to be
+                registered first: in ClickSend go to <b>Sender IDs → Manage Senders → Alpha Tags</b>, tap <b>+ Add</b>
+                and apply with your ABN, then approve the email ACMA sends you (it usually clears within a day). Until it's approved, texts show as "Unverified". A
+                <b>phone number</b> works straight away but shows a number rather than your name. Leave blank for a
+                shared number.</div></div>
             ${s.clicksend_starter_active === '1' && s.clicksend_starter_dismissed !== '1' ? `
             <div class="starter-nag" id="starter-nag">
               ${icon('phone', 16)}
@@ -2044,6 +2046,8 @@ function setupGroups(container, params) {
     current = g.id;
     if (q.value) q.value = '';
     for (const c of cards) c.hidden = c.dataset.group !== g.id;
+    // The tab's cards cascade in (their entrance replays as they reappear).
+    cards.filter((c) => !c.hidden).forEach((c, i) => c.style.setProperty('--i', String(i)));
     for (const t of tabs) t.setAttribute('aria-selected', String(t.dataset.group === g.id));
     title.textContent = g.label;
     say.textContent = g.say;

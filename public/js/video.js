@@ -49,7 +49,9 @@ export function playVideo(box) {
   const v = VIDEOS[box?.dataset.video];
   if (!v) return;
   box.classList.add('playing');
-  box.innerHTML = `<video poster="${esc(v.poster)}" controls playsinline autoplay preload="auto">${sources(v.src)}${captions(v.src)}</video>`;
+  // Captions on from the first second: the steps are something to follow along
+  // with, and plenty of people watch in a salon with the sound low.
+  box.innerHTML = `<video poster="${esc(v.poster)}" controls playsinline autoplay preload="auto">${sources(v.src)}${captions(v.src, { on: true })}</video>`;
   box.querySelector('video')?.play?.().catch(() => { /* the controls are there to press */ });
 }
 

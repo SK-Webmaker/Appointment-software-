@@ -20,6 +20,7 @@ import { renderPos } from './pages/pos.js';
 import { renderProducts } from './pages/products.js';
 import { runSetupWizard } from './wizard.js';
 import { mountIntro, adoptBootSplash } from './intro.js';
+import { playIn, playEntrance, watchTabRedraws } from './motion.js';
 import { lockZoom } from './nozoom.js';
 import { enablePullToRefresh } from './pull-refresh.js';
 import { mountKai, open as openKai } from './kai.js';
@@ -48,14 +49,14 @@ const ROUTES = {
   calendar: { title: 'Calendar', icon: 'calendar', render: renderCalendar },
   clients: { title: 'Clients', icon: 'users', render: renderClients },
   services: { title: 'Services', icon: 'tag', render: renderServices },
-  products: { title: 'Products', icon: 'tag', render: renderProducts },
+  products: { title: 'Products', icon: 'box', render: renderProducts },
   invoices: { title: 'Billing', icon: 'invoice', render: renderInvoices },
   messages: { title: 'Messages', icon: 'send', render: renderMessages },
   reviews: { title: 'Reviews', icon: 'star', render: renderReviews },
   performance: { title: 'Performance', icon: 'bar', render: renderPerformance },
   marketing: { title: 'Your week', icon: 'zap', render: renderMarketing },
   growth: { title: 'Growth', icon: 'trendUp', render: renderGrowth },
-  staff: { title: 'Team', icon: 'user', render: renderStaff },
+  staff: { title: 'Team', icon: 'badge', render: renderStaff },
   settings: { title: 'Settings', icon: 'settings', render: renderSettings },
   account: { title: 'Account', icon: 'user', render: renderAccount },
   help: { title: 'Help', icon: 'help', render: renderHelp },
@@ -63,6 +64,7 @@ const ROUTES = {
 
 const root = document.getElementById('app');
 let pendingIntro = null; // set on login; reveal()ed once the workspace is rendered
+let navSeq = 0;          // the newest page change; an older one finishing late leaves the screen alone
 
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -174,7 +176,6 @@ function renderShell() {
   // Home-screen ("Add to Home Screen") label defaults to the business name.
   const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (appleTitle && state.settings.business_name) appleTitle.setAttribute('content', state.settings.business_name);
-  const navMain = ['dashboard', 'pos', 'calendar', 'clients', 'services', 'products', 'invoices'];
   // Performance is the business's money and Your week is the owner's marketing
   // assistant, so only the owner sees them in the menu (the pages and their
   // APIs refuse anyone else as well).
@@ -182,11 +183,22 @@ function renderShell() {
   const OWNER_ONLY = new Set(['performance', 'marketing']);
   // Your week is being rolled out salon by salon (src/marketing.js kaiWeekOn).
   const rolledOut = (k) => k !== 'marketing' || state.settings.kai_week_on === '1';
-  const navManage = ['marketing', 'messages', 'reviews', 'performance', 'growth', 'staff', 'settings', 'account', 'help']
-    .filter((k) => (!OWNER_ONLY.has(k) || owner) && rolledOut(k));
-  const navHtml = (keys) => keys.map((k) =>
+  const shown = (keys) => keys.filter((k) => (!OWNER_ONLY.has(k) || owner) && rolledOut(k));
+  // Grouped by what the owner is trying to do, so the page they want is under
+  // the word they would look for: today's work, the business itself, getting
+  // more clients, then settings.
+  const NAV_GROUPS = [
+    ['Today', ['dashboard', 'calendar', 'pos', 'clients']],
+    ['Business', ['services', 'products', 'invoices', 'staff']],
+    ['Grow', ['marketing', 'messages', 'reviews', 'performance', 'growth']],
+    ['Settings & help', ['settings', 'account', 'help']],
+  ];
+  const navHtml = (keys) => shown(keys).map((k) =>
     `<a class="nav-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon)}<span>${ROUTES[k].title}</span></a>`
   ).join('');
+  // Phones: the four places used all day sit under the thumb; everything else
+  // is one tap away under More (the same menu as ☰).
+  const TABS = [['dashboard', 'Home'], ['calendar', 'Calendar'], ['pos', 'Sale'], ['clients', 'Clients']];
 
   root.innerHTML = `
     <div class="app">
@@ -198,10 +210,7 @@ function renderShell() {
           <button class="icon-btn nav-close" id="nav-close" title="Close menu" aria-label="Close menu">${icon('x')}</button>
         </div>
         <nav class="nav">
-          <div class="nav-label">Workspace</div>
-          ${navHtml(navMain)}
-          <div class="nav-label">Manage</div>
-          ${navHtml(navManage)}
+          ${NAV_GROUPS.map(([label, keys]) => `<div class="nav-label">${label}</div>${navHtml(keys)}`).join('')}
           <a class="nav-item" href="/book" target="_blank" rel="noopener noreferrer">${icon('globe')}<span>Booking page ↗</span></a>
         </nav>
         <div class="sidebar-foot">
@@ -240,6 +249,10 @@ function renderShell() {
         <div id="app-update"></div>
         <main class="content"><div id="setup-checklist"></div><div class="page" id="page"></div></main>
       </div>
+      <nav class="tabbar" aria-label="Main">
+        ${TABS.map(([k, label]) => `<a class="tab-item" data-nav="${k}" href="#/${k}">${icon(ROUTES[k].icon, 21)}<span>${label}</span></a>`).join('')}
+        <button type="button" class="tab-item" id="tab-more" aria-label="More pages">${icon('menu', 21)}<span>More</span></button>
+      </nav>
     </div>`;
 
   // Phone nav drawer: the sidebar slides in over the content and closes on a
@@ -248,6 +261,8 @@ function renderShell() {
   const openNav = () => appEl.classList.add('nav-open');
   const closeNav = () => appEl.classList.remove('nav-open');
   root.querySelector('#nav-toggle').addEventListener('click', openNav);
+  root.querySelector('#tab-more').addEventListener('click', openNav);
+  watchTabRedraws(root.querySelector('#page'));
   root.querySelector('#nav-close').addEventListener('click', closeNav);
   root.querySelector('#nav-scrim').addEventListener('click', closeNav);
   root.querySelectorAll('.sidebar .nav-item').forEach((a) => a.addEventListener('click', closeNav));
@@ -348,20 +363,40 @@ export async function refreshAll() {
 async function navigate() {
   const { page, params } = parseHash();
   const route = ROUTES[page] || ROUTES.dashboard;
-  root.querySelectorAll('.nav-item[data-nav]').forEach((el) => {
+  root.querySelectorAll('.nav-item[data-nav], .tab-item[data-nav]').forEach((el) => {
     el.classList.toggle('active', el.dataset.nav === page);
   });
+  // More lights up for any page that has no tab of its own.
+  root.querySelector('#tab-more')?.classList.toggle('active', !root.querySelector(`.tab-item[data-nav="${page}"]`));
   const container = root.querySelector('#page');
   if (!container) return;
-  container.innerHTML = '<div class="empty">Loading…</div>';
+  const seq = ++navSeq;
+  // The page being left dims while the next one loads, and only a slow load
+  // says "Loading…" — a quick one goes straight from one view to the next.
+  container.classList.remove('page-in');
+  container.classList.add('page-out');
+  const leaving = container.firstElementChild;
+  const slow = setTimeout(() => {
+    // Only while the old page is still up: once the new one has started to
+    // draw, wiping it would cut it off from the elements it is filling in.
+    if (seq !== navSeq) return;
+    container.classList.remove('page-out');
+    if (container.firstElementChild === leaving) container.innerHTML = '<div class="empty">Loading…</div>';
+  }, 260);
   try {
     await route.render(container, params);
     addGuideLink(container, page);
   } catch (err) {
-    if (err instanceof ApiError && err.status === 401) { renderLogin(); return; }
+    if (err instanceof ApiError && err.status === 401) { clearTimeout(slow); renderLogin(); return; }
     console.error(err);
     container.innerHTML = `<div class="empty">${icon('alert')}<div>Something went wrong: ${esc(err.message)}</div></div>`;
+  } finally {
+    clearTimeout(slow);
   }
+  if (seq !== navSeq) return;       // a later tap has already moved on
+  container.classList.remove('page-out');
+  root.querySelector('.content')?.scrollTo(0, 0);
+  playIn(container);
 }
 
 /**
@@ -430,9 +465,12 @@ async function boot() {
     }
     renderShell();
     await navigate();
+    // Opening the app with a saved sign-in: as the splash fades, the workspace
+    // settles in behind it. After a sign-in the brand intro does that job.
+    const entrance = pendingIntro ? null : () => playEntrance(root.querySelector('.app'));
     pendingIntro?.reveal();
     pendingIntro = null;
-    splash.done();
+    splash.done(entrance);
   } catch (err) {
     pendingIntro?.abort();
     pendingIntro = null;
