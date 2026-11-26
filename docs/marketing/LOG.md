@@ -2,6 +2,20 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 26 November 2026 — free tools for SEO (owner asked)
+
+- **Added to kairobookings.com:** four pages aimed at searches salon owners
+  type (Google AU autocomplete, 26 Nov): `/salon-pricing-calculator` ("salon
+  pricing calculator", "how much to charge for lash lift / nails / BIAB"),
+  `/salon-price-list-maker` ("salon price list template", "salon menu template
+  free"), `/instagram-booking-link` ("how to add booking link to instagram")
+  and the `/tools` hub. Typical prices on the calculator come from 32
+  published salon menus (no business named).
+- **Wired in:** sitemap, llms.txt, footer, links from five related pages,
+  WebApplication / HowTo / FAQ schema.
+- **Off-site:** `BACKLINKS.md` lists the free directories, Australian
+  listings and community steps for the owner (accounts in their name).
+
 ## 26 November 2026 — preview outreach
 
 - **Replies:** 0. **New bounces:** 0.
