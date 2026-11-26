@@ -153,7 +153,14 @@ spam: `subject:"booking page" -from:me newer_than:45d`. Handle each new one:
 
 ### 2. Follow-ups
 For every first email sent 3–5 days ago that has no reply in its thread,
-send the **Follow-up** in the same thread. Send only one, ever.
+send the **Follow-up** in the same thread (**Follow-up B** if the first email
+was version B). Send only one, ever.
+
+**Now free to try (once, only for the early batches).** Businesses first
+emailed before 25 Nov 2026 never heard about the free trial. For each of them
+whose follow-up went 7 or more days ago, with no reply of any kind in the
+thread and no bounce, send the **Now free to try** note in the same thread.
+Once, ever; after it, that business is never emailed again.
 
 ### 3. Find today's businesses
 Find **up to 10** that pass every check in "Who gets one". Fewer is fine. Never
@@ -219,8 +226,9 @@ inbox. If the count reaches **25**, stop for the day.
 
 ### 8. Log and tell
 - Add one line to `LOG.md` under a "Preview outreach" heading for the
-  week: date, sent, follow-ups, replies (yes / question / no), bounces,
-  mail-tester score. **Numbers only.** Commit and push to
+  week: date, sent (and whether they were version A or B), follow-ups,
+  "now free" notes, replies (yes / question / no), bounces, mail-tester
+  score. **Numbers only.** Commit and push to
   `claude/markdown-file-analysis-a5ppnf`.
 - Push-notify the owner **only** for a yes, a question you couldn't answer,
   a complaint, or a sale. A quiet day stays quiet.
@@ -229,7 +237,16 @@ inbox. If the count reaches **25**, stop for the day.
 
 ## The words
 
-**Subject:** `<Business> booking page`
+Two versions, to learn which gets more replies. **Version A on even dates,
+version B on odd dates** (the date in Australia). Log how many of each went
+out; replies are compared in the weekly run.
+
+**Subject (A):** `<Business> booking page`
+**Subject (B):** `Your <Business> booking page, free for 14 days`
+
+Both keep the words "booking page", which is what step 1 searches for.
+
+**Version A**
 
 **First email**
 
@@ -276,6 +293,66 @@ inbox. If the count reaches **25**, stop for the day.
 >
 > Not for you? Just reply "no thanks" and I won't email again.
 
+**First email B** (no online booking)
+
+> Hi <first name, or "there">,
+>
+> I made <Business> a booking page with your real menu (<service 1>,
+> <service 2> and the rest) to show you how it would look. It's attached.
+>
+> You can switch it on and use it free for 14 days. No card, nothing to
+> cancel. Clients pick a service and a time you're actually free, and it
+> lands straight in your diary.
+>
+> If you love it, it's A$400 once (or 3 × A$150), with no monthly fee after
+> that.
+>
+> Want the link? I'll help you get your menu in.
+>
+> Sachi
+> Kairo · kairobookings.com
+>
+> Not for you? Just reply "no thanks" and I won't email again.
+
+**Second-group email B** (they already book online)
+
+> Hi <first name, or "there">,
+>
+> I put the <Business> menu into Kairo to show you a booking page you'd own
+> outright. It's attached: <service 1>, <service 2> and the rest, at your
+> prices.
+>
+> You can run your bookings on it free for 14 days, with no card, alongside
+> what you use now. If it suits you better, it's A$400 once (or 3 × A$150),
+> then nothing to pay, ever: no monthly fee and no commission.
+>
+> Want me to send you the link? I'll help you move your menu across.
+>
+> Sachi
+> Kairo · kairobookings.com
+>
+> Not for you? Just reply "no thanks" and I won't email again.
+
+**Follow-up B** (same thread, 3–5 days later, once)
+
+> Hi <first name, or "there">, just checking this reached you. The 14-day
+> trial is free and needs no card, so there's nothing to lose by having a
+> look. Happy to send the link.
+>
+> Sachi
+
+**Now free to try** (same thread, once, early batches only; see step 2)
+
+> Hi <first name, or "there">,
+>
+> One last note from me: since I sent your booking page, Kairo has a free
+> 14-day trial. No card, and if it's not for you it simply stops. If you'd
+> like to try it with your own menu, reply "link" and I'll send it.
+>
+> Sachi
+
+A reply of "link" (or anything like yes) gets **Reply: yes** below.
+
 **Follow-up** (same thread, 3–5 days later, once)
 
 > Hi <first name, or "there">, just bringing this back up in case it got
@@ -309,7 +386,9 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
 - Only from the Kairo Gmail (`gmail_basoid-tun`). **Never through Resend**:
   the salons' booking emails depend on that account, and its policy forbids
   cold email.
-- One first email and one follow-up per business, ever.
+- One first email and one follow-up per business, ever. The only extra is
+  the single **Now free to try** note for businesses first emailed before
+  25 Nov 2026 (step 2).
 - Never name another booking platform, in an email or anywhere else.
 - Never "special offer" or "limited time". The prices are the normal prices.
 - No mention of AI.
