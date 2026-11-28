@@ -64,7 +64,7 @@ export function showLock(feature) {
     title: lock.title,
     body: `<div class="trial-lock">${icon('lock', 18)}<span>${inApp() ? 'Not included in the free trial.' : 'Comes with Kairo when you choose a plan.'}</span></div>
       <p class="trial-lock-body">${esc(lock.body)}</p>${example}
-      ${inApp() ? '' : '<p class="trial-lock-small">$400 once, or 3 payments of $150. Then nothing to pay, ever. Everything you have set up in your trial stays.</p>'}`,
+      ${inApp() ? '' : '<p class="trial-lock-small">Pay once, then nothing to pay, ever. Everything you have set up in your trial stays.</p>'}`,
     footer,
   });
   m.querySelector('[data-close-lock]')?.addEventListener('click', () => m.close());

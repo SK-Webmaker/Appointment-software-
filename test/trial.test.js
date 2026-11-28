@@ -325,6 +325,12 @@ test('a founding trial keeps at A$200, the places run out, and a month later the
   assert.equal(started.json.state, 'trial');
   const b = row('foundertrial');
   assert.equal(b.source, 'founder');
+  // Its trial emails quote the founding price, not the normal one.
+  setDates('foundertrial', { ends: Date.now() + 6.5 * DAY });
+  await until(() => mailsTo('foundertrial@founder.example', /Halfway/).length === 1);
+  const halfway = mailsTo('foundertrial@founder.example', /Halfway/)[0].text;
+  assert.match(halfway, /\$200 once, your founding price \(normally \$400\)/);
+  assert.doesNotMatch(halfway, /monthly payments/);
   const keep = (await platform.api('GET', `/api/keep/status?t=${b.connect_token}`)).json;
   assert.deepEqual(keep.plans.map((p) => [p.id, p.cents]), [['founder', 20000]]);
   const co = await platform.api('POST', '/api/keep/checkout', { body: { t: b.connect_token, plan: 'once' } });

@@ -344,6 +344,8 @@ const auDate = (iso) => {
 };
 const dollarsOf = (c) => `$${(c / 100).toFixed(0)}`;
 const priceLine = (plans = []) => {
+  const founder = plans.find((p) => p.id === 'founder');
+  if (founder) return `${dollarsOf(founder.cents)} once, your founding price${founder.usual_cents ? ` (normally ${dollarsOf(founder.usual_cents)})` : ''}. Then nothing to pay, ever. No commission, and a full refund within 14 days of paying.`;
   const once = plans.find((p) => p.id === 'once');
   const monthly = plans.find((p) => p.id === 'monthly');
   if (!once || !monthly) return '$400 once, or 3 monthly payments of $150. Then nothing to pay, ever.';

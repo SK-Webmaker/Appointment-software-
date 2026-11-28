@@ -60,7 +60,7 @@ export function founderCodeOk(code) {
 export const founderPlacesTaken = () =>
   db.prepare("SELECT COUNT(*) AS n FROM businesses WHERE plan = 'founder' AND paid_at != '' AND refunded_at = ''").get().n;
 export const founderPlacesLeft = () => Math.max(0, FOUNDER_PLACES() - founderPlacesTaken());
-const founderPlanShown = () => { const p = PLANS().founder; return { ...p, total_cents: p.cents * p.payments }; };
+const founderPlanShown = () => { const p = PLANS().founder; return { ...p, total_cents: p.cents * p.payments, usual_cents: PLANS().once.cents }; };
 /** What the private link's page shows. Nothing at all for a wrong code. */
 export function offerStatus(code) {
   if (!founderCodeOk(code)) return { ok: false };
@@ -902,7 +902,8 @@ export function trialFacts(b, owner = null) {
     keepUrl: keepUrlFor(b),
     endsAt: b.trial_ends_at,
     deletesAt: b.trial_deletes_at,
-    plans: publicPlans(),
+    // A founding trial's emails quote the founding price, the one its keep page charges.
+    plans: isFounder(b) && founderPlacesLeft() > 0 ? [founderPlanShown()] : publicPlans(),
   };
 }
 
