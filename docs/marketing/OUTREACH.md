@@ -403,6 +403,84 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
 
 ---
 
+## The founding offer (owner, 28 Nov 2026)
+
+The first 20 businesses get Kairo for **A$200 once instead of A$400**, in
+return for an honest review after their first month. It works only through
+a private link, `start.kairobookings.com/start?offer=<code>`. **The link is
+in the scheduled task's prompt and the owner's messages, never in this
+repo** (it's public). Until all 20 places are gone, every booking-page email
+and follow-up carries it instead of versions A and B. Check what's left
+before each run: `curl -s "https://start.kairobookings.com/api/offer?code=<code>"`
+returns `places_left`. At 0, go back to versions A and B.
+
+A founder can pay A$200 now or start the free trial and keep it for A$200.
+A month after paying, the platform emails them once asking for the review.
+If a review goes on the website, it's labelled as from a founding customer,
+because they paid less for it.
+
+**Founding first email** (no online booking; picture attached)
+
+> Hi <first name, or "there">,
+>
+> I saw bookings at <Business> are by <phone / text / DM / email>, so I put
+> your menu into an online booking page to see how it would look. It's
+> attached: <service 1>, <service 2> and the rest, at your prices.
+>
+> Clients tap a service, pick a time you're actually free, and it goes
+> straight into your diary. They get a reminder the day before, so fewer
+> no-shows.
+>
+> It's Kairo, which I make here in Melbourne. I'm looking for 20 founding
+> businesses to get it for A$200 once instead of A$400, with no monthly fee,
+> ever. All I ask in return is an honest review after your first month. You
+> can try it free for 14 days first, no card:
+> <offer link>
+>
+> Happy to help you put your menu in.
+>
+> Sachi
+> Kairo · kairobookings.com
+>
+> Not for you? Just reply "no thanks" and I won't email again.
+
+**Founding second-group email** (they already book online; picture attached)
+
+> Hi <first name, or "there">,
+>
+> I put the <Business> menu into Kairo to show you what your booking page
+> could look like if you owned it outright. It's attached: <service 1>,
+> <service 2> and the rest, at your prices.
+>
+> Clients tap a service, pick a time you're actually free, and it goes
+> straight into your diary, with a reminder the day before so fewer no-shows.
+>
+> The difference is the price. Kairo is normally A$400 once, with no monthly
+> fee and no commission, ever. I'm looking for 20 founding businesses to get
+> it for A$200 instead, in return for an honest review after their first
+> month. You can try it free for 14 days first, no card:
+> <offer link>
+>
+> Happy to help you move your menu across.
+>
+> (signature and "no thanks" line as above)
+
+**Founding follow-up** (same thread, 3–5 days later, once)
+
+> Hi <first name, or "there">, just bringing this back up, with one change.
+> I'm looking for 20 founding businesses to get Kairo for A$200 once instead
+> of A$400, still with no monthly fee, in return for an honest review after
+> their first month. You can try it free for 14 days first, no card. Here's
+> the link if you'd like a look:
+> <offer link>
+>
+> Sachi
+
+Subjects stay `<Business> booking page`, so step 1 still finds replies.
+Mail-tester scored the founding first email 9.2/10 on 28 Nov.
+
+---
+
 ## The website track
 
 Kairo also builds websites (`.claude/skills/website-sale/SKILL.md`, and

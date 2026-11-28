@@ -2,6 +2,21 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 28 November 2026 — founding offer (owner asked)
+
+- **Offer:** A$200 once instead of A$400 for the first 20 businesses, in
+  return for an honest review after a month. A private link only (the code
+  is in the server's environment, not this repo); the public price list
+  doesn't show it. Live on the platform from commit 9574121, 20 of 20
+  places left at launch. Founders are asked for the review a month after
+  paying, by one automatic email.
+- **Sent (Saturday, at the owner's request):** 4 first emails with the
+  offer and their booking-page picture (the businesses held from 27 Nov),
+  15 follow-ups carrying the offer (first emails of 23–25 Nov, none had
+  replied). Mail-tester 9.2/10. No errors, no retries.
+- **Replies so far:** none. No bounces from today's sends yet.
+- **Instagram:** a DM list for the offer went to the owner (not in this repo).
+
 ## 28 November 2026 — wider than salons (owner asked)
 
 - **Owner's ask:** reach high-value service businesses, and businesses that
