@@ -224,6 +224,13 @@ h2 { font-size: 19.5px; margin: 0 0 6px; letter-spacing: -.3px; font-weight: 650
   background: var(--accent-wash); color: var(--accent);
 }
 
+/* The founding offer, above its two ways in. */
+.offer-note {
+  margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5;
+  background: var(--accent-wash); color: var(--ink-2); border: 1px solid var(--accent);
+}
+.offer-note b { color: var(--ink); }
+
 ul.ticks { list-style: none; padding: 0; margin: 14px 0 0; color: var(--ink-2); font-size: 14.7px; }
 ul.ticks li { padding: 5px 0 5px 27px; position: relative; }
 ul.ticks li::before {

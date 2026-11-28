@@ -20,8 +20,10 @@ let price = {
 const PLAN_KEY = 'kairo_signup_plan';
 // A pricing card on the website can arrive with ?plan= already chosen.
 // ?plan=trial (or ?trial=1) arrives from the website's "Start your free trial".
-const PLAN_IDS = ['trial', 'once', 'monthly'];
-const planId = (id) => (PLAN_IDS.includes(id) ? id : 'once');
+const PLAN_IDS = ['trial', 'once', 'monthly', 'founder'];
+// The founding price exists only behind its private link (?offer=…), and the
+// server decides; this only stops the page offering what it can't have.
+const planId = (id) => (PLAN_IDS.includes(id) && (id !== 'founder' || price.offer) ? id : (price.offer ? 'founder' : 'once'));
 let chosenPlan = (() => {
   const q = new URLSearchParams(location.search);
   const given = q.get('trial') === '1' ? 'trial' : q.get('plan');
@@ -32,10 +34,47 @@ let chosenPlan = (() => {
 })();
 const choosePlan = (id) => { chosenPlan = planId(id); try { sessionStorage.setItem(PLAN_KEY, chosenPlan); } catch { /* fine */ } };
 const planById = (id) => price.plans.find((p) => p.id === id) || price.plans[0];
+// The private link's code, kept through a reload like the page they came from.
+const OFFER_KEY = 'kairo_signup_offer';
+let offerCode = (() => {
+  const given = new URLSearchParams(location.search).get('offer') || '';
+  const ok = (v) => /^[A-Za-z0-9_-]{12,80}$/.test(v);
+  try {
+    if (ok(given)) sessionStorage.setItem(OFFER_KEY, given);
+    const kept = sessionStorage.getItem(OFFER_KEY) || '';
+    return ok(kept) ? kept : '';
+  } catch { return ok(given) ? given : ''; }
+})();
+/** The founding offer, once the server has said the link is good. */
+function useOffer(o) {
+  price.offer = o;
+  if (!price.plans.some((p) => p.id === 'founder')) price.plans = [...price.plans, o.plan];
+}
+
+// With the private link: two ways in, both at the founding price.
+function offerPicker(selected) {
+  const o = price.offer;
+  const days = price.trial_days || 14;
+  return `<div class="offer-note"><b>Founding offer</b> · ${o.places_left} of ${o.places} places left<br>
+      Kairo for ${money(o.plan.cents)} once instead of ${money(o.usual_cents)}. In return, we'll ask you for an honest review after your first month.</div>
+    <div class="plans" role="radiogroup" aria-label="How would you like to start?">
+    <label class="plan"><input type="radio" name="plan" value="founder" ${selected !== 'trial' ? 'checked' : ''}>
+      <div class="p-top"><span class="p-name">Founding price<span class="p-tag">Half price</span></span>
+        <span class="p-price">${money(o.plan.cents)}<small> once</small></span></div>
+      <div class="p-note">One payment instead of ${money(o.usual_cents)}, then $0 a month, ever.</div>
+    </label>
+    <label class="plan"><input type="radio" name="plan" value="trial" ${selected === 'trial' ? 'checked' : ''}>
+      <div class="p-top"><span class="p-name">Try it free first<span class="p-tag">No card</span></span>
+        <span class="p-price">$0<small> today</small></span></div>
+      <div class="p-note">${days} days free with your real clients, then keep it for ${money(o.plan.cents)} while founding places last.</div>
+    </label>
+  </div>`;
+}
 
 // The two plans as a choice. Same Kairo either way; the only difference is
 // whether it is paid in one go or spread over three months for $50 more.
 function planPicker(selected) {
+  if (price.offer) return offerPicker(selected);
   const once = planById('once');
   const monthly = planById('monthly');
   const extra = monthly.total_cents - once.total_cents;
@@ -69,6 +108,7 @@ const ticksFor = (id) => (id === 'trial'
 const payHint = (id) => (id === 'trial'
   ? 'No payment details needed. We\'ll remind you before your trial ends.'
   : 'Secure payment by Stripe. Card, Apple&nbsp;Pay or Google&nbsp;Pay.');
+let offerError = '';
 let token = localStorage.getItem(KEY) || new URLSearchParams(location.search).get('t') || '';
 // The website page that sent them here (?from=fresha-price), kept through a
 // reload so the signup still says where it came from. A page name, nothing more.
@@ -129,7 +169,8 @@ const foot = `<div class="foot">
 // ── step 1: the form ───────────────────────────────────────────────────────
 function renderForm(prefill = {}, error = '') {
   app.innerHTML = `${header(1)}
-    <h1>Your salon's booking system. No ongoing fees.</h1>
+    ${offerError ? `<div class="err">${esc(offerError)}</div>` : ''}
+    <h1>${price.offer ? 'Kairo at the founding price.' : 'Your booking system. No ongoing fees.'}</h1>
     <p class="lede">Bookings, reminders, clients, payments and your own booking page — under your name, on your own address.</p>
     <div class="card">
       <h2 style="margin-bottom:10px">How would you like to start?</h2>
@@ -216,6 +257,7 @@ function renderForm(prefill = {}, error = '') {
     data.tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Australia/Melbourne';
     data.source = from;
     data.plan = chosenPlan;
+    if (offerCode) data.offer = offerCode;
     try {
       const out = await call('POST', '/api/signup', data);
       token = out.token;
@@ -265,6 +307,7 @@ async function renderPay(error = '') {
   const st = await call('GET', `/api/status?token=${encodeURIComponent(token)}`);
   if (['ready', 'trial'].includes(st.state)) return renderStatus();
   const cancelled = new URLSearchParams(location.search).get('cancelled');
+  if (st.offer) useOffer(st.offer);
   let selected = planId(st.plan);
   chosenPlan = selected;
   app.innerHTML = `${header(3)}
@@ -362,6 +405,17 @@ async function renderStatus() {
     const got = await call('GET', '/api/price');
     price = { ...price, ...got, plans: Array.isArray(got.plans) && got.plans.length ? got.plans : price.plans };
   } catch { /* the defaults are fine */ }
+  if (offerCode) {
+    try {
+      const o = await call('GET', `/api/offer?code=${encodeURIComponent(offerCode)}`);
+      if (o.ok && o.places_left > 0) { useOffer(o); if (chosenPlan !== 'trial') choosePlan('founder'); }
+      else {
+        offerError = o.ok ? `All ${o.places} founding places have been taken. The normal prices are below.` : 'That offer link is not valid. The normal prices are below.';
+        offerCode = '';
+        try { sessionStorage.removeItem(OFFER_KEY); } catch { /* fine */ }
+      }
+    } catch { /* the normal prices still work */ }
+  }
   if (!token) return renderForm();
   try { await renderStatus(); } catch { localStorage.removeItem(KEY); token = ''; renderForm(); }
 })();

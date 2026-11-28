@@ -16,6 +16,8 @@ const KEY = 'platform-key-for-tests-0123456789';
 const DOMAIN = 'kairobookings.test';
 const PASSWORD = 'a-good-long-passphrase-26';
 const DAY = 86400000;
+// The founding offer's private code, as KAIRO_FOUNDER_CODE would hold it on the server.
+const OFFER = 'founding-code-for-tests-0123';
 let shard, platform, stripe, abr, resend, shardDir;
 
 before(async () => {
@@ -39,6 +41,7 @@ before(async () => {
       ABR_API_BASE: abr.base, ABR_GUID: 'g',
       RESEND_API_KEY: resend.fullKey, PLATFORM_FROM_EMAIL: 'hello@kairobookings.test', RESEND_API_BASE: resend.base,
       PLATFORM_TRIAL_EVERY_MS: '300',
+      KAIRO_FOUNDER_CODE: OFFER, KAIRO_FOUNDER_PLACES: '2',
     },
   });
 });
@@ -256,4 +259,94 @@ test('a trial can switch to paying before it starts', async () => {
   assert.equal(pay.status, 200, pay.text);
   assert.equal(row('swap').plan, 'monthly');
   assert.equal(row('swap').trial_ends_at, '', 'no trial was started');
+});
+
+// ── The founding offer (owner, 28 Nov 2026): A$200 for the first places, by private link ──
+let fip = 0;
+async function offerSignup(slug, body = {}) {
+  const r = await platform.api('POST', '/api/signup', {
+    body: { business_name: `${slug} studio`, slug, name: 'Mia Ross', email: `${slug}@founder.example`, phone: `04${String(30000000 + fip * 7907).slice(0, 8)}`, password: PASSWORD, ...body },
+    headers: { 'cf-connecting-ip': `192.0.2.${++fip}` },
+  });
+  if (r.status === 200) {
+    const v = await platform.api('POST', '/api/verify', { body: { token: r.json.token, kind: 'email', code: platform.latestCode('email') } });
+    assert.equal(v.status, 200, v.text);
+  }
+  return r;
+}
+const payLatest = async () => {
+  const session = [...stripe.sessions.values()].pop();
+  const sig = stripe.sign(stripe.pay(session.id));
+  const hook = await platform.api('POST', '/api/stripe/webhook', { body: sig.raw, headers: { 'stripe-signature': sig.header, 'content-type': 'application/json' } });
+  assert.equal(hook.status, 200, hook.text);
+  return session;
+};
+const lastAmount = () => stripe.sessionParams.get([...stripe.sessions.keys()].pop())['line_items[0][price_data][unit_amount]'];
+
+test('the founding price is only behind its private link, and never on the public page', async () => {
+  const pub = await platform.api('GET', '/api/price');
+  assert.ok(!pub.json.plans.some((p) => p.id === 'founder'), 'the public price list has no founding price');
+  assert.deepEqual((await platform.api('GET', '/api/offer?code=not-the-code-00000')).json, { ok: false });
+  const good = (await platform.api('GET', `/api/offer?code=${OFFER}`)).json;
+  assert.equal(good.ok, true);
+  assert.deepEqual([good.plan.cents, good.plan.payments, good.usual_cents, good.places, good.places_left], [20000, 1, 40000, 2, 2]);
+  const bad = await offerSignup('badcode', { plan: 'founder', offer: 'not-the-code-00000' });
+  assert.equal(bad.status, 400, 'a wrong code is refused, not quietly charged full price');
+  // Asking for the plan, or claiming the page, without the code gets the normal price.
+  const sneaky = await offerSignup('sneaky', { plan: 'founder', source: 'founder' });
+  assert.equal(sneaky.status, 200, sneaky.text);
+  assert.deepEqual([row('sneaky').plan, row('sneaky').source], ['once', '']);
+  const co = await platform.api('POST', '/api/checkout', { body: { token: sneaky.json.token, plan: 'founder' } });
+  assert.equal(co.status, 200, co.text);
+  assert.equal(lastAmount(), '40000');
+  assert.equal(row('sneaky').plan, 'once');
+});
+
+test('a founder pays A$200 once, gets the same Kairo, and a place is taken', async () => {
+  const r = await offerSignup('firstfounder', { plan: 'founder', offer: OFFER, source: 'preview' });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual([row('firstfounder').plan, row('firstfounder').source, row('firstfounder').price_cents], ['founder', 'founder', 20000]);
+  const st = (await platform.api('GET', `/api/status?token=${r.json.token}`)).json;
+  assert.equal(st.offer.plan.cents, 20000, 'the payment step still shows the founding price');
+  // Even asking for the dearer plan on the payment step, a founder pays the founding price.
+  const co = await platform.api('POST', '/api/checkout', { body: { token: r.json.token, plan: 'monthly' } });
+  assert.equal(co.status, 200, co.text);
+  const p = stripe.sessionParams.get([...stripe.sessions.keys()].pop());
+  assert.deepEqual([p.mode, p['line_items[0][price_data][unit_amount]']], ['payment', '20000']);
+  await payLatest();
+  await until(() => row('firstfounder').state === 'ready', 15000);
+  assert.equal((await platform.api('GET', `/api/offer?code=${OFFER}`)).json.places_left, 1);
+});
+
+test('a founding trial keeps at A$200, the places run out, and a month later the review is asked for once', async () => {
+  const r = await offerSignup('foundertrial', { plan: 'trial', offer: OFFER });
+  assert.equal(r.status, 200, r.text);
+  const started = await platform.api('POST', '/api/trial/start', { body: { token: r.json.token } });
+  assert.equal(started.json.state, 'trial');
+  const b = row('foundertrial');
+  assert.equal(b.source, 'founder');
+  const keep = (await platform.api('GET', `/api/keep/status?t=${b.connect_token}`)).json;
+  assert.deepEqual(keep.plans.map((p) => [p.id, p.cents]), [['founder', 20000]]);
+  const co = await platform.api('POST', '/api/keep/checkout', { body: { t: b.connect_token, plan: 'once' } });
+  assert.equal(co.status, 200, co.text);
+  assert.equal(lastAmount(), '20000', 'kept at the founding price');
+  await payLatest();
+  await until(() => row('foundertrial').state === 'ready', 15000);
+  assert.equal(row('foundertrial').plan, 'founder');
+  // Both places are gone now.
+  assert.equal((await platform.api('GET', `/api/offer?code=${OFFER}`)).json.places_left, 0);
+  const late = await offerSignup('toolate', { plan: 'founder', offer: OFFER });
+  assert.equal(late.status, 409);
+  assert.match(late.json.error, /founding places have been taken/);
+  // A month after paying: one honest-review email, and only one.
+  assert.equal(mailsTo('foundertrial@founder.example', /How's Kairo going/).length, 0, 'not before the month is up');
+  const d = platform.platformDb();
+  try { d.prepare("UPDATE businesses SET paid_at = datetime('now', '-31 days') WHERE slug IN ('foundertrial', 'sneaky')").run(); } finally { d.close(); }
+  await until(() => mailsTo('foundertrial@founder.example', /How's Kairo going/).length === 1);
+  const mail = mailsTo('foundertrial@founder.example', /How's Kairo going/)[0];
+  assert.match(mail.text, /honest review/);
+  assert.match(mail.text, /Good or bad/);
+  await new Promise((res) => setTimeout(res, 1200));
+  assert.equal(mailsTo('foundertrial@founder.example', /How's Kairo going/).length, 1, 'asked once, ever');
+  assert.equal(mailsTo('sneaky@founder.example', /How's Kairo going/).length, 0, 'only founders are asked');
 });

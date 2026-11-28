@@ -37,8 +37,41 @@ export const PLANS = () => ({
     cents: Number(process.env.KAIRO_MONTHLY_CENTS || 15000),
     payments: Number(process.env.KAIRO_MONTHLY_PAYMENTS || 3),
   },
+  founder: { id: 'founder', cents: Number(process.env.KAIRO_FOUNDER_CENTS || 20000), payments: 1 },
 });
-export const planFor = (id) => PLANS()[id === 'monthly' ? 'monthly' : 'once'];
+export const planFor = (id) => PLANS()[id === 'monthly' || id === 'founder' ? id : 'once'];
+
+// The founding offer (owner, 28 Nov 2026): the first 20 businesses get Kairo
+// for A$200 once, half the usual price, and are asked for an honest review
+// after their first month. It is reached only by a private link carrying
+// KAIRO_FOUNDER_CODE, which lives in the server's environment and never in
+// this public repo; with no code set there is no offer. A signup that came in
+// by it is marked source = 'founder', and only the server ever sets that.
+export const FOUNDER_PLACES = () => Number(process.env.KAIRO_FOUNDER_PLACES || 20);
+export const FOUNDER_REVIEW_DAYS = () => Number(process.env.KAIRO_FOUNDER_REVIEW_DAYS || 30);
+export function founderCodeOk(code) {
+  const want = String(process.env.KAIRO_FOUNDER_CODE || '').trim();
+  const got = String(code ?? '').trim();
+  if (want.length < 12 || !got) return false;
+  const digest = (v) => crypto.createHash('sha256').update(v).digest();
+  return crypto.timingSafeEqual(digest(got), digest(want));
+}
+/** Founding places paid for and not refunded. */
+export const founderPlacesTaken = () =>
+  db.prepare("SELECT COUNT(*) AS n FROM businesses WHERE plan = 'founder' AND paid_at != '' AND refunded_at = ''").get().n;
+export const founderPlacesLeft = () => Math.max(0, FOUNDER_PLACES() - founderPlacesTaken());
+const founderPlanShown = () => { const p = PLANS().founder; return { ...p, total_cents: p.cents * p.payments }; };
+/** What the private link's page shows. Nothing at all for a wrong code. */
+export function offerStatus(code) {
+  if (!founderCodeOk(code)) return { ok: false };
+  return { ok: true, plan: founderPlanShown(), usual_cents: PLANS().once.cents, places: FOUNDER_PLACES(), places_left: founderPlacesLeft() };
+}
+const isFounder = (b) => b.source === 'founder';
+/** The plan a business may pay: a founder gets the founding price while places last; nobody else ever can. */
+function allowedPlan(b, planId) {
+  if (isFounder(b) && founderPlacesLeft() > 0) return PLANS().founder;
+  return planFor(planId === 'founder' ? 'once' : planId);
+}
 /**
  * The free trial (see "The free trial" below). Fourteen days with everything
  * but five features, no card; then paused for a week; then deleted.
@@ -54,8 +87,8 @@ export const planTotal = (p) => p.cents * p.payments;
 export const PRICE_CENTS = () => PLANS().once.cents;
 /** Paid so far inside the refund window: all of it, or a monthly plan's first payment. */
 export const refundableCents = (b) => (planFor(b.plan).payments > 1 ? planFor(b.plan).cents : b.price_cents);
-/** What the signup page shows: both plans, each with its total. */
-export const publicPlans = () => Object.values(PLANS()).map((p) => ({ ...p, total_cents: planTotal(p) }));
+/** What the signup page shows: both public plans, each with its total. Never the founding price. */
+export const publicPlans = () => Object.values(PLANS()).filter((p) => p.id !== 'founder').map((p) => ({ ...p, total_cents: planTotal(p) }));
 // The listing itself once Apple has one (src/app-store.js finds it), the
 // store's front page until then. KAIRO_APP_URL still wins if set.
 export const APP_URL = () => String(process.env.KAIRO_APP_URL || appStoreUrl() || 'https://apps.apple.com/');
@@ -120,9 +153,17 @@ export async function startSignup(input, { ip = '' } = {}) {
   const slug = clean(input.slug, 40).toLowerCase() || slugify(businessName);
   const password = String(input.password ?? '');
   // A page name from the website's signup links, or nothing.
-  const source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';
+  let source = /^[a-z0-9][a-z0-9-]{0,59}$/.test(String(input.source ?? '')) ? String(input.source) : '';
   const trial = input.plan === 'trial';
-  const plan = planFor(input.plan);
+  // The founding offer: only with the private link's code, and only while
+  // places last. 'founder' as a page name or a plan means nothing without it.
+  const offered = String(input.offer ?? '').trim() !== '';
+  const founder = offered && founderCodeOk(input.offer);
+  if (offered && !founder) throw err(400, 'That offer link is not valid. Check the link you were sent, or sign up at the normal price.');
+  if (founder && founderPlacesLeft() <= 0) throw err(409, `All ${FOUNDER_PLACES()} founding places have been taken. You can still try Kairo free for 14 days at the normal price.`);
+  if (founder) source = 'founder';
+  else if (source === 'founder') source = '';
+  const plan = founder ? PLANS().founder : planFor(input.plan === 'founder' ? 'once' : input.plan);
 
   if (!name) throw err(400, 'Your name is required');
   if (businessName.length < 2) throw err(400, 'Your business name is required');
@@ -231,8 +272,9 @@ export async function beginCheckout(token, origin, planId = '') {
   // The plan can still be changed on the payment step, right up to paying,
   // including from the free trial to paying now.
   if (b.plan === 'trial' && !planId) planId = 'once';
-  if (planId && planFor(planId).id !== b.plan) {
-    const p = planFor(planId);
+  const allowed = allowedPlan(b, planId || b.plan);
+  if (allowed.id !== b.plan) {
+    const p = allowed;
     db.prepare('UPDATE businesses SET plan = ?, price_cents = ? WHERE id = ?').run(p.id, planTotal(p), b.id);
     record(b.id, 'plan:changed', p.id);
     b = db.prepare('SELECT * FROM businesses WHERE id = ?').get(b.id);
@@ -777,6 +819,7 @@ export function statusFor(token) {
     business_name: b.name,
     price_cents: b.price_cents,
     plan: planFor(b.plan).id,
+    ...(isFounder(b) ? { offer: { plan: founderPlanShown(), usual_cents: PLANS().once.cents, places: FOUNDER_PLACES(), places_left: founderPlacesLeft() } } : {}),
     email: owner.email,
     phone_hint: String(owner.phone).replace(/.(?=.{3})/g, '•'),
     email_verified: owner.email_verified === 1,
@@ -898,7 +941,9 @@ export function keepStatus(connectToken) {
     ends_at: b.trial_ends_at,
     deletes_at: b.trial_deletes_at,
     days_left: ends ? Math.max(0, Math.ceil((ends - Date.now()) / DAY_MS)) : null,
-    plans: publicPlans(),
+    // A founding signup keeps its trial at the founding price while places last.
+    plans: isFounder(b) && founderPlacesLeft() > 0 ? [founderPlanShown()] : publicPlans(),
+    usual_cents: PLANS().once.cents,
   };
 }
 
@@ -909,7 +954,7 @@ export async function keepCheckout(connectToken, origin, planId = 'once') {
   if (!TRIAL_STATES.includes(b.state)) throw err(409, 'This free trial has ended and the account has been deleted. You can start again at kairobookings.com.');
   if (!stripe.stripeConfigured()) throw err(503, 'Payments are not available right now. Please try again shortly.');
   const owner = db.prepare('SELECT * FROM owners WHERE id = ?').get(b.owner_id);
-  const plan = planFor(planId);
+  const plan = allowedPlan(b, planId);
   const back = `${origin}/keep?t=${encodeURIComponent(b.connect_token)}`;
   const session = await stripe.createCheckout({
     businessId: b.id, slug: b.slug, name: b.name, email: owner.email, priceCents: plan.cents, origin,
@@ -1045,6 +1090,18 @@ export async function trialTick(now = Date.now()) {
         await trialEmail(b, 'final', sent);
         done.push(['final', b.id]);
       }
+    }
+
+    // The founding offer's side of the deal: a month after paying, one email
+    // asking for an honest review. Once, ever; a refunded one is never asked.
+    for (const b of db.prepare("SELECT * FROM businesses WHERE source = 'founder' AND state = 'ready' AND paid_at != '' AND refunded_at = ''").all()) {
+      const paid = Date.parse(`${String(b.paid_at).replace(' ', 'T')}Z`) || 0;
+      if (!paid || now < paid + FOUNDER_REVIEW_DAYS() * DAY_MS) continue;
+      if (db.prepare("SELECT 1 FROM events WHERE business_id = ? AND kind = 'founder:review-asked'").get(b.id)) continue;
+      const owner = db.prepare('SELECT name, email FROM owners WHERE id = ?').get(b.owner_id);
+      const r = await notify.emailFounderReview(owner.email, { ownerName: owner.name, businessName: b.name });
+      record(b.id, 'founder:review-asked', r.ok ? 'sent' : r.detail);
+      done.push(['review-asked', b.id]);
     }
   } finally {
     ticking = false;

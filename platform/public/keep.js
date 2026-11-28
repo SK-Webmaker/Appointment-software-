@@ -27,7 +27,18 @@ const longDate = (iso) => {
 const brand = '<div class="brand"><b>Kairo</b></div>';
 const foot = `<div class="foot"><a href="/terms">Terms</a> · <a href="/refunds">Refunds</a> · <a href="/privacy">Privacy</a> · <a href="/support">Support</a></div>`;
 
-function planPicker(plans) {
+function planPicker(plans, usual) {
+  const founder = plans.find((p) => p.id === 'founder');
+  // A founding signup keeps its trial at the founding price, and only that.
+  if (founder) {
+    return `<div class="plans" role="radiogroup" aria-label="How would you like to pay?">
+    <label class="plan"><input type="radio" name="plan" value="founder" checked>
+      <div class="p-top"><span class="p-name">Founding price<span class="p-tag">Half price</span></span>
+        <span class="p-price">${money(founder.cents)}<small> once</small></span></div>
+      <div class="p-note">One payment${usual ? ` instead of ${money(usual)}` : ''}, then $0 a month, ever. In return, we'll ask you for an honest review after your first month.</div>
+    </label>
+  </div>`;
+  }
   const once = plans.find((p) => p.id === 'once');
   const monthly = plans.find((p) => p.id === 'monthly');
   return `<div class="plans" role="radiogroup" aria-label="How would you like to pay?">
@@ -82,7 +93,7 @@ async function render(error = '') {
       : `${s.days_left <= 1 ? 'Your free trial ends tomorrow' : `${s.days_left} days left in your free trial`}. Choose a plan and nothing changes: your clients, services and bookings stay exactly as they are.`}</p>
     <div class="card">
       <h2 style="margin-bottom:10px">How would you like to pay?</h2>
-      ${planPicker(s.plans)}
+      ${planPicker(s.plans, s.usual_cents)}
       <ul class="ticks">
         <li>Kai, your assistant</li>
         <li>Text reminders and confirmations</li>
@@ -95,7 +106,8 @@ async function render(error = '') {
       <button class="primary" id="pay">Continue to payment</button>
       <p class="hint" style="text-align:center;margin-top:10px">Secure payment by Stripe. Card, Apple&nbsp;Pay or Google&nbsp;Pay.</p>
     </div>${foot}`;
-  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => { plan = r.value === 'monthly' ? 'monthly' : 'once'; }));
+  if (s.plans.some((p) => p.id === 'founder')) plan = 'founder';
+  app.querySelectorAll('input[name="plan"]').forEach((r) => r.addEventListener('change', () => { plan = ['monthly', 'founder'].includes(r.value) ? r.value : 'once'; }));
   app.querySelector('#pay').addEventListener('click', async (e) => {
     e.target.disabled = true; e.target.textContent = 'Opening secure payment…';
     try {

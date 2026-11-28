@@ -103,6 +103,34 @@ const escHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;
 
 // Where an owner is sent for help. One address, the same on every page and
 // email the platform sends, so "how do I reach Kairo" has one answer.
+/**
+ * The founding offer's one ask (platform/signup.js, trialTick): a month in,
+ * an honest review in the owner's own words. Plain and short, and it says
+ * good or bad is fine, because a review asked for any other way isn't one.
+ */
+export function founderReviewContent({ ownerName = '', businessName = '' } = {}) {
+  const first = String(ownerName || '').trim().split(/\s+/)[0] || 'there';
+  const subject = `How's Kairo going at ${businessName}?`;
+  const text = [
+    `Hi ${first},`,
+    '',
+    `It's been a month since ${businessName} started on Kairo at the founding price. Thank you for being one of the first.`,
+    '',
+    "When you took the founding place, we asked for an honest review in return. Could you reply to this email with a few lines about how it's going: what's easier now, and anything that isn't? Good or bad, we'd like the real answer.",
+    '',
+    `If you're happy for us to show it on kairobookings.com with ${businessName}'s name, just say so. We'll mark it as coming from a founding customer.`,
+    '',
+    'Thanks,',
+    'Sachi',
+    'Kairo',
+  ].join('\n');
+  return { subject, text };
+}
+export const emailFounderReview = (to, facts) => {
+  const { subject, text } = founderReviewContent(facts);
+  return sendEmail(to, subject, text);
+};
+
 export const SUPPORT_EMAIL = () => String(process.env.PLATFORM_SUPPORT_EMAIL || 'support@kairobookings.com').trim();
 export const GUIDE_URL = () => String(process.env.KAIRO_GUIDE_URL || 'https://kairobookings.com/guide').trim();
 // Where the Kairo mark is served from for emails. The platform serves its own

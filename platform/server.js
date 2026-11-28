@@ -193,6 +193,13 @@ async function api(req, res, url, ip) {
     return json(res, 200, { price_cents: signup.PRICE_CENTS(), plans: signup.publicPlans(), currency: 'AUD', base_domain: signup.BASE_DOMAIN(), trial_days: signup.TRIAL_DAYS() });
   }
 
+  // The founding offer's private link asks whether its code is good. A wrong
+  // code learns nothing but "no".
+  if (p === '/api/offer' && req.method === 'GET') {
+    if (limited('status')) return undefined;
+    return json(res, 200, signup.offerStatus(url.searchParams.get('code')));
+  }
+
   if (p === '/api/slug' && req.method === 'GET') {
     const wanted = String(url.searchParams.get('slug') || '').trim().toLowerCase();
     const from = String(url.searchParams.get('from') || '');
