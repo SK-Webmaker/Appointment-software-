@@ -1,11 +1,16 @@
 # The one strategy: "Your booking page, already built"
 
-Every weekday a scheduled session finds a handful of Australian beauty, nail,
-lash, brow, hair and barber businesses that **still take bookings by phone,
-text or DM**. For each one it builds a picture of **their own Kairo booking
+Every weekday a scheduled session finds a handful of Australian appointment
+businesses that **still take bookings by phone, text or DM**: higher-value
+ones first (cosmetic and skin clinics, tattoo studios, day spas), then
+beauty, nail, lash, brow, hair and barber businesses. For each one it builds a picture of **their own Kairo booking
 page**, with their name, their colours and their real menu and prices. It
 emails that picture to the address they publish, with one plain question:
 "Want me to send you the link to set it up?"
+
+It also emails a few service businesses whose website is letting them down,
+offering a free demo of a new one (see "The website track" below; owner's
+request, 28 Nov 2026: reach high-value service businesses, not only salons).
 
 It costs nothing. The owner only steps in when someone replies.
 
@@ -89,8 +94,14 @@ says so in `LOG.md` and tries the next subject line and segment in
 All of these must be true. Check each on the business's **own website**,
 not on a directory:
 
-1. An Australian beauty, nail, lash, brow, hair, barber or brow/lash-and-skin
-   business with a physical address or suburb.
+1. An Australian business that sells booked appointments at its own
+   premises, with a physical address or suburb. Higher-value ones first:
+   cosmetic and skin clinics, tattoo studios, day spas and massage. Then
+   beauty, nail, lash, brow, hair and barber businesses. For a clinic, put
+   only treatments that aren't prescription medicines on the picture (skin
+   treatments, peels, skin needling, LED, laser, IPL, facials) and leave
+   injectables off: prescription medicines can't be advertised in
+   Australia, and the picture doesn't need them.
 2. **No online booking.** The site says to call, text, DM, email or "contact
    to book", and has no booking widget or link to any booking platform.
 3. **A published business email** in the site's text or a `mailto:` link
@@ -119,7 +130,10 @@ Where to find them (free, rotate daily):
   Newcastle, Wollongong, Brisbane suburbs, Gold Coast, Sunshine Coast,
   Toowoomba, Adelaide, Perth, Hobart, Launceston, Canberra, Darwin, Cairns,
   Townsville.
-- Niches: nails, lashes, brows, hair, barber, beauty/skin.
+- Niches, higher-value first: skin and cosmetic clinics (laser, peels, skin
+  needling), tattoo studios (only those that publish prices, such as a shop
+  minimum, an hourly rate or flash), day spas and massage; then nails,
+  lashes, brows, hair, barber, beauty.
 
 Run `node docs/marketing/preview/check-site.mjs <url> [more urls]` on each
 candidate's own site. For each one it reports the emails on the site, any
@@ -141,7 +155,9 @@ good day.**
 
 ### 1. Replies first
 Search the Kairo Gmail (account `gmail_basoid-tun`), all folders including
-spam: `subject:"booking page" -from:me newer_than:45d`. Handle each new one:
+spam: `(subject:"booking page" OR subject:website) -from:me newer_than:45d`.
+Handle each new one (website-track replies are handled as "The website
+track" says):
 
 | Reply | Do |
 |---|---|
@@ -154,7 +170,8 @@ spam: `subject:"booking page" -from:me newer_than:45d`. Handle each new one:
 ### 2. Follow-ups
 For every first email sent 3–5 days ago that has no reply in its thread,
 send the **Follow-up** in the same thread (**Follow-up B** if the first email
-was version B). Send only one, ever.
+was version B, **Website follow-up** for the website track). Send only one,
+ever.
 
 **Now free to try (once, only for the early batches).** Businesses first
 emailed before 25 Nov 2026 never heard about the free trial. For each of them
@@ -163,7 +180,9 @@ thread and no bounce, send the **Now free to try** note in the same thread.
 Once, ever; after it, that business is never emailed again.
 
 ### 3. Find today's businesses
-Find **up to 10** that pass every check in "Who gets one". Fewer is fine. Never
+Find **up to 10** that pass every check in "Who gets one", then **up to 5**
+for the website track that pass every check in "Who gets a website email".
+Fewer is fine. Never
 lower the bar to reach 10. For each, note: business name, first name if the
 site gives one, suburb, email, how they take bookings (call / text / DM /
 email), a site colour if obvious, opening days and hours if shown, and up to
@@ -178,8 +197,8 @@ node docs/marketing/preview/make-preview.cjs <lead.json> <scratch>/<token>.jpg
 ```
 
 `<token>` is 24 random hex characters (`head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n'`).
-Scheme: `blush` for lashes, brows and beauty; `cream` for nails and hair;
-`noir` for barbers. Open each picture and look at it before it goes
+Scheme: `blush` for lashes, brows and beauty; `cream` for nails, hair,
+clinics and spas; `noir` for barbers and tattoo studios. Open each picture and look at it before it goes
 anywhere. A wrong price or a broken page means fix it or skip that business.
 
 ### 5. Put the pictures online (private website repo)
@@ -230,8 +249,11 @@ inbox. If the count reaches **25**, stop for the day.
   "now free" notes, replies (yes / question / no), bounces, mail-tester
   score. **Numbers only.** Commit and push to
   `claude/markdown-file-analysis-a5ppnf`.
-- Push-notify the owner **only** for a yes, a question you couldn't answer,
-  a complaint, or a sale. A quiet day stays quiet.
+- Log the website track on its own line: website emails sent, follow-ups,
+  replies, demos asked for.
+- Push-notify the owner **only** for a yes (a booking-page yes or a website
+  demo asked for), a question you couldn't answer, a complaint, or a sale. A
+  quiet day stays quiet.
 
 ---
 
@@ -381,6 +403,105 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
 
 ---
 
+## The website track
+
+Kairo also builds websites (`.claude/skills/website-sale/SKILL.md`, and
+kairobookings.com/websites): A$350 once including the domain and the first
+year of hosting (then A$20 a year), or A$550 plus A$24.99 a month with
+updates done. We build a free demo first. Higher-value service businesses
+with a weak website are the people this pays off for.
+
+### Who gets a website email
+
+All of these must be true:
+
+1. An Australian service business whose jobs are usually worth A$500 or
+   more: builders and renovators, kitchens and bathrooms, landscapers, pools,
+   fencing, roofing, solar, electricians, plumbers, painters, removalists,
+   cosmetic and skin clinics, tattoo studios, photographers, detailers.
+2. **A website that is letting them down, by a fact you checked yourself**
+   (`check-site.mjs` reports the first three; look at the page as well):
+   - `phone_ready: false`, and a 390px-wide screenshot really does show a
+     desktop page shrunk onto a phone; or
+   - `https: false`, and the `https://` address doesn't work either, so
+     browsers mark the site "Not secure"; or
+   - `copyright_year` 2021 or earlier and nothing on the site is newer.
+   - Or no website at all, with a business email published on the
+     business's own listing (not a directory that copied it).
+3. **A published business email** (as in "Who gets one").
+4. Still trading: something dated 2025 or later, or recent reviews.
+5. Nowhere says it doesn't want marketing or unsolicited email.
+6. **Never emailed before** from the Kairo Gmail, on either track (search
+   Sent for the address and `@domain`).
+
+Find them the same way as the booking-page businesses: search
+`<trade> <suburb>` and open the businesses' own sites; use directories for
+names only. Rotate trades and cities daily.
+
+### Website words
+
+**Subject:** `<Business> website`
+
+**Website email** (pick the one finding that's true; never more than one)
+
+> Hi <first name, or "there">,
+>
+> I was looking at the <Business> website. <The finding, one plain sentence:
+> "On a phone it opens at desktop size, so the text is tiny and people have
+> to pinch and zoom." / "Chrome marks it "Not secure", because it doesn't
+> have a security certificate." / "It still says © <year>, so it looks like
+> it hasn't been touched in a while." / "I couldn't find a website for you,
+> only your <listing>.">
+>
+> Most people look a business up on their phone before they call, and for a
+> bigger job that first look often decides who gets the call.
+>
+> I build websites for Australian service businesses, and I'd be happy to
+> make you a free demo of a new one: your services, your photos and your
+> contact details, made for phones. You can look at it on your own phone
+> before deciding anything.
+>
+> If you like it, it's A$350 once, including your domain and the first year
+> of hosting (then A$20 a year). If you don't, it costs nothing.
+>
+> Want me to put one together?
+>
+> Sachi
+> Kairo · kairobookings.com/websites
+>
+> Not for you? Just reply "no thanks" and I won't email again.
+
+**Website follow-up** (same thread, 3–5 days later, once)
+
+> Hi <first name, or "there">, just bringing this back up in case it got
+> buried. Happy to put the demo together, or answer anything first.
+>
+> Sachi
+
+**Website reply: yes**
+
+> Great! To make the demo I need a few things:
+> - the services you'd like on it (or I'll use the ones on your current site)
+> - 4 to 8 photos of your work you're happy for me to use (or tell me I can
+>   use the ones on your site or Instagram)
+> - the phone number, email and area you'd like customers to see
+>
+> I'll send you a link to look at on your phone as soon as it's ready. No
+> cost unless you decide to keep it.
+>
+> Sachi
+
+Then push-notify the owner: "<business> wants a free website demo." **The
+owner builds the demo** (website-sale skill, the owner's Lovable credits);
+never start one without them. Questions and "no thanks" replies are handled
+as in step 1.
+
+Send website emails as plain text with no attachment, one per tool call,
+after the booking-page emails and inside the same daily cap. The first day
+the website email is used, give it its own mail-tester check as well.
+
+---
+
 ## Rules (never broken)
 
 - Only from the Kairo Gmail (`gmail_basoid-tun`). **Never through Resend**:
@@ -389,7 +510,10 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
 - One first email and one follow-up per business, ever. The only extra is
   the single **Now free to try** note for businesses first emailed before
   25 Nov 2026 (step 2).
-- Never name another booking platform, in an email or anywhere else.
+- Never name another booking platform or website builder, in an email or
+  anywhere else.
+- Never criticise a business or its work. A website email states one fact
+  you checked about the site, nothing else.
 - Never "special offer" or "limited time". The prices are the normal prices.
 - No mention of AI.
 - Never name a customer's salon, and never touch `hairbysha` or
@@ -404,6 +528,9 @@ Check `docs/KAIRO-INFO.md` before adding a new one.
   `signup: paid <slug> from preview` in the kairo-platform log, and trials
   as `signup: trial <slug> from <page>`. A trial kept is logged as
   `signup: paid <slug> from <page> (<plan>, kept from a trial)`.
+- Website sales are paid through the website-sale Stripe links, not the
+  Kairo sign-up, so the daily sale check won't see them. When a demo is
+  asked for, the owner runs "check website payments" after sending it.
 - The weekly run adds the week's totals to its `LOG.md` entry.
 
 ## If it isn't working

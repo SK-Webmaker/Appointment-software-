@@ -1,7 +1,7 @@
-// Does this business pass the checks in ../OUTREACH.md ("Who gets one")?
-// Fetches the home page plus any price, contact and booking pages it links
-// to, and reports what a person would look for. It decides nothing: the
-// session reads the report and the pages.
+// Does this business pass the checks in ../OUTREACH.md ("Who gets one", and
+// "Who gets a website email")? Fetches the home page plus any price, contact
+// and booking pages it links to, and reports what a person would look for.
+// It decides nothing: the session reads the report and the pages.
 //
 //   node docs/marketing/preview/check-site.mjs https://example.com.au [more urls…]
 //
@@ -54,6 +54,11 @@ async function check(home) {
     .filter((e) => !/\.(png|jpe?g|gif|webp|svg)$/.test(e) && !/example\.|sentry|wixpress|godaddy|domain\.com|yourdomain/.test(e));
   const bookingLinks = BOOKING_HINTS.filter((h) => html.toLowerCase().includes(h));
   const years = (all.match(/\b20(2[4-9]|3\d)\b/g) || []).map(Number);
+  // The website track's facts: each is something a person can see for
+  // themselves, so the email can say it plainly.
+  const front = first.html;
+  const copyright = [...text(front).matchAll(/(?:©|&copy;|copyright)\s*(?:[^0-9]{0,30})?((?:19|20)\d{2})(?:\s*[-–]\s*((?:19|20)\d{2}))?/gi)]
+    .map((m) => Number(m[2] || m[1]));
   return {
     site: first.url,
     status: first.status,
@@ -64,6 +69,9 @@ async function check(home) {
     prices_seen: (all.match(/\$\s?\d{2,3}(\.\d{2})?/g) || []).length,
     latest_year_mentioned: years.length ? Math.max(...years) : null,
     asks_no_marketing: NO_MARKETING.test(all),
+    https: /^https:/.test(first.url || ''),
+    phone_ready: (front.match(/<meta\b[^>]*>/gi) || []).some((m) => /name=["']?viewport/i.test(m) && /width=device-width/i.test(m)),
+    copyright_year: copyright.length ? Math.max(...copyright) : null,
     australian: /\b(VIC|NSW|QLD|SA|WA|TAS|ACT|NT)\b\s*\d{4}|\+61|\(0[2378]\)|\b04\d{2}\s?\d{3}\s?\d{3}\b|Australia/.test(all),
   };
 }

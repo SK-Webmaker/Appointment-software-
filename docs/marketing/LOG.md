@@ -2,6 +2,31 @@
 
 Newest first. One entry per weekly run (see `WEEKLY-RUN.md`).
 
+## 28 November 2026 — wider than salons (owner asked)
+
+- **Owner's ask:** reach high-value service businesses, and businesses that
+  would benefit from a website, not only salons and barbers.
+- **Website:** the home title is now "Booking App for Service Businesses, No
+  Monthly Fee", with the description, schema and FAQ widened to match. New
+  pages, each built only on features Kairo has today:
+  `/booking-software-for-service-businesses`,
+  `/cosmetic-clinic-booking-software-australia` and
+  `/tattoo-booking-software-australia`. `/websites` now names tradies,
+  clinics and studios. The salon pages stay as they are for salon searches.
+- **Outreach:** `OUTREACH.md` now puts higher-value appointment businesses
+  first (cosmetic and skin clinics with no prescription medicines on the
+  picture, tattoo studios that publish prices, day spas), and adds a website
+  track: up to 5 a day, high-value service businesses whose own site fails a
+  fact we check ourselves (not phone-ready, not secure, or untouched since
+  2021), offering a free demo. `check-site.mjs` now reports `phone_ready`,
+  `https` and `copyright_year`. The weekday scheduled task follows it from
+  Monday 30 Nov. The owner builds any demo that's asked for.
+- **27 Nov run:** held. The website publish it needed was interrupted, and by
+  the time it went through it was Saturday. Its pictures are live for
+  Monday.
+- **26 Nov SEO pages:** published 28 Nov, all four live with the right
+  titles, IndexNow 200.
+
 ## 26 November 2026 — free tools for SEO (owner asked)
 
 - **Added to kairobookings.com:** four pages aimed at searches salon owners
